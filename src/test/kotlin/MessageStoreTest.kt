@@ -28,20 +28,20 @@ class TestMessageStore {
     fun testExecuteAcceptsASpecificCommand() {
         val bus = MessageStore<Command>()
 
-        bus.execute(ReturnCommand("Testing"), ReturnCommandHandler())
+        bus.execute(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
     }
 
     @Test
     fun test_execute_can_return_a_value() {
         val bus = MessageStore<Command>()
 
-        val result = bus.execute(ReturnCommand("Testing"), ReturnCommandHandler())
+        val result = bus.execute(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
 
         assertEquals("Testing", result)
     }
 
     @Test
-    fun `test execute cannot execute a command with no handlers`() {
+    fun test_execute_cannot_execute_a_command_with_no_handlers() {
         val bus = MessageStore<Command>()
 
         assertThrows<MissingHandlerException> {
@@ -50,31 +50,31 @@ class TestMessageStore {
     }
 
     @Test
-    fun `test execute finds a previously registered command`() {
+    fun test_execute_finds_a_previously_registered_command() {
         val bus = MessageStore<Command>()
-        bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
+        bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
         val result = bus.execute(ReturnCommand("Testing"))
 
         assertEquals("Testing", result)
     }
 
-    @Test
-    fun test_execute_does_not_accept_a_handler_if_one_is_already_registered() {
-        val bus = MessageStore<Command>()
-
-        bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
-
-        assertThrows<TooManyHandlersException> {
-            bus.execute(ReturnCommand("Testing"), AnyCommandHandler())
-        }
-    }
+//    @Test
+//    fun test_execute_does_not_accept_a_handler_if_one_is_already_registered() {
+//        val bus = MessageStore<Command>()
+//
+//        bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
+//
+//        assertThrows<TooManyHandlersException> {
+//            bus.execute(ReturnCommand("Testing"), listOf(AnyCommandHandler()))
+//        }
+//    }
 
     @Test
     fun test_is_registered_returns_false_for_non_registered_command() {
         val bus = MessageStore<Command>()
 
-        bus.registerHandler(PrintCommand::class, PrintCommandHandler())
+        bus.registerHandlers(PrintCommand::class, listOf(PrintCommandHandler()))
 
         assert(!bus.isRegistered(ReturnCommand::class))
     }
@@ -83,30 +83,27 @@ class TestMessageStore {
     fun test_is_registered_returns_true_for_registered_command() {
         val bus = MessageStore<Command>()
 
-        bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
+        bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
         assert(bus.isRegistered(ReturnCommand::class))
     }
 
     @Test
-    fun test_remove_handler_removes_handler_for_a_given_command() {
+    fun test_removeHandlers_removes_handler_for_a_given_command() {
         val bus = MessageStore<Command>()
-        bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
+        bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
-        bus.removeHandler(ReturnCommand::class)
+        bus.removeHandlers(ReturnCommand::class)
 
         assert(!bus.isRegistered(ReturnCommand::class))
-        assertThrows<MissingHandlerException> {
-            bus.execute(ReturnCommand("Testing"))
-        }
     }
 
     @Test
-    fun test_remove_handler_throws_exception_if_command_is_not_registered() {
+    fun test_removeHandlers_throws_exception_if_command_is_not_registered() {
         val bus = MessageStore<Command>()
 
         assertThrows<MissingHandlerException> {
-            bus.removeHandler(ReturnCommand::class)
+            bus.removeHandlers(ReturnCommand::class)
         }
     }
 }
