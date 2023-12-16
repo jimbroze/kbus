@@ -5,35 +5,35 @@ import kotlin.test.assertEquals
 class ReturnCommand(val commandData: String) : Command()
 
 class ReturnCommandHandler : CommandHandler<ReturnCommand> {
-    override fun handle(command: ReturnCommand): Any {
-        return command.commandData
+    override fun handle(message: ReturnCommand): Any {
+        return message.commandData
     }
 }
 
 class PrintCommand(val commandData: String) : Command()
 
 class PrintCommandHandler : CommandHandler<PrintCommand> {
-    override fun handle(command: PrintCommand) {
-        println(command.commandData)
+    override fun handle(message: PrintCommand) {
+        println(message.commandData)
     }
 }
 
 class AnyCommandHandler : CommandHandler<Command> {
-    override fun handle(command: Command) {
+    override fun handle(message: Command) {
     }
 }
 
-class TestCommandBus {
+class TestMessageStore {
     @Test
     fun testExecuteAcceptsASpecificCommand() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         bus.execute(ReturnCommand("Testing"), ReturnCommandHandler())
     }
 
     @Test
     fun test_execute_can_return_a_value() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         val result = bus.execute(ReturnCommand("Testing"), ReturnCommandHandler())
 
@@ -42,7 +42,7 @@ class TestCommandBus {
 
     @Test
     fun `test execute cannot execute a command with no handlers`() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         assertThrows<MissingHandlerException> {
             bus.execute(ReturnCommand("Testing"))
@@ -51,7 +51,7 @@ class TestCommandBus {
 
     @Test
     fun `test execute finds a previously registered command`() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
         bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
 
         val result = bus.execute(ReturnCommand("Testing"))
@@ -61,7 +61,7 @@ class TestCommandBus {
 
     @Test
     fun test_execute_does_not_accept_a_handler_if_one_is_already_registered() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
 
@@ -72,7 +72,7 @@ class TestCommandBus {
 
     @Test
     fun test_is_registered_returns_false_for_non_registered_command() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         bus.registerHandler(PrintCommand::class, PrintCommandHandler())
 
@@ -81,7 +81,7 @@ class TestCommandBus {
 
     @Test
     fun test_is_registered_returns_true_for_registered_command() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
 
@@ -90,7 +90,7 @@ class TestCommandBus {
 
     @Test
     fun test_remove_handler_removes_handler_for_a_given_command() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
         bus.registerHandler(ReturnCommand::class, ReturnCommandHandler())
 
         bus.removeHandler(ReturnCommand::class)
@@ -103,7 +103,7 @@ class TestCommandBus {
 
     @Test
     fun test_remove_handler_throws_exception_if_command_is_not_registered() {
-        val bus = CommandBus()
+        val bus = MessageStore<Command>()
 
         assertThrows<MissingHandlerException> {
             bus.removeHandler(ReturnCommand::class)

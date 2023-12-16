@@ -6,9 +6,9 @@ abstract class Message {
     }
 }
 
-// interface Handler {
-//    abstract fun handle(message: Any): Any?
-// }
+ interface MessageHandler<TMessage : Message> {
+     fun handle(message: TMessage): Any?
+ }
 
 class MissingHandlerException(
     message: String = "The requested Handler could not be found",

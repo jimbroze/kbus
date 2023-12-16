@@ -4,50 +4,50 @@ abstract class Command : Message() {
     override val messageType: String = "command"
 }
 
-interface CommandHandler<T : Command> {
-    fun handle(command: T): Any?
+interface CommandHandler<TCommand : Command> : MessageHandler<TCommand> {
+    override fun handle(message: TCommand): Any?
 }
 
 class TooManyHandlersException(message: String) : Exception(message)
 
-class CommandBus {
-    private val handlers = mutableMapOf<KClass<out Command>, CommandHandler<*>>()
+class MessageStore<TMessageType : Message> {
+    private val handlers = mutableMapOf<KClass<out TMessageType>, MessageHandler<*>>()
 
-    fun <TCommand : Command> registerHandler(
-        commandType: KClass<TCommand>,
-        handler: CommandHandler<TCommand>,
+    fun <TMessage : TMessageType> registerHandler(
+        messageType: KClass<TMessage>,
+        handler: MessageHandler<TMessage>,
     ) {
-        handlers[commandType] = handler
+        handlers[messageType] = handler
     }
 
-    fun <TCommand : Command> removeHandler(commandType: KClass<TCommand>) {
-        handlers.remove(commandType) ?: throw MissingHandlerException()
+    fun <TMessage : TMessageType> removeHandler(messageType: KClass<TMessage>) {
+        handlers.remove(messageType) ?: throw MissingHandlerException()
     }
 
-    fun <TCommand : Command> isRegistered(commandType: KClass<TCommand>): Boolean {
-        return handlers.contains(commandType)
+    fun <TMessage : TMessageType> isRegistered(messageType: KClass<TMessage>): Boolean {
+        return handlers.contains(messageType)
     }
 
-    fun <TCommand : Command> execute(
-        command: TCommand,
-        handler: CommandHandler<TCommand>? = null,
+    fun <TMessage : TMessageType> execute(
+        message: TMessage,
+        handler: MessageHandler<TMessage>? = null,
     ): Any? {
-        val commandName = command.toString()
+        val messageName = message.toString()
 
         val matchedHandler =
-            getHandler(command)
+            getHandler(message)
                 ?: handler
-                ?: throw MissingHandlerException("A handler has not been registered for the command $commandName")
+                ?: throw MissingHandlerException("A handler has not been registered for the message $messageName")
 
         if (handler != null && handler != matchedHandler) {
-            throw TooManyHandlersException("A handler has already been registered for the command $commandName")
+            throw TooManyHandlersException("A handler has already been registered for the message $messageName")
         }
 
-        return matchedHandler.handle(command)
+        return matchedHandler.handle(message)
     }
 
-    private fun <TCommand : Command> getHandler(command: TCommand): CommandHandler<TCommand>? {
+    private fun <TMessage : TMessageType> getHandler(message: TMessage): MessageHandler<TMessage>? {
         @Suppress("UNCHECKED_CAST")
-        return handlers[command::class] as CommandHandler<TCommand>?
+        return handlers[message::class] as MessageHandler<TMessage>?
     }
 }
