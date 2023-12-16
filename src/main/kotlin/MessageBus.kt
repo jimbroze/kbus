@@ -1,0 +1,67 @@
+import kotlin.reflect.KClass
+
+class MessageBus {
+    private val commandBus: CommandBus = CommandBus()
+
+    fun <TCommand : Command> execute(
+        command: TCommand,
+        handler: CommandHandler<TCommand>? = null,
+    ): Any?
+    {
+//        val busClosure = { c: TCommand -> this.commandBus.execute(c, handler) }
+//        bus = create_middleware_chain(self.middleware, busClosure)
+//        return bus(command)
+
+        return this.commandBus.execute(command, handler)
+    }
+
+//    def dispatch(
+//    self, event: EventT, handlers: Sequence[EventHandler[EventT]] | None = None
+//    ) -> None:
+//    """Forwards an event to an EventBus for dispatching.
+//
+//        Example:
+//            >>> from tests.examples import ExampleEvent, ExampleEventHandler
+//            >>> test_bus = MessageBus()
+//            >>> test_handler = ExampleEventHandler()
+//            >>> test_event = ExampleEvent("Testing...")
+//            >>>
+//            >>> test_bus.dispatch(test_event, [test_handler])
+//            Testing...
+//        """
+//
+//    def bus_closure(e: EventT) -> None:
+//    return self.event_bus.dispatch(e, handlers)
+//
+//    # noinspection PyTypeChecker
+//    bus = create_middleware_chain(bus_closure, self.middleware)
+//    bus(event)
+
+//    fun <TCommand : Command> register(
+//        messageType: KClass<TCommand>,
+//        handler: KClass<CommandHandler<TCommand>>,
+//    ) {
+//        val loadedHandler = this.loader.load(handler)
+//        this.register(messageType, loadedHandler)
+//    }
+
+    fun <TCommand : Command> register(
+        messageType: KClass<TCommand>,
+        handler: CommandHandler<TCommand>,
+    ) {
+        this.commandBus.registerHandler(messageType, handler)
+    }
+
+    fun <TCommand : Command> deregister(messageType: KClass<TCommand>) {
+        this.commandBus.removeHandler(messageType)
+    }
+
+
+//    fun <TCommand : Command> hasHandlers(eventType: KClass<TCommand>): int {
+//        return this.eventBus.hasHandlers(event_type)
+//    }
+
+    fun <TCommand : Command> isRegistered(commandType: KClass<TCommand>): Boolean {
+        return this.commandBus.isRegistered(commandType)
+    }
+}
