@@ -1,17 +1,27 @@
 import kotlin.reflect.KClass
 
 class MessageStore<TMessageType : Message> {
-    private val handlers = mutableMapOf<KClass<out TMessageType>, MessageHandler<*>>()
+    private var handlers = mutableMapOf<KClass<out TMessageType>, List<MessageHandler<out TMessageType>>>()
 
-    fun <TMessage : TMessageType> registerHandler(
+    fun <TMessage : TMessageType> registerHandlers(
         messageType: KClass<TMessage>,
-        handler: MessageHandler<TMessage>,
+        handlers: List<MessageHandler<TMessage>>,
     ) {
-        handlers[messageType] = handler
+        this.handlers[messageType] = this.handlers.getOrDefault(messageType, emptyList()) + handlers
     }
 
-    fun <TMessage : TMessageType> removeHandler(messageType: KClass<TMessage>) {
-        handlers.remove(messageType) ?: throw MissingHandlerException()
+    fun <TMessage : TMessageType> removeHandlers(
+        messageType: KClass<TMessage>,
+        handlers: List<MessageHandler<TMessage>> = emptyList(),
+    ) {
+//            TODO handlers should be or allow set???
+
+        val registeredHandlers = this.handlers[messageType] ?: throw MissingHandlerException()
+        if (handlers.isNotEmpty()) {
+            this.handlers[messageType] = registeredHandlers - handlers.toSet()
+        } else {
+            this.handlers.remove(messageType)
+        }
     }
 
     fun <TMessage : TMessageType> isRegistered(messageType: KClass<TMessage>): Boolean {
@@ -20,24 +30,36 @@ class MessageStore<TMessageType : Message> {
 
     fun <TMessage : TMessageType> execute(
         message: TMessage,
-        handler: MessageHandler<TMessage>? = null,
+        handlers: List<MessageHandler<TMessage>> = emptyList(),
     ): Any? {
-        val messageName = message.toString()
+//        val messageName = message.toString()
+//
+//        val matchedHandler =
+//            getHandler(message)
+//                ?: handler
+//                ?: throw MissingHandlerException("A handler has not been registered for the message $messageName")
+//
+//        if (handler != null && handler != matchedHandler) {
+//            throw TooManyHandlersException("A handler has already been registered for the message $messageName")
+//        }
+//
+//        return matchedHandler.handle(message)
+//
+//        if (handlers === null) { handlers = [] }
 
-        val matchedHandler =
-            getHandler(message)
-                ?: handler
-                ?: throw MissingHandlerException("A handler has not been registered for the message $messageName")
+        val matchedHandlers = getHandlers(message) + handlers
 
-        if (handler != null && handler != matchedHandler) {
-            throw TooManyHandlersException("A handler has already been registered for the message $messageName")
+        return when (matchedHandlers.size) {
+            0 -> throw MissingHandlerException()
+            1 -> matchedHandlers.first().handle(message)
+            else -> {
+                matchedHandlers.forEach { handler -> handler.handle(message) }
+            }
         }
-
-        return matchedHandler.handle(message)
     }
 
-    private fun <TMessage : TMessageType> getHandler(message: TMessage): MessageHandler<TMessage>? {
+    private fun <TMessage : TMessageType> getHandlers(message: TMessage): List<MessageHandler<TMessage>> {
         @Suppress("UNCHECKED_CAST")
-        return handlers[message::class] as MessageHandler<TMessage>?
+        return handlers.getOrDefault(message::class, emptyList()) as List<MessageHandler<TMessage>>
     }
 }

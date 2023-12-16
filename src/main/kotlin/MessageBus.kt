@@ -12,7 +12,7 @@ class MessageBus {
 //        bus = create_middleware_chain(self.middleware, busClosure)
 //        return bus(command)
 
-        return this.commandBus.execute(command, handler)
+        return this.commandBus.execute(command, listOfNotNull(handler))
     }
 
 //    def dispatch(
@@ -49,11 +49,11 @@ class MessageBus {
         messageType: KClass<TCommand>,
         handler: CommandHandler<TCommand>,
     ) {
-        this.commandBus.registerHandler(messageType, handler)
+        this.commandBus.registerHandlers(messageType, listOfNotNull(handler))
     }
 
     fun <TCommand : Command> deregister(messageType: KClass<TCommand>) {
-        this.commandBus.removeHandler(messageType)
+        this.commandBus.removeHandlers(messageType)
     }
 
 
