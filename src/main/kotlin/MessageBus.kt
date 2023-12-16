@@ -1,7 +1,7 @@
 import kotlin.reflect.KClass
 
 class MessageBus {
-    private val commandBus: CommandBus = CommandBus()
+    private val commandBus: MessageStore<Command> = MessageStore()
 
     fun <TCommand : Command> execute(
         command: TCommand,
