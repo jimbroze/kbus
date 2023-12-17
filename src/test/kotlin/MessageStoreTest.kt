@@ -1,20 +1,21 @@
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
-class ReturnCommand(val commandData: String) : Command()
+class ReturnCommand(val messageData: String) : Command()
 
 class ReturnCommandHandler : CommandHandler<ReturnCommand> {
     override fun handle(message: ReturnCommand): Any {
-        return message.commandData
+        return message.messageData
     }
 }
 
-class PrintCommand(val commandData: String) : Command()
+class PrintCommand(val messageData: String) : Command()
 
 class PrintCommandHandler : CommandHandler<PrintCommand> {
     override fun handle(message: PrintCommand) {
-        println(message.commandData)
+        println(message.messageData)
     }
 }
 
@@ -23,55 +24,49 @@ class AnyCommandHandler : CommandHandler<Command> {
     }
 }
 
+class PrintEvent(val eventData: String) : Event()
+
+class PrintEventHandler : EventHandler<PrintEvent> {
+    override fun handle(message: PrintEvent) {
+        println(message.eventData)
+    }
+}
+
+class OtherPrintEventHandler : EventHandler<PrintEvent> {
+    override fun handle(message: PrintEvent) {
+        println(message.eventData)
+    }
+}
+
 class TestMessageStore {
     @Test
-    fun testExecuteAcceptsASpecificCommand() {
+    fun test_handle_handles_a_specific_message() {
         val bus = MessageStore<Command>()
 
-        bus.execute(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
+        bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
     }
 
     @Test
-    fun test_execute_can_return_a_value() {
+    fun test_handle_can_return_a_value() {
         val bus = MessageStore<Command>()
 
-        val result = bus.execute(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
+        val result = bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
 
         assertEquals("Testing", result)
     }
 
     @Test
-    fun test_execute_cannot_execute_a_command_with_no_handlers() {
-        val bus = MessageStore<Command>()
-
-        assertThrows<MissingHandlerException> {
-            bus.execute(ReturnCommand("Testing"))
-        }
-    }
-
-    @Test
-    fun test_execute_finds_a_previously_registered_command() {
+    fun test_handle_finds_a_previously_registered_message() {
         val bus = MessageStore<Command>()
         bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
-        val result = bus.execute(ReturnCommand("Testing"))
+        val result = bus.handle(ReturnCommand("Testing"))
 
         assertEquals("Testing", result)
     }
 
-//    @Test
-//    fun test_execute_does_not_accept_a_handler_if_one_is_already_registered() {
-//        val bus = MessageStore<Command>()
-//
-//        bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
-//
-//        assertThrows<TooManyHandlersException> {
-//            bus.execute(ReturnCommand("Testing"), listOf(AnyCommandHandler()))
-//        }
-//    }
-
     @Test
-    fun test_is_registered_returns_false_for_non_registered_command() {
+    fun test_is_registered_returns_false_for_non_registered_message() {
         val bus = MessageStore<Command>()
 
         bus.registerHandlers(PrintCommand::class, listOf(PrintCommandHandler()))
@@ -80,7 +75,7 @@ class TestMessageStore {
     }
 
     @Test
-    fun test_is_registered_returns_true_for_registered_command() {
+    fun test_isRegistered_returns_true_for_registered_message() {
         val bus = MessageStore<Command>()
 
         bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
@@ -89,17 +84,41 @@ class TestMessageStore {
     }
 
     @Test
-    fun test_removeHandlers_removes_handler_for_a_given_command() {
-        val bus = MessageStore<Command>()
-        bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
+    fun test_getHandlers_returns_registered_handlers() {
+        val bus = MessageStore<Event>()
 
-        bus.removeHandlers(ReturnCommand::class)
+        val handler1 = PrintEventHandler()
+        val handler2 = OtherPrintEventHandler()
+        bus.registerHandlers(PrintEvent::class, listOf(handler1, handler2))
 
-        assert(!bus.isRegistered(ReturnCommand::class))
+        assertContains(bus.getHandlers(PrintEvent::class), handler1)
     }
 
     @Test
-    fun test_removeHandlers_throws_exception_if_command_is_not_registered() {
+    fun test_removeHandlers_removes_handlers_for_a_given_message() {
+        val bus = MessageStore<Event>()
+        val handler1 = PrintEventHandler()
+        val handler2 = OtherPrintEventHandler()
+        val handler3 = PrintEventHandler()
+        bus.registerHandlers(PrintEvent::class, listOf(handler1, handler2, handler3))
+
+        bus.removeHandlers(PrintEvent::class, listOf(handler1, handler3))
+
+        assertEquals(bus.getHandlers(PrintEvent::class), listOf(handler2))
+    }
+
+    @Test
+    fun test_removeHandlers_removes_all_handlers_for_a_message_by_default() {
+        val bus = MessageStore<Event>()
+        bus.registerHandlers(PrintEvent::class, listOf(PrintEventHandler(), OtherPrintEventHandler()))
+
+        bus.removeHandlers(PrintEvent::class)
+
+        assert(!bus.isRegistered(PrintEvent::class))
+    }
+
+    @Test
+    fun test_removeHandlers_throws_exception_if_message_is_not_registered() {
         val bus = MessageStore<Command>()
 
         assertThrows<MissingHandlerException> {

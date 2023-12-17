@@ -28,29 +28,13 @@ class MessageStore<TMessageType : Message> {
         return handlers.contains(messageType)
     }
 
-    fun <TMessage : TMessageType> execute(
+    fun <TMessage : TMessageType> handle(
         message: TMessage,
         handlers: List<MessageHandler<TMessage>> = emptyList(),
     ): Any? {
-//        val messageName = message.toString()
-//
-//        val matchedHandler =
-//            getHandler(message)
-//                ?: handler
-//                ?: throw MissingHandlerException("A handler has not been registered for the message $messageName")
-//
-//        if (handler != null && handler != matchedHandler) {
-//            throw TooManyHandlersException("A handler has already been registered for the message $messageName")
-//        }
-//
-//        return matchedHandler.handle(message)
-//
-//        if (handlers === null) { handlers = [] }
-
-        val matchedHandlers = getHandlers(message) + handlers
+        val matchedHandlers = getHandlers(message::class) + handlers
 
         return when (matchedHandlers.size) {
-            0 -> throw MissingHandlerException()
             1 -> matchedHandlers.first().handle(message)
             else -> {
                 matchedHandlers.forEach { handler -> handler.handle(message) }
@@ -58,8 +42,8 @@ class MessageStore<TMessageType : Message> {
         }
     }
 
-    private fun <TMessage : TMessageType> getHandlers(message: TMessage): List<MessageHandler<TMessage>> {
+    fun <TMessage : TMessageType> getHandlers(messageType: KClass<out TMessage>): List<MessageHandler<TMessage>> {
         @Suppress("UNCHECKED_CAST")
-        return handlers.getOrDefault(message::class, emptyList()) as List<MessageHandler<TMessage>>
+        return handlers.getOrDefault(messageType, emptyList()) as List<MessageHandler<TMessage>>
     }
 }
