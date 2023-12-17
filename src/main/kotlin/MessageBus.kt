@@ -68,10 +68,10 @@ class MessageBus {
     ) {
         when {
             handler != null && commandBus.isRegistered(commandType) ->
-                throw TooManyHandlersException("A handler has already been registered for the command $commandType")
+                throw TooManyHandlersException(commandType)
 
             handler == null && !commandBus.isRegistered(commandType) ->
-                throw MissingHandlerException()
+                throw MissingHandlerException(commandType)
         }
     }
 }

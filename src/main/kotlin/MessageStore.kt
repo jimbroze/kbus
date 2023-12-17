@@ -16,7 +16,9 @@ class MessageStore<TMessageType : Message> {
     ) {
 //            TODO handlers should be or allow set???
 
-        val registeredHandlers = this.handlers[messageType] ?: throw MissingHandlerException()
+        val registeredHandlers = this.handlers[messageType]
+            ?: throw MissingHandlerException(messageType)
+
         if (handlers.isNotEmpty()) {
             this.handlers[messageType] = registeredHandlers - handlers.toSet()
         } else {
