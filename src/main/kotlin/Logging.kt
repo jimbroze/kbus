@@ -4,7 +4,7 @@ interface Logger {
 }
 
 interface LoggingMessage {
-    abstract val messageType: String
+    val messageType: String
     val finiteVerb: String get() = "handle"
     val presentVerb: String get() = "handling"
     val pastVerb: String get() = "handled"

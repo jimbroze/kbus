@@ -17,7 +17,16 @@ class PrintLogger : Logger {
     override fun error(message: String) {
         println("error: $message")
     }
+}
 
+class OtherPrintLogger : Logger {
+    override fun info(message: String) {
+        println("other-in: $message")
+    }
+
+    override fun error(message: String) {
+        println("other-err: $message")
+    }
 }
 
 class LoggingPrintCommand(message: String): PrintCommand(message), LoggingCommand
@@ -92,7 +101,7 @@ class LoggingTest {
             logger.handle(LoggingExceptionCommand()) { ExceptionCommandHandler().handle(it) }
         }
 
-        assertContains(outputStreamCaptor.toString().trim(), "Failed executing")
+        assertContains(outputStreamCaptor.toString().trim(), "error: Failed executing")
     }
 
     @Test
@@ -113,6 +122,6 @@ class LoggingTest {
             logger.handle(LoggingExceptionEvent()) { ExceptionEventHandler().handle(it) }
         }
 
-        assertContains(outputStreamCaptor.toString().trim(), "Failed dispatching")
+        assertContains(outputStreamCaptor.toString().trim(), "error: Failed dispatching")
     }
 }
