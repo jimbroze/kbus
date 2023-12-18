@@ -7,15 +7,11 @@ fun <TMessage : Message> createMiddlewareChain(
     finalHandler: (TMessage) -> Any?,
     middlewares: List<Middleware>
 ): (TMessage) -> Any? {
-//    fun handleMiddleware(
-//        middleware: Middleware,
-//        nextClosure: (TMessage) -> Any?,
-//        message: TMessage
-//    ): Any? = middleware.handle(message, nextClosure)
+    var lastHandler = finalHandler
+    middlewares.reversed().forEach() {
+        val currentHandler = lastHandler
+        lastHandler = { message -> it.handle(message, currentHandler) }
+    }
 
-    var nextHandler = finalHandler
-    middlewares.reversed().forEach { nextHandler = { message -> it.handle(message, nextHandler) } }
-//        nextHandler = { message -> handleMiddleware(thisMiddleware, nextHandler, message) }
-
-    return nextHandler
+    return lastHandler
 }
