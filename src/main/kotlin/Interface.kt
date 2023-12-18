@@ -3,9 +3,7 @@ import kotlin.reflect.KClass
 abstract class Message {
     abstract val messageType: String
 
-    final override fun toString(): String {
-        return this::class.simpleName ?: ""
-    }
+    final override fun toString(): String = this::class.simpleName ?: ""
 }
 
  interface MessageHandler<TMessage : Message> {

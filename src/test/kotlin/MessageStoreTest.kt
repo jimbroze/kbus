@@ -11,7 +11,7 @@ class ReturnCommandHandler : CommandHandler<ReturnCommand> {
     }
 }
 
-class PrintCommand(val messageData: String) : Command()
+open class PrintCommand(val messageData: String) : Command()
 
 class PrintCommandHandler : CommandHandler<PrintCommand> {
     override fun handle(message: PrintCommand) {
@@ -24,7 +24,7 @@ class AnyCommandHandler : CommandHandler<Command> {
     }
 }
 
-class PrintEvent(val eventData: String) : Event()
+open class PrintEvent(val eventData: String) : Event()
 
 class PrintEventHandler : EventHandler<PrintEvent> {
     override fun handle(message: PrintEvent) {
