@@ -1,5 +1,4 @@
 interface Middleware {
-    val messageId: String
     fun <TMessage : Message> handle(message: TMessage, nextMiddleware: (TMessage) -> Any?): Any?
     fun messageApplicable(message: Message): Boolean
 }
