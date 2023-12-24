@@ -4,7 +4,6 @@ typealias MiddlewareHandler<TMessage> = suspend (TMessage) -> Any?
 
 interface Middleware {
     suspend fun <TMessage : Message> handle(message: TMessage, nextMiddleware: MiddlewareHandler<TMessage>): Any?
-    fun messageApplicable(message: Message): Boolean
 }
 
 suspend fun <TMessage : Message> createMiddlewareChain(

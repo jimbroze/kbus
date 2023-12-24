@@ -56,10 +56,6 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
 
     }
 
-    override fun messageApplicable(message: Message): Boolean {
-        TODO("Not yet implemented")
-    }
-
     private fun inLockingCoroutine(coroutineId: String): Boolean = lockingCoroutineId == coroutineId
 
     private fun <TMessage : Message> postponeHandling(
