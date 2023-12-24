@@ -60,9 +60,4 @@ class MessageLogger(private val logger: Logger): Middleware {
             throw ex
         }
     }
-
-    override fun messageApplicable(message: Message): Boolean {
-        // Needs contracts to work on overrideable functions
-        return message is LoggingMessage
-    }
 }
