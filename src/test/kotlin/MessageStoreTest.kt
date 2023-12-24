@@ -1,3 +1,4 @@
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertContains
@@ -6,7 +7,7 @@ import kotlin.test.assertEquals
 class ReturnCommand(val messageData: String) : Command()
 
 class ReturnCommandHandler : CommandHandler<ReturnCommand> {
-    override fun handle(message: ReturnCommand): Any {
+    override suspend fun handle(message: ReturnCommand): Any {
         return message.messageData
     }
 }
@@ -14,26 +15,26 @@ class ReturnCommandHandler : CommandHandler<ReturnCommand> {
 open class PrintCommand(val messageData: String) : Command()
 
 class PrintCommandHandler : CommandHandler<PrintCommand> {
-    override fun handle(message: PrintCommand) {
+    override suspend fun handle(message: PrintCommand) {
         println(message.messageData)
     }
 }
 
 class AnyCommandHandler : CommandHandler<Command> {
-    override fun handle(message: Command) {
+    override suspend fun handle(message: Command) {
     }
 }
 
 open class PrintEvent(val eventData: String) : Event()
 
 class PrintEventHandler : EventHandler<PrintEvent> {
-    override fun handle(message: PrintEvent) {
+    override suspend fun handle(message: PrintEvent) {
         println(message.eventData)
     }
 }
 
 class OtherPrintEventHandler : EventHandler<PrintEvent> {
-    override fun handle(message: PrintEvent) {
+    override suspend fun handle(message: PrintEvent) {
         println(message.eventData)
     }
 }
@@ -43,16 +44,20 @@ class TestMessageStore {
     fun test_handle_handles_a_specific_message() {
         val bus = MessageStore<Command>()
 
-        bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
+        runBlocking {
+            bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
+        }
     }
 
     @Test
     fun test_handle_can_return_a_value() {
         val bus = MessageStore<Command>()
 
-        val result = bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
+        runBlocking {
+            val result = bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
 
-        assertEquals("Testing", result)
+            assertEquals("Testing", result)
+        }
     }
 
     @Test
@@ -60,9 +65,11 @@ class TestMessageStore {
         val bus = MessageStore<Command>()
         bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
-        val result = bus.handle(ReturnCommand("Testing"))
+        runBlocking {
+            val result = bus.handle(ReturnCommand("Testing"))
 
-        assertEquals("Testing", result)
+            assertEquals("Testing", result)
+        }
     }
 
     @Test

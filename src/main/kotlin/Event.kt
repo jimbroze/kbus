@@ -3,5 +3,5 @@ abstract class Event : Message() {
 }
 
 interface EventHandler<TEvent : Event> : MessageHandler<TEvent> {
-    override fun handle(message: TEvent)
+    override suspend fun handle(message: TEvent)
 }

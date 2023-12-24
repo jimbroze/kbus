@@ -30,7 +30,7 @@ class MessageStore<TMessageType : Message> {
         return handlers.contains(messageType)
     }
 
-    fun <TMessage : TMessageType> handle(
+    suspend fun <TMessage : TMessageType> handle(
         message: TMessage,
         handlers: List<MessageHandler<TMessage>> = emptyList(),
     ): Any? {
