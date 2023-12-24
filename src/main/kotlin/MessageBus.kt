@@ -4,7 +4,7 @@ class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     private val commandStore: MessageStore<Command> = MessageStore()
     private val eventStore: MessageStore<Event> = MessageStore()
 
-    fun <TCommand : Command> execute(
+    suspend fun <TCommand : Command> execute(
         command: TCommand,
         handler: CommandHandler<TCommand>? = null,
     ): Any?
@@ -17,7 +17,7 @@ class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 //        return this.commandBus.handle(command, listOfNotNull(handler))
     }
 
-    fun <TEvent : Event> dispatch(
+    suspend fun <TEvent : Event> dispatch(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
@@ -73,12 +73,15 @@ class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         }
     }
 
-    private fun <TMessage : Message> getBus(
+    private suspend fun <TMessage : Message> getBus(
         store: MessageStore<in TMessage>,
         handlers: List<MessageHandler<TMessage>>
-    ): (TMessage) -> Any? {
-        val finalHandler = { message: TMessage -> store.handle(message, handlers) }
+    ): MiddlewareHandler<TMessage> {
+        val finalHandler: suspend (TMessage) -> Any? = { message: TMessage ->
+            store.handle(message, handlers)
+        }
         val bus = createMiddlewareChain(finalHandler, middlewares)
+
         return bus
     }
 }

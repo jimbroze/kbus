@@ -1,3 +1,4 @@
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.assertThrows
@@ -34,14 +35,14 @@ class LoggingPrintEvent(message: String): PrintEvent(message), LoggingEvent
 class LoggingExceptionCommand: Command(), LoggingCommand
 
 class ExceptionCommandHandler : CommandHandler<Command> {
-    override fun handle(message: Command) {
+    override suspend fun handle(message: Command) {
         throw Exception("Exception raised")
     }
 }
 class LoggingExceptionEvent: Event(), LoggingEvent
 
 class ExceptionEventHandler : EventHandler<Event> {
-    override fun handle(message: Event) {
+    override suspend fun handle(message: Event) {
         throw Exception("Exception raised")
     }
 }
@@ -63,7 +64,9 @@ class LoggingTest {
     fun message_logger_does_not_log_messages_that_do_not_implement_logging_interface() {
         val logger = MessageLogger(PrintLogger())
 
-        logger.handle(PrintCommand("Testing")) { PrintCommandHandler().handle(it) }
+        runBlocking {
+            logger.handle(PrintCommand("Testing")) { PrintCommandHandler().handle(it) }
+        }
 
         assertEquals("Testing", outputStreamCaptor.toString().trim())
     }
@@ -72,7 +75,9 @@ class LoggingTest {
     fun message_logger_logs_before_and_after_message_using_info() {
         val logger = MessageLogger(PrintLogger())
 
-        logger.handle(LoggingPrintCommand("Testing")) { PrintCommandHandler().handle(it) }
+        runBlocking {
+            logger.handle(LoggingPrintCommand("Testing")) { PrintCommandHandler().handle(it) }
+        }
 
         val output = outputStreamCaptor.toString().trim()
         val outputList = output.split("\n")
@@ -87,7 +92,9 @@ class LoggingTest {
     fun test_commands_log_with_correct_verbs() {
         val logger = MessageLogger(PrintLogger())
 
-        logger.handle(LoggingPrintCommand("Testing")) { PrintCommandHandler().handle(it) }
+        runBlocking {
+            logger.handle(LoggingPrintCommand("Testing")) { PrintCommandHandler().handle(it) }
+        }
 
         assertContains(outputStreamCaptor.toString().trim(), "Executing command")
         assertContains(outputStreamCaptor.toString().trim(), "executed command")
@@ -98,7 +105,9 @@ class LoggingTest {
         val logger = MessageLogger(PrintLogger())
 
         assertThrows<Exception> {
-            logger.handle(LoggingExceptionCommand()) { ExceptionCommandHandler().handle(it) }
+            runBlocking {
+                logger.handle(LoggingExceptionCommand()) { ExceptionCommandHandler().handle(it) }
+            }
         }
 
         assertContains(outputStreamCaptor.toString().trim(), "error: Failed executing")
@@ -108,7 +117,9 @@ class LoggingTest {
     fun test_events_log_with_correct_verbs() {
         val logger = MessageLogger(PrintLogger())
 
-        logger.handle(LoggingPrintEvent("Testing")) { PrintEventHandler().handle(it) }
+        runBlocking {
+            logger.handle(LoggingPrintEvent("Testing")) { PrintEventHandler().handle(it) }
+        }
 
         assertContains(outputStreamCaptor.toString().trim(), "Dispatching event")
         assertContains(outputStreamCaptor.toString().trim(), "dispatched event")
@@ -119,7 +130,9 @@ class LoggingTest {
         val logger = MessageLogger(PrintLogger())
 
         assertThrows<Exception> {
-            logger.handle(LoggingExceptionEvent()) { ExceptionEventHandler().handle(it) }
+            runBlocking {
+                logger.handle(LoggingExceptionEvent()) { ExceptionEventHandler().handle(it) }
+            }
         }
 
         assertContains(outputStreamCaptor.toString().trim(), "error: Failed dispatching")

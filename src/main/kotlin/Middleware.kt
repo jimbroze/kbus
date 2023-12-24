@@ -1,16 +1,20 @@
+import kotlin.coroutines.suspendCoroutine
+
+typealias MiddlewareHandler<TMessage> = suspend (TMessage) -> Any?
+
 interface Middleware {
-    fun <TMessage : Message> handle(message: TMessage, nextMiddleware: (TMessage) -> Any?): Any?
+    suspend fun <TMessage : Message> handle(message: TMessage, nextMiddleware: MiddlewareHandler<TMessage>): Any?
     fun messageApplicable(message: Message): Boolean
 }
 
-fun <TMessage : Message> createMiddlewareChain(
-    finalHandler: (TMessage) -> Any?,
+suspend fun <TMessage : Message> createMiddlewareChain(
+    finalHandler: MiddlewareHandler<TMessage>,
     middlewares: List<Middleware>
-): (TMessage) -> Any? {
+): MiddlewareHandler<TMessage> {
     var lastHandler = finalHandler
     middlewares.reversed().forEach() {
         val currentHandler = lastHandler
-        lastHandler = { message -> it.handle(message, currentHandler) }
+        lastHandler = { message: TMessage -> it.handle(message, currentHandler) }
     }
 
     return lastHandler

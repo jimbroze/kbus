@@ -1,3 +1,4 @@
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -24,7 +25,9 @@ class MiddlewareTest {
     fun test_MessageLogger_logs_and_executes_command() {
         val bus = MessageBus(listOf(MessageLogger(PrintLogger())))
 
-        bus.execute(LoggingPrintCommand("Test the bus"), PrintCommandHandler())
+        runBlocking {
+            bus.execute(LoggingPrintCommand("Test the bus"), PrintCommandHandler())
+        }
 
         val output = outputStreamCaptor.toString().trim()
         val outputList = output.split("\n")
@@ -41,7 +44,9 @@ class MiddlewareTest {
             MessageLogger(OtherPrintLogger()),
         ))
 
-        bus.execute(LoggingPrintCommand("Test the bus"), PrintCommandHandler())
+        runBlocking {
+            bus.execute(LoggingPrintCommand("Test the bus"), PrintCommandHandler())
+        }
 
         val output = outputStreamCaptor.toString().trim()
         val outputList = output.split("\n")

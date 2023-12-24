@@ -7,7 +7,7 @@ abstract class Message {
 }
 
  interface MessageHandler<TMessage : Message> {
-     fun handle(message: TMessage): Any?
+     suspend fun handle(message: TMessage): Any?
  }
 
 class MissingHandlerException(

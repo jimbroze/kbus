@@ -1,3 +1,4 @@
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -27,7 +28,9 @@ class TestMessageBus {
     fun test_execute_executes_a_command() {
         val bus = MessageBus()
 
-        bus.execute(PrintCommand("Test the bus"), PrintCommandHandler())
+        runBlocking {
+            bus.execute(PrintCommand("Test the bus"), PrintCommandHandler())
+        }
 
         assertEquals("Test the bus", outputStreamCaptor.toString().trim())
     }
@@ -36,9 +39,12 @@ class TestMessageBus {
     fun test_execute_can_return_a_value() {
         val bus = MessageBus()
 
-        val result = bus.execute(ReturnCommand("Test the bus"), ReturnCommandHandler())
+        runBlocking {
+            val result = bus.execute(ReturnCommand("Test the bus"), ReturnCommandHandler())
 
-        assertEquals(result, "Test the bus")
+            assertEquals(result, "Test the bus")
+        }
+
     }
 
     @Test
@@ -48,7 +54,9 @@ class TestMessageBus {
         bus.register(ReturnCommand::class, ReturnCommandHandler())
 
         assertThrows<TooManyHandlersException> {
-            bus.execute(ReturnCommand("Testing"), AnyCommandHandler())
+            runBlocking {
+                bus.execute(ReturnCommand("Testing"), AnyCommandHandler())
+            }
         }
     }
 
@@ -56,21 +64,29 @@ class TestMessageBus {
     fun test_dispatch_dispatches_an_event() {
         val bus = MessageBus()
 
-        bus.dispatch(PrintEvent("Test the bus"), listOf(PrintEventHandler()))
+        runBlocking {
+            bus.dispatch(PrintEvent("Test the bus"), listOf(PrintEventHandler()))
+        }
+
         assertEquals("Test the bus", outputStreamCaptor.toString().trim())
     }
     @Test
     fun test_dispatch_can_dispatch_an_event_with_no_handlers() {
         val bus = MessageBus()
 
-        bus.dispatch(PrintEvent("Test the bus"))
+        runBlocking {
+            bus.dispatch(PrintEvent("Test the bus"))
+        }
     }
 
     @Test
     fun test_dispatch_can_dispatch_multiple_events() {
         val bus = MessageBus()
 
-        bus.dispatch(PrintEvent("Test the bus"), listOf(PrintEventHandler(), OtherPrintEventHandler()))
+        runBlocking {
+            bus.dispatch(PrintEvent("Test the bus"), listOf(PrintEventHandler(), OtherPrintEventHandler()))
+        }
+
         assertEquals("Test the bus\nTest the bus", outputStreamCaptor.toString().trim())
     }
 
@@ -89,9 +105,12 @@ class TestMessageBus {
         val bus = MessageBus()
         bus.register(ReturnCommand::class, ReturnCommandHandler())
 
-        val result = bus.execute(ReturnCommand("Test the bus"))
+        runBlocking {
+            val result = bus.execute(ReturnCommand("Test the bus"))
 
-        assertEquals(result, "Test the bus")
+            assertEquals(result, "Test the bus")
+        }
+
     }
 
     @Test
@@ -109,7 +128,9 @@ class TestMessageBus {
         val bus = MessageBus()
         bus.register(PrintEvent::class, listOf(PrintEventHandler()))
 
-        bus.dispatch(PrintEvent("Test the bus"))
+        runBlocking {
+            bus.dispatch(PrintEvent("Test the bus"))
+        }
 
         assertEquals("Test the bus", outputStreamCaptor.toString().trim())
     }
@@ -119,7 +140,9 @@ class TestMessageBus {
         val bus = MessageBus()
         bus.register(PrintEvent::class, listOf(PrintEventHandler()))
 
-        bus.dispatch(PrintEvent("Test the bus"), listOf(OtherPrintEventHandler()))
+        runBlocking {
+            bus.dispatch(PrintEvent("Test the bus"), listOf(OtherPrintEventHandler()))
+        }
 
         assertEquals("Test the bus\nTest the bus", outputStreamCaptor.toString().trim())
     }

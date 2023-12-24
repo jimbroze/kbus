@@ -42,7 +42,10 @@ interface  LoggingEvent: LoggingMessage {
 
 class MessageLogger(private val logger: Logger): Middleware {
 
-    override fun <TMessage : Message> handle(message: TMessage, nextMiddleware: (TMessage) -> Any?): Any? {
+    override suspend fun <TMessage : Message> handle(
+        message: TMessage,
+        nextMiddleware: MiddlewareHandler<TMessage>
+    ): Any? {
 //        if (!messageApplicable(message)) return nextMiddleware(message)
         if (message !is LoggingMessage) return nextMiddleware(message)
 
