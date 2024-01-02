@@ -46,7 +46,6 @@ class MessageLogger(private val logger: Logger): Middleware {
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage>
     ): Any? {
-//        if (!messageApplicable(message)) return nextMiddleware(message)
         if (message !is LoggingMessage) return nextMiddleware(message)
 
         logger.info(message.preHandleLog())

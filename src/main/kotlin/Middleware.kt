@@ -1,5 +1,3 @@
-import kotlin.coroutines.suspendCoroutine
-
 typealias MiddlewareHandler<TMessage> = suspend (TMessage) -> Any?
 
 interface Middleware {
