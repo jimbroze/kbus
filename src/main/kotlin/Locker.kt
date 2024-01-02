@@ -16,6 +16,10 @@ interface LockingMessage {
         get() = null
 }
 
+interface LockAdjustMessage {
+    val lockTimeout: Float
+}
+
 interface LockingCommand: LockingMessage
 interface LockingEvent: LockingMessage
 
@@ -66,8 +70,8 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
     }
 
     private suspend fun waitForUnlock(message: Message) {
-        val currentTimeout = (message as? LockingMessage)?.lockTimeout ?: secsToTimeout
-        val timeout = clock.now().plus((1000 * currentTimeout).toInt(), DateTimeUnit.MILLISECOND)
+        val currentTimeout = (message as? LockAdjustMessage)?.lockTimeout ?: secsToTimeout
+        val timeout = clock.now().plus((currentTimeout * 1000).toInt(), DateTimeUnit.MILLISECOND)
 
         while (busLocked && clock.now() <= timeout) {
             yield()

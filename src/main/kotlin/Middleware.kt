@@ -11,6 +11,7 @@ suspend fun <TMessage : Message> createMiddlewareChain(
     middlewares: List<Middleware>
 ): MiddlewareHandler<TMessage> {
     var lastHandler = finalHandler
+
     middlewares.reversed().forEach() {
         val currentHandler = lastHandler
         lastHandler = { message: TMessage -> it.handle(message, currentHandler) }

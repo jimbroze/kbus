@@ -39,7 +39,11 @@ class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandH
     }
 }
 
-class LockingSleepCommand(val waitSecs: Float, val messageData: String) : Command(), LockingCommand
+class LockingSleepCommand(
+    val waitSecs: Float,
+    val messageData: String,
+    override val lockTimeout: Float? = null
+) : Command(), LockingCommand
 
 class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand> {
     override suspend fun handle(message: LockingSleepCommand): Any {
@@ -54,6 +58,17 @@ class SleepCommand(val waitSecs: Float) : Command()
 class SleepCommandHandler : CommandHandler<SleepCommand> {
     override suspend fun handle(message: SleepCommand) {
         delay((1000 * message.waitSecs).toLong())
+    }
+}
+
+class LockAdjustCommand(
+    val messageData: String,
+    override val lockTimeout: Float
+) : Command(), LockAdjustMessage
+
+class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand> {
+    override suspend fun handle(message: LockAdjustCommand): Any {
+        return message.messageData
     }
 }
 
@@ -118,11 +133,84 @@ class LockingTest {
 
     @Test
     fun bus_locker_does_not_lock_bus_from_a_message_not_implementing_locking_interface() {
-        val locker = BusLocker(Clock.System)
-
         runBlocking {
             locker.handle(SleepCommand(0.2f)) { SleepCommandHandler().handle(it) }
             assert(!locker.busLocked)
         }
+    }
+
+    @Test
+    fun command_execution_times_out_if_bus_is_locked_for_too_long() {
+        val locker = BusLocker(Clock.System, 0.1f)
+        runBlocking {
+            launch {
+                val result1 = locker.handle(LockingSleepCommand(0.2f, "After sleep")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                println(result1)
+            }
+            launch {
+                val result2 = locker.handle(ReturnCommand("After unlock")) {
+                    ReturnCommandHandler().handle(it)
+                }
+                println(result2)
+            }
+        }
+
+        val output = outputStreamCaptor.toString().trim()
+
+        assert (output.indexOf("After unlock") < output.indexOf("After sleep"))
+    }
+
+    @Test
+    fun locking_timeout_can_be_overriden_by_locking_message() {
+        val locker = BusLocker(Clock.System, 0.1f)
+
+        runBlocking {
+            launch {
+                val result1 = locker.handle(
+                    LockingSleepCommand(0.2f, "After sleep", 0.5f)
+                ) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                println(result1)
+            }
+            launch {
+                val result2 = locker.handle(ReturnCommand("After unlock")) {
+                    ReturnCommandHandler().handle(it)
+                }
+                println(result2)
+            }
+        }
+
+        val output = outputStreamCaptor.toString().trim()
+
+        assert (output.indexOf("After sleep") < output.indexOf("After unlock"))
+    }
+
+    @Test
+    fun locking_timeout_can_be_overriden_by_waiting_message() {
+        val locker = BusLocker(Clock.System, 0.1f)
+
+        runBlocking {
+            launch {
+                val result1 = locker.handle(
+                    LockingSleepCommand(0.2f, "After sleep", 0.5f)
+                ) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                println(result1)
+            }
+            launch {
+                val result2 = locker.handle(LockAdjustCommand("After unlock", 0.05f)) {
+                    LockAdjustCommandHandler().handle(it)
+                }
+                println(result2)
+            }
+        }
+
+        val output = outputStreamCaptor.toString().trim()
+
+        assert (output.indexOf("After unlock") < output.indexOf("After sleep"))
     }
 }
