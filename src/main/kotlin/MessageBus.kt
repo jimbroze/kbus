@@ -1,6 +1,6 @@
 import kotlin.reflect.KClass
 
-class MessageBus(val middlewares: List<Middleware> = emptyList()) {
+class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: ClassLoader? = null) {
     private val commandStore: MessageStore<Command> = MessageStore()
     private val eventStore: MessageStore<Event> = MessageStore()
 
@@ -13,8 +13,6 @@ class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 
         val commandBus = getBus(commandStore, listOfNotNull(handler))
         return commandBus(command)
-
-//        return this.commandBus.handle(command, listOfNotNull(handler))
     }
 
     suspend fun <TEvent : Event> dispatch(
@@ -23,8 +21,14 @@ class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     ) {
         val eventBus = getBus(eventStore, handlers)
         eventBus(event)
+    }
 
-//        this.eventBus.handle(event, handlers)
+    inline fun <reified TCommand : Command, reified THandler : CommandHandler<TCommand>> register(
+        messageType: KClass<TCommand>,
+        handlerType: KClass<THandler>,
+    ) {
+        requireNotNull(loader) {"No class loader provided to the message bus"}
+        register(messageType, loader.load(handlerType))
     }
 
     fun <TCommand : Command> register(
@@ -34,6 +38,17 @@ class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         checkForCommandHandler(messageType, handler)
 
         this.commandStore.registerHandlers(messageType, listOfNotNull(handler))
+    }
+
+    @JvmName("registerTypes")
+    inline fun <reified TEvent : Event, reified THandler : EventHandler<TEvent>> register(
+        messageType: KClass<TEvent>,
+        handlerTypes: List<KClass<THandler>>,
+    ) {
+        requireNotNull(loader) {"No class loader provided to the message bus"}
+
+        val loadedHandlers = handlerTypes.map { loader.load(it) }
+        register(messageType, loadedHandlers)
     }
 
     fun <TEvent : Event> register(

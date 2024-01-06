@@ -195,4 +195,30 @@ class TestMessageBus {
 
         assertEquals(0, bus.hasHandlers(PrintEvent::class))
     }
+
+    @Test
+    fun default_instantiator_instantiates_command_handlers() {
+        val loader = ClassInstantiator()
+        val bus = MessageBus(loader=loader)
+
+        bus.register(ReturnCommand::class, ReturnCommandHandler::class)
+        runBlocking {
+            val result = bus.execute(ReturnCommand("Loaded"))
+
+            assertEquals("Loaded", result)
+        }
+    }
+
+    @Test
+    fun default_instantiator_instantiates_event_handlers() {
+        val loader = ClassInstantiator()
+        val bus = MessageBus(loader=loader)
+
+        bus.register(PrintEvent::class, listOf(PrintEventHandler::class))
+        runBlocking {
+            bus.dispatch(PrintEvent("Loaded"))
+        }
+
+        assertEquals("Loaded", outputStreamCaptor.toString().trim())
+    }
 }
