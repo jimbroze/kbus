@@ -15,6 +15,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0-RC")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
+
+    implementation(kotlin("reflect"))
+
+    implementation("io.insert-koin:koin-core:3.5.3")
 }
 
 tasks.test {
