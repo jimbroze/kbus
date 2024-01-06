@@ -1,3 +1,11 @@
+package core
+
+import Command
+import CommandHandler
+import Event
+import EventHandler
+import MessageStore
+import MissingHandlerException
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows

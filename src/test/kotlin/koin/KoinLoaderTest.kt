@@ -1,3 +1,10 @@
+package koin
+
+import KoinLoader
+import instantiator.CustomDeps
+import instantiator.LayeredDeps
+import instantiator.NoDeps
+import instantiator.SimpleDeps
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.assertThrows

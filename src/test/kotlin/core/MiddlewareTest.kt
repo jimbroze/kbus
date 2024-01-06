@@ -1,3 +1,7 @@
+package core
+
+import MessageBus
+import MessageLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -38,11 +42,13 @@ class MiddlewareTest {
 
     @Test
     fun test_MessageBus_handlers_middleware_in_the_correct_order() {
-        val bus = MessageBus(listOf(
-            MessageLogger(PrintLogger()),
-            MessageLogger(PrintLogger()),
-            MessageLogger(OtherPrintLogger()),
-        ))
+        val bus = MessageBus(
+            listOf(
+                MessageLogger(PrintLogger()),
+                MessageLogger(PrintLogger()),
+                MessageLogger(OtherPrintLogger()),
+            )
+        )
 
         runBlocking {
             bus.execute(LoggingPrintCommand("Test the bus"), PrintCommandHandler())
