@@ -1,3 +1,13 @@
+package core
+
+import Command
+import CommandHandler
+import Event
+import EventHandler
+import Logger
+import LoggingCommand
+import LoggingEvent
+import MessageLogger
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach

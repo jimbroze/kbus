@@ -3,12 +3,8 @@ import kotlin.reflect.KParameter
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.primaryConstructor
 
-class ClassInstantiator(dependencies: List<Any> = emptyList()) : ClassLoader() {
+class ClassInstantiator(dependencies: List<Any> = emptyList()) : DependencyLoader() {
     private val savedDependencies = dependencies.toMutableList()
-
-    override fun addDependency(dependency: Any) {
-        savedDependencies.add(dependency)
-    }
 
     override fun <TClass : Any> instantiate(cls: KClass<TClass>): TClass {
         for (dependency in savedDependencies) {

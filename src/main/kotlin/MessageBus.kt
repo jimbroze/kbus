@@ -1,6 +1,6 @@
 import kotlin.reflect.KClass
 
-class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: ClassLoader? = null) {
+class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: DependencyLoader? = null) {
     private val commandStore: MessageStore<Command> = MessageStore()
     private val eventStore: MessageStore<Event> = MessageStore()
 
