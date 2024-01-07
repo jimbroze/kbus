@@ -21,7 +21,7 @@ private var outputStreamCaptor = ByteArrayOutputStream()
 
 class PrintReturnCommand(val messageData: String) : Command()
 
-class PrintReturnCommandHandler : CommandHandler<PrintReturnCommand> {
+class PrintReturnCommandHandler : CommandHandler<PrintReturnCommand, String> {
     override suspend fun handle(message: PrintReturnCommand): String {
         println(message.messageData)
 
@@ -31,7 +31,7 @@ class PrintReturnCommandHandler : CommandHandler<PrintReturnCommand> {
 
 class LockingPrintReturnCommand(val messageData: String) : Command(), LockingCommand
 
-class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandHandler<LockingPrintReturnCommand> {
+class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandHandler<LockingPrintReturnCommand, Any?> {
     override suspend fun handle(message: LockingPrintReturnCommand): Any? {
 
         println("Pre-nested call")
@@ -52,7 +52,7 @@ class LockingSleepCommand(
     override val lockTimeout: Float? = null
 ) : Command(), LockingCommand
 
-class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand> {
+class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any> {
     override suspend fun handle(message: LockingSleepCommand): Any {
         delay((1000 * message.waitSecs).toLong())
 
@@ -62,7 +62,7 @@ class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand> {
 
 class SleepCommand(val waitSecs: Float) : Command()
 
-class SleepCommandHandler : CommandHandler<SleepCommand> {
+class SleepCommandHandler : CommandHandler<SleepCommand, Unit> {
     override suspend fun handle(message: SleepCommand) {
         delay((1000 * message.waitSecs).toLong())
     }
@@ -73,7 +73,7 @@ class LockAdjustCommand(
     override val lockTimeout: Float
 ) : Command(), LockAdjustMessage
 
-class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand> {
+class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any> {
     override suspend fun handle(message: LockAdjustCommand): Any {
         return message.messageData
     }

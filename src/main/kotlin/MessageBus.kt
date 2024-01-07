@@ -6,13 +6,24 @@ class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: De
 
     suspend fun <TCommand : Command> execute(
         command: TCommand,
-        handler: CommandHandler<TCommand>? = null,
     ): Any?
     {
-        checkForCommandHandler(command::class, handler)
+        ensureCommandHandlerExists(command::class)
+
+        val commandBus = getBus(commandStore, emptyList())
+        return commandBus(command)
+    }
+
+    suspend fun <TCommand : Command, TReturn : Any?> execute(
+        command: TCommand,
+        handler: CommandHandler<TCommand, TReturn>,
+    ): TReturn
+    {
+        ensureNoOtherCommandHandlers(command::class)
 
         val commandBus = getBus(commandStore, listOfNotNull(handler))
-        return commandBus(command)
+        @Suppress("UNCHECKED_CAST")
+        return commandBus(command) as TReturn
     }
 
     suspend fun <TEvent : Event> dispatch(
@@ -23,7 +34,7 @@ class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: De
         eventBus(event)
     }
 
-    inline fun <reified TCommand : Command, reified THandler : CommandHandler<TCommand>> register(
+    inline fun <reified TCommand : Command, TReturn : Any?, reified THandler : CommandHandler<TCommand, TReturn>> register(
         messageType: KClass<TCommand>,
         handlerType: KClass<THandler>,
     ) {
@@ -31,11 +42,11 @@ class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: De
         register(messageType, loader.load(handlerType))
     }
 
-    fun <TCommand : Command> register(
+    fun <TCommand : Command, TReturn : Any?> register(
         messageType: KClass<TCommand>,
-        handler: CommandHandler<TCommand>,
+        handler: CommandHandler<TCommand, TReturn>,
     ) {
-        checkForCommandHandler(messageType, handler)
+        ensureNoOtherCommandHandlers(messageType)
 
         this.commandStore.registerHandlers(messageType, listOfNotNull(handler))
     }
@@ -75,16 +86,19 @@ class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: De
         return this.eventStore.getHandlers(eventType).size
     }
 
-    private fun <TCommand : Command> checkForCommandHandler(
+    private fun <TCommand : Command> ensureCommandHandlerExists(
         commandType: KClass<out TCommand>,
-        handler: CommandHandler<out TCommand>?
     ) {
-        when {
-            handler != null && commandStore.isRegistered(commandType) ->
-                throw TooManyHandlersException(commandType)
+        if (!commandStore.isRegistered(commandType)) {
+            throw MissingHandlerException(commandType)
+        }
+    }
 
-            handler == null && !commandStore.isRegistered(commandType) ->
-                throw MissingHandlerException(commandType)
+    private fun <TCommand : Command> ensureNoOtherCommandHandlers(
+        commandType: KClass<out TCommand>,
+    ) {
+        if (commandStore.isRegistered(commandType)) {
+            throw TooManyHandlersException(commandType)
         }
     }
 

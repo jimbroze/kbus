@@ -44,7 +44,7 @@ class LoggingPrintCommand(message: String): PrintCommand(message), LoggingComman
 class LoggingPrintEvent(message: String): PrintEvent(message), LoggingEvent
 class LoggingExceptionCommand: Command(), LoggingCommand
 
-class ExceptionCommandHandler : CommandHandler<Command> {
+class ExceptionCommandHandler : CommandHandler<Command, Unit> {
     override suspend fun handle(message: Command) {
         throw Exception("Exception raised")
     }

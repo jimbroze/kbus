@@ -4,7 +4,7 @@ abstract class Command : Message() {
     override val messageType: String = "command"
 }
 
-interface CommandHandler<TCommand : Command> : MessageHandler<TCommand> {
+interface CommandHandler<TCommand : Command, TReturn : Any?> : MessageHandler<TCommand> {
     override suspend fun handle(message: TCommand): Any?
 }
 

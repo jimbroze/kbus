@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 
 class ReturnCommand(val messageData: String) : Command()
 
-class ReturnCommandHandler : CommandHandler<ReturnCommand> {
+class ReturnCommandHandler : CommandHandler<ReturnCommand, Any> {
     override suspend fun handle(message: ReturnCommand): Any {
         return message.messageData
     }
@@ -22,13 +22,13 @@ class ReturnCommandHandler : CommandHandler<ReturnCommand> {
 
 open class PrintCommand(val messageData: String) : Command()
 
-class PrintCommandHandler : CommandHandler<PrintCommand> {
+class PrintCommandHandler : CommandHandler<PrintCommand, Unit> {
     override suspend fun handle(message: PrintCommand) {
         println(message.messageData)
     }
 }
 
-class AnyCommandHandler : CommandHandler<Command> {
+class AnyCommandHandler : CommandHandler<Command, Unit> {
     override suspend fun handle(message: Command) {
     }
 }
