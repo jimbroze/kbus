@@ -1,7 +1,3 @@
-rootProject.name = "kbus"
-
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
-
 pluginManagement {
     repositories {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
@@ -17,11 +13,10 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
+
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
 }
-
-include("kotlin-library")
-include("kbus-core")
-//include("koin")
-
-//includeBuild("core")
-//includeBuild("koin")

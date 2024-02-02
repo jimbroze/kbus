@@ -2,7 +2,7 @@
 .gradle
 **/build/
 xcuserdata
-!src/**/build/
+!core/src/**/build/
 local.properties
 .idea
 .DS_Store
