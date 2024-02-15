@@ -20,8 +20,9 @@ dependencyResolutionManagement {
 }
 
 include("kotlin-library")
+include("testDoubles")
 include("kbus-core")
-//include("koin")
+include("kbus-koin")
 
 //includeBuild("core")
 //includeBuild("koin")

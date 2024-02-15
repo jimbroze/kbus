@@ -8,13 +8,13 @@ version = "1.0-SNAPSHOT"
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
+            implementation(project(":kbus-core"))
+            implementation(libs.koin.core)
         }
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
+            implementation(project(":testDoubles"))
         }
     }
 }

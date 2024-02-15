@@ -1,17 +1,10 @@
-import KoinLoader
-import instantiator.CustomDeps
-import instantiator.LayeredDeps
-import instantiator.NoDeps
-import instantiator.SimpleDeps
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.assertThrows
+import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import org.koin.core.Koin
 import org.koin.core.error.NoDefinitionFoundException
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class KoinLoaderTest {
     @Test
     fun load_returns_instance_if_provided() {
@@ -32,7 +25,7 @@ class KoinLoaderTest {
     fun load_throws_definition_not_found_exception_if_cannot_find_dependencies() {
         val loader = KoinLoader()
 
-        assertThrows<NoDefinitionFoundException> {
+        assertFailsWith<NoDefinitionFoundException> {
             loader.load(CustomDeps::class)
         }
     }
