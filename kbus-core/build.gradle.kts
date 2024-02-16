@@ -15,6 +15,8 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+//            implementation(project(":kbus-code-generation"))
+//            ksp(project(":kbus-code-generation"))
         }
     }
 }
