@@ -12,6 +12,17 @@ class MessageBus(val middlewares: List<Middleware> = emptyList(), val loader: De
         return commandBus(command)
     }
 
+    suspend fun <TCommand : Command, THandler : CommandHandler<TCommand, TReturn>, TReturn : Any?> execute(
+        command: TCommand,
+        handlerType: KClass<THandler>,
+    ): TReturn {
+        requireNotNull(loader)
+
+        val commandBus = getBus(commandStore, listOf(loader.load(handlerType)))
+        @Suppress("UNCHECKED_CAST")
+        return commandBus(command) as TReturn
+    }
+
     suspend fun <TCommand : Command, TReturn : Any?> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn>,
