@@ -8,6 +8,7 @@ kotlin {
     jvm()
     sourceSets {
         commonMain.dependencies {
+            implementation(projects.kbusCore)
             implementation(projects.kbusAnnotations)
         }
 
@@ -23,5 +24,6 @@ kotlin {
 dependencies {
 //    implementation(projects.kbusCore)
     add("kspCommonMainMetadata", projects.kbusCodeGeneration)
+    add("kspJvm", projects.kbusCodeGeneration)
 //    implementation(kotlin("stdlib-jdk8"))
 }
