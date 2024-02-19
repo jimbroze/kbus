@@ -3,9 +3,8 @@ package com.jimbroze.kbus.generation.test
 import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.CommandHandler
-import java.time.Clock
+import kotlinx.datetime.Clock
 
-//import com.jimbroze.kbus.generation.GeneratorCommandLoaded
 
 class GeneratorCommand(val messageData: String, val clock: Clock) : Command()
 
@@ -17,6 +16,6 @@ class GeneratorCommandHandler(val clock: Clock) : CommandHandler<GeneratorComman
 }
 
 fun main() {
-//    println(GeneratorCommandLoaded)
+    println(GeneratorCommandLoaded::class.qualifiedName)
     println("Hello world!")
 }
