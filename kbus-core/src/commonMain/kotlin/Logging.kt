@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 interface Logger {
     fun info(message: String)
 

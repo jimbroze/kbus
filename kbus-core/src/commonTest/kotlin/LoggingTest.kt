@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContains

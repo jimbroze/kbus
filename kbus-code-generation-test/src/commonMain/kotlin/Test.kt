@@ -1,6 +1,11 @@
+package com.jimbroze.kbus.generation.test
+
+import com.jimbroze.kbus.annotations.Load
+import com.jimbroze.kbus.core.Command
+import com.jimbroze.kbus.core.CommandHandler
 import java.time.Clock
 
-//import GeneratorCommandLoaded
+//import com.jimbroze.kbus.generation.GeneratorCommandLoaded
 
 class GeneratorCommand(val messageData: String, val clock: Clock) : Command()
 

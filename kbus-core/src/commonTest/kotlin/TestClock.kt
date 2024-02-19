@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.datetime.Clock

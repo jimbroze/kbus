@@ -1,3 +1,4 @@
+import com.jimbroze.kbus.koin.KoinLoader
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import org.koin.core.Koin

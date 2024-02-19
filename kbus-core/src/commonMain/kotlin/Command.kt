@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlin.reflect.KClass
 
 abstract class Command : Message() {

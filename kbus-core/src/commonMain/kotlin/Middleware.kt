@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 typealias MiddlewareHandler<TMessage> = suspend (TMessage) -> Any?
 
 interface Middleware {

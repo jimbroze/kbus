@@ -1,6 +1,5 @@
-package core
+package com.jimbroze.kbus.core
 
-import TestClock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -8,7 +7,6 @@ import kotlinx.coroutines.yield
 import kotlinx.coroutines.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.asTimeSource
 import kotlinx.datetime.plus
 import kotlin.concurrent.Volatile
 import kotlin.test.Test

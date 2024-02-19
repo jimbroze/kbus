@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlin.jvm.JvmName
 import kotlin.reflect.KClass
 

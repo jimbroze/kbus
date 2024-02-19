@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 abstract class Event : Message() {
     override val messageType: String = "event"
 }

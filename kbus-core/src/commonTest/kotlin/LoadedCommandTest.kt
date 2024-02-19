@@ -1,7 +1,8 @@
+package com.jimbroze.kbus.core
+
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlin.test.Test
-import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class UnloadedCommand(val messageData: String) : Command()

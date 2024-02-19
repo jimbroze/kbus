@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlin.reflect.KClass
 
 open class MessageBus(val middlewares: List<Middleware> = emptyList()) {

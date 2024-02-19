@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.yield

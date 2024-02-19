@@ -1,3 +1,5 @@
+package com.jimbroze.kbus.core
+
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
 import kotlin.test.*

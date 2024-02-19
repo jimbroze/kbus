@@ -1,11 +1,14 @@
+package com.jimbroze.kbus.generation
+
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.*
 import com.google.devtools.ksp.validate
+import com.jimbroze.kbus.core.Command
+import com.jimbroze.kbus.annotations.Load
 import java.io.OutputStream
-import java.io.OutputStreamWriter
 
-private const val ANNOTATION_NAME = "Load"
+//private const val ANNOTATION_NAME = "Load"
 
 fun OutputStream.appendText(str: String) {
     this.write(str.toByteArray())
@@ -20,7 +23,7 @@ class MessageProcessor(
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val symbols = resolver
-                .getSymbolsWithAnnotation(ANNOTATION_NAME)
+                .getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
             .filterIsInstance<KSClassDeclaration>()
 
         if (!symbols.iterator().hasNext()) return emptyList()
@@ -35,7 +38,7 @@ class MessageProcessor(
     inner class ClassVisitor() : KSVisitorVoid() {
         override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit) {
             if (classDeclaration.classKind != ClassKind.CLASS) {
-                logger.error("Only classes can be annotated with @$ANNOTATION_NAME", classDeclaration)
+                logger.error("Only classes can be annotated with @${Load::class.simpleName.toString()}", classDeclaration)
                 return
             }
 
@@ -103,7 +106,7 @@ class MessageProcessor(
                 packageName,
                 loadedCommandClassName
             )
-//            file.appendText("package $packageName\n\n")
+            file.appendText("package $packageName\n\n")
 //            file.appendText("import HELLO\n\n")
             file.appendText("class $loadedCommandClassName($loadedCommandConstructorParameters) {\n")
             file.appendText("    val command = ${commandClassName}(${commandConstructorParameters})\n")
