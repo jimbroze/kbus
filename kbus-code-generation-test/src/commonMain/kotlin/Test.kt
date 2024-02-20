@@ -16,6 +16,6 @@ class GeneratorCommandHandler(val clock: Clock) : CommandHandler<GeneratorComman
 }
 
 fun main() {
-    println(GeneratorCommandLoaded::class.qualifiedName)
+//    println(GeneratorCommandLoaded::class.qualifiedName)
     println("Hello world!")
 }
