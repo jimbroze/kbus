@@ -20,9 +20,8 @@ data class DependencyDefinition(
 )
 data class CommandClassDefinition(
     val handler: KSClassDeclaration,
-//    val handlerType: String,
     val loadedCommandType: String,
-//    val dependencies: List<DependencyDefinition>
+//    val loadedCommandReturnType: String,
 )
 
 class MessageProcessor(
@@ -86,9 +85,31 @@ class MessageProcessor(
         }
         file.appendText("}\n")
 
+
+
+
+//        TODO use MessageBus constructor for type safety? Replace pre-written class instead?
+        file.appendText("class CompileTimeLoadedMessageBus(\n")
+        file.appendText("    middleware: List<Middleware>,\n")
+        file.appendText("    private val loader: CompileTimeGeneratedLoader,\n")
+        file.appendText(") : MessageBus(middleware) {\n")
+        for (commandDefinition in commandDefinitions) {
+            val handlerName = commandDefinition.handler.simpleName.asString()
+            val handlerType = commandDefinition.handler.qualifiedName!!.asString()
+            val loadedCommandType = commandDefinition.loadedCommandType
+
+            file.appendText(
+                "    suspend fun execute(loadedCommand: $loadedCommandType)\n" +
+                "        = this.execute(loadedCommand.command, this.loader.get$handlerName())\n"
+            )
+        }
+        file.appendText("}\n")
+
+        file.close()
+
     }
 
-    //    interface GeneratedDependencies {
+//    interface GeneratedDependencies {
 //        fun getClock(): Clock
 //    }
 //    class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies) {
@@ -171,7 +192,6 @@ class MessageProcessor(
                 loadedCommandClassName
             )
             file.appendText("package $packageName\n\n")
-//            file.appendText("import HELLO\n\n")
             file.appendText("class $loadedCommandClassName($loadedCommandConstructorParameters) {\n")
             file.appendText("    val command = ${commandClassName}(${commandConstructorParameters})\n")
             file.appendText("\n")
@@ -181,8 +201,7 @@ class MessageProcessor(
 
             return CommandClassDefinition(
                 handlerClass,
-//                handlerClass.qualifiedName!!.asString(),
-                "$packageName$loadedCommandClassName",
+                "$packageName.$loadedCommandClassName",
             )
         }
 

@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
     jvm()
-    js { browser() }
+    js {  }
     sourceSets {
         commonMain.dependencies {
             implementation(projects.kbusCore)
@@ -31,12 +31,12 @@ dependencies {
 //    implementation(kotlin("stdlib-jdk8"))
 }
 
-//tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().all {
-//    if(name != "kspCommonMainKotlinMetadata") {
-//        dependsOn("kspCommonMainKotlinMetadata")
-//    }
-//}
-//
+tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().all {
+    if(name != "kspCommonMainKotlinMetadata") {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+
 kotlin.sourceSets.commonMain {
     kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
 }
