@@ -1,5 +1,4 @@
 plugins {
-//    kotlin("jvm")
     kotlin("multiplatform")
     alias(libs.plugins.devtools.ksp)
 }
@@ -15,20 +14,15 @@ kotlin {
             implementation(libs.kotlinx.datetime)
         }
 
-//        commonTest.dependencies {
-//            implementation(libs.kotlin.test)
-//            implementation(libs.kotlinx.coroutines.test)
-////            implementation(project(":kbus-code-generation"))
-////            ksp(project(":kbus-code-generation"))
-//        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
     }
 }
 
 dependencies {
-//    implementation(projects.kbusCore)
     add("kspCommonMainMetadata", projects.kbusCodeGeneration)
-//    add("kspJvm", projects.kbusCodeGeneration)
-//    implementation(kotlin("stdlib-jdk8"))
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().all {

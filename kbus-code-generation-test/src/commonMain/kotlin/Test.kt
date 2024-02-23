@@ -6,16 +6,11 @@ import com.jimbroze.kbus.core.CommandHandler
 import kotlinx.datetime.Clock
 
 
-class GeneratorCommand(val messageData: String, val clock: Clock) : Command()
+class GeneratorCommand(val messageData: String) : Command()
 
 @Load
-class GeneratorCommandHandler(val clock: Clock) : CommandHandler<GeneratorCommand, Any> {
+class GeneratorCommandHandler(private val clock: Clock) : CommandHandler<GeneratorCommand, Any> {
     override suspend fun handle(message: GeneratorCommand): Any {
-        return message.messageData
+        return message.messageData + clock.now().toString()
     }
-}
-
-fun main() {
-//    println(GeneratorCommandLoaded::class.qualifiedName)
-    println("Hello world!")
 }

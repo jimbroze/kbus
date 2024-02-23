@@ -37,7 +37,7 @@ class MessageProcessor(
 
         if (!symbols.iterator().hasNext()) return emptyList()
 
-        val visitor = ClassVisitor()
+        val visitor = CommandClassVisitor()
         val processedMessages = symbols.map { it.accept(visitor, Unit) }
 
         generateDependencyLoader(processedMessages.toList().filterNotNull())
@@ -85,9 +85,6 @@ class MessageProcessor(
         }
         file.appendText("}\n")
 
-
-
-
 //        TODO use MessageBus constructor for type safety? Replace pre-written class instead?
         file.appendText("class CompileTimeLoadedMessageBus(\n")
         file.appendText("    middleware: List<Middleware>,\n")
@@ -95,7 +92,6 @@ class MessageProcessor(
         file.appendText(") : MessageBus(middleware) {\n")
         for (commandDefinition in commandDefinitions) {
             val handlerName = commandDefinition.handler.simpleName.asString()
-            val handlerType = commandDefinition.handler.qualifiedName!!.asString()
             val loadedCommandType = commandDefinition.loadedCommandType
 
             file.appendText(
@@ -106,32 +102,10 @@ class MessageProcessor(
         file.appendText("}\n")
 
         file.close()
-
     }
 
-//    interface GeneratedDependencies {
-//        fun getClock(): Clock
-//    }
-//    class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies) {
-//        fun getUnloadedCommandHandler(): UnloadedCommandHandler {
-//            return UnloadedCommandHandler(this.dependencies.getClock())
-//        }
-//        fun getReturnCommandHandler(): ReturnCommandHandler {
-//            return ReturnCommandHandler()
-//        }
-//    }
-//
-//    class CompileTimeLoadedMessageBus(
-//        middleware: List<Middleware>,
-//        private val loader: CompileTimeGeneratedLoader,
-//    ) : MessageBus(middleware) {
-//        suspend fun execute(loadedCommand: UnloadedCommandLoaded): Any {
-//            val handler: UnloadedCommandHandler = this.loader.getUnloadedCommandHandler()
-//            return this.execute(loadedCommand.command, handler)
-//        }
-//    }
 
-    inner class ClassVisitor() : KSDefaultVisitor<Unit, CommandClassDefinition?>() {
+    inner class CommandClassVisitor() : KSDefaultVisitor<Unit, CommandClassDefinition?>() {
         override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit): CommandClassDefinition? {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 logger.error("Only classes can be annotated with @${Load::class.simpleName.toString()}", classDeclaration)
@@ -169,7 +143,6 @@ class MessageProcessor(
             val handlerClassName = handlerClass.simpleName.asString()
             val loadedCommandClassName = "${commandClassName}Loaded"
 
-
             val loadedCommandConstructorParameters = StringBuilder()
             val commandConstructorParameters = StringBuilder()
             var firstParam = true
@@ -185,18 +158,18 @@ class MessageProcessor(
                 firstParam = false
             }
 
-
             val file = codeGenerator.createNewFile(
                 Dependencies(true, commandClass.containingFile!!),
                 packageName,
                 loadedCommandClassName
             )
-            file.appendText("package $packageName\n\n")
-            file.appendText("class $loadedCommandClassName($loadedCommandConstructorParameters) {\n")
-            file.appendText("    val command = ${commandClassName}(${commandConstructorParameters})\n")
-            file.appendText("\n")
-            file.appendText("    suspend fun handle(handler: $handlerClassName) = handler.handle(command)\n")
-            file.appendText("}\n")
+            file.appendText(
+                "package $packageName\n\n" +
+                "class $loadedCommandClassName($loadedCommandConstructorParameters) {\n" +
+                "    val command = ${commandClassName}(${commandConstructorParameters})\n" +
+                "    suspend fun handle(handler: $handlerClassName) = handler.handle(command)\n" +
+                "}\n"
+            )
             file.close()
 
             return CommandClassDefinition(
