@@ -49,7 +49,7 @@ class MessageProcessor(
     fun generateDependencyLoader(commandDefinitions: List<CommandClassDefinition>) {
         val allHandlerDependencies = commandDefinitions.flatMap { classDefinition ->
             classDefinition.handler.primaryConstructor!!.parameters.map { getParamNames(it) }
-        }
+        }.distinct()
 
         val packageName = MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
         val file = codeGenerator.createNewFile(

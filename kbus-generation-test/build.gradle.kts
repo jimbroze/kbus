@@ -22,7 +22,7 @@ kotlin {
 }
 
 dependencies {
-    add("kspCommonMainMetadata", projects.kbusCodeGeneration)
+    add("kspCommonMainMetadata", projects.kbusGeneration)
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().all {

@@ -1,7 +1,10 @@
 plugins {
     kotlin("multiplatform")
     alias(libs.plugins.devtools.ksp)
+    id("kbus.publish")
 }
+
+version = "1.0-SNAPSHOT"
 
 kotlin {
     jvm()

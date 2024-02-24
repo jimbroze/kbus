@@ -3,7 +3,7 @@ package com.jimbroze.kbus.generation
 import com.jimbroze.kbus.core.CompileTimeGeneratedLoader
 import com.jimbroze.kbus.core.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.core.GeneratedDependencies
-import com.jimbroze.kbus.generation.test.GeneratorCommandLoaded
+import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlin.test.Test
@@ -35,7 +35,7 @@ class GenerationTest {
             CompileTimeGeneratedLoader(Dependencies())
         )
 
-        val result = bus.execute(GeneratorCommandLoaded("The time is "))
+        val result = bus.execute(TestGeneratorCommandLoaded("The time is "))
 
         assertEquals("The time is 2024-02-23T19:01:09Z", result)
     }
