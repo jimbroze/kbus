@@ -1,8 +1,6 @@
 package com.jimbroze.kbus.generation
 
-import com.jimbroze.kbus.core.CompileTimeGeneratedLoader
-import com.jimbroze.kbus.core.CompileTimeLoadedMessageBus
-import com.jimbroze.kbus.core.GeneratedDependencies
+import com.jimbroze.kbus.core.*
 import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
@@ -27,7 +25,9 @@ class GenerationTest {
     fun test_execute_executes_a_command() = runTest {
         val clock = FixedClock(Instant.parse("2024-02-23T19:01:09Z"))
         class Dependencies : GeneratedDependencies {
+            override fun getLocker() = BusLocker(clock)
             override fun getClock(): Clock = clock
+            override fun getBus() = MessageBus()
         }
 
         val bus = CompileTimeLoadedMessageBus(

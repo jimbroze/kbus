@@ -47,6 +47,7 @@ class MessageProcessor(
     }
 
     fun generateDependencyLoader(commandDefinitions: List<CommandClassDefinition>) {
+//        TODO change this to combine the dependency strings already created for each handler
         val allHandlerDependencies = commandDefinitions.flatMap { classDefinition ->
             classDefinition.handler.primaryConstructor!!.parameters.map { getParamNames(it) }
         }.distinct()
@@ -61,13 +62,9 @@ class MessageProcessor(
 
         // Interface
         file.appendText("interface GeneratedDependencies {\n")
-        val handlerDependencyString = StringBuilder()
-        var firstParam = true
         for (dependency in allHandlerDependencies) {
             val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            handlerDependencyString.append("${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()")
             file.appendText("    fun get$dependencyName(): ${dependency.typeName}\n")
-            firstParam = false
         }
         file.appendText("}\n")
 
@@ -75,16 +72,26 @@ class MessageProcessor(
         file.appendText(
             "class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies) {\n"
         )
+
         for (commandDefinition in commandDefinitions) {
+            val handlerDependencies = commandDefinition.handler.primaryConstructor!!.parameters.map { getParamNames(it) }
+            val handlerDependenciesString = StringBuilder()
+            var firstParam = true
+            for (dependency in handlerDependencies) {
+                val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
+                handlerDependenciesString.append("${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()")
+                firstParam = false
+            }
             val handlerName = commandDefinition.handler.simpleName.asString()
             val handlerType = commandDefinition.handler.qualifiedName!!.asString()
 
             file.appendText("    fun get$handlerName(): $handlerType {\n")
-            file.appendText("        return $handlerType($handlerDependencyString)\n")
+            file.appendText("        return $handlerType($handlerDependenciesString)\n")
             file.appendText("    }\n")
         }
         file.appendText("}\n")
 
+        // Bus
 //        TODO use MessageBus constructor for type safety? Replace pre-written class instead?
         file.appendText("class CompileTimeLoadedMessageBus(\n")
         file.appendText("    middleware: List<Middleware>,\n")
