@@ -3,43 +3,103 @@ package com.jimbroze.kbus.core
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
+open class FailureCommand : Command()
+
+class FailureCommandHandler : CommandHandler<FailureCommand, String> {
+    override suspend fun handle(message: FailureCommand): String {
+        throw ResultFailureException("The command failed")
+    }
+}
+class IllegalStateFailureCommandHandler : CommandHandler<FailureCommand, String> {
+    override suspend fun handle(message: FailureCommand): String {
+        throw ResultFailureException(IllegalStateException("Illegal state in command handling"))
+    }
+}
+
 open class StorageQuery(val index: Int, val listStore: MutableList<String>) : Query()
 
 class StorageQueryHandler : QueryHandler<StorageQuery, String> {
-    override suspend fun handle(message: StorageQuery): Result<String> {
-        return Result.success(message.listStore[message.index])
+    override suspend fun handle(message: StorageQuery): String {
+        return message.listStore[message.index]
+    }
+}
+
+open class FailureQuery : Query()
+
+class FailureQueryHandler : QueryHandler<FailureQuery, String> {
+    override suspend fun handle(message: FailureQuery): String {
+        throw ResultFailureException("The query failed")
     }
 }
 
 class MessageBusTest {
 
     @Test
-    fun test_execute_executes_a_command() = runTest {
+    fun test_execute_executes_a_command_successfully() = runTest {
         val bus = MessageBus()
         val list = mutableListOf<String>()
 
-        bus.execute(StorageCommand("Test the bus", list), StorageCommandHandler())
+        val result = bus.execute(StorageCommand("Test the bus", list), StorageCommandHandler())
 
+        assertTrue(result.isSuccess)
         assertContains(list, "Test the bus")
     }
 
     @Test
-    fun test_execute_executes_a_query_and_returns_a_result() = runTest {
+    fun test_command_can_return_a_success_value() = runTest {
+        val bus = MessageBus()
+
+        val result = bus.execute(ReturnCommand("Test the bus"), ReturnCommandHandler())
+
+        assertTrue(result.isSuccess)
+        assertEquals("Test the bus", result.getOrNull())
+    }
+
+    @Test
+    fun test_resultFailure_exception_in_command_returns_failure() = runTest {
+        val bus = MessageBus()
+
+        val result = bus.execute(FailureCommand(), FailureCommandHandler())
+
+        assertTrue(result.isFailure)
+        val failure = result.exceptionOrNull()
+        assertIs<ResultFailureException>(failure)
+        assertEquals("The command failed", failure.message)
+    }
+
+    @Test
+    fun test_failure_will_return_exception_if_provided() = runTest {
+        val bus = MessageBus()
+
+        val result = bus.execute(FailureCommand(), IllegalStateFailureCommandHandler())
+
+        assertTrue(result.isFailure)
+        val failure = result.exceptionOrNull()
+        assertIs<IllegalStateException>(failure)
+        assertEquals("Illegal state in command handling", failure.message)
+    }
+
+    @Test
+    fun test_executed_query_returns_a_successful_result_value() = runTest {
         val bus = MessageBus()
         val list = mutableListOf("Test the bus")
 
         val result = bus.execute(StorageQuery(0, list), StorageQueryHandler())
 
+        assertTrue(result.isSuccess)
         assertEquals("Test the bus", result.getOrNull())
     }
 
     @Test
-    fun test_execute_can_return_a_value() = runTest {
+    fun test_resultFailure_exception_in_query_returns_failure() = runTest {
         val bus = MessageBus()
 
-        val result = bus.execute(ReturnCommand("Test the bus"), ReturnCommandHandler())
+        val result = bus.execute(FailureQuery(), FailureQueryHandler())
 
-        assertEquals("Test the bus", result)
+        assertTrue(result.isFailure)
+        val failure = result.exceptionOrNull()
+        assertIs<ResultFailureException>(failure)
+        assertEquals("The query failed", failure.message)
     }
 
 //    @Test

@@ -7,7 +7,7 @@ abstract class Command : Message() {
 }
 
 interface CommandHandler<TCommand : Command, TReturn : Any?> : MessageHandler<TCommand> {
-    override suspend fun handle(message: TCommand): Any?
+    override suspend fun handle(message: TCommand): TReturn
 }
 
 class TooManyHandlersException(

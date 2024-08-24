@@ -37,6 +37,6 @@ class GenerationTest {
 
         val result = bus.execute(TestGeneratorCommandLoaded("The time is "))
 
-        assertEquals("The time is 2024-02-23T19:01:09Z", result)
+        assertEquals("The time is 2024-02-23T19:01:09Z", result.getOrNull())
     }
 }

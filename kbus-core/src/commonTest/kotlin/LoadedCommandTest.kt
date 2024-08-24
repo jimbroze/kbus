@@ -37,7 +37,7 @@ class CompileTimeLoadedMessageBus(
     middleware: List<Middleware>,
     private val loader: CompileTimeGeneratedLoader,
 ) : MessageBus(middleware) {
-    suspend fun execute(loadedCommand: UnloadedCommandLoaded): Any {
+    suspend fun execute(loadedCommand: UnloadedCommandLoaded): Result<Any> {
         val handler: UnloadedCommandHandler = this.loader.getUnloadedCommandHandler()
         return this.execute(loadedCommand.command, handler)
     }
@@ -58,6 +58,6 @@ class LoadedCommandTest {
 
         val result = bus.execute(UnloadedCommandLoaded("Test the load"))
 
-        assertEquals("Test the load", result)
+        assertEquals("Test the load", result.getOrNull())
     }
 }
