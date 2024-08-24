@@ -4,6 +4,7 @@ import kotlin.reflect.KClass
 
 open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     private val commandStore: MessageStore<Command> = MessageStore()
+    private val queryStore: MessageStore<Query> = MessageStore()
     private val eventStore: MessageStore<Event> = MessageStore()
 
 //    suspend fun <TCommand : Command> execute(command: TCommand): Any? {
@@ -16,12 +17,19 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     suspend fun <TCommand : Command, TReturn : Any?> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn>,
-    ): TReturn {
+    ): Result<TReturn> {
 //        ensureNoOtherCommandHandlers(command::class)
 
         val commandBus = getBus(commandStore, listOfNotNull(handler))
-        @Suppress("UNCHECKED_CAST")
-        return commandBus(command) as TReturn
+        return result(commandBus, command)
+    }
+
+    suspend fun <TQuery : Query, TReturn : Any> execute(
+        query: TQuery,
+        handler: QueryHandler<TQuery, TReturn>,
+    ): Result<TReturn> {
+        val queryBus = getBus(queryStore, listOfNotNull(handler))
+        return result(queryBus, query)
     }
 
     suspend fun <TEvent : Event> dispatch(
@@ -33,13 +41,6 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     }
 
 //    fun <TCommand : Command, TReturn : Any?> register(
-//        messageType: KClass<TCommand>,
-//        handler: CommandHandler<TCommand, TReturn>,
-//    ) {
-//        ensureNoOtherCommandHandlers(messageType)
-//
-//        this.commandStore.registerHandlers(messageType, listOfNotNull(handler))
-//    }
 
     fun <TEvent : Event> register(
         eventType: KClass<TEvent>,
@@ -49,8 +50,6 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     }
 
 //    fun <TCommand : Command> deregister(commandType: KClass<TCommand>) {
-//        this.commandStore.removeHandlers(commandType)
-//    }
 
     fun <TEvent : Event> deregister(
         messageType: KClass<TEvent>,
@@ -60,24 +59,14 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     }
 
 //    fun <TCommand : Command> isRegistered(commandType: KClass<TCommand>): Boolean {
-//        return this.commandStore.isRegistered(commandType)
-//    }
 
     fun <TEvent : Event> hasHandlers(eventType: KClass<TEvent>): Int {
         return this.eventStore.getHandlers(eventType).size
     }
 
 //    private fun <TCommand : Command> ensureCommandHandlerExists(commandType: KClass<out TCommand>) {
-//        if (!commandStore.isRegistered(commandType)) {
-//            throw MissingHandlerException(commandType)
-//        }
-//    }
 
 //    private fun <TCommand : Command> ensureNoOtherCommandHandlers(commandType: KClass<out TCommand>) {
-//        if (commandStore.isRegistered(commandType)) {
-//            throw TooManyHandlersException(commandType)
-//        }
-//    }
 
     private suspend fun <TMessage : Message> getBus(
         store: MessageStore<in TMessage>,
@@ -89,5 +78,38 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         val bus = createMiddlewareChain(finalHandler, middlewares)
 
         return bus
+    }
+
+    //    }
+//        }
+//            throw TooManyHandlersException(commandType)
+//        if (commandStore.isRegistered(commandType)) {
+//    }
+//        }
+//            throw MissingHandlerException(commandType)
+//        if (!commandStore.isRegistered(commandType)) {
+//    }
+//        return this.commandStore.isRegistered(commandType)
+//    }
+//        this.commandStore.removeHandlers(commandType)
+//    }
+//        this.commandStore.registerHandlers(messageType, listOfNotNull(handler))
+//
+//        ensureNoOtherCommandHandlers(messageType)
+//    ) {
+//        handler: CommandHandler<TCommand, TReturn>,
+//        messageType: KClass<TCommand>,
+
+    private suspend fun <TMessage : Message, TReturn : Any?> result(
+        messageBus: MiddlewareHandler<TMessage>,
+        message: TMessage
+    ): Result<TReturn> {
+        @Suppress("UNCHECKED_CAST")
+        return try {
+            Result.success(messageBus(message))
+        } catch (failure: ResultFailureException) {
+            val exception = failure.cause ?: failure
+            Result.failure(exception)
+        } as Result<TReturn>
     }
 }

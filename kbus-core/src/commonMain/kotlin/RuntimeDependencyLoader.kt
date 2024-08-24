@@ -36,7 +36,7 @@ class RuntimeLoadedMessageBus(
     suspend fun <TCommand : Command, TReturn : Any?> execute(
         command: TCommand,
         handlerType: KClass<CommandHandler<TCommand, TReturn>>,
-    ): TReturn {
+    ): Result<TReturn> {
         val handler = loader.load(handlerType)
         return this.execute(command, handler)
     }
