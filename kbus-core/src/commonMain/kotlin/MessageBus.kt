@@ -4,6 +4,7 @@ import kotlin.reflect.KClass
 
 open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     private val commandStore: MessageStore<Command> = MessageStore()
+    private val queryStore: MessageStore<Query> = MessageStore()
     private val eventStore: MessageStore<Event> = MessageStore()
 
 //    suspend fun <TCommand : Command> execute(command: TCommand): Any? {
@@ -22,6 +23,15 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         val commandBus = getBus(commandStore, listOfNotNull(handler))
         @Suppress("UNCHECKED_CAST")
         return commandBus(command) as TReturn
+    }
+
+    suspend fun <TQuery : Query, TReturn : Any> execute(
+        query: TQuery,
+        handler: QueryHandler<TQuery, TReturn>,
+    ): Result<TReturn> {
+        val queryBus = getBus(queryStore, listOfNotNull(handler))
+        @Suppress("UNCHECKED_CAST")
+        return queryBus(query) as Result<TReturn>
     }
 
     suspend fun <TEvent : Event> dispatch(

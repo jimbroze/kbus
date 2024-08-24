@@ -3,7 +3,15 @@ package com.jimbroze.kbus.core
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
-class TestMessageBus {
+open class StorageQuery(val index: Int, val listStore: MutableList<String>) : Query()
+
+class StorageQueryHandler : QueryHandler<StorageQuery, String> {
+    override suspend fun handle(message: StorageQuery): Result<String> {
+        return Result.success(message.listStore[message.index])
+    }
+}
+
+class MessageBusTest {
 
     @Test
     fun test_execute_executes_a_command() = runTest {
@@ -16,12 +24,22 @@ class TestMessageBus {
     }
 
     @Test
+    fun test_execute_executes_a_query_and_returns_a_result() = runTest {
+        val bus = MessageBus()
+        val list = mutableListOf("Test the bus")
+
+        val result = bus.execute(StorageQuery(0, list), StorageQueryHandler())
+
+        assertEquals("Test the bus", result.getOrNull())
+    }
+
+    @Test
     fun test_execute_can_return_a_value() = runTest {
         val bus = MessageBus()
 
         val result = bus.execute(ReturnCommand("Test the bus"), ReturnCommandHandler())
 
-        assertEquals(result, "Test the bus")
+        assertEquals("Test the bus", result)
     }
 
 //    @Test
