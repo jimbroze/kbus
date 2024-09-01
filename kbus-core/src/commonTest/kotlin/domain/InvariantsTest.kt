@@ -14,8 +14,8 @@ class InvalidInvariantsCatchingCommand(
     exception: InvalidInvariantException,
 ) : InvalidInvariantsCommand(exception), InvariantCatchingMessage
 
-class InvalidInvariantsCommandHandler : CommandHandler<InvalidInvariantsCommand, Unit> {
-    override suspend fun handle(message: InvalidInvariantsCommand) {
+class InvalidInvariantsCommandHandler : CommandHandler<InvalidInvariantsCommand, Unit, ResultFailure> {
+    override suspend fun handle(message: InvalidInvariantsCommand): BusResult<Unit, ResultFailure> {
         throw message.exception
     }
 }
@@ -40,7 +40,7 @@ class InvariantsTest {
     fun invariant_catcher_converts_invalid_invariant_exception_to_result_failure() = runTest {
         val catcher = InvalidInvariantCatcher()
 
-        assertFailsWith<ResultFailureException>("Failure message"){
+        assertFailsWith<InvalidInvariantException>("Failure message"){
             catcher.handle(
                 InvalidInvariantsCatchingCommand(
                     InvalidInvariantException("Failure message")
@@ -55,7 +55,7 @@ class InvariantsTest {
     fun invariant_catcher_converts_invalid_invariant_exception_subclass_to_result_failure() = runTest {
         val catcher = InvalidInvariantCatcher()
 
-        assertFailsWith<ResultFailureException>("Failure message"){
+        assertFailsWith<InvalidInvariantException>("Failure message"){
             catcher.handle(
                 InvalidInvariantsCatchingCommand(
                     InvalidInvariantExample("Failure message")

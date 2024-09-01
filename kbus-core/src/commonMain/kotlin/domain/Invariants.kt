@@ -25,7 +25,8 @@ class InvalidInvariantCatcher : Middleware {
         return try {
             nextMiddleware(message)
         } catch (e: InvalidInvariantException) {
-            throw ResultFailureException(e)
+//            throw ResultFailure(e.message)
+            throw e //FIXME what should we do with InvalidInvariantExceptions?
         }
     }
 }

@@ -37,6 +37,8 @@ interface LoggingCommand : LoggingMessage {
     override val pastVerb: String get() = "executed"
 }
 
+// TODO add query. Change verb to 'process'?
+
 interface LoggingEvent : LoggingMessage {
     override val finiteVerb: String get() = "dispatch"
     override val presentVerb: String get() = "dispatching"
@@ -56,7 +58,7 @@ class MessageLogger(private val logger: Logger) : Middleware {
             val result = nextMiddleware(message)
             logger.info(message.postHandleLog())
             result
-        } catch (ex: Exception) {
+        } catch (ex: Exception) { // TODO catch runtime & throwable
             logger.error(message.errorLog())
             throw ex
         }

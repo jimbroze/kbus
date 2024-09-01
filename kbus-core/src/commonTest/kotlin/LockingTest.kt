@@ -7,21 +7,21 @@ import kotlin.time.TimeSource
 
 class TimeReturnCommand(val messageData: String, val listStore: MutableList<TimeSource.Monotonic.ValueTimeMark>) : Command()
 
-class TimeReturnCommandHandler : CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark> {
-    override suspend fun handle(message: TimeReturnCommand): TimeSource.Monotonic.ValueTimeMark {
+class TimeReturnCommandHandler : CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark, ResultFailure> {
+    override suspend fun handle(message: TimeReturnCommand): BusResult<TimeSource.Monotonic.ValueTimeMark, ResultFailure> {
         val timeSource = TimeSource.Monotonic
         val time = timeSource.markNow()
 
         message.listStore.add(time)
 
-        return time
+        return success(time)
     }
 }
 
 class LockingPrintReturnCommand(val messageData: String, val listStore: MutableList<TimeSource.Monotonic.ValueTimeMark>) : Command(), LockingCommand
 
-class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandHandler<LockingPrintReturnCommand, Any> {
-    override suspend fun handle(message: LockingPrintReturnCommand): Map<String, Any?> {
+class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandHandler<LockingPrintReturnCommand, Any, ResultFailure> {
+    override suspend fun handle(message: LockingPrintReturnCommand): BusResult<Any, ResultFailure> {
         val timeSource = TimeSource.Monotonic
         val preNestTime = timeSource.markNow()
 
@@ -32,11 +32,11 @@ class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandH
 
         val postNestTime = timeSource.markNow()
 
-        return mapOf(
+        return success(mapOf(
             "pre-nest" to preNestTime,
             "nest" to result,
             "post-nest" to postNestTime
-        )
+        ))
     }
 }
 
@@ -46,18 +46,19 @@ class LockingSleepCommand(
     override val lockTimeout: Float? = null,
 ) : Command(), LockingCommand
 
-class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any> {
-    override suspend fun handle(message: LockingSleepCommand): Any {
+class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, ResultFailure> {
+    override suspend fun handle(message: LockingSleepCommand): BusResult<Any, ResultFailure> {
         delay((1000 * message.waitSecs).toLong())
-        return (message.messageData)
+        return success(message.messageData)
     }
 }
 
 class SleepCommand(val waitSecs: Float) : Command()
 
-class SleepCommandHandler : CommandHandler<SleepCommand, Unit> {
-    override suspend fun handle(message: SleepCommand) {
+class SleepCommandHandler : CommandHandler<SleepCommand, Unit, ResultFailure> {
+    override suspend fun handle(message: SleepCommand): BusResult<Unit, ResultFailure> {
         delay((1000 * message.waitSecs).toLong())
+        return success()
     }
 }
 
@@ -66,31 +67,43 @@ class LockAdjustCommand(
     override val lockTimeout: Float,
 ) : Command(), LockAdjustMessage
 
-class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any> {
-    override suspend fun handle(message: LockAdjustCommand): Any {
-        return message.messageData
+class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, ResultFailure> {
+    override suspend fun handle(message: LockAdjustCommand): BusResult<Any, ResultFailure> {
+        return success(message.messageData)
     }
 }
 
 class LockingTest {
 
     @Test
-    fun message_locker_postpones_nested_command_and_returns_unit_instantly() = runTest {
+    fun message_locker_postpones_nested_command_and_returns_ResultFailure_instantly() = runTest {
         val locker = BusLocker(TestClock(testScheduler))
         val listStore = mutableListOf<TimeSource.Monotonic.ValueTimeMark>()
 
-        @Suppress("UNCHECKED_CAST")
         val result =
             locker.handle(LockingPrintReturnCommand("Nested call", listStore)) {
                 LockingPrintReturnCommandHandler(locker).handle(it)
-            } as Map<String, Any?>
+            }
 
+        assertIs<BusResult<Any?, ResultFailure>>(result)
+        val resultMap = result.getOrNull()
+        assertIs<Map<String, Any?>>(resultMap)
 
-        assertIs<Unit>(result["nest"])
-        val preNest = result["pre-nest"]
-        val postNest = result["post-nest"]
+        val nestValue = resultMap["nest"]
+        val preNest = resultMap["pre-nest"]
+        val postNest = resultMap["post-nest"]
+
+        assertIs<BusResult<Any?, ResultFailure>>(nestValue)
+        val nestException = nestValue.exceptionOrNull()
+        assertIs<BusLockedFailure>(nestException)
+        assertEquals(
+            "Cannot handle message as message bus is locked by the same coroutine",
+            nestException.message
+        )
+
         assertIs<TimeSource.Monotonic.ValueTimeMark>(preNest)
         assertIs<TimeSource.Monotonic.ValueTimeMark>(postNest)
+
         assertTrue(preNest < postNest)
 
         assertEquals(1, listStore.count())

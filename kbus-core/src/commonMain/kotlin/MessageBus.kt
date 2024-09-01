@@ -14,20 +14,30 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 //        return commandBus(command)
 //    }
 
-    suspend fun <TCommand : Command, TReturn : Any?> execute(
+//    suspend fun <TCommand : Command, TReturn : Any?> execute(
+//        command: TCommand,
+//        handler: GenericCommandHandler<TCommand, TReturn>,
+//    ): CustomResult<TReturn, ResultExceptionOptions> {
+////        ensureNoOtherCommandHandlers(command::class)
+//
+//        val commandBus = getBus(commandStore, listOfNotNull(handler))
+//        return result(commandBus, command)
+//    }
+
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : ResultFailure> execute(
         command: TCommand,
-        handler: CommandHandler<TCommand, TReturn>,
-    ): Result<TReturn> {
+        handler: CommandHandler<TCommand, TReturn, TFailure>,
+    ): BusResult<TReturn, TFailure> {
 //        ensureNoOtherCommandHandlers(command::class)
 
         val commandBus = getBus(commandStore, listOfNotNull(handler))
         return result(commandBus, command)
     }
 
-    suspend fun <TQuery : Query, TReturn : Any> execute(
+    suspend fun <TQuery : Query, TReturn : Any, TFailure : ResultFailure> execute(
         query: TQuery,
-        handler: QueryHandler<TQuery, TReturn>,
-    ): Result<TReturn> {
+        handler: QueryHandler<TQuery, TReturn, TFailure>,
+    ): BusResult<TReturn, TFailure> {
         val queryBus = getBus(queryStore, listOfNotNull(handler))
         return result(queryBus, query)
     }
@@ -100,16 +110,11 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 //        handler: CommandHandler<TCommand, TReturn>,
 //        messageType: KClass<TCommand>,
 
-    private suspend fun <TMessage : Message, TReturn : Any?> result(
+    private suspend fun <TMessage : Message, TReturn : Any?, TException : ResultFailure> result(
         messageBus: MiddlewareHandler<TMessage>,
         message: TMessage
-    ): Result<TReturn> {
+    ): BusResult<TReturn, TException> {
         @Suppress("UNCHECKED_CAST")
-        return try {
-            Result.success(messageBus(message))
-        } catch (failure: ResultFailureException) {
-            val exception = failure.cause ?: failure
-            Result.failure(exception)
-        } as Result<TReturn>
+        return messageBus(message) as BusResult<TReturn, TException>
     }
 }

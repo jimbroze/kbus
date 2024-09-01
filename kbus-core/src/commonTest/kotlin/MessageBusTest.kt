@@ -5,35 +5,35 @@ import kotlin.test.*
 
 open class FailureCommand : Command()
 
-class FailureCommandHandler : CommandHandler<FailureCommand, String> {
-    override suspend fun handle(message: FailureCommand): String {
-        throw ResultFailureException("The command failed")
+class FailureCommandHandler : CommandHandler<FailureCommand, String, GenericFailure> {
+    override suspend fun handle(message: FailureCommand): BusResult<String, GenericFailure> {
+        return failure(GenericFailure("The command failed"))
     }
 }
-class IllegalStateFailureCommandHandler : CommandHandler<FailureCommand, String> {
-    override suspend fun handle(message: FailureCommand): String {
-        throw ResultFailureException(IllegalStateException("Illegal state in command handling"))
+class BrokenStateFailure(message: String?) : ResultFailure(message) //FIXME this is identical to generic
+class BrokenStateFailureCommandHandler : CommandHandler<FailureCommand, String, BrokenStateFailure> {
+    override suspend fun handle(message: FailureCommand): BusResult<String, BrokenStateFailure> {
+        return failure(BrokenStateFailure("Illegal state in command handling"))
     }
 }
 
 open class StorageQuery(val index: Int, val listStore: MutableList<String>) : Query()
 
-class StorageQueryHandler : QueryHandler<StorageQuery, String> {
-    override suspend fun handle(message: StorageQuery): String {
-        return message.listStore[message.index]
+class StorageQueryHandler : QueryHandler<StorageQuery, String, GenericFailure> {
+    override suspend fun handle(message: StorageQuery): BusResult<String, GenericFailure> {
+        return success(message.listStore[message.index])
     }
 }
 
 open class FailureQuery : Query()
 
-class FailureQueryHandler : QueryHandler<FailureQuery, String> {
-    override suspend fun handle(message: FailureQuery): String {
-        throw ResultFailureException("The query failed")
+class FailureQueryHandler : QueryHandler<FailureQuery, String, GenericFailure> {
+    override suspend fun handle(message: FailureQuery): BusResult<String, GenericFailure> {
+        return failure("The query failed")
     }
 }
 
 class MessageBusTest {
-
     @Test
     fun test_execute_executes_a_command_successfully() = runTest {
         val bus = MessageBus()
@@ -63,7 +63,7 @@ class MessageBusTest {
 
         assertTrue(result.isFailure)
         val failure = result.exceptionOrNull()
-        assertIs<ResultFailureException>(failure)
+        assertIs<ResultFailure>(failure)
         assertEquals("The command failed", failure.message)
     }
 
@@ -71,11 +71,11 @@ class MessageBusTest {
     fun test_failure_will_return_exception_if_provided() = runTest {
         val bus = MessageBus()
 
-        val result = bus.execute(FailureCommand(), IllegalStateFailureCommandHandler())
+        val result = bus.execute(FailureCommand(), BrokenStateFailureCommandHandler())
 
         assertTrue(result.isFailure)
         val failure = result.exceptionOrNull()
-        assertIs<IllegalStateException>(failure)
+        assertIs<BrokenStateFailure>(failure)
         assertEquals("Illegal state in command handling", failure.message)
     }
 
@@ -98,7 +98,7 @@ class MessageBusTest {
 
         assertTrue(result.isFailure)
         val failure = result.exceptionOrNull()
-        assertIs<ResultFailureException>(failure)
+        assertIs<ResultFailure>(failure)
         assertEquals("The query failed", failure.message)
     }
 

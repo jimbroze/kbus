@@ -7,9 +7,9 @@ import kotlin.test.assertEquals
 
 class UnloadedCommand(val messageData: String) : Command()
 
-class UnloadedCommandHandler(val clock: Clock) : CommandHandler<UnloadedCommand, Any> {
-    override suspend fun handle(message: UnloadedCommand): Any {
-        return message.messageData
+class UnloadedCommandHandler(val clock: Clock) : CommandHandler<UnloadedCommand, Any, ResultFailure> {
+    override suspend fun handle(message: UnloadedCommand): BusResult<Any, ResultFailure> {
+        return success(message.messageData)
     }
 }
 
@@ -37,7 +37,7 @@ class CompileTimeLoadedMessageBus(
     middleware: List<Middleware>,
     private val loader: CompileTimeGeneratedLoader,
 ) : MessageBus(middleware) {
-    suspend fun execute(loadedCommand: UnloadedCommandLoaded): Result<Any> {
+    suspend fun execute(loadedCommand: UnloadedCommandLoaded): BusResult<Any, ResultFailure> {
         val handler: UnloadedCommandHandler = this.loader.getUnloadedCommandHandler()
         return this.execute(loadedCommand.command, handler)
     }

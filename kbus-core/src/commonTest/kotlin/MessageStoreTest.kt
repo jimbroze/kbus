@@ -5,22 +5,24 @@ import kotlin.test.*
 
 class ReturnCommand(val messageData: String) : Command()
 
-class ReturnCommandHandler : CommandHandler<ReturnCommand, Any> {
-    override suspend fun handle(message: ReturnCommand): Any {
-        return message.messageData
+class ReturnCommandHandler : CommandHandler<ReturnCommand, Any, GenericFailure> {
+    override suspend fun handle(message: ReturnCommand): BusResult<Any, GenericFailure> {
+        return success(message.messageData)
     }
 }
 
 open class StorageCommand(val messageData: String, val listStore: MutableList<String>) : Command()
 
-class StorageCommandHandler : CommandHandler<StorageCommand, Unit> {
-    override suspend fun handle(message: StorageCommand) {
+class StorageCommandHandler : CommandHandler<StorageCommand, Unit, GenericFailure> {
+    override suspend fun handle(message: StorageCommand): BusResult<Unit, GenericFailure> {
         message.listStore.add(message.messageData)
+        return success()
     }
 }
 
-class AnyCommandHandler : CommandHandler<Command, Unit> {
-    override suspend fun handle(message: Command) {
+class AnyCommandHandler : CommandHandler<Command, Unit, GenericFailure> {
+    override suspend fun handle(message: Command): BusResult<Unit, GenericFailure> {
+        return success()
     }
 }
 
@@ -52,7 +54,8 @@ class TestMessageStore {
 
         val result = bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
 
-        assertEquals("Testing", result)
+        assertIs<BusResult<Any?, ResultFailure>>(result)
+        assertEquals("Testing", result.getOrNull())
     }
 
     @Test
@@ -62,7 +65,8 @@ class TestMessageStore {
 
         val result = bus.handle(ReturnCommand("Testing"))
 
-        assertEquals("Testing", result)
+        assertIs<BusResult<Any?, ResultFailure>>(result)
+        assertEquals("Testing", result.getOrNull())
     }
 
     @Test
