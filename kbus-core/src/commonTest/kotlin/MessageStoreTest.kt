@@ -54,7 +54,7 @@ class TestMessageStore {
 
         val result = bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
 
-        assertIs<BusResult<Any?, ResultFailure>>(result)
+        assertIs<BusResult<Any?, FailureReason>>(result)
         assertEquals("Testing", result.getOrNull())
     }
 
@@ -65,7 +65,7 @@ class TestMessageStore {
 
         val result = bus.handle(ReturnCommand("Testing"))
 
-        assertIs<BusResult<Any?, ResultFailure>>(result)
+        assertIs<BusResult<Any?, FailureReason>>(result)
         assertEquals("Testing", result.getOrNull())
     }
 

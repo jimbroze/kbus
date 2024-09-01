@@ -24,7 +24,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 //        return result(commandBus, command)
 //    }
 
-    suspend fun <TCommand : Command, TReturn : Any?, TFailure : ResultFailure> execute(
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
@@ -34,7 +34,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         return result(commandBus, command)
     }
 
-    suspend fun <TQuery : Query, TReturn : Any, TFailure : ResultFailure> execute(
+    suspend fun <TQuery : Query, TReturn : Any, TFailure : FailureReason> execute(
         query: TQuery,
         handler: QueryHandler<TQuery, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
@@ -110,11 +110,11 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 //        handler: CommandHandler<TCommand, TReturn>,
 //        messageType: KClass<TCommand>,
 
-    private suspend fun <TMessage : Message, TReturn : Any?, TException : ResultFailure> result(
+    private suspend fun <TMessage : Message, TReturn : Any?, TFailure : FailureReason> result(
         messageBus: MiddlewareHandler<TMessage>,
         message: TMessage
-    ): BusResult<TReturn, TException> {
+    ): BusResult<TReturn, TFailure> {
         @Suppress("UNCHECKED_CAST")
-        return messageBus(message) as BusResult<TReturn, TException>
+        return messageBus(message) as BusResult<TReturn, TFailure>
     }
 }

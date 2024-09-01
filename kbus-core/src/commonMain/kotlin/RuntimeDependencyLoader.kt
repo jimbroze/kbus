@@ -33,7 +33,7 @@ class RuntimeLoadedMessageBus(
         register(messageType, loadedHandlers)
     }
 
-    suspend fun <TCommand : Command, TReturn : Any?, TFailure : ResultFailure> execute(
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handlerType: KClass<CommandHandler<TCommand, TReturn, TFailure>>,
     ): BusResult<TReturn, TFailure> {

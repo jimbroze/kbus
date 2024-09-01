@@ -32,8 +32,8 @@ class TimeCaptureLogger : Logger {
 
 class LoggingLogCommand(val messageToLog: String, val logger: Logger) : Command(), LoggingCommand
 
-class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, ResultFailure> {
-    override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, ResultFailure> {
+class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, FailureReason> {
+    override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, FailureReason> {
         message.logger.info(message.messageToLog)
         return success()
     }
@@ -43,8 +43,8 @@ class LoggingStorageEvent(message: String, listStore: MutableList<String>) : Sto
 
 class LoggingExceptionCommand : Command(), LoggingCommand
 
-class ExceptionCommandHandler : CommandHandler<Command, Unit, ResultFailure> {
-    override suspend fun handle(message: Command): BusResult<Unit, ResultFailure> {
+class ExceptionCommandHandler : CommandHandler<Command, Unit, FailureReason> {
+    override suspend fun handle(message: Command): BusResult<Unit, FailureReason> {
         throw Exception("Exception raised")
     }
 }

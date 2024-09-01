@@ -7,7 +7,7 @@ abstract class Query : Message() {
 interface QueryHandler<
     TQuery : Query,
     TReturn : Any?,
-    TFailure : ResultFailure,
+    TFailure : FailureReason,
 > : MessageHandler<TQuery>, ResultReturningHandler<TQuery, TReturn, TFailure> {
     override suspend fun handle(message: TQuery): BusResult<TReturn, TFailure>
 }

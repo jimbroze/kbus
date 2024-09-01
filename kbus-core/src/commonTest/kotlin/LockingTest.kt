@@ -7,8 +7,8 @@ import kotlin.time.TimeSource
 
 class TimeReturnCommand(val messageData: String, val listStore: MutableList<TimeSource.Monotonic.ValueTimeMark>) : Command()
 
-class TimeReturnCommandHandler : CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark, ResultFailure> {
-    override suspend fun handle(message: TimeReturnCommand): BusResult<TimeSource.Monotonic.ValueTimeMark, ResultFailure> {
+class TimeReturnCommandHandler : CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark, FailureReason> {
+    override suspend fun handle(message: TimeReturnCommand): BusResult<TimeSource.Monotonic.ValueTimeMark, FailureReason> {
         val timeSource = TimeSource.Monotonic
         val time = timeSource.markNow()
 
@@ -20,8 +20,8 @@ class TimeReturnCommandHandler : CommandHandler<TimeReturnCommand, TimeSource.Mo
 
 class LockingPrintReturnCommand(val messageData: String, val listStore: MutableList<TimeSource.Monotonic.ValueTimeMark>) : Command(), LockingCommand
 
-class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandHandler<LockingPrintReturnCommand, Any, ResultFailure> {
-    override suspend fun handle(message: LockingPrintReturnCommand): BusResult<Any, ResultFailure> {
+class LockingPrintReturnCommandHandler(private val locker: BusLocker) : CommandHandler<LockingPrintReturnCommand, Any, FailureReason> {
+    override suspend fun handle(message: LockingPrintReturnCommand): BusResult<Any, FailureReason> {
         val timeSource = TimeSource.Monotonic
         val preNestTime = timeSource.markNow()
 
@@ -46,8 +46,8 @@ class LockingSleepCommand(
     override val lockTimeout: Float? = null,
 ) : Command(), LockingCommand
 
-class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, ResultFailure> {
-    override suspend fun handle(message: LockingSleepCommand): BusResult<Any, ResultFailure> {
+class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, FailureReason> {
+    override suspend fun handle(message: LockingSleepCommand): BusResult<Any, FailureReason> {
         delay((1000 * message.waitSecs).toLong())
         return success(message.messageData)
     }
@@ -55,8 +55,8 @@ class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, Resu
 
 class SleepCommand(val waitSecs: Float) : Command()
 
-class SleepCommandHandler : CommandHandler<SleepCommand, Unit, ResultFailure> {
-    override suspend fun handle(message: SleepCommand): BusResult<Unit, ResultFailure> {
+class SleepCommandHandler : CommandHandler<SleepCommand, Unit, FailureReason> {
+    override suspend fun handle(message: SleepCommand): BusResult<Unit, FailureReason> {
         delay((1000 * message.waitSecs).toLong())
         return success()
     }
@@ -67,8 +67,8 @@ class LockAdjustCommand(
     override val lockTimeout: Float,
 ) : Command(), LockAdjustMessage
 
-class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, ResultFailure> {
-    override suspend fun handle(message: LockAdjustCommand): BusResult<Any, ResultFailure> {
+class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, FailureReason> {
+    override suspend fun handle(message: LockAdjustCommand): BusResult<Any, FailureReason> {
         return success(message.messageData)
     }
 }
@@ -85,7 +85,7 @@ class LockingTest {
                 LockingPrintReturnCommandHandler(locker).handle(it)
             }
 
-        assertIs<BusResult<Any?, ResultFailure>>(result)
+        assertIs<BusResult<Any?, FailureReason>>(result)
         val resultMap = result.getOrNull()
         assertIs<Map<String, Any?>>(resultMap)
 
@@ -93,8 +93,8 @@ class LockingTest {
         val preNest = resultMap["pre-nest"]
         val postNest = resultMap["post-nest"]
 
-        assertIs<BusResult<Any?, ResultFailure>>(nestValue)
-        val nestException = nestValue.exceptionOrNull()
+        assertIs<BusResult<Any?, FailureReason>>(nestValue)
+        val nestException = nestValue.exceptions().first()
         assertIs<BusLockedFailure>(nestException)
         assertEquals(
             "Cannot handle message as message bus is locked by the same coroutine",

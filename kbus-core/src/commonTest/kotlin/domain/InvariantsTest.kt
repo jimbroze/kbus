@@ -14,8 +14,8 @@ class InvalidInvariantsCatchingCommand(
     exception: InvalidInvariantException,
 ) : InvalidInvariantsCommand(exception), InvariantCatchingMessage
 
-class InvalidInvariantsCommandHandler : CommandHandler<InvalidInvariantsCommand, Unit, ResultFailure> {
-    override suspend fun handle(message: InvalidInvariantsCommand): BusResult<Unit, ResultFailure> {
+class InvalidInvariantsCommandHandler : CommandHandler<InvalidInvariantsCommand, Unit, FailureReason> {
+    override suspend fun handle(message: InvalidInvariantsCommand): BusResult<Unit, FailureReason> {
         throw message.exception
     }
 }

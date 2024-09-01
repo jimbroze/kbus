@@ -9,7 +9,7 @@ abstract class Command : Message() {
 interface CommandHandler<
     TCommand : Command,
     TReturn : Any?,
-    TFailure : ResultFailure,
+    TFailure : FailureReason,
 > : MessageHandler<TCommand>, ResultReturningHandler<TCommand, TReturn, TFailure> {
     override suspend fun handle(message: TCommand): BusResult<TReturn, TFailure>
 }
