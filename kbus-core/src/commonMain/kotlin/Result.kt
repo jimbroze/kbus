@@ -5,8 +5,8 @@ sealed class BusResult<out TValue, out TFailure : FailureReason> {
         override fun toString(): String = "Success($value)"
     }
 
-    internal class Failure<TValue, TFailure : FailureReason>(internal val failureReasons: List<TFailure>) : BusResult<TValue, TFailure>() {
-        override fun toString(): String = "Failure(${failureReasons.joinToString(", ")})"
+    internal class Failure<TValue, TFailure : FailureReason>(internal val failureReason: TFailure) : BusResult<TValue, TFailure>() {
+        override fun toString(): String = "Failure(${failureReason})"
     }
 
     val isSuccess: Boolean get() = this is Success
@@ -18,22 +18,28 @@ sealed class BusResult<out TValue, out TFailure : FailureReason> {
             else -> null
         }
 
-    fun exceptions(): List<TFailure> =
+    fun failureReasonOrNull(): TFailure? =
         when (this) {
-            is Failure -> failureReasons
-            else -> emptyList()
+            is Failure -> failureReason
+            else -> null
         }
 
     companion object {
         fun <TValue, TFailure : FailureReason> success(value: TValue): BusResult<TValue, TFailure>
             = Success(value)
-        fun <TValue, TFailure : FailureReason> failure(exceptions: List<TFailure>): BusResult<TValue, TFailure> =
-            Failure(exceptions)
+        fun <TValue, TFailure : FailureReason> failure(failureReason: TFailure): BusResult<TValue, TFailure> =
+            Failure(failureReason)
     }
 }
 
-abstract class FailureReason(val message: String? = null) {
+abstract class FailureReason(open val message: String? = null) {
     override fun toString(): String = message ?: ""
+}
+
+class MultipleFailureReasons(
+    val reasons: List<FailureReason>, message: String? = "There were multiple failures"
+) : FailureReason(message) {
+    override fun toString(): String = message ?: reasons.joinToString(", ")
 }
 
 class GenericFailure(message: String?) : FailureReason(message)
@@ -47,16 +53,10 @@ interface ResultReturningHandler<
 
     fun success(returnValue: TReturn): BusResult<TReturn, TFailure> = BusResult.success(returnValue)
     fun success(): BusResult<Unit, TFailure> = BusResult.success(Unit)
-    fun failure(exceptions: List<TFailure>): BusResult<TReturn, TFailure> = BusResult.failure(exceptions)
-    fun failure(exception: TFailure): BusResult<TReturn, TFailure> = BusResult.failure(listOf(exception))
-    fun failure(message: String): BusResult<TReturn, GenericFailure> = BusResult.failure(listOf(GenericFailure(message)))
-}
-
-// Example of a specific service result
-
-sealed class UserServiceException(message: String?) : FailureReason(message) {
-    class UserNotFound(message: String?) : UserServiceException(message)
-    class InvalidCredentials(message: String?) : UserServiceException(message)
-    class DatabaseError(message: String?) : UserServiceException(message)
-    // Add more specific exceptions as needed
+    fun failure(exceptions: List<TFailure>, message: String?): BusResult<TReturn, MultipleFailureReasons> =
+        BusResult.failure(MultipleFailureReasons(exceptions, message))
+    fun failure(exceptions: List<TFailure>): BusResult<TReturn, MultipleFailureReasons> =
+        BusResult.failure(MultipleFailureReasons(exceptions))
+    fun failure(exception: TFailure): BusResult<TReturn, TFailure> = BusResult.failure(exception)
+    fun failure(message: String): BusResult<TReturn, GenericFailure> = BusResult.failure(GenericFailure(message))
 }

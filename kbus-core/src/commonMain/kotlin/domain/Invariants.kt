@@ -2,7 +2,16 @@ package com.jimbroze.kbus.core.domain
 
 import com.jimbroze.kbus.core.*
 
-open class InvalidInvariantException(override val message: String) : RuntimeException(message)
+open class InvalidInvariantException(override val message: String) : Throwable(message)
+
+class MultipleInvalidInvariantsException(
+    message: String? = null,
+    val errors: List<InvalidInvariantException> = emptyList()
+) : InvalidInvariantException(message ?: errors.joinToString(", "))
+
+open class InvalidInvariantFailure(override val message: String) : FailureReason(message) {
+    constructor(cause: InvalidInvariantException) : this(cause.message)
+}
 
 abstract class HasInvariants {
     protected fun assert(invariant: Boolean, message: String) {
@@ -13,20 +22,26 @@ abstract class HasInvariants {
     }
 }
 
-interface InvariantCatchingMessage
+interface InvariantCatchingMessage {
+    fun handleException(exception: InvalidInvariantException): FailureReason
+}
 
 class InvalidInvariantCatcher : Middleware {
     override suspend fun <TMessage : Message> handle(
         message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage>
+        nextMiddleware: MiddlewareHandler<TMessage>,
     ): Any? {
         if (message !is InvariantCatchingMessage) return nextMiddleware(message)
 
         return try {
             nextMiddleware(message)
         } catch (e: InvalidInvariantException) {
-//            throw ResultFailure(e.message)
-            throw e //FIXME what should we do with InvalidInvariantExceptions?
+            if (e is MultipleInvalidInvariantsException) {
+                val failures = e.errors.map { message.handleException(it) }
+                return BusResult.failure<Any?, MultipleFailureReasons>(MultipleFailureReasons(failures))
+            }
+
+            return BusResult.failure<Any?, FailureReason>(message.handleException(e))
         }
     }
 }

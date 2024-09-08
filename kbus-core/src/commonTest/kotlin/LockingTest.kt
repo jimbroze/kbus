@@ -94,7 +94,7 @@ class LockingTest {
         val postNest = resultMap["post-nest"]
 
         assertIs<BusResult<Any?, FailureReason>>(nestValue)
-        val nestException = nestValue.exceptions().first()
+        val nestException = nestValue.failureReasonOrNull()
         assertIs<BusLockedFailure>(nestException)
         assertEquals(
             "Cannot handle message as message bus is locked by the same coroutine",

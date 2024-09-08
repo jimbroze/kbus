@@ -114,6 +114,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         messageBus: MiddlewareHandler<TMessage>,
         message: TMessage
     ): BusResult<TReturn, TFailure> {
+        // TODO remove unchecked cast by adding Type params to middleware?
         @Suppress("UNCHECKED_CAST")
         return messageBus(message) as BusResult<TReturn, TFailure>
     }

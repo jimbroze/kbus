@@ -53,9 +53,10 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
             if (inLockingCoroutine(coroutineId)) {
                 postponeHandling(message, nextMiddleware)
                 return BusResult.failure<Unit, BusLockedFailure>(
-                    listOf(BusLockedFailure(
-                    "Cannot handle message as message bus is locked by the same coroutine"
-                )))
+                    BusLockedFailure(
+                        "Cannot handle message as message bus is locked by the same coroutine"
+                    )
+                )
             }
         }
 

@@ -73,7 +73,7 @@ class MessageBusTest {
         val result = bus.execute(FailureCommand(), GenericFailureCommandHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.exceptions().first()
+        val failure = result.failureReasonOrNull()
         assertIs<FailureReason>(failure)
         assertEquals("The command failed", failure.message)
         assertEquals("Failure(The command failed)", result.toString())
@@ -86,7 +86,7 @@ class MessageBusTest {
         val result = bus.execute(FailureCommand(), BrokenStateFailureCommandHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.exceptions().first()
+        val failure = result.failureReasonOrNull()
         assertIs<BrokenStateFailure>(failure)
         assertEquals("Illegal state in command handling", failure.message)
         assertEquals("Failure(Illegal state in command handling)", result.toString())
@@ -99,12 +99,15 @@ class MessageBusTest {
         val result = bus.execute(FailureCommand(), MultipleFailureCommandHandler())
 
         assertTrue(result.isFailure)
-        val failures = result.exceptions()
-        assertEquals(2, failures.size)
-        assertIs<GenericFailure>(failures[0])
-        assertEquals("The command failed", failures[0].message)
-        assertIs<BrokenStateFailure>(failures[1])
-        assertEquals("Illegal state in command handling", failures[1].message)
+
+        assertIs<BusResult<Any?, MultipleFailureReasons>>(result)
+        val failureReasons = result.failureReasonOrNull()!!.reasons
+
+        assertEquals(2, failureReasons.size)
+        assertIs<GenericFailure>(failureReasons[0])
+        assertEquals("The command failed", failureReasons[0].message)
+        assertIs<BrokenStateFailure>(failureReasons[1])
+        assertEquals("Illegal state in command handling", failureReasons[1].message)
         assertEquals("Failure(The command failed, Illegal state in command handling)", result.toString())
     }
 
@@ -126,7 +129,7 @@ class MessageBusTest {
         val result = bus.execute(FailureQuery(), FailureQueryHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.exceptions().first()
+        val failure = result.failureReasonOrNull()
         assertIs<FailureReason>(failure)
         assertEquals("The query failed", failure.message)
     }
