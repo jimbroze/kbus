@@ -37,7 +37,11 @@ interface LoggingCommand : LoggingMessage {
     override val pastVerb: String get() = "executed"
 }
 
-// TODO add query. Change verb to 'process'?
+interface LoggingQuery : LoggingMessage {
+    override val finiteVerb: String get() = "process"
+    override val presentVerb: String get() = "processing"
+    override val pastVerb: String get() = "processed"
+}
 
 interface LoggingEvent : LoggingMessage {
     override val finiteVerb: String get() = "dispatch"

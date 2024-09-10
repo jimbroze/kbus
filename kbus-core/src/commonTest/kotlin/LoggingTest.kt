@@ -39,6 +39,15 @@ class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, Failure
     }
 }
 
+class LoggingLogQuery(val messageToLog: String, val logger: Logger) : Query(), LoggingQuery
+
+class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, FailureReason> {
+    override suspend fun handle(message: LoggingLogQuery): BusResult<Unit, FailureReason> {
+        message.logger.info(message.messageToLog)
+        return success()
+    }
+}
+
 class LoggingStorageEvent(message: String, listStore: MutableList<String>) : StorageEvent(message, listStore), LoggingEvent
 
 class LoggingExceptionCommand : Command(), LoggingCommand
@@ -93,6 +102,19 @@ class LoggingTest {
 
         assertContains(allLogs, "Executing command")
         assertContains(allLogs, "executed command")
+    }
+
+    @Test
+    fun test_queries_log_with_correct_verbs() = runTest {
+        val captureLogger = CaptureLogger()
+        val logger = MessageLogger(captureLogger)
+
+        logger.handle(LoggingLogQuery("Testing", captureLogger)) { LoggingLogQueryHandler().handle(it) }
+
+        val allLogs = captureLogger.logs.joinToString(" | ")
+
+        assertContains(allLogs, "Processing query")
+        assertContains(allLogs, "processed query")
     }
 
     @Test
