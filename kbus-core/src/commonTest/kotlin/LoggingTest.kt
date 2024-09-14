@@ -1,31 +1,32 @@
 package com.jimbroze.kbus.core
 
 import kotlinx.coroutines.test.runTest
-import kotlin.test.Test
-import kotlin.test.assertContains
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import kotlin.test.*
 import kotlin.time.TimeSource
 
+internal enum class LogLevels(override val level: String) : LogLevel {
+    DEBUG("DEBUG"),
+    INFO("INFO"),
+    ERROR("ERROR"),
+}
 
 class CaptureLogger : Logger {
     val logs = mutableListOf<String>()
-    override fun info(message: String) {
-        logs.add("info: $message")
-    }
+    val exceptions = mutableListOf<Throwable>()
 
-    override fun error(message: String) {
-        logs.add("error: $message")
+    override fun log(level: LogLevel, message: String, exception: Throwable?) {
+        logs.add(level.level + ": " + message)
+        if (exception != null) {
+            exceptions.add(exception)
+        }
     }
 }
+
 class TimeCaptureLogger : Logger {
     private val timeSource = TimeSource.Monotonic
     val logs = mutableListOf<TimeSource.Monotonic.ValueTimeMark>()
-    override fun info(message: String) {
-        logs.add(timeSource.markNow())
-    }
 
-    override fun error(message: String) {
+    override fun log(level: LogLevel, message: String, exception: Throwable?) {
         logs.add(timeSource.markNow())
     }
 }
@@ -34,7 +35,7 @@ class LoggingLogCommand(val messageToLog: String, val logger: Logger) : Command(
 
 class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, FailureReason> {
     override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, FailureReason> {
-        message.logger.info(message.messageToLog)
+        message.logger.log(LogLevels.INFO, message.messageToLog, null)
         return success()
     }
 }
@@ -43,7 +44,7 @@ class LoggingLogQuery(val messageToLog: String, val logger: Logger) : Query(), L
 
 class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, FailureReason> {
     override suspend fun handle(message: LoggingLogQuery): BusResult<Unit, FailureReason> {
-        message.logger.info(message.messageToLog)
+        message.logger.log(LogLevels.INFO, message.messageToLog, null)
         return success()
     }
 }
@@ -71,7 +72,7 @@ class LoggingTest {
     @Test
     fun message_logger_does_not_log_messages_that_do_not_implement_logging_interface() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(StorageCommand("Testing", mutableListOf())) { StorageCommandHandler().handle(it) }
 
@@ -79,22 +80,22 @@ class LoggingTest {
     }
 
     @Test
-    fun message_logger_logs_before_and_after_message_using_info() = runTest {
+    fun message_logger_logs_before_and_after_message_using_provided_level() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingLogCommand("Testing", captureLogger)) { LoggingLogCommandHandler().handle(it) }
 
         assertEquals(3, captureLogger.logs.size)
-        assertContains(captureLogger.logs[0], "info: ")
-        assertEquals("info: Testing", captureLogger.logs[1])
-        assertContains(captureLogger.logs[2], "info: Successfully")
+        assertContains(captureLogger.logs[0], "DEBUG: ")
+        assertEquals("INFO: Testing", captureLogger.logs[1])
+        assertContains(captureLogger.logs[2], "INFO: Successfully")
     }
 
     @Test
     fun test_commands_log_with_correct_verbs() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingLogCommand("Testing", captureLogger)) { LoggingLogCommandHandler().handle(it) }
 
@@ -107,7 +108,7 @@ class LoggingTest {
     @Test
     fun test_queries_log_with_correct_verbs() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingLogQuery("Testing", captureLogger)) { LoggingLogQueryHandler().handle(it) }
 
@@ -120,7 +121,7 @@ class LoggingTest {
     @Test
     fun test_commands_log_exception_and_rethrow() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
             logger.handle(LoggingExceptionCommand()) { ExceptionCommandHandler().handle(it) }
@@ -128,13 +129,16 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "error: Failed executing")
+        assertContains(allLogs, "ERROR: Failed executing")
+        assertTrue(captureLogger.exceptions.any {
+            it is Exception && it.message == "Exception raised"
+        })
     }
 
     @Test
     fun test_events_log_with_correct_verbs() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingStorageEvent("Testing", mutableListOf())) { PrintEventHandler().handle(it) }
 
@@ -147,7 +151,7 @@ class LoggingTest {
     @Test
     fun test_events_log_exception_and_rethrow() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger)
+        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
             logger.handle(LoggingExceptionEvent()) { ExceptionEventHandler().handle(it) }
@@ -155,6 +159,6 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "error: Failed dispatching")
+        assertContains(allLogs, "ERROR: Failed dispatching")
     }
 }

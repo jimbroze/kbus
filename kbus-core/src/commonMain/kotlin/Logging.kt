@@ -1,9 +1,11 @@
 package com.jimbroze.kbus.core
 
-interface Logger {
-    fun info(message: String)
+interface LogLevel {
+    val level: String
+}
 
-    fun error(message: String)
+interface Logger {
+    fun log(level: LogLevel, message: String, exception: Throwable?)
 }
 
 interface LoggingMessage {
@@ -49,21 +51,26 @@ interface LoggingEvent : LoggingMessage {
     override val pastVerb: String get() = "dispatched"
 }
 
-class MessageLogger(private val logger: Logger) : Middleware {
+class MessageLogger(
+    private val logger: Logger,
+    private val preDispatchLevel: LogLevel,
+    private val postDispatchLevel: LogLevel,
+    private val errorLevel: LogLevel,
+) : Middleware {
     override suspend fun <TMessage : Message> handle(
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage>,
     ): Any? {
         if (message !is LoggingMessage) return nextMiddleware(message)
 
-        logger.info(message.preHandleLog())
+        logger.log(preDispatchLevel, message.preHandleLog(), null)
 
         return try {
             val result = nextMiddleware(message)
-            logger.info(message.postHandleLog())
+            logger.log(postDispatchLevel, message.postHandleLog(), null)
             result
-        } catch (ex: Exception) { // TODO catch runtime & throwable
-            logger.error(message.errorLog())
+        } catch (ex: Throwable) {
+            logger.log(errorLevel, message.errorLog(), ex)
             throw ex
         }
     }

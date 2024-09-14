@@ -11,7 +11,7 @@ class MiddlewareTest {
     @Test
     fun test_MessageLogger_logs_and_executes_command() = runTest {
         val captureLogger = CaptureLogger()
-        val bus = MessageBus(listOf(MessageLogger(captureLogger)))
+        val bus = MessageBus(listOf(MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)))
 
         bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())
 
@@ -25,8 +25,8 @@ class MiddlewareTest {
         val bus =
             MessageBus(
                 listOf(
-                    MessageLogger(logger1),
-                    MessageLogger(logger2),
+                    MessageLogger(logger1, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
+                    MessageLogger(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
                 ),
             )
 

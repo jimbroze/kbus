@@ -108,7 +108,7 @@ class MessageBusTest {
         assertEquals("The command failed", failureReasons[0].message)
         assertIs<BrokenStateFailure>(failureReasons[1])
         assertEquals("Illegal state in command handling", failureReasons[1].message)
-        assertEquals("Failure(The command failed, Illegal state in command handling)", result.toString())
+        assertEquals("Failure(There were multiple failures)", result.toString())
     }
 
     @Test
