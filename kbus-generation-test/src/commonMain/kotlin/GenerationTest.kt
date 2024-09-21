@@ -28,3 +28,15 @@ class TestDuplicateGeneratorCommandHandler(
         return success(message.messageData + clock.now().toString())
     }
 }
+
+class TestGeneratorQuery(val messageData: String) : Query()
+
+@Load
+class TestGeneratorQueryHandler(
+    private val locker: BusLocker,
+    private val clock: Clock
+) : QueryHandler<TestGeneratorQuery, Any, FailureReason> {
+    override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, FailureReason> {
+        return success(message.messageData + clock.now().toString())
+    }
+}
