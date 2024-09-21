@@ -1,23 +1,22 @@
 package com.jimbroze.kbus.core
 
+import kotlin.concurrent.Volatile
+import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.time.ExperimentalTime
+import kotlin.time.TimeSource
+import kotlinx.coroutines.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
-import kotlinx.coroutines.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.plus
-import kotlin.concurrent.Volatile
-import kotlin.test.Test
-import kotlin.test.assertTrue
-import kotlin.test.assertFalse
-import kotlin.time.ExperimentalTime
-import kotlin.time.TimeSource
 
 class YieldTest {
-    @Volatile
-    var locked: Boolean = false
+    @Volatile var locked: Boolean = false
 
     @Test
     fun testWhileYield() = runTest {
@@ -36,7 +35,7 @@ class YieldTest {
             }
         }
         val job3 = launch {
-            while(x < 100 && y < 100) {
+            while (x < 100 && y < 100) {
                 yield()
             }
             job1.cancelAndJoin()
@@ -52,14 +51,14 @@ class YieldTest {
     @Test
     fun test_delay_yields_coroutine() = runTest {
         val clock = Clock.System
-//        val clock = TestClock(testScheduler)
+        //        val clock = TestClock(testScheduler)
         val timeSource = TimeSource.Monotonic
-//        val timeSource = clock.asTimeSource()
-//        val timeSource = TestClock(testScheduler).asTimeSource()
+        //        val timeSource = clock.asTimeSource()
+        //        val timeSource = TestClock(testScheduler).asTimeSource()
 
         locked = true
         val job1 = async {
-//            locked = true
+            //            locked = true
             delay((500).toLong())
             locked = false
 
@@ -67,7 +66,6 @@ class YieldTest {
         }
 
         val job2 = async {
-
             val timeout = clock.now().plus(5, DateTimeUnit.SECOND)
             while (locked && clock.now() <= timeout) {
                 delay(1)
@@ -86,32 +84,32 @@ class YieldTest {
         assertTrue(afterSleep < afterUnlock)
     }
 
-//    @Test
-//    fun test_yield_yields_coroutine() = runTest {
-//        val clock = Clock.System
-//        val timeSource = TimeSource.Monotonic
-//
-//        val job1 = async {
-//            locked = true
-//            delay((500).toLong())
-//            locked = false
-//
-//            timeSource.markNow()
-//        }
-//
-//        val job2 = async {
-//
-//            val timeout = clock.now().plus(5, DateTimeUnit.SECOND)
-//            while (locked && clock.now() <= timeout) {
-//                yield()
-//            }
-//
-//            timeSource.markNow()
-//        }
-//
-//        val afterSleep = job1.await()
-//        val afterUnlock = job2.await()
-//
-//        assertTrue(afterSleep < afterUnlock)
-//    }
+    //    @Test
+    //    fun test_yield_yields_coroutine() = runTest {
+    //        val clock = Clock.System
+    //        val timeSource = TimeSource.Monotonic
+    //
+    //        val job1 = async {
+    //            locked = true
+    //            delay((500).toLong())
+    //            locked = false
+    //
+    //            timeSource.markNow()
+    //        }
+    //
+    //        val job2 = async {
+    //
+    //            val timeout = clock.now().plus(5, DateTimeUnit.SECOND)
+    //            while (locked && clock.now() <= timeout) {
+    //                yield()
+    //            }
+    //
+    //            timeSource.markNow()
+    //        }
+    //
+    //        val afterSleep = job1.await()
+    //        val afterUnlock = job2.await()
+    //
+    //        assertTrue(afterSleep < afterUnlock)
+    //    }
 }

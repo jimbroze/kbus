@@ -10,9 +10,14 @@ interface Logger {
 
 interface LoggingMessage {
     val messageType: String
-    val finiteVerb: String get() = "handle"
-    val presentVerb: String get() = "handling"
-    val pastVerb: String get() = "handled"
+    val finiteVerb: String
+        get() = "handle"
+
+    val presentVerb: String
+        get() = "handling"
+
+    val pastVerb: String
+        get() = "handled"
 
     fun preHandleLog(): String {
         val handling = presentVerb.replaceFirstChar(Char::titlecase)
@@ -34,21 +39,36 @@ interface LoggingMessage {
 }
 
 interface LoggingCommand : LoggingMessage {
-    override val finiteVerb: String get() = "execute"
-    override val presentVerb: String get() = "executing"
-    override val pastVerb: String get() = "executed"
+    override val finiteVerb: String
+        get() = "execute"
+
+    override val presentVerb: String
+        get() = "executing"
+
+    override val pastVerb: String
+        get() = "executed"
 }
 
 interface LoggingQuery : LoggingMessage {
-    override val finiteVerb: String get() = "process"
-    override val presentVerb: String get() = "processing"
-    override val pastVerb: String get() = "processed"
+    override val finiteVerb: String
+        get() = "process"
+
+    override val presentVerb: String
+        get() = "processing"
+
+    override val pastVerb: String
+        get() = "processed"
 }
 
 interface LoggingEvent : LoggingMessage {
-    override val finiteVerb: String get() = "dispatch"
-    override val presentVerb: String get() = "dispatching"
-    override val pastVerb: String get() = "dispatched"
+    override val finiteVerb: String
+        get() = "dispatch"
+
+    override val presentVerb: String
+        get() = "dispatching"
+
+    override val pastVerb: String
+        get() = "dispatched"
 }
 
 class MessageLogger(

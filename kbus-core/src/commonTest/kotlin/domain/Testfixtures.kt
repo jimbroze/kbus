@@ -11,6 +11,7 @@ class TestIdentifier(val intId: Int) : Identifier {
 }
 
 class TestEntity(override val id: TestIdentifier) : Entity<TestEntity>()
+
 class TestEntityWithMaxIdOfFive(override val id: TestIdentifier) : Entity<TestEntity>() {
     init {
         assert(id.intId <= 5, "ID must be no greater than 5")

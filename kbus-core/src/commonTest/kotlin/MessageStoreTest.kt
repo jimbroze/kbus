@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core
 
-import kotlinx.coroutines.test.runTest
 import kotlin.test.*
+import kotlinx.coroutines.test.runTest
 
 class ReturnCommand(val messageData: String) : Command()
 
@@ -114,7 +114,10 @@ class TestMessageStore {
     @Test
     fun test_removeHandlers_removes_all_handlers_for_a_message_by_default() {
         val bus = MessageStore<Event>()
-        bus.registerHandlers(StorageEvent::class, listOf(PrintEventHandler(), OtherPrintEventHandler()))
+        bus.registerHandlers(
+            StorageEvent::class,
+            listOf(PrintEventHandler(), OtherPrintEventHandler()),
+        )
 
         bus.removeHandlers(StorageEvent::class)
 
@@ -125,8 +128,6 @@ class TestMessageStore {
     fun test_removeHandlers_throws_exception_if_message_is_not_registered() {
         val bus = MessageStore<Command>()
 
-        assertFailsWith<MissingHandlerException> {
-            bus.removeHandlers(ReturnCommand::class)
-        }
+        assertFailsWith<MissingHandlerException> { bus.removeHandlers(ReturnCommand::class) }
     }
 }

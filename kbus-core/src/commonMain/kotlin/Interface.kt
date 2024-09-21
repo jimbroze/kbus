@@ -13,9 +13,9 @@ interface MessageHandler<TMessage : Message> {
 }
 
 class MissingHandlerException(
-    message: String = "The requested message handler could not be found",
+    message: String = "The requested message handler could not be found"
 ) : Exception(message) {
-    constructor(messageCls: KClass<out Message>) : this(
-        "A handler could not be found for the message '$messageCls'",
-    )
+    constructor(
+        messageCls: KClass<out Message>
+    ) : this("A handler could not be found for the message '$messageCls'")
 }

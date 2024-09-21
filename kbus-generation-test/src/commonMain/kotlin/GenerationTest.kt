@@ -4,14 +4,11 @@ import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.*
 import kotlinx.datetime.Clock
 
-
 class TestGeneratorCommand(val messageData: String) : Command()
 
 @Load
-class TestGeneratorCommandHandler(
-    private val locker: BusLocker,
-    private val clock: Clock
-) : CommandHandler<TestGeneratorCommand, Any, FailureReason> {
+class TestGeneratorCommandHandler(private val locker: BusLocker, private val clock: Clock) :
+    CommandHandler<TestGeneratorCommand, Any, FailureReason> {
     override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, FailureReason> {
         return success(message.messageData + clock.now().toString())
     }
@@ -20,11 +17,11 @@ class TestGeneratorCommandHandler(
 class TestDuplicateGeneratorCommand(val messageData: String) : Command()
 
 @Load
-class TestDuplicateGeneratorCommandHandler(
-    private val clock: Clock,
-    private val bus: MessageBus,
-) : CommandHandler<TestDuplicateGeneratorCommand, Any, FailureReason> {
-    override suspend fun handle(message: TestDuplicateGeneratorCommand): BusResult<Any, FailureReason> {
+class TestDuplicateGeneratorCommandHandler(private val clock: Clock, private val bus: MessageBus) :
+    CommandHandler<TestDuplicateGeneratorCommand, Any, FailureReason> {
+    override suspend fun handle(
+        message: TestDuplicateGeneratorCommand
+    ): BusResult<Any, FailureReason> {
         return success(message.messageData + clock.now().toString())
     }
 }
@@ -32,10 +29,8 @@ class TestDuplicateGeneratorCommandHandler(
 class TestGeneratorQuery(val messageData: String) : Query()
 
 @Load
-class TestGeneratorQueryHandler(
-    private val locker: BusLocker,
-    private val clock: Clock
-) : QueryHandler<TestGeneratorQuery, Any, FailureReason> {
+class TestGeneratorQueryHandler(private val locker: BusLocker, private val clock: Clock) :
+    QueryHandler<TestGeneratorQuery, Any, FailureReason> {
     override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, FailureReason> {
         return success(message.messageData + clock.now().toString())
     }

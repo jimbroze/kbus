@@ -1,13 +1,14 @@
 package com.jimbroze.kbus.core
 
-import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Clock
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.Clock
 
 class UnloadedCommand(val messageData: String) : Command()
 
-class UnloadedCommandHandler(val clock: Clock) : CommandHandler<UnloadedCommand, Any, FailureReason> {
+class UnloadedCommandHandler(val clock: Clock) :
+    CommandHandler<UnloadedCommand, Any, FailureReason> {
     override suspend fun handle(message: UnloadedCommand): BusResult<Any, FailureReason> {
         return success(message.messageData)
     }
@@ -24,10 +25,12 @@ class UnloadedCommandLoaded(messageData: String) {
 interface GeneratedDependencies {
     fun getClock(): Clock
 }
+
 class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies) {
     fun getUnloadedCommandHandler(): UnloadedCommandHandler {
         return UnloadedCommandHandler(this.dependencies.getClock())
     }
+
     fun getReturnCommandHandler(): ReturnCommandHandler {
         return ReturnCommandHandler()
     }
@@ -48,13 +51,10 @@ class LoadedCommandTest {
     fun test_execute_executes_a_command() = runTest {
         class Dependencies : GeneratedDependencies {
             override fun getClock(): Clock = Clock.System
-
         }
 
-        val bus = CompileTimeLoadedMessageBus(
-            emptyList(),
-            CompileTimeGeneratedLoader(Dependencies())
-        )
+        val bus =
+            CompileTimeLoadedMessageBus(emptyList(), CompileTimeGeneratedLoader(Dependencies()))
 
         val result = bus.execute(UnloadedCommandLoaded("Test the load"))
 

@@ -29,7 +29,7 @@ data class HandlerDefinition(
 data class LoadedMessageCode(
     val busMethods: StringBuilder = StringBuilder(),
     val loaderMethods: StringBuilder = StringBuilder(),
-    val handlerDependencies: MutableSet<ParameterDefinition> = mutableSetOf()
+    val handlerDependencies: MutableSet<ParameterDefinition> = mutableSetOf(),
 ) {
     fun addMessage(message: LoadedMessageCode) {
         busMethods.append(message.busMethods)
@@ -41,23 +41,23 @@ data class LoadedMessageCode(
 class MessageProcessor(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
-    private val options: Map<String, String>
-): SymbolProcessor {
-    private val loadedMessageGenerator = LoadedMessageGenerator(codeGenerator, logger, loadableMessages)
+    private val options: Map<String, String>,
+) : SymbolProcessor {
+    private val loadedMessageGenerator =
+        LoadedMessageGenerator(codeGenerator, logger, loadableMessages)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val symbols = resolver
+        val symbols =
+            resolver
                 .getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
-            .filterIsInstance<KSClassDeclaration>()
+                .filterIsInstance<KSClassDeclaration>()
 
         if (!symbols.iterator().hasNext()) return emptyList()
 
         val loadedMessages = LoadedMessageCode()
 
         for (symbol in symbols) {
-            symbol.accept(MessageClassVisitor(), Unit)?.let {
-                loadedMessages.addMessage(it)
-            }
+            symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.addMessage(it) }
         }
 
         generateDependencyLoader(codeGenerator, loadedMessages)
@@ -71,24 +71,26 @@ class MessageProcessor(
             return null
         }
 
-        override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit): LoadedMessageCode? {
+        override fun visitClassDeclaration(
+            classDeclaration: KSClassDeclaration,
+            data: Unit,
+        ): LoadedMessageCode? {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 logger.error(
                     "Only classes can be annotated with @${Load::class.simpleName}",
-                    classDeclaration
+                    classDeclaration,
                 )
                 return null
             }
 
-            val loadedMessageDefinition = loadedMessageGenerator.generateLoadedMessage(classDeclaration)
-                ?: return null
+            val loadedMessageDefinition =
+                loadedMessageGenerator.generateLoadedMessage(classDeclaration) ?: return null
 
-
-            val handlerDependencies = loadedMessageDefinition.handlerDefinition.handler
-                .primaryConstructor!!
-                .parameters
-                .map { getParamNames(it) }
-                .toMutableSet()
+            val handlerDependencies =
+                loadedMessageDefinition.handlerDefinition.handler.primaryConstructor!!
+                    .parameters
+                    .map { getParamNames(it) }
+                    .toMutableSet()
 
             return LoadedMessageCode(
                 addMethodToBusClass(loadedMessageDefinition),

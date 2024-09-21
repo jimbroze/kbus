@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core
 
-import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 import kotlin.time.TimeSource
+import kotlinx.coroutines.test.runTest
 
 internal enum class LogLevels(override val level: String) : LogLevel {
     DEBUG("DEBUG"),
@@ -49,7 +49,8 @@ class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, FailureReason
     }
 }
 
-class LoggingStorageEvent(message: String, listStore: MutableList<String>) : StorageEvent(message, listStore), LoggingEvent
+class LoggingStorageEvent(message: String, listStore: MutableList<String>) :
+    StorageEvent(message, listStore), LoggingEvent
 
 class LoggingExceptionCommand : Command(), LoggingCommand
 
@@ -74,7 +75,9 @@ class LoggingTest {
         val captureLogger = CaptureLogger()
         val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(StorageCommand("Testing", mutableListOf())) { StorageCommandHandler().handle(it) }
+        logger.handle(StorageCommand("Testing", mutableListOf())) {
+            StorageCommandHandler().handle(it)
+        }
 
         assertEquals(0, captureLogger.logs.size)
     }
@@ -84,7 +87,9 @@ class LoggingTest {
         val captureLogger = CaptureLogger()
         val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingLogCommand("Testing", captureLogger)) { LoggingLogCommandHandler().handle(it) }
+        logger.handle(LoggingLogCommand("Testing", captureLogger)) {
+            LoggingLogCommandHandler().handle(it)
+        }
 
         assertEquals(3, captureLogger.logs.size)
         assertContains(captureLogger.logs[0], "DEBUG: ")
@@ -97,7 +102,9 @@ class LoggingTest {
         val captureLogger = CaptureLogger()
         val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingLogCommand("Testing", captureLogger)) { LoggingLogCommandHandler().handle(it) }
+        logger.handle(LoggingLogCommand("Testing", captureLogger)) {
+            LoggingLogCommandHandler().handle(it)
+        }
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
@@ -110,7 +117,9 @@ class LoggingTest {
         val captureLogger = CaptureLogger()
         val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingLogQuery("Testing", captureLogger)) { LoggingLogQueryHandler().handle(it) }
+        logger.handle(LoggingLogQuery("Testing", captureLogger)) {
+            LoggingLogQueryHandler().handle(it)
+        }
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
@@ -130,9 +139,9 @@ class LoggingTest {
         val allLogs = captureLogger.logs.joinToString(" | ")
 
         assertContains(allLogs, "ERROR: Failed executing")
-        assertTrue(captureLogger.exceptions.any {
-            it is Exception && it.message == "Exception raised"
-        })
+        assertTrue(
+            captureLogger.exceptions.any { it is Exception && it.message == "Exception raised" }
+        )
     }
 
     @Test
@@ -140,7 +149,9 @@ class LoggingTest {
         val captureLogger = CaptureLogger()
         val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingStorageEvent("Testing", mutableListOf())) { PrintEventHandler().handle(it) }
+        logger.handle(LoggingStorageEvent("Testing", mutableListOf())) {
+            PrintEventHandler().handle(it)
+        }
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 

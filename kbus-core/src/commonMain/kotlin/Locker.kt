@@ -1,12 +1,12 @@
 package com.jimbroze.kbus.core
 
+import kotlin.concurrent.Volatile
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.plus
-import kotlin.concurrent.Volatile
-import kotlin.coroutines.coroutineContext
 
 class MessageHandlerPair<TMessage : Message>(
     private val message: TMessage,
@@ -31,11 +31,9 @@ interface LockingCommand : LockingMessage
 interface LockingEvent : LockingMessage
 
 class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.0f) : Middleware {
-    @Volatile
-    var secsToTimeout = defaultTimeout
+    @Volatile var secsToTimeout = defaultTimeout
 
-    @Volatile
-    var lockingCoroutineId: String? = null
+    @Volatile var lockingCoroutineId: String? = null
     private val queue: MutableList<MessageHandlerPair<*>> = mutableListOf()
 
     val busLocked: Boolean
@@ -91,10 +89,7 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
         }
     }
 
-    private fun lockBus(
-        threadId: String,
-        message: LockingMessage,
-    ) {
+    private fun lockBus(threadId: String, message: LockingMessage) {
         secsToTimeout = message.lockTimeout ?: defaultTimeout
         lockingCoroutineId = threadId
     }
@@ -115,4 +110,3 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
 }
 
 class BusLockedFailure(message: String? = null) : FailureReason(message)
-

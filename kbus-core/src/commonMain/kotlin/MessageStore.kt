@@ -3,7 +3,8 @@ package com.jimbroze.kbus.core
 import kotlin.reflect.KClass
 
 class MessageStore<TMessageType : Message> {
-    private var handlers = mutableMapOf<KClass<out TMessageType>, List<MessageHandler<out TMessageType>>>()
+    private var handlers =
+        mutableMapOf<KClass<out TMessageType>, List<MessageHandler<out TMessageType>>>()
 
     fun <TMessage : TMessageType> registerHandlers(
         messageType: KClass<TMessage>,
@@ -16,11 +17,10 @@ class MessageStore<TMessageType : Message> {
         messageType: KClass<TMessage>,
         handlers: List<MessageHandler<TMessage>> = emptyList(),
     ) {
-//            TODO handlers should be or allow set???
+        //            TODO handlers should be or allow set???
 
         val registeredHandlers =
-            this.handlers[messageType]
-                ?: throw MissingHandlerException(messageType)
+            this.handlers[messageType] ?: throw MissingHandlerException(messageType)
 
         if (handlers.isNotEmpty()) {
             this.handlers[messageType] = registeredHandlers - handlers.toSet()
@@ -47,7 +47,9 @@ class MessageStore<TMessageType : Message> {
         }
     }
 
-    fun <TMessage : TMessageType> getHandlers(messageType: KClass<out TMessage>): List<MessageHandler<TMessage>> {
+    fun <TMessage : TMessageType> getHandlers(
+        messageType: KClass<out TMessage>
+    ): List<MessageHandler<TMessage>> {
         @Suppress("UNCHECKED_CAST")
         return (handlers[messageType] ?: emptyList()) as List<MessageHandler<TMessage>>
     }

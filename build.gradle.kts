@@ -6,6 +6,6 @@ allprojects {
     group = "com.jimbroze"
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt {
-        googleStyle()
+        kotlinLangStyle()
     }
 }
