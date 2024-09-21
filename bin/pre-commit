@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+echo "
+===================================
+|  Formatting code with ktfmt...  |
+==================================="
+
+# Get the list of staged files from git, filtering by their status and paths
+git_output=$(git --no-pager diff --name-status --no-color --cached)
+file_array=()
+file_names=()
+
+# Process each line of git output
+while IFS= read -r line; do
+    status=$(echo "$line" | awk '{print $1}')
+    file=$(echo "$line" | awk '{print $2}')
+    # Include only .kt and .kts files that are not marked for deletion
+    if [[ "$status" != "D" && "$file" =~ \.kts$|\.kt$ ]]; then
+        # Extract relative paths starting from 'src/'
+        relative_path=$(echo "$file" | sed 's/.*\(src\/.*\)/\1/')
+        file_array+=("$relative_path")
+        file_names+=("$file")
+    fi
+done <<< "$git_output"
+
+# Join file array into a semicolon-separated string
+files_string=$(IFS=";"; echo "${file_array[*]}")
+
+# Run ktfmt formatter on the specified files
+./gradlew --quiet --no-daemon ktfmtPrecommitFormat --include-only="$files_string"
+ktfmtStatus=$?
+
+# If ktfmt fails, print a message and exit with the failure code
+if [ "$ktfmtStatus" -ne 0 ]; then
+    echo "Ktfmt failed with exit code $ktfmtStatus"
+    exit 1
+fi
+
+# Check if git is available
+if ! command -v git &> /dev/null; then
+    echo "git could not be found"
+    exit 1
+fi
+
+# Re-add the formatted files to the git index with the original paths
+for i in "${!file_array[@]}"; do
+    file=${file_names[$i]}
+    if [ -f "$file" ]; then
+        git add "$file"
+    fi
+done
