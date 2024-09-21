@@ -2,7 +2,6 @@ package com.jimbroze.kbus.core
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.yield
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.plus
@@ -53,7 +52,11 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
         if (busLocked) {
             if (inLockingCoroutine(coroutineId)) {
                 postponeHandling(message, nextMiddleware)
-                return Unit
+                return BusResult.failure<Unit, BusLockedFailure>(
+                    BusLockedFailure(
+                        "Cannot handle message as message bus is locked by the same coroutine"
+                    )
+                )
             }
         }
 
@@ -110,3 +113,6 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
         return coroutineContext[Job]?.toString() ?: ""
     }
 }
+
+class BusLockedFailure(message: String? = null) : FailureReason(message)
+

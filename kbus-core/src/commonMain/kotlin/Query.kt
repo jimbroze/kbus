@@ -4,6 +4,10 @@ abstract class Query : Message() {
     override val messageType: String = "query"
 }
 
-interface QueryHandler<TQuery : Query, TReturn : Any> : MessageHandler<TQuery> {
-    override suspend fun handle(message: TQuery): TReturn
+interface QueryHandler<
+    TQuery : Query,
+    TReturn : Any?,
+    TFailure : FailureReason,
+> : MessageHandler<TQuery>, ResultReturningHandler<TQuery, TReturn, TFailure> {
+    override suspend fun handle(message: TQuery): BusResult<TReturn, TFailure>
 }

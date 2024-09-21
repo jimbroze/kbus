@@ -1,34 +1,49 @@
 package com.jimbroze.kbus.generation
 
-import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.*
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.annotations.Load
-import com.jimbroze.kbus.core.MessageBus
-import java.io.OutputStream
+import com.jimbroze.kbus.core.Command
+import com.jimbroze.kbus.core.Message
+import com.jimbroze.kbus.core.Query
+import com.jimbroze.kbus.generation.DependencyLoaderGenerator.addMethodToBusClass
+import com.jimbroze.kbus.generation.DependencyLoaderGenerator.addMethodToLoaderClass
+import com.jimbroze.kbus.generation.DependencyLoaderGenerator.generateDependencyLoader
+import kotlin.reflect.KClass
 
-fun OutputStream.appendText(str: String) {
-    this.write(str.toByteArray())
-}
+private val loadableMessages = listOf(Command::class, Query::class)
 
-data class DependencyDefinition(
-    val name: String,
-    val typeName: String,
+data class LoadedHandlerDefinition(
+    val handlerDefinition: HandlerDefinition,
+    val loadedMessageName: String,
 )
-data class CommandClassDefinition(
+
+data class HandlerDefinition(
     val handler: KSClassDeclaration,
-    val loadedCommandType: String,
-//    val loadedCommandReturnType: String,
+    val message: KSClassDeclaration,
+    val messageBaseClass: KClass<out Message>,
 )
+
+data class LoadedMessageCode(
+    val busMethods: StringBuilder = StringBuilder(),
+    val loaderMethods: StringBuilder = StringBuilder(),
+    val handlerDependencies: MutableSet<ParameterDefinition> = mutableSetOf()
+) {
+    fun addMessage(message: LoadedMessageCode) {
+        busMethods.append(message.busMethods)
+        loaderMethods.append(message.loaderMethods)
+        handlerDependencies.addAll(message.handlerDependencies)
+    }
+}
 
 class MessageProcessor(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
     private val options: Map<String, String>
 ): SymbolProcessor {
+    private val loadedMessageGenerator = LoadedMessageGenerator(codeGenerator, logger, loadableMessages)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val symbols = resolver
@@ -37,174 +52,49 @@ class MessageProcessor(
 
         if (!symbols.iterator().hasNext()) return emptyList()
 
-        val visitor = CommandClassVisitor()
-        val processedMessages = symbols.map { it.accept(visitor, Unit) }
+        val loadedMessages = LoadedMessageCode()
 
-        generateDependencyLoader(processedMessages.toList().filterNotNull())
+        for (symbol in symbols) {
+            symbol.accept(MessageClassVisitor(), Unit)?.let {
+                loadedMessages.addMessage(it)
+            }
+        }
 
-        val unableToProcess = symbols.filterNot { it.validate() }.toList()
-        return unableToProcess
+        generateDependencyLoader(codeGenerator, loadedMessages)
+
+        val messagesThatCouldNotBeProcessed = symbols.filterNot { it.validate() }.toList()
+        return messagesThatCouldNotBeProcessed
     }
 
-    fun generateDependencyLoader(commandDefinitions: List<CommandClassDefinition>) {
-//        TODO change this to combine the dependency strings already created for each handler
-        val allHandlerDependencies = commandDefinitions.flatMap { classDefinition ->
-            classDefinition.handler.primaryConstructor!!.parameters.map { getParamNames(it) }
-        }.distinct()
-
-        val packageName = MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
-        val file = codeGenerator.createNewFile(
-            Dependencies(true),
-            packageName,
-            "GeneratedDependencyLoader"
-        )
-        file.appendText("package $packageName\n\n")
-
-        // Interface
-        file.appendText("interface GeneratedDependencies {\n")
-        for (dependency in allHandlerDependencies) {
-            val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            file.appendText("    fun get$dependencyName(): ${dependency.typeName}\n")
-        }
-        file.appendText("}\n")
-
-        // Loader
-        file.appendText(
-            "class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies) {\n"
-        )
-
-        for (commandDefinition in commandDefinitions) {
-            val handlerDependencies = commandDefinition.handler.primaryConstructor!!.parameters.map { getParamNames(it) }
-            val handlerDependenciesString = StringBuilder()
-            var firstParam = true
-            for (dependency in handlerDependencies) {
-                val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-                handlerDependenciesString.append("${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()")
-                firstParam = false
-            }
-            val handlerName = commandDefinition.handler.simpleName.asString()
-            val handlerType = commandDefinition.handler.qualifiedName!!.asString()
-
-            file.appendText("    fun get$handlerName(): $handlerType {\n")
-            file.appendText("        return $handlerType($handlerDependenciesString)\n")
-            file.appendText("    }\n")
-        }
-        file.appendText("}\n")
-
-        // Bus
-//        TODO use MessageBus constructor for type safety? Replace pre-written class instead?
-        file.appendText("class CompileTimeLoadedMessageBus(\n")
-        file.appendText("    middleware: List<Middleware>,\n")
-        file.appendText("    private val loader: CompileTimeGeneratedLoader,\n")
-        file.appendText(") : MessageBus(middleware) {\n")
-        for (commandDefinition in commandDefinitions) {
-            val handlerName = commandDefinition.handler.simpleName.asString()
-            val loadedCommandType = commandDefinition.loadedCommandType
-
-            file.appendText(
-                "    suspend fun execute(loadedCommand: $loadedCommandType)\n" +
-                "        = this.execute(loadedCommand.command, this.loader.get$handlerName())\n"
-            )
-        }
-        file.appendText("}\n")
-
-        file.close()
-    }
-
-
-    inner class CommandClassVisitor() : KSDefaultVisitor<Unit, CommandClassDefinition?>() {
-        override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit): CommandClassDefinition? {
-            if (classDeclaration.classKind != ClassKind.CLASS) {
-                logger.error("Only classes can be annotated with @${Load::class.simpleName.toString()}", classDeclaration)
-                return null
-            }
-
-            val handlerClass: KSClassDeclaration = classDeclaration
-
-//            TODO improve finding handle function. Need to get override and check that command handler?
-            val handleFunctions = handlerClass.getDeclaredFunctions()
-                .filter {
-                    it.simpleName.asString() == "handle"
-                    && it.parameters.count() == 1
-                }
-
-            var commandClass: KSClassDeclaration? = null
-            for (ksFunctionDeclaration in handleFunctions) {
-                val thisCommandType = ksFunctionDeclaration.parameters.first()
-                    .type.resolve().declaration
-                if (thisCommandType is KSClassDeclaration && thisCommandType.superTypes.any {
-                    it.resolve().declaration.qualifiedName!!.asString() == Command::class.qualifiedName
-                }) {
-                    commandClass = thisCommandType
-                    continue
-                }
-            }
-
-            if (commandClass == null) {
-                logger.error("Message handler must have a valid 'handle' function.", classDeclaration)
-                return null
-            }
-
-            val packageName = commandClass.containingFile!!.packageName.asString()
-            val commandClassName = commandClass.simpleName.asString()
-            val handlerClassName = handlerClass.simpleName.asString()
-            val loadedCommandClassName = "${commandClassName}Loaded"
-
-            val loadedCommandConstructorParameters = StringBuilder()
-            val commandConstructorParameters = StringBuilder()
-            var firstParam = true
-//            TODO handler null constructor?
-            for (parameter in commandClass.primaryConstructor?.parameters!!) {
-                val parameterNames = getParamNames(parameter)
-                val name = parameterNames.name
-                val typeName = parameterNames.typeName
-
-                loadedCommandConstructorParameters.append("${if (firstParam) "" else ", "}$name: $typeName")
-                commandConstructorParameters.append("${if (firstParam) "" else ", "}$name")
-
-                firstParam = false
-            }
-
-            val file = codeGenerator.createNewFile(
-                Dependencies(true, commandClass.containingFile!!),
-                packageName,
-                loadedCommandClassName
-            )
-            file.appendText(
-                "package $packageName\n\n" +
-                "class $loadedCommandClassName($loadedCommandConstructorParameters) {\n" +
-                "    val command = ${commandClassName}(${commandConstructorParameters})\n" +
-                "    suspend fun handle(handler: $handlerClassName) = handler.handle(command)\n" +
-                "}\n"
-            )
-            file.close()
-
-            return CommandClassDefinition(
-                handlerClass,
-                "$packageName.$loadedCommandClassName",
-            )
-        }
-
-        override fun defaultHandler(node: KSNode, data: Unit): CommandClassDefinition? {
+    inner class MessageClassVisitor() : KSDefaultVisitor<Unit, LoadedMessageCode?>() {
+        override fun defaultHandler(node: KSNode, data: Unit): LoadedMessageCode? {
             return null
         }
-    }
 
-    private fun getParamNames(parameter: KSValueParameter): DependencyDefinition {
-        val name = parameter.name!!.asString()
-        val typeName = StringBuilder(parameter.type.resolve().declaration.qualifiedName?.asString() ?: "<ERROR>")
-        val typeArgs = parameter.type.element!!.typeArguments
-        if (parameter.type.element!!.typeArguments.isNotEmpty()) {
-            typeName.append("<")
-            typeName.append(
-                typeArgs.joinToString(", ") {
-                    val type = it.type?.resolve()
-                    "${it.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                            if (type?.nullability == Nullability.NULLABLE) "?" else ""
-                }
+        override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit): LoadedMessageCode? {
+            if (classDeclaration.classKind != ClassKind.CLASS) {
+                logger.error(
+                    "Only classes can be annotated with @${Load::class.simpleName}",
+                    classDeclaration
+                )
+                return null
+            }
+
+            val loadedMessageDefinition = loadedMessageGenerator.generateLoadedMessage(classDeclaration)
+                ?: return null
+
+
+            val handlerDependencies = loadedMessageDefinition.handlerDefinition.handler
+                .primaryConstructor!!
+                .parameters
+                .map { getParamNames(it) }
+                .toMutableSet()
+
+            return LoadedMessageCode(
+                addMethodToBusClass(loadedMessageDefinition),
+                addMethodToLoaderClass(loadedMessageDefinition),
+                handlerDependencies,
             )
-            typeName.append(">")
         }
-        return DependencyDefinition(name, typeName.toString())
     }
 }

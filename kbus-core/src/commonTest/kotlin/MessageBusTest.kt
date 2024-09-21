@@ -5,35 +5,46 @@ import kotlin.test.*
 
 open class FailureCommand : Command()
 
-class FailureCommandHandler : CommandHandler<FailureCommand, String> {
-    override suspend fun handle(message: FailureCommand): String {
-        throw ResultFailureException("The command failed")
+class GenericFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason> {
+    override suspend fun handle(message: FailureCommand): BusResult<String, FailureReason> {
+        return failure("The command failed")
     }
 }
-class IllegalStateFailureCommandHandler : CommandHandler<FailureCommand, String> {
-    override suspend fun handle(message: FailureCommand): String {
-        throw ResultFailureException(IllegalStateException("Illegal state in command handling"))
+
+class BrokenStateFailure(message: String?) : FailureReason(message)
+
+class BrokenStateFailureCommandHandler : CommandHandler<FailureCommand, String, BrokenStateFailure> {
+    override suspend fun handle(message: FailureCommand): BusResult<String, BrokenStateFailure> {
+        return failure(BrokenStateFailure("Illegal state in command handling"))
+    }
+}
+
+class MultipleFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason> {
+    override suspend fun handle(message: FailureCommand): BusResult<String, FailureReason> {
+        return failure(listOf(
+            GenericFailure("The command failed"),
+            BrokenStateFailure("Illegal state in command handling"),
+        ))
     }
 }
 
 open class StorageQuery(val index: Int, val listStore: MutableList<String>) : Query()
 
-class StorageQueryHandler : QueryHandler<StorageQuery, String> {
-    override suspend fun handle(message: StorageQuery): String {
-        return message.listStore[message.index]
+class StorageQueryHandler : QueryHandler<StorageQuery, String, GenericFailure> {
+    override suspend fun handle(message: StorageQuery): BusResult<String, GenericFailure> {
+        return success(message.listStore[message.index])
     }
 }
 
 open class FailureQuery : Query()
 
-class FailureQueryHandler : QueryHandler<FailureQuery, String> {
-    override suspend fun handle(message: FailureQuery): String {
-        throw ResultFailureException("The query failed")
+class FailureQueryHandler : QueryHandler<FailureQuery, String, GenericFailure> {
+    override suspend fun handle(message: FailureQuery): BusResult<String, GenericFailure> {
+        return failure("The query failed")
     }
 }
 
 class MessageBusTest {
-
     @Test
     fun test_execute_executes_a_command_successfully() = runTest {
         val bus = MessageBus()
@@ -59,24 +70,45 @@ class MessageBusTest {
     fun test_resultFailure_exception_in_command_returns_failure() = runTest {
         val bus = MessageBus()
 
-        val result = bus.execute(FailureCommand(), FailureCommandHandler())
+        val result = bus.execute(FailureCommand(), GenericFailureCommandHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.exceptionOrNull()
-        assertIs<ResultFailureException>(failure)
+        val failure = result.failureReasonOrNull()
+        assertIs<FailureReason>(failure)
         assertEquals("The command failed", failure.message)
+        assertEquals("Failure(The command failed)", result.toString())
     }
 
     @Test
     fun test_failure_will_return_exception_if_provided() = runTest {
         val bus = MessageBus()
 
-        val result = bus.execute(FailureCommand(), IllegalStateFailureCommandHandler())
+        val result = bus.execute(FailureCommand(), BrokenStateFailureCommandHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.exceptionOrNull()
-        assertIs<IllegalStateException>(failure)
+        val failure = result.failureReasonOrNull()
+        assertIs<BrokenStateFailure>(failure)
         assertEquals("Illegal state in command handling", failure.message)
+        assertEquals("Failure(Illegal state in command handling)", result.toString())
+    }
+
+    @Test
+    fun test_failure_can_hold_multiple_exceptions() = runTest {
+        val bus = MessageBus()
+
+        val result = bus.execute(FailureCommand(), MultipleFailureCommandHandler())
+
+        assertTrue(result.isFailure)
+
+        assertIs<BusResult<Any?, MultipleFailureReasons>>(result)
+        val failureReasons = result.failureReasonOrNull()!!.reasons
+
+        assertEquals(2, failureReasons.size)
+        assertIs<GenericFailure>(failureReasons[0])
+        assertEquals("The command failed", failureReasons[0].message)
+        assertIs<BrokenStateFailure>(failureReasons[1])
+        assertEquals("Illegal state in command handling", failureReasons[1].message)
+        assertEquals("Failure(There were multiple failures)", result.toString())
     }
 
     @Test
@@ -97,8 +129,8 @@ class MessageBusTest {
         val result = bus.execute(FailureQuery(), FailureQueryHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.exceptionOrNull()
-        assertIs<ResultFailureException>(failure)
+        val failure = result.failureReasonOrNull()
+        assertIs<FailureReason>(failure)
         assertEquals("The query failed", failure.message)
     }
 

@@ -6,8 +6,12 @@ abstract class Command : Message() {
     override val messageType: String = "command"
 }
 
-interface CommandHandler<TCommand : Command, TReturn : Any?> : MessageHandler<TCommand> {
-    override suspend fun handle(message: TCommand): TReturn
+interface CommandHandler<
+    TCommand : Command,
+    TReturn : Any?,
+    TFailure : FailureReason,
+> : MessageHandler<TCommand>, ResultReturningHandler<TCommand, TReturn, TFailure> {
+    override suspend fun handle(message: TCommand): BusResult<TReturn, TFailure>
 }
 
 class TooManyHandlersException(

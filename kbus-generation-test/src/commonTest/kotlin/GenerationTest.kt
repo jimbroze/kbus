@@ -2,6 +2,7 @@ package com.jimbroze.kbus.generation
 
 import com.jimbroze.kbus.core.*
 import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
+import com.jimbroze.kbus.generation.test.TestGeneratorQueryLoaded
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlin.test.Test
@@ -36,6 +37,25 @@ class GenerationTest {
         )
 
         val result = bus.execute(TestGeneratorCommandLoaded("The time is "))
+
+        assertEquals("The time is 2024-02-23T19:01:09Z", result.getOrNull())
+    }
+
+    @Test
+    fun test_execute_executes_a_query() = runTest {
+        val clock = FixedClock(Instant.parse("2024-02-23T19:01:09Z"))
+        class Dependencies : GeneratedDependencies {
+            override fun getLocker() = BusLocker(clock)
+            override fun getClock(): Clock = clock
+            override fun getBus() = MessageBus()
+        }
+
+        val bus = CompileTimeLoadedMessageBus(
+            emptyList(),
+            CompileTimeGeneratedLoader(Dependencies())
+        )
+
+        val result = bus.execute(TestGeneratorQueryLoaded("The time is "))
 
         assertEquals("The time is 2024-02-23T19:01:09Z", result.getOrNull())
     }

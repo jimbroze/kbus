@@ -33,11 +33,13 @@ class RuntimeLoadedMessageBus(
         register(messageType, loadedHandlers)
     }
 
-    suspend fun <TCommand : Command, TReturn : Any?> execute(
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
-        handlerType: KClass<CommandHandler<TCommand, TReturn>>,
-    ): Result<TReturn> {
+        handlerType: KClass<CommandHandler<TCommand, TReturn, TFailure>>,
+    ): BusResult<TReturn, TFailure> {
         val handler = loader.load(handlerType)
         return this.execute(command, handler)
     }
+
+    // TODO add query
 }
