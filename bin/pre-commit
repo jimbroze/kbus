@@ -39,6 +39,17 @@ if [ "$ktfmtStatus" -ne 0 ]; then
     exit 1
 fi
 
+echo "
+=======================
+|  Running detekt...  |
+======================="
+
+# Run detekt static code analysis with Gradle
+if ! ./gradlew --quiet --no-daemon detekt --stacktrace -PdisablePreDex; then
+   echo "detekt failed"
+   exit 1
+fi
+
 # Check if git is available
 if ! command -v git &> /dev/null; then
     echo "git could not be found"

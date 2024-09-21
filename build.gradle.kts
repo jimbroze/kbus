@@ -28,7 +28,14 @@ tasks.register<Copy>("installGitHooks") {
     onlyIf { gitHooksDir.exists() }
     from(rootProject.rootDir.resolve("bin/pre-commit"))
     into(rootProject.rootDir.resolve(".git/hooks"))
-    fileMode = 0b111111111 // This is equivalent to 0777 in octal
+    filePermissions {
+        user.read = true
+        user.write = true
+        user.execute = true
+        other.read = true
+        other.write = true
+        other.execute = true
+    }
 }
 
 tasks.register<KtfmtFormatTask>("ktfmtPrecommitFormat") {
