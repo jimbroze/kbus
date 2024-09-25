@@ -1,4 +1,4 @@
-name: Push to Repository
+name: Push to all
 
 on:
   push:
@@ -11,10 +11,11 @@ on:
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'corretto'
+  XCODE_VERSION: '15.3'
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-12
 
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +26,11 @@ jobs:
           java-version: ${{env.JAVA_VERSION}}
           distribution: ${{env.JAVA_DISTRIBUTION}}
           cache: gradle
+
+      - name: Set up XCode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
