@@ -85,6 +85,7 @@ class MessageLogger(
 
         logger.log(preDispatchLevel, message.preHandleLog(), null)
 
+        @Suppress("TooGenericExceptionCaught")
         return try {
             val result = nextMiddleware(message)
             logger.log(postDispatchLevel, message.postHandleLog(), null)

@@ -7,8 +7,6 @@ import org.koin.core.Koin
 import org.koin.core.error.NoDefinitionFoundException
 
 class KoinLoaderTest {
-    @Test fun load_returns_instance_if_provided() {}
-
     @Test
     fun load_loads_class_if_registered() {
         val koin = Koin()

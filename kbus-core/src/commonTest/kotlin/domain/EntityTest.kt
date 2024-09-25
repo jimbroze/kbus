@@ -29,7 +29,7 @@ class EntityTest {
     @Test
     fun test_false_assertion_throws_invalid_invariant_exception() {
         assertFailsWith<InvalidInvariantException>("ID must be no greater than 5") {
-            val entity = TestEntityWithMaxIdOfFive(TestIdentifier(6))
+            TestEntityWithMaxIdOfFive(TestIdentifier(6))
         }
     }
 }

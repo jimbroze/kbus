@@ -14,11 +14,12 @@ allprojects {
 
     apply(plugin = "io.gitlab.arturbosch.detekt")
     detekt {
-        source.from("src")
-        allRules = false
+        config.setFrom(file("${rootProject.projectDir}/detekt-config.yml"))
         buildUponDefaultConfig = true
+        allRules = false
         autoCorrect = true
         parallel = true
+        source.from("src")
     }
 }
 

@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.jimbroze.kbus.core.Message
 import kotlin.reflect.KClass
 
@@ -20,42 +21,44 @@ class LoadedMessageGenerator(
     }
 
     private fun messageForHandler(handlerClass: KSClassDeclaration): HandlerDefinition? {
-        // TODO improve finding handle function. Need to get override and check that command
-        // handler?
         val possibleHandleMethods =
             handlerClass.getDeclaredFunctions().filter {
                 it.simpleName.asString() == "handle" && it.parameters.count() == 1
             }
 
-        var messageClass: KSClassDeclaration? = null
-        var messageType: KClass<out Message>? = null
-        for (handleFunction in possibleHandleMethods) {
-            val messageSubClass = handleFunction.parameters.first().type.resolve().declaration
+        val validHandlerMethods =
+            possibleHandleMethods.mapNotNull { isValidHandleMethod(it, handlerClass) }
 
-            if (messageSubClass !is KSClassDeclaration) {
-                continue
-            }
-
-            val messageTypeDeclaration = findBaseClass(messageSubClass) ?: continue
-            messageType =
-                loadableMessages.find {
-                    it.qualifiedName == messageTypeDeclaration.qualifiedName?.asString()
-                } ?: continue
-
-            if (messageClass !== null) {
+        return when (validHandlerMethods.count()) {
+            1 -> validHandlerMethods.first()
+            0 -> {
                 logger.error("Multiple valid 'handle' functions found for handler", handlerClass)
                 return null
             }
-
-            messageClass = messageSubClass
+            else -> {
+                logger.error("Message handler must have a valid 'handle' function.", handlerClass)
+                null
+            }
         }
+    }
 
-        if (messageClass == null || messageType == null) {
-            logger.error("Message handler must have a valid 'handle' function.", handlerClass)
+    private fun isValidHandleMethod(
+        handleFunction: KSFunctionDeclaration,
+        handlerClass: KSClassDeclaration,
+    ): HandlerDefinition? {
+        val messageClass = handleFunction.parameters.first().type.resolve().declaration
+
+        if (messageClass !is KSClassDeclaration) {
             return null
         }
 
-        return HandlerDefinition(handlerClass, messageClass, messageType)
+        val messageTypeDeclaration = findBaseClass(messageClass)
+        val messageType =
+            loadableMessages.find {
+                it.qualifiedName == messageTypeDeclaration?.qualifiedName?.asString()
+            }
+
+        return messageType?.let { HandlerDefinition(handlerClass, messageClass, it) }
     }
 
     private fun createLoadedMessage(

@@ -10,7 +10,6 @@ class MessageProcessorProvider : SymbolProcessorProvider {
         return MessageProcessor(
             codeGenerator = environment.codeGenerator,
             logger = environment.logger,
-            options = environment.options,
         )
     }
 }

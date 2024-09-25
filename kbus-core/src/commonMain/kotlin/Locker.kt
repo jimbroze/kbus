@@ -8,6 +8,8 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.plus
 
+private const val MILLISECONDS_IN_SECOND = 1000
+
 class MessageHandlerPair<TMessage : Message>(
     private val message: TMessage,
     private val handler: MiddlewareHandler<TMessage>,
@@ -47,27 +49,41 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
 
         println(coroutineId)
 
-        if (busLocked) {
-            if (inLockingCoroutine(coroutineId)) {
-                postponeHandling(message, nextMiddleware)
-                return BusResult.failure<Unit, BusLockedFailure>(
-                    BusLockedFailure(
-                        "Cannot handle message as message bus is locked by the same coroutine"
-                    )
-                )
-            }
+        if (busLocked && inLockingCoroutine(coroutineId)) {
+            return postponeAndFail(message, nextMiddleware)
         }
 
         waitForUnlock(message)
 
-        if (message !is LockingMessage) return nextMiddleware(message)
+        return if (message !is LockingMessage) {
+            nextMiddleware(message)
+        } else {
+            lockAndProcess(coroutineId, message, nextMiddleware)
+        }
+    }
 
+    private suspend fun <TMessage : LockingMessage> lockAndProcess(
+        coroutineId: String,
+        message: TMessage,
+        nextMiddleware: MiddlewareHandler<TMessage>,
+    ): Any? {
         lockBus(coroutineId, message)
         val result = nextMiddleware(message)
         unlockBus()
 
         handleQueue()
         return result
+    }
+
+    private fun <TMessage : Message> postponeAndFail(
+        message: TMessage,
+        nextMiddleware: MiddlewareHandler<TMessage>,
+    ): BusResult<Unit, BusLockedFailure> {
+        postponeHandling(message, nextMiddleware)
+
+        return BusResult.failure(
+            BusLockedFailure("Cannot handle message as message bus is locked by the same coroutine")
+        )
     }
 
     private fun inLockingCoroutine(coroutineId: String): Boolean = lockingCoroutineId == coroutineId
@@ -81,7 +97,10 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
 
     private suspend fun waitForUnlock(message: Message) {
         val currentTimeout = (message as? LockAdjustMessage)?.lockTimeout ?: secsToTimeout
-        val timeout = clock.now().plus((currentTimeout * 1000).toInt(), DateTimeUnit.MILLISECOND)
+        val timeout =
+            clock
+                .now()
+                .plus((currentTimeout * MILLISECONDS_IN_SECOND).toInt(), DateTimeUnit.MILLISECOND)
 
         while (busLocked && clock.now() <= timeout) {
             // FIXME why does yield() not work?

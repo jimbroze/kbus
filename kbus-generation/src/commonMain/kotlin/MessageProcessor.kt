@@ -1,7 +1,13 @@
 package com.jimbroze.kbus.generation
 
-import com.google.devtools.ksp.processing.*
-import com.google.devtools.ksp.symbol.*
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.symbol.ClassKind
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
@@ -38,11 +44,8 @@ data class LoadedMessageCode(
     }
 }
 
-class MessageProcessor(
-    private val codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
-    private val options: Map<String, String>,
-) : SymbolProcessor {
+class MessageProcessor(private val codeGenerator: CodeGenerator, private val logger: KSPLogger) :
+    SymbolProcessor {
     private val loadedMessageGenerator =
         LoadedMessageGenerator(codeGenerator, logger, loadableMessages)
 
@@ -66,7 +69,7 @@ class MessageProcessor(
         return messagesThatCouldNotBeProcessed
     }
 
-    inner class MessageClassVisitor() : KSDefaultVisitor<Unit, LoadedMessageCode?>() {
+    inner class MessageClassVisitor : KSDefaultVisitor<Unit, LoadedMessageCode?>() {
         override fun defaultHandler(node: KSNode, data: Unit): LoadedMessageCode? {
             return null
         }
@@ -83,6 +86,10 @@ class MessageProcessor(
                 return null
             }
 
+            return visitMessageHandler(classDeclaration)
+        }
+
+        private fun visitMessageHandler(classDeclaration: KSClassDeclaration): LoadedMessageCode? {
             val loadedMessageDefinition =
                 loadedMessageGenerator.generateLoadedMessage(classDeclaration) ?: return null
 

@@ -1,3 +1,3 @@
-package com.jimbroze.kbus.annotations
+package kbus.annotations
 
-@Target(AnnotationTarget.CLASS) annotation class Load()
+@Target(AnnotationTarget.CLASS) annotation class Load

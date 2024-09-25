@@ -1,6 +1,11 @@
+@file:Suppress("MatchingDeclarationName")
+
 package com.jimbroze.kbus.generation
 
-import com.google.devtools.ksp.symbol.*
+import com.google.devtools.ksp.symbol.ClassKind
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSValueParameter
+import com.google.devtools.ksp.symbol.Nullability
 
 data class ParameterDefinition(val name: String, val typeName: String)
 

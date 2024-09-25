@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.generation
 
-import com.jimbroze.kbus.core.*
+import com.jimbroze.kbus.core.BusLocker
+import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
 import com.jimbroze.kbus.generation.test.TestGeneratorQueryLoaded
 import kotlin.test.Test
@@ -16,8 +17,6 @@ class FixedClock(private var fixedInstant: Instant) : Clock {
         fixedInstant = instant
     }
 }
-
-private fun Clock.Companion.Fixed(fixedInstant: Instant): Clock = FixedClock(fixedInstant)
 
 class GenerationTest {
     @Test

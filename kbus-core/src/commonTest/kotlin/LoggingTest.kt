@@ -1,6 +1,10 @@
 package com.jimbroze.kbus.core
 
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.time.TimeSource
 import kotlinx.coroutines.test.runTest
 
@@ -52,11 +56,13 @@ class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, FailureReason
 class LoggingStorageEvent(message: String, listStore: MutableList<String>) :
     StorageEvent(message, listStore), LoggingEvent
 
+class TestException(message: String) : Exception(message)
+
 class LoggingExceptionCommand : Command(), LoggingCommand
 
 class ExceptionCommandHandler : CommandHandler<Command, Unit, FailureReason> {
     override suspend fun handle(message: Command): BusResult<Unit, FailureReason> {
-        throw Exception("Exception raised")
+        throw TestException("Exception raised")
     }
 }
 
@@ -64,7 +70,7 @@ class LoggingExceptionEvent : Event(), LoggingEvent
 
 class ExceptionEventHandler : EventHandler<Event> {
     override suspend fun handle(message: Event) {
-        throw Exception("Exception raised")
+        throw TestException("Exception raised")
     }
 }
 

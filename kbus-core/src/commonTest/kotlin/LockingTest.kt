@@ -1,9 +1,13 @@
 package com.jimbroze.kbus.core
 
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.TimeSource
-import kotlinx.coroutines.*
-import kotlinx.coroutines.test.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runTest
 
 class TimeReturnCommand(
     val messageData: String,
@@ -117,7 +121,6 @@ class LockingTest {
         assertTrue(postNest < listStore[0])
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun message_locker_waits_to_execute_command_in_a_different_coroutine() = runTest {
         val locker = BusLocker(TestClock(testScheduler), 10.0f)

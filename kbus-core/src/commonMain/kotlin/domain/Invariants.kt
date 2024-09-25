@@ -1,6 +1,11 @@
 package com.jimbroze.kbus.core.domain
 
-import com.jimbroze.kbus.core.*
+import com.jimbroze.kbus.core.BusResult
+import com.jimbroze.kbus.core.FailureReason
+import com.jimbroze.kbus.core.Message
+import com.jimbroze.kbus.core.Middleware
+import com.jimbroze.kbus.core.MiddlewareHandler
+import com.jimbroze.kbus.core.MultipleFailureReasons
 
 open class InvalidInvariantException(override val message: String) : Throwable(message)
 
@@ -36,15 +41,11 @@ class InvalidInvariantCatcher : Middleware {
 
         return try {
             nextMiddleware(message)
+        } catch (e: MultipleInvalidInvariantsException) {
+            val failures = e.errors.map { message.handleException(it) }
+            BusResult.failure<Any?, MultipleFailureReasons>(MultipleFailureReasons(failures))
         } catch (e: InvalidInvariantException) {
-            if (e is MultipleInvalidInvariantsException) {
-                val failures = e.errors.map { message.handleException(it) }
-                return BusResult.failure<Any?, MultipleFailureReasons>(
-                    MultipleFailureReasons(failures)
-                )
-            }
-
-            return BusResult.failure<Any?, FailureReason>(message.handleException(e))
+            BusResult.failure<Any?, FailureReason>(message.handleException(e))
         }
     }
 }
