@@ -1,17 +1,10 @@
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.konan.target.HostManager
 
 plugins { kotlin("multiplatform") }
 
 kotlin {
     js(IR) {
-        compilations.all {
-            kotlinOptions {
-                sourceMap = true
-                moduleKind = "umd"
-                metaInfo = true
-            }
-        }
         //        browser()
         nodejs()
     }
