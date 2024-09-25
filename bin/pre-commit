@@ -18,7 +18,8 @@ while IFS= read -r line; do
     status=$(echo "$line" | awk '{print $1}')
     file=$(echo "$line" | awk '{print $2}')
     # Include only .kt and .kts files that are not marked for deletion
-    if [[ "$status" != "D" && "$file" =~ \.kts$|\.kt$ ]]; then
+#    if [[ "$status" != "D" && "$file" =~ \.kts$|\.kt$ ]]; then
+    if [[ "$status" != "D" ]]; then
         # Extract relative paths starting from 'src/'
         relative_path=$(echo "$file" | sed 's/.*\(src\/.*\)/\1/')
         file_array+=("$relative_path")

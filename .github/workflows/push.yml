@@ -1,0 +1,44 @@
+name: Push to Repository
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+env:
+  JAVA_VERSION: '17'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{env.JAVA_VERSION}}
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run ktfmt Checker
+        run: ./gradlew ktfmtCheck
+
+      - name: Run detekt
+        run: ./gradlew detekt
+
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Upload build reports
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-reports
+          path: '**/build/reports'
