@@ -1,6 +1,9 @@
 package com.jimbroze.kbus.generation
 
 import com.jimbroze.kbus.core.BusLocker
+import com.jimbroze.kbus.core.CompileTimeGeneratedLoader
+import com.jimbroze.kbus.core.CompileTimeLoadedMessageBus
+import com.jimbroze.kbus.core.GeneratedDependencies
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
 import com.jimbroze.kbus.generation.test.TestGeneratorQueryLoaded

@@ -5,11 +5,11 @@ plugins {
 
 kotlin {
     jvm()
-    js {  }
+    js {}
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusCore)
             implementation(projects.kbusAnnotations)
+            implementation(projects.kbusCore)
 
             implementation(libs.kotlinx.datetime)
         }
@@ -21,16 +21,12 @@ kotlin {
     }
 }
 
-dependencies {
-    add("kspCommonMainMetadata", projects.kbusGeneration)
-}
+dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
 
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().all {
-    if(name != "kspCommonMainKotlinMetadata") {
+    if (name != "kspCommonMainKotlinMetadata") {
         dependsOn("kspCommonMainKotlinMetadata")
     }
 }
 
-kotlin.sourceSets.commonMain {
-    kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
-}
+kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }

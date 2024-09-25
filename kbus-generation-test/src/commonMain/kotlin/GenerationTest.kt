@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.BusLocker
 import com.jimbroze.kbus.core.BusResult
 import com.jimbroze.kbus.core.Command
@@ -9,6 +8,7 @@ import com.jimbroze.kbus.core.FailureReason
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
+import kbus.annotations.Load
 import kotlinx.datetime.Clock
 
 class TestGeneratorCommand(val messageData: String) : Command()

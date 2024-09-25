@@ -10,13 +10,13 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.Message
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.generation.DependencyLoaderGenerator.addMethodToBusClass
 import com.jimbroze.kbus.generation.DependencyLoaderGenerator.addMethodToLoaderClass
 import com.jimbroze.kbus.generation.DependencyLoaderGenerator.generateDependencyLoader
+import kbus.annotations.Load
 import kotlin.reflect.KClass
 
 private val loadableMessages = listOf(Command::class, Query::class)
