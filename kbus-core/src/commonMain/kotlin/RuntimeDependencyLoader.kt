@@ -11,18 +11,17 @@ abstract class RuntimeDependencyLoader {
     }
 }
 
-class RuntimeLoadedMessageBus(
-    middleware: List<Middleware>,
-    val loader: RuntimeDependencyLoader,
-) : MessageBus(middleware) {
+class RuntimeLoadedMessageBus(middleware: List<Middleware>, val loader: RuntimeDependencyLoader) :
+    MessageBus(middleware) {
 
-    //    inline fun <reified TCommand : Command, TReturn : Any?, reified THandler : CommandHandler<TCommand, TReturn>> register(
-//        messageType: KClass<TCommand>,
-//        handlerType: KClass<THandler>,
-//    ) {
-//        requireNotNull(loader) { "No class loader provided to the message bus" }
-//        register(messageType, loader.load(handlerType))
-//    }
+    //    inline fun <reified TCommand : Command, TReturn : Any?, reified THandler :
+    // CommandHandler<TCommand, TReturn>> register(
+    //        messageType: KClass<TCommand>,
+    //        handlerType: KClass<THandler>,
+    //    ) {
+    //        requireNotNull(loader) { "No class loader provided to the message bus" }
+    //        register(messageType, loader.load(handlerType))
+    //    }
 
     @JvmName("registerTypes")
     inline fun <reified TEvent : Event, reified THandler : EventHandler<TEvent>> register(

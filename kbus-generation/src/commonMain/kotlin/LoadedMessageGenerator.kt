@@ -5,13 +5,14 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.jimbroze.kbus.core.Message
 import kotlin.reflect.KClass
 
 class LoadedMessageGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
-    private val loadableMessages: List<KClass<out Message>>
+    private val loadableMessages: List<KClass<out Message>>,
 ) {
     fun generateLoadedMessage(handlerClass: KSClassDeclaration): LoadedHandlerDefinition? {
         val messageDefinition = messageForHandler(handlerClass) ?: return null
@@ -20,46 +21,44 @@ class LoadedMessageGenerator(
     }
 
     private fun messageForHandler(handlerClass: KSClassDeclaration): HandlerDefinition? {
-        // TODO improve finding handle function. Need to get override and check that command handler?
-        val possibleHandleMethods = handlerClass.getDeclaredFunctions()
-            .filter {
-                it.simpleName.asString() == "handle"
-                        && it.parameters.count() == 1
+        val possibleHandleMethods =
+            handlerClass.getDeclaredFunctions().filter {
+                it.simpleName.asString() == "handle" && it.parameters.count() == 1
             }
 
-        var messageClass: KSClassDeclaration? = null
-        var messageType: KClass<out Message>? = null
-        for (handleFunction in possibleHandleMethods) {
-            val messageSubClass = handleFunction
-                .parameters.first()
-                .type.resolve().declaration
+        val validHandlerMethods =
+            possibleHandleMethods.mapNotNull { isValidHandleMethod(it, handlerClass) }
 
-            if (messageSubClass !is KSClassDeclaration) {
-                continue
-            }
-
-            val messageTypeDeclaration = findBaseClass(messageSubClass) ?: continue
-            messageType = loadableMessages
-                .find { it.qualifiedName == messageTypeDeclaration.qualifiedName?.asString() } ?: continue
-
-            if (messageClass !== null) {
-                logger.error(
-                    "Multiple valid 'handle' functions found for handler",
-                    handlerClass
-                )
+        return when (validHandlerMethods.count()) {
+            1 -> validHandlerMethods.first()
+            0 -> {
+                logger.error("Multiple valid 'handle' functions found for handler", handlerClass)
                 return null
             }
-
-            messageClass = messageSubClass
+            else -> {
+                logger.error("Message handler must have a valid 'handle' function.", handlerClass)
+                null
+            }
         }
+    }
 
+    private fun isValidHandleMethod(
+        handleFunction: KSFunctionDeclaration,
+        handlerClass: KSClassDeclaration,
+    ): HandlerDefinition? {
+        val messageClass = handleFunction.parameters.first().type.resolve().declaration
 
-        if (messageClass == null || messageType == null) {
-            logger.error("Message handler must have a valid 'handle' function.", handlerClass)
+        if (messageClass !is KSClassDeclaration) {
             return null
         }
 
-        return HandlerDefinition(handlerClass, messageClass, messageType)
+        val messageTypeDeclaration = findBaseClass(messageClass)
+        val messageType =
+            loadableMessages.find {
+                it.qualifiedName == messageTypeDeclaration?.qualifiedName?.asString()
+            }
+
+        return messageType?.let { HandlerDefinition(handlerClass, messageClass, it) }
     }
 
     private fun createLoadedMessage(
@@ -68,7 +67,8 @@ class LoadedMessageGenerator(
     ): LoadedHandlerDefinition {
         val message = messageDefinition.message
         val handler: KSClassDeclaration = classDeclaration
-        val messageTypeLowercase = messageDefinition.messageBaseClass.simpleName.toString().lowercase()
+        val messageTypeLowercase =
+            messageDefinition.messageBaseClass.simpleName.toString().lowercase()
 
         // TODO test for different packages?
         val packageName = handler.containingFile!!.packageName.asString()
@@ -85,7 +85,9 @@ class LoadedMessageGenerator(
             val name = messageParameterNames.name
             val typeName = messageParameterNames.typeName
 
-            loadedMessageConstructorParameters.append("${if (firstParam) "" else ", "}$name: $typeName")
+            loadedMessageConstructorParameters.append(
+                "${if (firstParam) "" else ", "}$name: $typeName"
+            )
             messageConstructorParameters.append("${if (firstParam) "" else ", "}$name")
 
             firstParam = false
@@ -95,22 +97,24 @@ class LoadedMessageGenerator(
         fileText.appendLine("package $packageName")
         fileText.appendLine()
         fileText.appendLine("class $loadedClassName($loadedMessageConstructorParameters) {")
-        fileText.appendLine("    val $messageTypeLowercase = ${messageClassName}(${messageConstructorParameters})")
-        fileText.appendLine("    suspend fun handle(handler: $handlerClassName) = handler.handle($messageTypeLowercase)")
+        fileText.appendLine(
+            "    val $messageTypeLowercase = ${messageClassName}(${messageConstructorParameters})"
+        )
+        fileText.appendLine(
+            "    suspend fun handle(handler: $handlerClassName) = handler.handle($messageTypeLowercase)"
+        )
         fileText.appendLine("}")
 
-        val file = codeGenerator.createNewFile(
-            Dependencies(true, handler.containingFile!!, message.containingFile!!),
-            packageName,
-            loadedClassName
-        )
+        val file =
+            codeGenerator.createNewFile(
+                Dependencies(true, handler.containingFile!!, message.containingFile!!),
+                packageName,
+                loadedClassName,
+            )
 
         file.write(fileText.toString().toByteArray())
         file.close()
 
-        return LoadedHandlerDefinition(
-            messageDefinition,
-            "$packageName.$loadedClassName",
-        )
+        return LoadedHandlerDefinition(messageDefinition, "$packageName.$loadedClassName")
     }
 }

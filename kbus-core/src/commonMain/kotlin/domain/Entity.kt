@@ -2,6 +2,8 @@ package com.jimbroze.kbus.core.domain
 
 interface Identifier {
     override fun equals(other: Any?): Boolean
+
+    override fun hashCode(): Int
 }
 
 abstract class Entity<T : Entity<T>> : HasInvariants() {

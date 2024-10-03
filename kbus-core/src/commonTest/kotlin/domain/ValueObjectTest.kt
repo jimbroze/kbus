@@ -1,6 +1,12 @@
 package com.jimbroze.kbus.core.domain
 
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertTrue
 
 class ValueObjectTest {
     @Test
@@ -30,10 +36,10 @@ class ValueObjectTest {
     @Test
     fun test_false_assertion_throws_invalid_invariant_exception() {
         assertFailsWith<CannotBeEmptyException>("Value Object cannot be empty") {
-            val valueObject = TestNonEmptyValueObject("")
+            TestNonEmptyValueObject("")
         }
         assertFailsWith<InvalidInvariantException>("Value Object cannot be empty") {
-            val valueObject = TestNonEmptyValueObject("")
+            TestNonEmptyValueObject("")
         }
     }
 }

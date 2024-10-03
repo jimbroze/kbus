@@ -1,17 +1,21 @@
 package com.jimbroze.kbus.core
 
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-
+import kotlinx.coroutines.test.runTest
 
 class MiddlewareTest {
 
     @Test
     fun test_MessageLogger_logs_and_executes_command() = runTest {
         val captureLogger = CaptureLogger()
-        val bus = MessageBus(listOf(MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)))
+        val bus =
+            MessageBus(
+                listOf(
+                    MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+                )
+            )
 
         bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())
 
@@ -27,7 +31,7 @@ class MiddlewareTest {
                 listOf(
                     MessageLogger(logger1, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
                     MessageLogger(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
-                ),
+                )
             )
 
         bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())

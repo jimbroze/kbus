@@ -20,12 +20,20 @@ dependencyResolutionManagement {
 }
 
 include("kotlin-library")
-include("testDoubles")
-include("kbus-core")
-include("kbus-koin")
-include("kbus-annotations")
-include("kbus-generation")
-include("kbus-generation-test")
 
-//includeBuild("core")
-//includeBuild("koin")
+include("testDoubles")
+
+include("kbus-annotations")
+
+include("kbus-core")
+
+include("kbus-koin")
+
+include("kbus-generation")
+
+include(
+    "kbus-generation-test"
+)
+
+// includeBuild("core")
+// includeBuild("koin")

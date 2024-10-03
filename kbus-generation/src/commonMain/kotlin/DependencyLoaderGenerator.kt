@@ -5,24 +5,23 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.jimbroze.kbus.core.MessageBus
 
 object DependencyLoaderGenerator {
-    fun generateDependencyLoader(
-        codeGenerator: CodeGenerator,
-        visitorContext: LoadedMessageCode,
-    ) {
+    fun generateDependencyLoader(codeGenerator: CodeGenerator, visitorContext: LoadedMessageCode) {
         val packageName = MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
 
-        val fileText = generateLoaderCode(
-            packageName,
-            visitorContext.handlerDependencies,
-            visitorContext.loaderMethods,
-            visitorContext.busMethods,
-        )
+        val fileText =
+            generateLoaderCode(
+                packageName,
+                visitorContext.handlerDependencies,
+                visitorContext.loaderMethods,
+                visitorContext.busMethods,
+            )
 
-        val file = codeGenerator.createNewFile(
-            Dependencies(true),
-            packageName,
-            "GeneratedDependencyLoader"
-        )
+        val file =
+            codeGenerator.createNewFile(
+                Dependencies(true),
+                packageName,
+                "GeneratedDependencyLoader",
+            )
         file.write(fileText.toString().toByteArray())
         file.close()
     }
@@ -53,9 +52,7 @@ object DependencyLoaderGenerator {
         val handlerName = classDefinition.handlerDefinition.handler.simpleName.asString()
         val loadedMessageName = classDefinition.loadedMessageName
 
-        busMethodCode.appendLine(
-            "    suspend fun execute(loaded$messageType: $loadedMessageName)"
-        )
+        busMethodCode.appendLine("    suspend fun execute(loaded$messageType: $loadedMessageName)")
         busMethodCode.appendLine(
             "        = this.execute(loaded$messageType.$messageTypeLowercase, this.loader.get$handlerName())"
         )
@@ -79,13 +76,17 @@ object DependencyLoaderGenerator {
         return busClassCode
     }
 
-    private fun generateDependenciesInterface(allHandlerDependencies: Set<ParameterDefinition>): StringBuilder {
+    private fun generateDependenciesInterface(
+        allHandlerDependencies: Set<ParameterDefinition>
+    ): StringBuilder {
         val dependenciesInterfaceCode = StringBuilder()
 
         dependenciesInterfaceCode.appendLine("interface GeneratedDependencies {")
         for (dependency in allHandlerDependencies) {
             val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            dependenciesInterfaceCode.appendLine("    fun get$dependencyName(): ${dependency.typeName}")
+            dependenciesInterfaceCode.appendLine(
+                "    fun get$dependencyName(): ${dependency.typeName}"
+            )
         }
         dependenciesInterfaceCode.appendLine("}")
 
@@ -96,12 +97,16 @@ object DependencyLoaderGenerator {
         val loaderMethodCode = StringBuilder()
 
         val handlerDependencies =
-            classDefinition.handlerDefinition.handler.primaryConstructor!!.parameters.map { getParamNames(it) }
+            classDefinition.handlerDefinition.handler.primaryConstructor!!.parameters.map {
+                getParamNames(it)
+            }
         val handlerDependenciesString = StringBuilder()
         var firstParam = true
         for (dependency in handlerDependencies) {
             val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            handlerDependenciesString.append("${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()")
+            handlerDependenciesString.append(
+                "${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()"
+            )
             firstParam = false
         }
         val handlerName = classDefinition.handlerDefinition.handler.simpleName.asString()
