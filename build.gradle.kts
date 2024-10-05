@@ -1,5 +1,6 @@
 import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
 import io.gitlab.arturbosch.detekt.Detekt
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.ncorti.ktfmt.gradle") version ("0.20.1")
@@ -8,6 +9,10 @@ plugins {
 
 allprojects {
     group = "com.jimbroze"
+
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions.jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.target.get()))
+    }
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }
