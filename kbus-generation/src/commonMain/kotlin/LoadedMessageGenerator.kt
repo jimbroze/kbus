@@ -105,11 +105,14 @@ class LoadedMessageGenerator(
         )
         fileText.appendLine("}")
 
+        val dependencies = setOf(handler.containingFile!!, message.containingFile!!)
+        @Suppress("SpreadOperator") // Required for KSP Dependencies constructor
         val file =
             codeGenerator.createNewFile(
-                Dependencies(true, handler.containingFile!!, message.containingFile!!),
+                Dependencies(false, *dependencies.toTypedArray()),
                 packageName,
                 loadedClassName,
+                extensionName = "kt",
             )
 
         file.write(fileText.toString().toByteArray())

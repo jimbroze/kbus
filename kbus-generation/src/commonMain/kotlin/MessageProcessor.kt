@@ -59,11 +59,23 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
 
         val loadedMessages = LoadedMessageCode()
 
+        val processedSymbols = mutableSetOf<String>()
         for (symbol in symbols) {
-            symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.addMessage(it) }
+            val symbolId = "${symbol.qualifiedName?.asString()}"
+
+            if (symbolId in processedSymbols) {
+                continue
+            }
+
+            symbol.accept(MessageClassVisitor(), Unit)?.let {
+                loadedMessages.addMessage(it)
+                processedSymbols.add(symbolId)
+            }
         }
 
-        generateDependencyLoader(codeGenerator, loadedMessages)
+        if (loadedMessages.busMethods.isNotEmpty()) {
+            generateDependencyLoader(codeGenerator, loadedMessages)
+        }
 
         val messagesThatCouldNotBeProcessed = symbols.filterNot { it.validate() }.toList()
         return messagesThatCouldNotBeProcessed
