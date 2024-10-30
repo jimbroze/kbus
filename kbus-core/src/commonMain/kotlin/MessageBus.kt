@@ -30,7 +30,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     ): BusResult<TReturn, TFailure> {
         //        ensureNoOtherCommandHandlers(command::class)
 
-        handler.bus = this
+        handler.setBus(this)
         val commandBus = getBus(commandStore, listOfNotNull(handler))
         return result(commandBus, command)
     }
@@ -121,7 +121,11 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
 }
 
 abstract class CanAccessBus {
-    var bus: MessageBus? = null
+    private var bus: MessageBus? = null
+
+    fun setBus(bus: MessageBus) {
+        this.bus = bus
+    }
 
     suspend fun dispatch(event: Event) {
         bus?.dispatch(event)

@@ -308,7 +308,7 @@ class MessageBusTest {
     }
 
     @Test
-    fun test_command_can_emit_integration_event() = runTest {
+    fun test_command_can_dispatch_integration_event() = runTest {
         val bus = MessageBus()
         val list = mutableListOf<String>()
         bus.register(StorageEvent::class, listOf(PrintEventHandler()))
