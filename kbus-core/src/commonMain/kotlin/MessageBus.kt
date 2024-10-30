@@ -30,6 +30,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     ): BusResult<TReturn, TFailure> {
         //        ensureNoOtherCommandHandlers(command::class)
 
+        handler.bus = this
         val commandBus = getBus(commandStore, listOfNotNull(handler))
         return result(commandBus, command)
     }
@@ -116,5 +117,13 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         // TODO remove unchecked cast by adding Type params to middleware?
         @Suppress("UNCHECKED_CAST")
         return messageBus(message) as BusResult<TReturn, TFailure>
+    }
+}
+
+abstract class CanAccessBus {
+    var bus: MessageBus? = null
+
+    suspend fun dispatch(event: Event) {
+        bus?.dispatch(event)
     }
 }

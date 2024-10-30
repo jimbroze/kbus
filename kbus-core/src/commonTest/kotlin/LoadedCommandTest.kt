@@ -8,7 +8,7 @@ import kotlinx.datetime.Clock
 class UnloadedCommand(val messageData: String) : Command()
 
 class UnloadedCommandHandler(val clock: Clock) :
-    CommandHandler<UnloadedCommand, Any, FailureReason> {
+    CommandHandler<UnloadedCommand, Any, FailureReason>() {
     override suspend fun handle(message: UnloadedCommand): BusResult<Any, FailureReason> {
         return success(message.messageData)
     }

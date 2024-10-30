@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.runTest
 
 open class FailureCommand : Command()
 
-class GenericFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason> {
+class GenericFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason>() {
     override suspend fun handle(message: FailureCommand): BusResult<String, FailureReason> {
         return failure("The command failed")
     }
@@ -18,13 +18,13 @@ class GenericFailureCommandHandler : CommandHandler<FailureCommand, String, Fail
 class BrokenStateFailure(message: String?) : FailureReason(message)
 
 class BrokenStateFailureCommandHandler :
-    CommandHandler<FailureCommand, String, BrokenStateFailure> {
+    CommandHandler<FailureCommand, String, BrokenStateFailure>() {
     override suspend fun handle(message: FailureCommand): BusResult<String, BrokenStateFailure> {
         return failure(BrokenStateFailure("Illegal state in command handling"))
     }
 }
 
-class MultipleFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason> {
+class MultipleFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason>() {
     override suspend fun handle(message: FailureCommand): BusResult<String, FailureReason> {
         return failure(
             listOf(
@@ -48,6 +48,24 @@ open class FailureQuery : Query()
 class FailureQueryHandler : QueryHandler<FailureQuery, String, GenericFailure> {
     override suspend fun handle(message: FailureQuery): BusResult<String, GenericFailure> {
         return failure("The query failed")
+    }
+}
+
+class TestEvent(val message: String) : Event()
+
+class TestIntegrationEventHandler(val messageOutput: MutableList<String>) :
+    EventHandler<TestEvent> {
+    override suspend fun handle(message: TestEvent) {
+        messageOutput.add(message.message)
+    }
+}
+
+class EventCommand(val message: String, val listStore: MutableList<String>) : Command()
+
+class EventCommandHandler : CommandHandler<EventCommand, Unit, FailureReason>() {
+    override suspend fun handle(message: EventCommand): BusResult<Unit, FailureReason> {
+        dispatch(StorageEvent(message.message, message.listStore))
+        return success()
     }
 }
 
@@ -287,5 +305,17 @@ class MessageBusTest {
         val bus = MessageBus()
 
         assertEquals(0, bus.hasHandlers(StorageEvent::class))
+    }
+
+    @Test
+    fun test_command_can_emit_integration_event() = runTest {
+        val bus = MessageBus()
+        val list = mutableListOf<String>()
+        bus.register(StorageEvent::class, listOf(PrintEventHandler()))
+
+        bus.execute(EventCommand("Emit me", list), EventCommandHandler())
+
+        assertEquals(1, list.count())
+        assertEquals("Emit me", list[0])
     }
 }
