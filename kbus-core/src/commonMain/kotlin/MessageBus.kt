@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core
 
+import kotlin.js.JsName
 import kotlin.reflect.KClass
 
 open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
@@ -24,6 +25,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     //        return result(commandBus, command)
     //    }
 
+    @JsName("executeCommand")
     suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn, TFailure>,
@@ -35,6 +37,7 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         return result(commandBus, command)
     }
 
+    @JsName("executeQuery")
     suspend fun <TQuery : Query, TReturn : Any, TFailure : FailureReason> execute(
         query: TQuery,
         handler: QueryHandler<TQuery, TReturn, TFailure>,
