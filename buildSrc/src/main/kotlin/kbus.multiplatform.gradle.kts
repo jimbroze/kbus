@@ -1,9 +1,16 @@
+import org.gradle.accessors.dm.LibrariesForLibs
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.konan.target.HostManager
+
+val libs = the<LibrariesForLibs>()
 
 plugins { kotlin("multiplatform") }
 
 kotlin {
+    jvmToolchain {
+        (this).languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.target.get()))
+    }
+
     js(IR) {
         //        browser()
         nodejs()

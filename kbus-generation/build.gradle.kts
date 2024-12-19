@@ -7,6 +7,9 @@ plugins {
 version = "1.0-SNAPSHOT"
 
 kotlin {
+    jvmToolchain {
+        (this).languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.target.get()))
+    }
     jvm()
     sourceSets {
         commonMain.dependencies {
