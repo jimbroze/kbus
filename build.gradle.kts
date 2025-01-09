@@ -1,5 +1,8 @@
 import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
 import io.gitlab.arturbosch.detekt.Detekt
+import java.util.*
+
+description = "Kotlin message bus framework"
 
 plugins {
     id("com.ncorti.ktfmt.gradle") version ("0.20.1")
@@ -8,6 +11,7 @@ plugins {
 
 allprojects {
     group = "com.jimbroze"
+    version = System.getenv("VERSION_OVERRIDE") ?: "0.1.0"
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }
@@ -20,6 +24,16 @@ allprojects {
         autoCorrect = true
         parallel = true
         source.from("src")
+    }
+}
+
+val localPropertiesFile = file("local.properties")
+
+if (localPropertiesFile.exists()) {
+    val localProperties = Properties()
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+    localProperties.forEach { (key, value) ->
+        project.extensions.extraProperties[key.toString()] = value
     }
 }
 
