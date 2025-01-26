@@ -2,6 +2,7 @@ package com.jimbroze.kbus.generation
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.jimbroze.kbus.core.MessageBus
 
 data class LoadedMessageCode(
@@ -34,7 +35,7 @@ object DependencyLoaderGenerator {
             loadedMessageCode.addMessage(
                 LoadedMessageCode(
                     addMethodToBusClass(loadedMessageDefinition),
-                    addMethodToLoaderClass(loadedMessageDefinition),
+                    addMethodToLoaderClass(loadedMessageDefinition.handlerDefinition.handler),
                     handlerDependencies,
                 )
             )
@@ -125,13 +126,11 @@ object DependencyLoaderGenerator {
         return dependenciesInterfaceCode
     }
 
-    fun addMethodToLoaderClass(classDefinition: LoadedHandlerDefinition): StringBuilder {
+    private fun addMethodToLoaderClass(classDefinition: KSClassDeclaration): StringBuilder {
         val loaderMethodCode = StringBuilder()
 
         val handlerDependencies =
-            classDefinition.handlerDefinition.handler.primaryConstructor!!.parameters.map {
-                getParamNames(it)
-            }
+            classDefinition.primaryConstructor!!.parameters.map { getParamNames(it) }
         val handlerDependenciesString = StringBuilder()
         var firstParam = true
         for (dependency in handlerDependencies) {
@@ -141,8 +140,8 @@ object DependencyLoaderGenerator {
             )
             firstParam = false
         }
-        val handlerName = classDefinition.handlerDefinition.handler.simpleName.asString()
-        val handlerType = classDefinition.handlerDefinition.handler.qualifiedName!!.asString()
+        val handlerName = classDefinition.simpleName.asString()
+        val handlerType = classDefinition.qualifiedName!!.asString()
 
         loaderMethodCode.appendLine("    fun get$handlerName(): $handlerType {")
         loaderMethodCode.appendLine("        return $handlerType($handlerDependenciesString)")
