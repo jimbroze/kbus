@@ -127,31 +127,35 @@ object DependencyLoaderGenerator {
         return dependenciesInterfaceCode
     }
 
-    private fun addMethodToLoaderClass(typeDefinition: KSDeclaration): StringBuilder {
-        val handlerName = typeDefinition.simpleName.asString()
-        val handlerType = typeDefinition.qualifiedName!!.asString()
+    private fun addMethodToLoaderClass(
+        dependencyDefinition: KSDeclaration,
+        isRootDependency: Boolean = false,
+    ): StringBuilder {
+        val dependencyName = dependencyDefinition.simpleName.asString()
+        val dependencyType = dependencyDefinition.qualifiedName!!.asString()
 
         val implementation =
-            if (typeDefinition is KSClassDeclaration) {
-                val handlerDependencies =
-                    typeDefinition.primaryConstructor!!.parameters.map { getParamNames(it) }
+            if (dependencyDefinition is KSClassDeclaration && !isRootDependency) {
+                val dependencyConstructorParams =
+                    dependencyDefinition.primaryConstructor!!.parameters.map { getParamNames(it) }
                 val handlerDependenciesString = StringBuilder()
                 var firstParam = true
-                for (dependency in handlerDependencies) {
-                    val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
+                for (constructorParam in dependencyConstructorParams) {
+                    val parameterName = constructorParam.name.replaceFirstChar { it.uppercase() }
                     handlerDependenciesString.append(
-                        "${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()"
+                        "${if (firstParam) "" else ", "}this.dependencies.get$parameterName()"
                     )
                     firstParam = false
                 }
 
-                "$handlerType($handlerDependenciesString)"
+                // Instantiate
+                "$dependencyType($handlerDependenciesString)"
             } else {
-                "this.dependencies.get$handlerName()"
+                "this.dependencies.get$dependencyName()"
             }
 
         val loaderMethodCode = StringBuilder()
-        loaderMethodCode.appendLine("    fun get$handlerName(): $handlerType {")
+        loaderMethodCode.appendLine("    fun get$dependencyName(): $dependencyType {")
         loaderMethodCode.appendLine("        return $implementation")
         loaderMethodCode.appendLine("    }")
 
