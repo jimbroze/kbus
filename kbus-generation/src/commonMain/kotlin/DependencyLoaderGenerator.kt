@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.jimbroze.kbus.core.MessageBus
 
 data class LoadedMessageCode(
@@ -126,25 +127,32 @@ object DependencyLoaderGenerator {
         return dependenciesInterfaceCode
     }
 
-    private fun addMethodToLoaderClass(classDefinition: KSClassDeclaration): StringBuilder {
+    private fun addMethodToLoaderClass(typeDefinition: KSDeclaration): StringBuilder {
+        val handlerName = typeDefinition.simpleName.asString()
+        val handlerType = typeDefinition.qualifiedName!!.asString()
+
+        val implementation =
+            if (typeDefinition is KSClassDeclaration) {
+                val handlerDependencies =
+                    typeDefinition.primaryConstructor!!.parameters.map { getParamNames(it) }
+                val handlerDependenciesString = StringBuilder()
+                var firstParam = true
+                for (dependency in handlerDependencies) {
+                    val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
+                    handlerDependenciesString.append(
+                        "${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()"
+                    )
+                    firstParam = false
+                }
+
+                "$handlerType($handlerDependenciesString)"
+            } else {
+                "this.dependencies.get$handlerName()"
+            }
+
         val loaderMethodCode = StringBuilder()
-
-        val handlerDependencies =
-            classDefinition.primaryConstructor!!.parameters.map { getParamNames(it) }
-        val handlerDependenciesString = StringBuilder()
-        var firstParam = true
-        for (dependency in handlerDependencies) {
-            val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            handlerDependenciesString.append(
-                "${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()"
-            )
-            firstParam = false
-        }
-        val handlerName = classDefinition.simpleName.asString()
-        val handlerType = classDefinition.qualifiedName!!.asString()
-
         loaderMethodCode.appendLine("    fun get$handlerName(): $handlerType {")
-        loaderMethodCode.appendLine("        return $handlerType($handlerDependenciesString)")
+        loaderMethodCode.appendLine("        return $implementation")
         loaderMethodCode.appendLine("    }")
 
         return loaderMethodCode
