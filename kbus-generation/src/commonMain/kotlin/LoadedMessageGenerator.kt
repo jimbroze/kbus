@@ -9,6 +9,17 @@ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.jimbroze.kbus.core.Message
 import kotlin.reflect.KClass
 
+data class LoadedHandlerDefinition(
+    val handlerDefinition: HandlerDefinition,
+    val loadedMessageName: String,
+)
+
+data class HandlerDefinition(
+    val handler: KSClassDeclaration,
+    val message: KSClassDeclaration,
+    val messageBaseClass: KClass<out Message>,
+)
+
 class LoadedMessageGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,

@@ -12,37 +12,10 @@ import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
-import com.jimbroze.kbus.core.Message
 import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.generation.DependencyLoaderGenerator.addMethodToBusClass
-import com.jimbroze.kbus.generation.DependencyLoaderGenerator.addMethodToLoaderClass
 import com.jimbroze.kbus.generation.DependencyLoaderGenerator.generateDependencyLoader
-import kotlin.reflect.KClass
 
 private val loadableMessages = listOf(Command::class, Query::class)
-
-data class LoadedHandlerDefinition(
-    val handlerDefinition: HandlerDefinition,
-    val loadedMessageName: String,
-)
-
-data class HandlerDefinition(
-    val handler: KSClassDeclaration,
-    val message: KSClassDeclaration,
-    val messageBaseClass: KClass<out Message>,
-)
-
-data class LoadedMessageCode(
-    val busMethods: StringBuilder = StringBuilder(),
-    val loaderMethods: StringBuilder = StringBuilder(),
-    val handlerDependencies: MutableSet<ParameterDefinition> = mutableSetOf(),
-) {
-    fun addMessage(message: LoadedMessageCode) {
-        busMethods.append(message.busMethods)
-        loaderMethods.append(message.loaderMethods)
-        handlerDependencies.addAll(message.handlerDependencies)
-    }
-}
 
 class MessageProcessor(private val codeGenerator: CodeGenerator, private val logger: KSPLogger) :
     SymbolProcessor {
@@ -57,10 +30,10 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
 
         if (!symbols.iterator().hasNext()) return emptyList()
 
-        val loadedMessages = LoadedMessageCode()
+        val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
 
         for (symbol in symbols) {
-            symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.addMessage(it) }
+            symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.add(it) }
         }
 
         generateDependencyLoader(codeGenerator, loadedMessages)
@@ -69,15 +42,15 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
         return messagesThatCouldNotBeProcessed
     }
 
-    inner class MessageClassVisitor : KSDefaultVisitor<Unit, LoadedMessageCode?>() {
-        override fun defaultHandler(node: KSNode, data: Unit): LoadedMessageCode? {
+    inner class MessageClassVisitor : KSDefaultVisitor<Unit, LoadedHandlerDefinition?>() {
+        override fun defaultHandler(node: KSNode, data: Unit): LoadedHandlerDefinition? {
             return null
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
             data: Unit,
-        ): LoadedMessageCode? {
+        ): LoadedHandlerDefinition? {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 logger.error(
                     "Only classes can be annotated with @${Load::class.simpleName}",
@@ -89,21 +62,10 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
             return visitMessageHandler(classDeclaration)
         }
 
-        private fun visitMessageHandler(classDeclaration: KSClassDeclaration): LoadedMessageCode? {
-            val loadedMessageDefinition =
-                loadedMessageGenerator.generateLoadedMessage(classDeclaration) ?: return null
-
-            val handlerDependencies =
-                loadedMessageDefinition.handlerDefinition.handler.primaryConstructor!!
-                    .parameters
-                    .map { getParamNames(it) }
-                    .toMutableSet()
-
-            return LoadedMessageCode(
-                addMethodToBusClass(loadedMessageDefinition),
-                addMethodToLoaderClass(loadedMessageDefinition),
-                handlerDependencies,
-            )
+        private fun visitMessageHandler(
+            classDeclaration: KSClassDeclaration
+        ): LoadedHandlerDefinition? {
+            return loadedMessageGenerator.generateLoadedMessage(classDeclaration)
         }
     }
 }

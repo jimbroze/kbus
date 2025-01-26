@@ -4,16 +4,48 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.jimbroze.kbus.core.MessageBus
 
+data class LoadedMessageCode(
+    val busMethods: StringBuilder = StringBuilder(),
+    val loaderMethods: StringBuilder = StringBuilder(),
+    val handlerDependencies: MutableSet<ParameterDefinition> = mutableSetOf(),
+) {
+    fun addMessage(message: LoadedMessageCode) {
+        busMethods.append(message.busMethods)
+        loaderMethods.append(message.loaderMethods)
+        handlerDependencies.addAll(message.handlerDependencies)
+    }
+}
+
 object DependencyLoaderGenerator {
-    fun generateDependencyLoader(codeGenerator: CodeGenerator, visitorContext: LoadedMessageCode) {
+    fun generateDependencyLoader(
+        codeGenerator: CodeGenerator,
+        loadedMessages: Set<LoadedHandlerDefinition>,
+    ) {
         val packageName = MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
+
+        val loadedMessageCode = LoadedMessageCode()
+        for (loadedMessageDefinition in loadedMessages) {
+            val handlerDependencies =
+                loadedMessageDefinition.handlerDefinition.handler.primaryConstructor!!
+                    .parameters
+                    .map { getParamNames(it) }
+                    .toMutableSet()
+
+            loadedMessageCode.addMessage(
+                LoadedMessageCode(
+                    addMethodToBusClass(loadedMessageDefinition),
+                    addMethodToLoaderClass(loadedMessageDefinition),
+                    handlerDependencies,
+                )
+            )
+        }
 
         val fileText =
             generateLoaderCode(
                 packageName,
-                visitorContext.handlerDependencies,
-                visitorContext.loaderMethods,
-                visitorContext.busMethods,
+                loadedMessageCode.handlerDependencies,
+                loadedMessageCode.loaderMethods,
+                loadedMessageCode.busMethods,
             )
 
         val file =
