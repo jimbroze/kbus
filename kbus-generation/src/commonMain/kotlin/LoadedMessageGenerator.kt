@@ -92,7 +92,8 @@ class LoadedMessageGenerator(
         var firstParam = true
         //            TODO handler null constructor?
         for (messageParameter in message.primaryConstructor?.parameters!!) {
-            val messageParameterNames = getParamNames(messageParameter)
+            val messageParameterNames =
+                getParamNames(messageParameter) // TODO change to dependency?
             val name = messageParameterNames.name
             val typeName = messageParameterNames.typeName
 

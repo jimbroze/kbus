@@ -26,11 +26,11 @@ class GenerationTest {
     fun test_execute_executes_a_command() = runTest {
         val clock = FixedClock(Instant.parse("2024-02-23T19:01:09Z"))
         class Dependencies : GeneratedDependencies {
-            override fun getLocker() = BusLocker(clock)
+            override fun getBusLocker() = BusLocker(clock)
 
             override fun getClock(): Clock = clock
 
-            override fun getBus() = MessageBus()
+            override fun getMessageBus() = MessageBus()
         }
 
         val bus =
@@ -45,11 +45,11 @@ class GenerationTest {
     fun test_execute_executes_a_query() = runTest {
         val clock = FixedClock(Instant.parse("2024-02-23T19:01:09Z"))
         class Dependencies : GeneratedDependencies {
-            override fun getLocker() = BusLocker(clock)
+            override fun getBusLocker() = BusLocker(clock)
 
             override fun getClock(): Clock = clock
 
-            override fun getBus() = MessageBus()
+            override fun getMessageBus() = MessageBus()
         }
 
         val bus =

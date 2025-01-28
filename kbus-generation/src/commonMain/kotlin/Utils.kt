@@ -9,7 +9,6 @@ import com.google.devtools.ksp.symbol.Nullability
 
 data class ParameterDefinition(val name: String, val typeName: String)
 
-// TODO refactor this?
 fun getParamNames(parameter: KSValueParameter): ParameterDefinition {
     val name = parameter.name!!.asString()
     val typeName =

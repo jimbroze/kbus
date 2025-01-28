@@ -11,12 +11,19 @@ import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
 import kotlinx.datetime.Clock
 
+class ClockFactory(private val clock: Clock) {
+    fun createClock(): Clock = clock
+}
+
 class TestGeneratorCommand(val messageData: String) : Command()
 
 @Load
-class TestGeneratorCommandHandler(private val locker: BusLocker, private val clock: Clock) :
-    CommandHandler<TestGeneratorCommand, Any, FailureReason>() {
+class TestGeneratorCommandHandler(
+    private val locker: BusLocker,
+    private val clockFactory: ClockFactory,
+) : CommandHandler<TestGeneratorCommand, Any, FailureReason>() {
     override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, FailureReason> {
+        val clock = clockFactory.createClock()
         locker.toString()
         return success(message.messageData + clock.now().toString())
     }

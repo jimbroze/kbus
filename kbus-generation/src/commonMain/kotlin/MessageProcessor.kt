@@ -13,7 +13,6 @@ import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.generation.DependencyLoaderGenerator.generateDependencyLoader
 
 private val loadableMessages = listOf(Command::class, Query::class)
 
@@ -21,6 +20,8 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
     SymbolProcessor {
     private val loadedMessageGenerator =
         LoadedMessageGenerator(codeGenerator, logger, loadableMessages)
+
+    private val dependencyLoaderGenerator = DependencyLoaderGenerator(codeGenerator, logger)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val symbols =
@@ -36,7 +37,7 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
             symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.add(it) }
         }
 
-        generateDependencyLoader(codeGenerator, loadedMessages)
+        dependencyLoaderGenerator.generate(loadedMessages)
 
         val messagesThatCouldNotBeProcessed = symbols.filterNot { it.validate() }.toList()
         return messagesThatCouldNotBeProcessed
