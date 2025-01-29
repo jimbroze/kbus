@@ -9,6 +9,8 @@ import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
 import com.jimbroze.kbus.core.MessageBus
+import kotlin.reflect.KClass
+import kotlinx.datetime.Clock
 
 data class DependencyDefinition(
     val declaration: KSDeclaration,
@@ -79,6 +81,9 @@ data class AllDependencies(
     }
 }
 
+// FIXME for functional args use varName and ClassName? e.g
+// stringCombinerForTestDuplicateGeneratorCommandHandler
+
 class DependencyLoaderGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
@@ -91,12 +96,12 @@ class DependencyLoaderGenerator(
         val allDependencies = AllDependencies()
 
         for (loadedMessageDefinition in loadedMessages) {
-            allDependencies.addAll(
-                extractDependencies(
+            extractedDependenciesOrNull(
                     loadedMessageDefinition.handlerDefinition.handler.primaryConstructor!!
                         .parameters
                 )
-            )
+                ?.let { allDependencies.addAll(it) }
+                ?: logger.error("Message handler is not a valid dependency")
 
             allDependencies.addLoader(
                 DependencyDefinition.fromLoadedMessage(loadedMessageDefinition),
@@ -118,31 +123,48 @@ class DependencyLoaderGenerator(
         file.close()
     }
 
-    private fun extractDependencies(
+    private fun extractedDependenciesOrNull(
         parameterDependencies: List<KSValueParameter>
-    ): AllDependencies {
+    ): AllDependencies? {
         val allDependencies = AllDependencies()
         for (dependency in parameterDependencies) {
             val depDeclaration = dependency.type.resolve().declaration
             val dependencyDefinition =
                 DependencyDefinition.fromParameter(dependency, depDeclaration)
 
-            val isNestedDependency =
-                (depDeclaration is KSClassDeclaration &&
-                    depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
-                    depDeclaration.packageName.asString() != busPackageName)
+            val cannotBeRootPackages = listOf("kotlin", "kotlinx.datetime")
+            val cannotBeRootExceptions = listOf<KClass<out Any>>(Clock::class)
 
-            if (isNestedDependency) {
-                // TODO Also need to handle (and test) for non-classes: func and type alias
-                allDependencies.addAll(
-                    extractDependencies(depDeclaration.primaryConstructor?.parameters.orEmpty())
-                )
-            } else {
-                allDependencies.addRoot(dependencyDefinition)
+            if (
+                cannotBeRootPackages.contains(depDeclaration.packageName.asString()) &&
+                    cannotBeRootExceptions.none() {
+                        depDeclaration.qualifiedName!!.asString() == it.qualifiedName
+                    }
+            ) {
+                return null
             }
 
-            // Always add to loader
-            allDependencies.addLoader(dependencyDefinition, isNestedDependency.not())
+            val isNestedDependency =
+                depDeclaration is KSClassDeclaration &&
+                    depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
+                    depDeclaration.packageName.asString() != busPackageName
+
+            val nestedDependencies =
+                if (isNestedDependency) {
+                    extractedDependenciesOrNull(
+                        depDeclaration.primaryConstructor?.parameters.orEmpty()
+                    )
+                } else {
+                    null
+                }
+
+            if (nestedDependencies === null) {
+                allDependencies.addRoot(dependencyDefinition)
+                allDependencies.addLoader(dependencyDefinition, true)
+            } else {
+                allDependencies.addAll(nestedDependencies)
+                allDependencies.addLoader(dependencyDefinition, false)
+            }
         }
 
         return allDependencies

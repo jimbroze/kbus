@@ -16,6 +16,7 @@ kotlin {
             implementation(projects.kbusAnnotations)
             implementation(projects.kbusCore)
             implementation(libs.symbol.processing.api)
+            implementation(libs.kotlinx.datetime)
         }
     }
 }
