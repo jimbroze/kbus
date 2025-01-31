@@ -18,19 +18,19 @@ import kotlinx.datetime.Instant
 class Dependencies(instant: Instant) : GeneratedDIContainer() {
     val clock = FixedClock(instant)
 
-    override fun getBusLocker() = BusLocker(clock)
+    override fun busLocker() = BusLocker(clock)
 
-    override fun getClockFactoryHolder(): ClockFactoryHolder {
-        return ClockFactoryHolder(getClockFactory())
+    override fun clockFactoryHolder(): ClockFactoryHolder {
+        return ClockFactoryHolder(clockFactory())
     }
 
-    override fun getClock(): Clock = clock
+    override fun clock(): Clock = clock
 
-    override fun getMessageBus() = MessageBus()
+    override fun messageBus() = MessageBus()
 
-    override fun getTypeAliasString() = "hello, "
+    override fun typeAliasString() = "hello, "
 
-    override fun getStringCombinator() = StringCombinator({ a, b -> a + b }, { a, b -> a + b })
+    override fun stringCombinator() = StringCombinator({ a, b -> a + b }, { a, b -> a + b })
 }
 
 class GenerationTest {

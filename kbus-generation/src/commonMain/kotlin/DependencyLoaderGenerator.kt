@@ -198,12 +198,15 @@ class DependencyLoaderGenerator(
         val messageType = classDefinition.handlerDefinition.messageBaseClass.simpleName!!
         val messageTypeLowercase = messageType.lowercase()
 
-        val handlerName = classDefinition.handlerDefinition.handler.simpleName.asString()
+        val handlerName =
+            classDefinition.handlerDefinition.handler.simpleName.asString().replaceFirstChar {
+                it.lowercase()
+            }
         val loadedMessageName = classDefinition.loadedMessageName
 
         busMethodCode.appendLine("    suspend fun execute(loaded$messageType: $loadedMessageName)")
         busMethodCode.appendLine(
-            "        = this.execute(loaded$messageType.$messageTypeLowercase, this.loader.get$handlerName())"
+            "        = this.execute(loaded$messageType.$messageTypeLowercase, this.loader.$handlerName())"
         )
 
         return busMethodCode
@@ -224,7 +227,7 @@ class DependencyLoaderGenerator(
 
     private fun generateLoaderMethod(dependency: LoaderDependency): StringBuilder {
         val declaration = dependency.definition.declaration
-        val dependencyName = dependency.definition.getName()
+        val dependencyName = dependency.definition.getName().replaceFirstChar { it.lowercase() }
         val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
 
         val loaderMethodCode = StringBuilder()
@@ -237,9 +240,9 @@ class DependencyLoaderGenerator(
             val handlerDependenciesString = StringBuilder()
             var firstParam = true
             for (constructorParam in dependencyConstructorParams) {
-                val parameterName = constructorParam.getName().replaceFirstChar { it.uppercase() }
+                val parameterName = constructorParam.getName().replaceFirstChar { it.lowercase() }
                 handlerDependenciesString.append(
-                    "${if (firstParam) "" else ", "}this.get$parameterName()"
+                    "${if (firstParam) "" else ", "}this.$parameterName()"
                 )
                 firstParam = false
             }
@@ -247,14 +250,14 @@ class DependencyLoaderGenerator(
             val dependencyTypeWithoutArgs =
                 dependency.definition.declaration.qualifiedName!!.asString()
 
-            loaderMethodCode.appendLine("    fun get$dependencyName(): $dependencyTypeWithArgs {")
+            loaderMethodCode.appendLine("    fun $dependencyName(): $dependencyTypeWithArgs {")
             loaderMethodCode.appendLine(
                 "        return $dependencyTypeWithoutArgs($handlerDependenciesString)"
             )
             loaderMethodCode.appendLine("    }")
         } else {
             loaderMethodCode.appendLine(
-                "    abstract fun get$dependencyName(): $dependencyTypeWithArgs"
+                "    abstract fun $dependencyName(): $dependencyTypeWithArgs"
             )
         }
 
