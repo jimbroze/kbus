@@ -15,6 +15,7 @@ import kotlinx.datetime.Clock
 data class DependencyDefinition(
     val declaration: KSDeclaration,
     val typeArgs: List<KSTypeArgument>,
+    val isSingleton: Boolean = true,
 ) {
     companion object {
         fun fromParameter(
@@ -28,7 +29,7 @@ data class DependencyDefinition(
         }
 
         fun fromLoadedMessage(loadedMessage: LoadedHandlerDefinition): DependencyDefinition {
-            return DependencyDefinition(loadedMessage.handlerDefinition.handler, emptyList())
+            return DependencyDefinition(loadedMessage.handlerDefinition.handler, emptyList(), false)
         }
     }
 
@@ -206,7 +207,7 @@ class DependencyLoaderGenerator(
 
         busMethodCode.appendLine("    suspend fun execute(loaded$messageType: $loadedMessageName)")
         busMethodCode.appendLine(
-            "        = this.execute(loaded$messageType.$messageTypeLowercase, this.loader.$handlerName())"
+            "        = this.execute(loaded$messageType.$messageTypeLowercase, this.loader.$handlerName)"
         )
 
         return busMethodCode
@@ -242,7 +243,7 @@ class DependencyLoaderGenerator(
             for (constructorParam in dependencyConstructorParams) {
                 val parameterName = constructorParam.getName().replaceFirstChar { it.lowercase() }
                 handlerDependenciesString.append(
-                    "${if (firstParam) "" else ", "}this.$parameterName()"
+                    "${if (firstParam) "" else ", "}this.$parameterName"
                 )
                 firstParam = false
             }
@@ -250,15 +251,22 @@ class DependencyLoaderGenerator(
             val dependencyTypeWithoutArgs =
                 dependency.definition.declaration.qualifiedName!!.asString()
 
-            loaderMethodCode.appendLine("    fun $dependencyName(): $dependencyTypeWithArgs {")
-            loaderMethodCode.appendLine(
-                "        return $dependencyTypeWithoutArgs($handlerDependenciesString)"
-            )
-            loaderMethodCode.appendLine("    }")
+            if (dependency.definition.isSingleton) {
+                loaderMethodCode.appendLine(
+                    "    val $dependencyName: $dependencyTypeWithArgs by lazy {"
+                )
+                loaderMethodCode.appendLine(
+                    "        $dependencyTypeWithoutArgs($handlerDependenciesString)"
+                )
+                loaderMethodCode.appendLine("    }")
+            } else {
+                loaderMethodCode.appendLine("    val $dependencyName: $dependencyTypeWithArgs")
+                loaderMethodCode.appendLine(
+                    "        get() = $dependencyTypeWithoutArgs($handlerDependenciesString)"
+                )
+            }
         } else {
-            loaderMethodCode.appendLine(
-                "    abstract fun $dependencyName(): $dependencyTypeWithArgs"
-            )
+            loaderMethodCode.appendLine("    abstract val $dependencyName: $dependencyTypeWithArgs")
         }
 
         return loaderMethodCode
