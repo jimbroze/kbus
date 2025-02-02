@@ -4,6 +4,7 @@ import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.jimbroze.kbus.core.Message
@@ -92,10 +93,10 @@ class LoadedMessageGenerator(
         var firstParam = true
         //            TODO handler null constructor?
         for (messageParameter in message.primaryConstructor?.parameters!!) {
-            val messageParameterNames =
-                getParamNames(messageParameter) // TODO change to dependency?
-            val name = messageParameterNames.name
-            val typeName = messageParameterNames.typeName
+            val messageParameterDependency =
+                DependencyDefinition.fromParameter(messageParameter, null)
+            val name = messageParameterDependency.getName()
+            val typeName = messageParameterDependency.getTypeWithArgs()
 
             loadedMessageConstructorParameters.append(
                 "${if (firstParam) "" else ", "}$name: $typeName"
@@ -129,4 +130,10 @@ class LoadedMessageGenerator(
 
         return LoadedHandlerDefinition(messageDefinition, "$packageName.$loadedClassName")
     }
+}
+
+fun findBaseClass(classDeclaration: KSClassDeclaration): KSClassDeclaration? {
+    return classDeclaration.superTypes
+        .mapNotNull { superType -> superType.resolve().declaration as? KSClassDeclaration }
+        .find { it.classKind == ClassKind.CLASS }
 }

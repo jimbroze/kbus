@@ -26,30 +26,22 @@ data class DependencyDefinition(
 
             return DependencyDefinition(declaration, typeArgs)
         }
-
-        fun fromLoadedMessage(loadedMessage: LoadedHandlerDefinition): DependencyDefinition {
-            return DependencyDefinition(loadedMessage.handlerDefinition.handler, emptyList(), false)
-        }
     }
 
     fun getName(): String {
-        return declaration.simpleName.asString()
+        return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
     }
 
     fun getTypeWithArgs(): String {
         val typeName = StringBuilder(declaration.qualifiedName!!.asString())
 
-        if (typeArgs.isNotEmpty()) {
-            typeName.append("<")
-            typeName.append(
-                typeArgs.joinToString(", ") {
-                    val type = it.type?.resolve()
-                    // TODO improve this. Will qualified name always be available?
-                    "${it.variance.label} ${type?.declaration?.qualifiedName?.asString() ?: "ERROR"}" +
-                        if (type?.nullability == Nullability.NULLABLE) "?" else ""
-                }
-            )
-            typeName.append(">")
+        for (typeArg in typeArgs) {
+            val type = typeArg.type?.resolve()
+            val typeText = type?.declaration?.qualifiedName?.asString() ?: continue
+            val variance = typeArg.variance.label
+            val nullability = if (type.nullability == Nullability.NULLABLE) "?" else ""
+
+            typeName.append("<$variance $typeText $nullability>")
         }
 
         return typeName.toString()
@@ -73,7 +65,11 @@ class DependencyProcessor(private val busPackageName: String, private val logger
 
             allDependencies.add(
                 LoaderDependency(
-                    DependencyDefinition.fromLoadedMessage(loadedMessageDefinition),
+                    DependencyDefinition(
+                        loadedMessageDefinition.handlerDefinition.handler,
+                        emptyList(),
+                        false,
+                    ),
                     false,
                 )
             )
@@ -161,7 +157,7 @@ class DependencyLoaderGenerator(
 
     private fun generateLoaderMethodCode(dependency: LoaderDependency): StringBuilder {
         val declaration = dependency.definition.declaration
-        val dependencyName = dependency.definition.getName().replaceFirstChar { it.lowercase() }
+        val dependencyName = dependency.definition.getName()
         val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
 
         val loaderMethodCode = StringBuilder()
