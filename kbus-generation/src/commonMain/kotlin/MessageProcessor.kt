@@ -12,16 +12,25 @@ import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
+import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Query
+import com.jimbroze.kbus.generation.DependencyLoaderGenerator.Companion.LOADER_CLASS_NAME
 
 private val loadableMessages = listOf(Command::class, Query::class)
 
-class MessageProcessor(private val codeGenerator: CodeGenerator, private val logger: KSPLogger) :
+class MessageProcessor(codeGenerator: CodeGenerator, private val logger: KSPLogger) :
     SymbolProcessor {
+    private val busPackageName =
+        MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
+
     private val loadedMessageGenerator =
         LoadedMessageGenerator(codeGenerator, logger, loadableMessages)
+    private val dependencyLoaderGenerator =
+        DependencyLoaderGenerator(codeGenerator, logger, busPackageName)
+    private val busGenerator =
+        MessageBusGenerator(codeGenerator, logger, busPackageName, LOADER_CLASS_NAME)
 
-    private val dependencyLoaderGenerator = DependencyLoaderGenerator(codeGenerator, logger)
+    private val dependencyProcessor = DependencyProcessor(busPackageName, logger)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val symbols =
@@ -37,10 +46,14 @@ class MessageProcessor(private val codeGenerator: CodeGenerator, private val log
             symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.add(it) }
         }
 
-        dependencyLoaderGenerator.generate(loadedMessages)
+        val dependencies = dependencyProcessor.generate(loadedMessages)
 
-        val messagesThatCouldNotBeProcessed = symbols.filterNot { it.validate() }.toList()
-        return messagesThatCouldNotBeProcessed
+        dependencyLoaderGenerator.generateLoaderClassCode(dependencies)
+
+        busGenerator.generate(loadedMessages)
+
+        val messagesThatCouldNotBeProcessed = symbols.filterNot { it.validate() }
+        return messagesThatCouldNotBeProcessed.toList()
     }
 
     inner class MessageClassVisitor : KSDefaultVisitor<Unit, LoadedHandlerDefinition?>() {
