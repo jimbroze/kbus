@@ -52,7 +52,9 @@ jobs:
 
       - name: Extract Release Version
         id: version
-        run: echo "VERSION=${{ github.event.release.tag_name#v }}" >> $GITHUB_ENV
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        env:
+          GITHUB_REF: ${{ github.event.release.tag_name }}
 
       - name: Publish To Maven Central
         env:
