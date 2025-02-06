@@ -2,133 +2,202 @@ package com.jimbroze.kbus.generation
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.jimbroze.kbus.core.MessageBus
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
+import com.google.devtools.ksp.symbol.KSTypeArgument
+import com.google.devtools.ksp.symbol.KSValueParameter
+import com.google.devtools.ksp.symbol.Nullability
+import kotlin.reflect.KClass
+import kotlinx.datetime.Clock
 
-object DependencyLoaderGenerator {
-    fun generateDependencyLoader(codeGenerator: CodeGenerator, visitorContext: LoadedMessageCode) {
-        val packageName = MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
+data class DependencyDefinition(
+    val declaration: KSDeclaration,
+    val typeArgs: List<KSTypeArgument>,
+    val isSingleton: Boolean = true,
+) {
+    companion object {
+        fun fromParameter(
+            parameter: KSValueParameter,
+            paramType: KSDeclaration?,
+        ): DependencyDefinition {
+            val declaration = paramType ?: parameter.type.resolve().declaration
+            val typeArgs = parameter.type.element?.typeArguments.orEmpty()
 
-        val fileText =
-            generateLoaderCode(
-                packageName,
-                visitorContext.handlerDependencies,
-                visitorContext.loaderMethods,
-                visitorContext.busMethods,
+            return DependencyDefinition(declaration, typeArgs)
+        }
+    }
+
+    fun getName(): String {
+        return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
+    }
+
+    fun getTypeWithArgs(): String {
+        val typeName = StringBuilder(declaration.qualifiedName!!.asString())
+
+        for (typeArg in typeArgs) {
+            val type = typeArg.type?.resolve()
+            val typeText = type?.declaration?.qualifiedName?.asString() ?: continue
+            val variance = typeArg.variance.label
+            val nullability = if (type.nullability == Nullability.NULLABLE) "?" else ""
+
+            typeName.append("<$variance $typeText $nullability>")
+        }
+
+        return typeName.toString()
+    }
+}
+
+data class LoaderDependency(val definition: DependencyDefinition, val isRoot: Boolean)
+
+// DependencyFactory?
+class DependencyProcessor(private val busPackageName: String, private val logger: KSPLogger) {
+    fun generate(loadedMessages: Set<LoadedHandlerDefinition>): MutableSet<LoaderDependency> {
+        val allDependencies = mutableSetOf<LoaderDependency>()
+
+        for (loadedMessageDefinition in loadedMessages) {
+            extractedDependenciesOrNull(
+                    loadedMessageDefinition.handlerDefinition.handler.primaryConstructor!!
+                        .parameters
+                )
+                ?.let { allDependencies.addAll(it) }
+                ?: logger.error("Message handler is not a valid dependency")
+
+            allDependencies.add(
+                LoaderDependency(
+                    DependencyDefinition(
+                        loadedMessageDefinition.handlerDefinition.handler,
+                        emptyList(),
+                        false,
+                    ),
+                    false,
+                )
             )
+        }
+
+        return allDependencies
+    }
+
+    private fun extractedDependenciesOrNull(
+        parameterDependencies: List<KSValueParameter>
+    ): MutableSet<LoaderDependency>? {
+        val allDependencies = mutableSetOf<LoaderDependency>()
+        for (dependency in parameterDependencies) {
+            val depDeclaration = dependency.type.resolve().declaration
+            val dependencyDefinition =
+                DependencyDefinition.fromParameter(dependency, depDeclaration)
+
+            val cannotBeRootPackages = listOf("kotlin", "kotlinx.datetime")
+            val cannotBeRootExceptions = listOf<KClass<out Any>>(Clock::class)
+
+            if (
+                cannotBeRootPackages.contains(depDeclaration.packageName.asString()) &&
+                    cannotBeRootExceptions.none() {
+                        depDeclaration.qualifiedName!!.asString() == it.qualifiedName
+                    }
+            ) {
+                return null
+            }
+
+            val isNestedDependency =
+                depDeclaration is KSClassDeclaration &&
+                    depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
+                    depDeclaration.packageName.asString() != busPackageName
+
+            val nestedDependencies =
+                if (isNestedDependency) {
+                    extractedDependenciesOrNull(
+                        depDeclaration.primaryConstructor?.parameters.orEmpty()
+                    )
+                } else {
+                    null
+                }
+
+            if (nestedDependencies === null) {
+                allDependencies.add(LoaderDependency(dependencyDefinition, true))
+            } else {
+                allDependencies.addAll(nestedDependencies)
+                allDependencies.add(LoaderDependency(dependencyDefinition, false))
+            }
+        }
+
+        return allDependencies
+    }
+}
+
+class DependencyLoaderGenerator(
+    private val codeGenerator: CodeGenerator,
+    private val logger: KSPLogger,
+    private val busPackageName: String,
+) {
+    companion object {
+        const val LOADER_CLASS_NAME = "GeneratedDIContainer"
+    }
+
+    fun generateLoaderClassCode(dependencies: Set<LoaderDependency>) {
+        logger.info("Generating dependency loader")
+
+        val fileText = StringBuilder()
+        fileText.appendLine("package $busPackageName")
+        fileText.appendLine()
+
+        fileText.appendLine("abstract class GeneratedDIContainer {")
+
+        for (dependency in dependencies) {
+            fileText.append(generateLoaderMethodCode(dependency))
+        }
+
+        fileText.appendLine("}")
 
         val file =
-            codeGenerator.createNewFile(
-                Dependencies(true),
-                packageName,
-                "GeneratedDependencyLoader",
-            )
+            codeGenerator.createNewFile(Dependencies(true), busPackageName, LOADER_CLASS_NAME)
         file.write(fileText.toString().toByteArray())
         file.close()
     }
 
-    private fun generateLoaderCode(
-        packageName: String,
-        handlerDependencies: Set<ParameterDefinition>,
-        loaderMethods: StringBuilder,
-        busMethods: StringBuilder,
-    ): StringBuilder {
-        val fileText = StringBuilder()
+    private fun generateLoaderMethodCode(dependency: LoaderDependency): StringBuilder {
+        val declaration = dependency.definition.declaration
+        val dependencyName = dependency.definition.getName()
+        val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
 
-        fileText.appendLine("package $packageName")
-        fileText.appendLine()
-        fileText.append(generateDependenciesInterface(handlerDependencies))
-        fileText.append(generateLoaderClasses(loaderMethods))
-        fileText.append(generateBusClass(busMethods))
-
-        return fileText
-    }
-
-    fun addMethodToBusClass(classDefinition: LoadedHandlerDefinition): StringBuilder {
-        val busMethodCode = StringBuilder()
-
-        val messageType = classDefinition.handlerDefinition.messageBaseClass.simpleName!!
-        val messageTypeLowercase = messageType.lowercase()
-
-        val handlerName = classDefinition.handlerDefinition.handler.simpleName.asString()
-        val loadedMessageName = classDefinition.loadedMessageName
-
-        busMethodCode.appendLine("    suspend fun execute(loaded$messageType: $loadedMessageName)")
-        busMethodCode.appendLine(
-            "        = this.execute(loaded$messageType.$messageTypeLowercase, this.loader.get$handlerName())"
-        )
-
-        return busMethodCode
-    }
-
-    private fun generateBusClass(busMethods: StringBuilder): StringBuilder {
-        // TODO use MessageBus constructor for type safety? Replace pre-written class instead?
-
-        val busClassCode = StringBuilder()
-        busClassCode.appendLine("class CompileTimeLoadedMessageBus(")
-        busClassCode.appendLine("    middleware: List<Middleware>,")
-        busClassCode.appendLine("    private val loader: CompileTimeGeneratedLoader,")
-        busClassCode.appendLine(") : MessageBus(middleware) {")
-
-        busClassCode.append(busMethods)
-
-        busClassCode.appendLine("}")
-
-        return busClassCode
-    }
-
-    private fun generateDependenciesInterface(
-        allHandlerDependencies: Set<ParameterDefinition>
-    ): StringBuilder {
-        val dependenciesInterfaceCode = StringBuilder()
-
-        dependenciesInterfaceCode.appendLine("interface GeneratedDependencies {")
-        for (dependency in allHandlerDependencies) {
-            val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            dependenciesInterfaceCode.appendLine(
-                "    fun get$dependencyName(): ${dependency.typeName}"
-            )
-        }
-        dependenciesInterfaceCode.appendLine("}")
-
-        return dependenciesInterfaceCode
-    }
-
-    fun addMethodToLoaderClass(classDefinition: LoadedHandlerDefinition): StringBuilder {
         val loaderMethodCode = StringBuilder()
-
-        val handlerDependencies =
-            classDefinition.handlerDefinition.handler.primaryConstructor!!.parameters.map {
-                getParamNames(it)
+        if (declaration is KSClassDeclaration && !dependency.isRoot) {
+            val dependencyConstructorParams =
+                declaration.primaryConstructor
+                    ?.parameters
+                    ?.map { DependencyDefinition.fromParameter(it, null) }
+                    .orEmpty()
+            val handlerDependenciesString = StringBuilder()
+            var firstParam = true
+            for (constructorParam in dependencyConstructorParams) {
+                val parameterName = constructorParam.getName().replaceFirstChar { it.lowercase() }
+                handlerDependenciesString.append(
+                    "${if (firstParam) "" else ", "}this.$parameterName"
+                )
+                firstParam = false
             }
-        val handlerDependenciesString = StringBuilder()
-        var firstParam = true
-        for (dependency in handlerDependencies) {
-            val dependencyName = dependency.name.replaceFirstChar { it.uppercase() }
-            handlerDependenciesString.append(
-                "${if (firstParam) "" else ", "}this.dependencies.get$dependencyName()"
-            )
-            firstParam = false
-        }
-        val handlerName = classDefinition.handlerDefinition.handler.simpleName.asString()
-        val handlerType = classDefinition.handlerDefinition.handler.qualifiedName!!.asString()
 
-        loaderMethodCode.appendLine("    fun get$handlerName(): $handlerType {")
-        loaderMethodCode.appendLine("        return $handlerType($handlerDependenciesString)")
-        loaderMethodCode.appendLine("    }")
+            val dependencyTypeWithoutArgs =
+                dependency.definition.declaration.qualifiedName!!.asString()
+
+            if (dependency.definition.isSingleton) {
+                loaderMethodCode.appendLine(
+                    "    val $dependencyName: $dependencyTypeWithArgs by lazy {"
+                )
+                loaderMethodCode.appendLine(
+                    "        $dependencyTypeWithoutArgs($handlerDependenciesString)"
+                )
+                loaderMethodCode.appendLine("    }")
+            } else {
+                loaderMethodCode.appendLine("    val $dependencyName: $dependencyTypeWithArgs")
+                loaderMethodCode.appendLine(
+                    "        get() = $dependencyTypeWithoutArgs($handlerDependenciesString)"
+                )
+            }
+        } else {
+            loaderMethodCode.appendLine("    abstract val $dependencyName: $dependencyTypeWithArgs")
+        }
 
         return loaderMethodCode
-    }
-
-    private fun generateLoaderClasses(loaderMethods: StringBuilder): StringBuilder {
-        val stringBuilder = StringBuilder()
-        stringBuilder.appendLine(
-            "class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies) {"
-        )
-
-        stringBuilder.append(loaderMethods)
-
-        stringBuilder.appendLine("}")
-
-        return stringBuilder
     }
 }
