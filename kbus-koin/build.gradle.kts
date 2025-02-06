@@ -1,9 +1,9 @@
+description = "A module to use Koin with Kbus: A Kotlin message bus framework"
+
 plugins {
     id("kbus.multiplatform")
     id("kbus.publish")
 }
-
-version = "1.0-SNAPSHOT"
 
 kotlin {
     sourceSets {
