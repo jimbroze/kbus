@@ -11,7 +11,7 @@ plugins {
 
 allprojects {
     group = "com.jimbroze"
-    version = System.getenv("VERSION_OVERRIDE") ?: "0.1.1"
+    version = System.getenv("VERSION_OVERRIDE") ?: "0.2.0"
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }
