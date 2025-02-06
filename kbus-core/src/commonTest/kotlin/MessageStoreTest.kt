@@ -11,7 +11,7 @@ import kotlinx.coroutines.test.runTest
 
 class ReturnCommand(val messageData: String) : Command()
 
-class ReturnCommandHandler : CommandHandler<ReturnCommand, Any, GenericFailure> {
+class ReturnCommandHandler : CommandHandler<ReturnCommand, Any, GenericFailure>() {
     override suspend fun handle(message: ReturnCommand): BusResult<Any, GenericFailure> {
         return success(message.messageData)
     }
@@ -19,14 +19,14 @@ class ReturnCommandHandler : CommandHandler<ReturnCommand, Any, GenericFailure> 
 
 open class StorageCommand(val messageData: String, val listStore: MutableList<String>) : Command()
 
-class StorageCommandHandler : CommandHandler<StorageCommand, Unit, GenericFailure> {
+class StorageCommandHandler : CommandHandler<StorageCommand, Unit, GenericFailure>() {
     override suspend fun handle(message: StorageCommand): BusResult<Unit, GenericFailure> {
         message.listStore.add(message.messageData)
         return success()
     }
 }
 
-class AnyCommandHandler : CommandHandler<Command, Unit, GenericFailure> {
+class AnyCommandHandler : CommandHandler<Command, Unit, GenericFailure>() {
     override suspend fun handle(message: Command): BusResult<Unit, GenericFailure> {
         return success()
     }

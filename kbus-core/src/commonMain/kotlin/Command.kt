@@ -6,9 +6,9 @@ abstract class Command : Message() {
     override val messageType: String = "command"
 }
 
-interface CommandHandler<TCommand : Command, TReturn : Any?, TFailure : FailureReason> :
-    MessageHandler<TCommand>, ResultReturningHandler<TCommand, TReturn, TFailure> {
-    override suspend fun handle(message: TCommand): BusResult<TReturn, TFailure>
+abstract class CommandHandler<TCommand : Command, TReturn : Any?, TFailure : FailureReason> :
+    MessageHandler<TCommand>, ResultReturningHandler<TCommand, TReturn, TFailure>, CanAccessBus() {
+    abstract override suspend fun handle(message: TCommand): BusResult<TReturn, TFailure>
 }
 
 class TooManyHandlersException(message: String = "A handler has already been registered") :

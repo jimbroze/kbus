@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core
 
+import kotlin.js.JsName
 import kotlin.reflect.KClass
 
 open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
@@ -24,16 +25,19 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
     //        return result(commandBus, command)
     //    }
 
+    @JsName("executeCommand")
     suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
         //        ensureNoOtherCommandHandlers(command::class)
 
+        handler.setBus(this)
         val commandBus = getBus(commandStore, listOfNotNull(handler))
         return result(commandBus, command)
     }
 
+    @JsName("executeQuery")
     suspend fun <TQuery : Query, TReturn : Any, TFailure : FailureReason> execute(
         query: TQuery,
         handler: QueryHandler<TQuery, TReturn, TFailure>,
@@ -116,5 +120,17 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         // TODO remove unchecked cast by adding Type params to middleware?
         @Suppress("UNCHECKED_CAST")
         return messageBus(message) as BusResult<TReturn, TFailure>
+    }
+}
+
+abstract class CanAccessBus {
+    private var bus: MessageBus? = null
+
+    fun setBus(bus: MessageBus) {
+        this.bus = bus
+    }
+
+    suspend fun dispatch(event: Event) {
+        bus?.dispatch(event)
     }
 }

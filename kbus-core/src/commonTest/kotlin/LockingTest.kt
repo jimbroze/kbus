@@ -15,7 +15,7 @@ class TimeReturnCommand(
 ) : Command()
 
 class TimeReturnCommandHandler :
-    CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark, FailureReason> {
+    CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark, FailureReason>() {
     override suspend fun handle(
         message: TimeReturnCommand
     ): BusResult<TimeSource.Monotonic.ValueTimeMark, FailureReason> {
@@ -34,7 +34,7 @@ class LockingPrintReturnCommand(
 ) : Command(), LockingCommand
 
 class LockingPrintReturnCommandHandler(private val locker: BusLocker) :
-    CommandHandler<LockingPrintReturnCommand, Any, FailureReason> {
+    CommandHandler<LockingPrintReturnCommand, Any, FailureReason>() {
     override suspend fun handle(message: LockingPrintReturnCommand): BusResult<Any, FailureReason> {
         val timeSource = TimeSource.Monotonic
         val preNestTime = timeSource.markNow()
@@ -59,7 +59,7 @@ class LockingSleepCommand(
     override val lockTimeout: Float? = null,
 ) : Command(), LockingCommand
 
-class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, FailureReason> {
+class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, FailureReason>() {
     override suspend fun handle(message: LockingSleepCommand): BusResult<Any, FailureReason> {
         delay((1000 * message.waitSecs).toLong())
         return success(message.messageData)
@@ -68,7 +68,7 @@ class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, Fail
 
 class SleepCommand(val waitSecs: Float) : Command()
 
-class SleepCommandHandler : CommandHandler<SleepCommand, Unit, FailureReason> {
+class SleepCommandHandler : CommandHandler<SleepCommand, Unit, FailureReason>() {
     override suspend fun handle(message: SleepCommand): BusResult<Unit, FailureReason> {
         delay((1000 * message.waitSecs).toLong())
         return success()
@@ -78,7 +78,7 @@ class SleepCommandHandler : CommandHandler<SleepCommand, Unit, FailureReason> {
 class LockAdjustCommand(val messageData: String, override val lockTimeout: Float) :
     Command(), LockAdjustMessage
 
-class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, FailureReason> {
+class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, FailureReason>() {
     override suspend fun handle(message: LockAdjustCommand): BusResult<Any, FailureReason> {
         return success(message.messageData)
     }
