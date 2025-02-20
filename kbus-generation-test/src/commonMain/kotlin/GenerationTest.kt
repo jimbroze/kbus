@@ -87,13 +87,13 @@ class TestDuplicateGeneratorCommandHandler(
     }
 }
 
-class TestGeneratorQuery(val messageData: String) : Query()
+class TestGeneratorQuery(val messageData: String, val moreMessageData: String) : Query()
 
 @Load
 class TestGeneratorQueryHandler(private val locker: BusLocker, private val clock: Clock) :
     QueryHandler<TestGeneratorQuery, Any, FailureReason> {
     override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, FailureReason> {
         locker.toString()
-        return success(message.messageData + clock.now().toString())
+        return success(message.messageData + message.moreMessageData + clock.now().toString())
     }
 }

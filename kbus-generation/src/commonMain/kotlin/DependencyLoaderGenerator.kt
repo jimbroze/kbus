@@ -15,21 +15,25 @@ data class DependencyDefinition(
     val declaration: KSDeclaration,
     val typeArgs: List<KSTypeArgument>,
     val isSingleton: Boolean = true,
+    val customName: String? = null,
 ) {
     companion object {
         fun fromParameter(
             parameter: KSValueParameter,
             paramType: KSDeclaration?,
+            useParamName: Boolean = false,
         ): DependencyDefinition {
             val declaration = paramType ?: parameter.type.resolve().declaration
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
 
-            return DependencyDefinition(declaration, typeArgs)
+            val customName = if (useParamName) parameter.name?.asString() else null
+
+            return DependencyDefinition(declaration, typeArgs, customName = customName)
         }
     }
 
     fun getName(): String {
-        return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
+        return customName ?: declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
     }
 
     fun getTypeWithArgs(): String {

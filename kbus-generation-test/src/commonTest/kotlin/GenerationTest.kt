@@ -49,8 +49,8 @@ class GenerationTest {
 
         val bus = CompileTimeLoadedMessageBus(emptyList(), Dependencies(instant))
 
-        val result = bus.execute(TestGeneratorQueryLoaded("The time is "))
+        val result = bus.execute(TestGeneratorQueryLoaded("The time is ", "now "))
 
-        assertEquals("The time is 2024-02-23T19:01:09Z", result.getOrNull())
+        assertEquals("The time is now 2024-02-23T19:01:09Z", result.getOrNull())
     }
 }
