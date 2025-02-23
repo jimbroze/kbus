@@ -64,7 +64,7 @@ class TestGeneratorCommandHandler(
     }
 }
 
-class TestDuplicateGeneratorCommand(val messageData: String) : Command()
+class TestDuplicateGeneratorCommand(val messageData: String?) : Command()
 
 @Load
 class TestDuplicateGeneratorCommandHandler(
@@ -76,11 +76,18 @@ class TestDuplicateGeneratorCommandHandler(
     override suspend fun handle(
         message: TestDuplicateGeneratorCommand
     ): BusResult<Any, FailureReason> {
+        val stringOne =
+            if (message.messageData === null) {
+                "Null message $aString"
+            } else {
+                message.messageData + aString
+            }
+
         val returnMessage =
             stringCombiner.combine(
-                aString,
+                stringOne,
                 clockFactory.createClock().now().toString(),
-                bus.toString(),
+                bus.middlewares.toString(),
             )
 
         return success(returnMessage)

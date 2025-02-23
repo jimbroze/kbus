@@ -7,6 +7,7 @@ import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.ClockFactoryHolder
 import com.jimbroze.kbus.generation.test.FixedClock
 import com.jimbroze.kbus.generation.test.StringCombinator
+import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommandLoaded
 import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
 import com.jimbroze.kbus.generation.test.TestGeneratorQueryLoaded
 import kotlin.test.Test
@@ -41,6 +42,17 @@ class GenerationTest {
         val result = bus.execute(TestGeneratorCommandLoaded("The time is "))
 
         assertEquals("The time is 2024-02-23T19:01:09Z", result.getOrNull())
+    }
+
+    @Test
+    fun test_execute_executes_a_command_two() = runTest {
+        val instant = Instant.parse("2024-02-23T19:01:09Z")
+
+        val bus = CompileTimeLoadedMessageBus(emptyList(), Dependencies(instant))
+
+        val result = bus.execute(TestDuplicateGeneratorCommandLoaded(null))
+
+        assertEquals("Null message hello, 2024-02-23T19:01:09Z[]", result.getOrNull())
     }
 
     @Test
