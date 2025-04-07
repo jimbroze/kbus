@@ -181,7 +181,8 @@ class DependencyLoaderGenerator(
             val dependencyDeclaration = dependency.definition.declaration
             if (dependencyDeclaration is KSClassDeclaration && !dependency.isRoot) {
                 val string =
-                    "override " + generateLoaderValOverride(dependency, dependencyDeclaration).toString()
+                    "override " +
+                        generateLoaderValOverride(dependency, dependencyDeclaration).toString()
                 fileText.appendLine(string.prependIndent())
             }
         }
