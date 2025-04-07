@@ -14,7 +14,7 @@ import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.generation.DependencyLoaderGenerator.Companion.LOADER_CLASS_NAME
+import com.jimbroze.kbus.generation.DependencyLoaderGenerator.Companion.LOADER_INTERFACE_NAME
 
 private val loadableMessages = listOf(Command::class, Query::class)
 
@@ -28,7 +28,7 @@ class MessageProcessor(codeGenerator: CodeGenerator, private val logger: KSPLogg
     private val dependencyLoaderGenerator =
         DependencyLoaderGenerator(codeGenerator, logger, busPackageName)
     private val busGenerator =
-        MessageBusGenerator(codeGenerator, logger, busPackageName, LOADER_CLASS_NAME)
+        MessageBusGenerator(codeGenerator, logger, busPackageName, LOADER_INTERFACE_NAME)
 
     private val dependencyProcessor = DependencyProcessor(busPackageName, logger)
 
@@ -48,7 +48,8 @@ class MessageProcessor(codeGenerator: CodeGenerator, private val logger: KSPLogg
 
         val dependencies = dependencyProcessor.generate(loadedMessages)
 
-        dependencyLoaderGenerator.generateLoaderClassCode(dependencies)
+        dependencyLoaderGenerator.generateLoaderInterface(dependencies)
+        dependencyLoaderGenerator.generateLoaderClass(dependencies)
 
         busGenerator.generate(loadedMessages)
 

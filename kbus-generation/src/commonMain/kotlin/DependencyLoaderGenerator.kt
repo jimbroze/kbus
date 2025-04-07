@@ -143,20 +143,47 @@ class DependencyLoaderGenerator(
     private val busPackageName: String,
 ) {
     companion object {
-        const val LOADER_CLASS_NAME = "GeneratedDIContainer"
+        const val LOADER_INTERFACE_NAME = "IGeneratedDIContainer"
+        const val LOADER_CLASS_NAME = "AbstractGeneratedDIContainer"
     }
 
-    fun generateLoaderClassCode(dependencies: Set<LoaderDependency>) {
-        logger.info("Generating dependency loader")
+    fun generateLoaderInterface(dependencies: Set<LoaderDependency>) {
+        logger.info("Generating dependency loader interface")
 
         val fileText = StringBuilder()
         fileText.appendLine("package $busPackageName")
         fileText.appendLine()
 
-        fileText.appendLine("abstract class GeneratedDIContainer {")
+        fileText.appendLine("interface $LOADER_INTERFACE_NAME {")
 
         for (dependency in dependencies) {
-            fileText.append(generateLoaderMethodCode(dependency))
+            fileText.appendLine(generateLoaderVal(dependency).prependIndent())
+        }
+
+        fileText.appendLine("}")
+
+        val file =
+            codeGenerator.createNewFile(Dependencies(true), busPackageName, LOADER_INTERFACE_NAME)
+        file.write(fileText.toString().toByteArray())
+        file.close()
+    }
+
+    fun generateLoaderClass(dependencies: Set<LoaderDependency>) {
+        logger.info("Generating dependency loader abstract class")
+
+        val fileText = StringBuilder()
+        fileText.appendLine("package $busPackageName")
+        fileText.appendLine()
+
+        fileText.appendLine("abstract class $LOADER_CLASS_NAME : $LOADER_INTERFACE_NAME {")
+
+        for (dependency in dependencies) {
+            val dependencyDeclaration = dependency.definition.declaration
+            if (dependencyDeclaration is KSClassDeclaration && !dependency.isRoot) {
+                val string =
+                    "override " + generateLoaderValOverride(dependency, dependencyDeclaration).toString()
+                fileText.appendLine(string.prependIndent())
+            }
         }
 
         fileText.appendLine("}")
@@ -167,49 +194,48 @@ class DependencyLoaderGenerator(
         file.close()
     }
 
-    private fun generateLoaderMethodCode(dependency: LoaderDependency): StringBuilder {
-        val declaration = dependency.definition.declaration
+    private fun generateLoaderValOverride(
+        dependency: LoaderDependency,
+        dependencyDeclaration: KSClassDeclaration,
+    ): StringBuilder {
         val dependencyName = dependency.definition.getName()
         val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
-
         val loaderMethodCode = StringBuilder()
-        if (declaration is KSClassDeclaration && !dependency.isRoot) {
-            val dependencyConstructorParams =
-                declaration.primaryConstructor
-                    ?.parameters
-                    ?.map { DependencyDefinition.fromParameter(it, null) }
-                    .orEmpty()
-            val handlerDependenciesString = StringBuilder()
-            var firstParam = true
-            for (constructorParam in dependencyConstructorParams) {
-                val parameterName = constructorParam.getName().replaceFirstChar { it.lowercase() }
-                handlerDependenciesString.append(
-                    "${if (firstParam) "" else ", "}this.$parameterName"
-                )
-                firstParam = false
-            }
+        val dependencyConstructorParams =
+            dependencyDeclaration.primaryConstructor
+                ?.parameters
+                ?.map { DependencyDefinition.fromParameter(it, null) }
+                .orEmpty()
+        val handlerDependenciesString = StringBuilder()
+        var firstParam = true
+        for (constructorParam in dependencyConstructorParams) {
+            val parameterName = constructorParam.getName().replaceFirstChar { it.lowercase() }
+            handlerDependenciesString.append("${if (firstParam) "" else ", "}this.$parameterName")
+            firstParam = false
+        }
 
-            val dependencyTypeWithoutArgs =
-                dependency.definition.declaration.qualifiedName!!.asString()
+        val dependencyTypeWithoutArgs = dependencyDeclaration.qualifiedName!!.asString()
 
-            if (dependency.definition.isSingleton) {
-                loaderMethodCode.appendLine(
-                    "    val $dependencyName: $dependencyTypeWithArgs by lazy {"
-                )
-                loaderMethodCode.appendLine(
-                    "        $dependencyTypeWithoutArgs($handlerDependenciesString)"
-                )
-                loaderMethodCode.appendLine("    }")
-            } else {
-                loaderMethodCode.appendLine("    val $dependencyName: $dependencyTypeWithArgs")
-                loaderMethodCode.appendLine(
-                    "        get() = $dependencyTypeWithoutArgs($handlerDependenciesString)"
-                )
-            }
+        if (dependency.definition.isSingleton) {
+            loaderMethodCode.appendLine("val $dependencyName: $dependencyTypeWithArgs by lazy {")
+            loaderMethodCode.appendLine(
+                "    $dependencyTypeWithoutArgs($handlerDependenciesString)"
+            )
+            loaderMethodCode.appendLine("}")
         } else {
-            loaderMethodCode.appendLine("    abstract val $dependencyName: $dependencyTypeWithArgs")
+            loaderMethodCode.appendLine("val $dependencyName: $dependencyTypeWithArgs")
+            loaderMethodCode.appendLine(
+                "    get() = $dependencyTypeWithoutArgs($handlerDependenciesString)"
+            )
         }
 
         return loaderMethodCode
+    }
+
+    private fun generateLoaderVal(dependency: LoaderDependency): String {
+        val dependencyName = dependency.definition.getName()
+        val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
+
+        return "val $dependencyName: $dependencyTypeWithArgs"
     }
 }

@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.generation
 
+import com.jimbroze.kbus.core.AbstractGeneratedDIContainer
 import com.jimbroze.kbus.core.BusLocker
 import com.jimbroze.kbus.core.CompileTimeLoadedMessageBus
-import com.jimbroze.kbus.core.GeneratedDIContainer
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.ClockFactoryHolder
 import com.jimbroze.kbus.generation.test.FixedClock
@@ -16,7 +16,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
-class Dependencies(instant: Instant) : GeneratedDIContainer() {
+class Dependencies(instant: Instant) : AbstractGeneratedDIContainer() {
     override val clock: Clock by lazy { FixedClock(instant) }
 
     override val busLocker by lazy { BusLocker(clock) }
