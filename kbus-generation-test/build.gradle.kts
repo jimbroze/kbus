@@ -1,3 +1,6 @@
+import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+
 plugins {
     kotlin("multiplatform")
     alias(libs.plugins.devtools.ksp)
@@ -23,7 +26,7 @@ kotlin {
 
 dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
 
-tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().all {
+tasks.withType(KotlinCompilationTask::class).all {
     if (name != "kspCommonMainKotlinMetadata") {
         dependsOn("kspCommonMainKotlinMetadata")
     }
