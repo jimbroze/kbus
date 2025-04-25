@@ -10,6 +10,7 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
+import com.jimbroze.kbus.annotations.GenerateContainer
 import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.MessageBus
@@ -33,31 +34,100 @@ class MessageProcessor(codeGenerator: CodeGenerator, private val logger: KSPLogg
     private val dependencyProcessor = DependencyProcessor(busPackageName, logger)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val symbols =
+        val messagesThatCouldNotBeProcessed = mutableListOf<KSClassDeclaration>()
+
+        val messagesToLoad =
             resolver
                 .getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
                 .filterIsInstance<KSClassDeclaration>()
 
-        if (!symbols.iterator().hasNext()) return emptyList()
+        processMessagesToLoad(messagesToLoad)
+        messagesThatCouldNotBeProcessed.addAll(messagesToLoad.filterNot { it.validate() })
 
-        val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
+        val containerInterfaces =
+            resolver
+                .getSymbolsWithAnnotation(GenerateContainer::class.qualifiedName.toString())
+                .filterIsInstance<KSClassDeclaration>()
+                .filter { it.classKind === ClassKind.INTERFACE }
 
-        for (symbol in symbols) {
-            symbol.accept(MessageClassVisitor(), Unit)?.let { loadedMessages.add(it) }
-        }
+        processContainerInterfaces(containerInterfaces)
+        messagesThatCouldNotBeProcessed.addAll(containerInterfaces.filterNot { it.validate() })
 
-        val dependencies = dependencyProcessor.generate(loadedMessages)
-
-        dependencyLoaderGenerator.generateLoaderInterface(dependencies)
-        dependencyLoaderGenerator.generateLoaderClass(dependencies)
-
-        busGenerator.generate(loadedMessages)
-
-        val messagesThatCouldNotBeProcessed = symbols.filterNot { it.validate() }
         return messagesThatCouldNotBeProcessed.toList()
     }
 
-    inner class MessageClassVisitor : KSDefaultVisitor<Unit, LoadedHandlerDefinition?>() {
+    private fun processMessagesToLoad(symbols: Sequence<KSClassDeclaration>) {
+        val dependencies = mutableSetOf<LoaderDependency>()
+
+        for (symbol in symbols) {
+            symbol.accept(MessageDependencyVisitor(), Unit).let { dependencies.addAll(it) }
+        }
+
+        if (dependencies.isEmpty()) return
+
+        dependencyLoaderGenerator.generateLoaderInterface(dependencies)
+    }
+
+    private fun processContainerInterfaces(symbols: Sequence<KSClassDeclaration>) {
+        val dependencies = mutableSetOf<LoaderDependency>()
+
+        for (symbol in symbols) {
+            dependencies.addAll(
+                dependencyProcessor.generateFrom(symbol.getAllProperties(), includeNested = false)
+            )
+        }
+
+        val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
+        for (dependency in dependencies) {
+            val declaration = dependency.definition.declaration
+
+            if (
+                declaration is KSClassDeclaration &&
+                    Load::class.qualifiedName in
+                        declaration.annotations.map {
+                            it.annotationType.resolve().declaration.qualifiedName?.asString()
+                        }
+            ) {
+                declaration.accept(MessageLoaderVisitor(), Unit)?.let { loadedMessages.add(it) }
+            }
+        }
+
+        if (dependencies.isEmpty()) return
+
+        dependencyLoaderGenerator.generateLoaderClass(dependencies)
+
+        busGenerator.generate(loadedMessages)
+    }
+
+    inner class MessageDependencyVisitor : KSDefaultVisitor<Unit, Set<LoaderDependency>>() {
+        override fun defaultHandler(node: KSNode, data: Unit): Set<LoaderDependency> {
+            return emptySet()
+        }
+
+        override fun visitClassDeclaration(
+            classDeclaration: KSClassDeclaration,
+            data: Unit,
+        ): Set<LoaderDependency> {
+            if (classDeclaration.classKind != ClassKind.CLASS) {
+                logger.error(
+                    "Only classes can be annotated with @${Load::class.simpleName}",
+                    classDeclaration,
+                )
+                return emptySet()
+            }
+
+            return visitMessageHandler(classDeclaration)
+        }
+
+        private fun visitMessageHandler(messageHandler: KSClassDeclaration): Set<LoaderDependency> {
+            return dependencyProcessor.generateFrom(
+                messageHandler.asStarProjectedType(),
+                includeNested = true,
+            )
+        }
+    }
+
+    inner class MessageLoaderVisitor : KSDefaultVisitor<Unit, LoadedHandlerDefinition?>() {
         override fun defaultHandler(node: KSNode, data: Unit): LoadedHandlerDefinition? {
             return null
         }

@@ -5,10 +5,12 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
+import kotlin.collections.orEmpty
 import kotlin.reflect.KClass
 import kotlinx.datetime.Clock
 
@@ -64,73 +66,93 @@ data class LoaderDependency(val definition: DependencyDefinition, val isRoot: Bo
 
 // DependencyFactory?
 class DependencyProcessor(private val busPackageName: String, private val logger: KSPLogger) {
-    fun generate(loadedMessages: Set<LoadedHandlerDefinition>): MutableSet<LoaderDependency> {
+    fun generateFrom(type: KSType, includeNested: Boolean): Set<LoaderDependency> {
+        return extractedDependenciesOrNull(type, includeNested = includeNested) ?: emptySet()
+    }
+
+    fun generateFrom(
+        properties: Sequence<KSPropertyDeclaration>,
+        includeNested: Boolean,
+    ): Set<LoaderDependency> {
+        // TODO also go through functions?
+
+        return properties
+            .flatMap { prop ->
+                extractedDependenciesOrNull(
+                    dependency = prop.type.resolve(),
+                    customName = prop.simpleName.asString(),
+                    typeArgs = prop.type.element?.typeArguments.orEmpty(),
+                    includeNested,
+                ) ?: emptySet()
+            }
+            .toSet()
+    }
+
+    private fun nestedDependenciesOrNull(
+        classDeclaration: KSClassDeclaration
+    ): MutableSet<LoaderDependency>? {
         val allDependencies = mutableSetOf<LoaderDependency>()
 
-        for (loadedMessageDefinition in loadedMessages) {
+        for (dependency in classDeclaration.primaryConstructor?.parameters.orEmpty()) {
             extractedDependenciesOrNull(
-                    loadedMessageDefinition.handlerDefinition.handler.primaryConstructor!!
-                        .parameters
+                    dependency.type.resolve(),
+                    typeArgs = dependency.type.element?.typeArguments.orEmpty(),
                 )
-                ?.let { allDependencies.addAll(it) }
-                ?: logger.error("Message handler is not a valid dependency")
-
-            allDependencies.add(
-                LoaderDependency(
-                    DependencyDefinition(
-                        loadedMessageDefinition.handlerDefinition.handler,
-                        emptyList(),
-                        false,
-                    ),
-                    false,
-                )
-            )
+                ?.let { allDependencies.addAll(it) } ?: return null
         }
 
         return allDependencies
     }
 
     private fun extractedDependenciesOrNull(
-        parameterDependencies: List<KSValueParameter>
-    ): MutableSet<LoaderDependency>? {
+        dependency: KSType,
+        customName: String? = null,
+        typeArgs: List<KSTypeArgument> = emptyList(),
+        includeNested: Boolean = true,
+    ): Set<LoaderDependency>? {
         val allDependencies = mutableSetOf<LoaderDependency>()
-        for (dependency in parameterDependencies) {
-            val type = dependency.type.resolve()
-            val depDeclaration = type.declaration
-            val dependencyDefinition = DependencyDefinition.fromParameter(dependency, type)
 
-            val cannotBeRootPackages = listOf("kotlin", "kotlinx.datetime")
-            val cannotBeRootExceptions = listOf<KClass<out Any>>(Clock::class)
+        val depDeclaration = dependency.declaration
 
-            if (
-                cannotBeRootPackages.contains(depDeclaration.packageName.asString()) &&
-                    cannotBeRootExceptions.none() {
-                        depDeclaration.qualifiedName!!.asString() == it.qualifiedName
-                    }
-            ) {
-                return null
-            }
+        val dependencyDefinition =
+            DependencyDefinition(
+                depDeclaration,
+                typeArgs,
+                customName = customName,
+                nullability = dependency.nullability,
+            )
 
-            val isNestedDependency =
-                depDeclaration is KSClassDeclaration &&
-                    depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
-                    depDeclaration.packageName.asString() != busPackageName
+        val cannotBeRootPackages = listOf("kotlin", "kotlinx.datetime")
+        val cannotBeRootExceptions = listOf<KClass<out Any>>(Clock::class)
 
-            val nestedDependencies =
-                if (isNestedDependency) {
-                    extractedDependenciesOrNull(
-                        depDeclaration.primaryConstructor?.parameters.orEmpty()
-                    )
-                } else {
-                    null
+        if (
+            cannotBeRootPackages.contains(depDeclaration.packageName.asString()) &&
+                cannotBeRootExceptions.none() {
+                    depDeclaration.qualifiedName!!.asString() == it.qualifiedName
                 }
+        ) {
+            return null
+        }
 
-            if (nestedDependencies === null) {
-                allDependencies.add(LoaderDependency(dependencyDefinition, true))
+        val isNestedDependency =
+            depDeclaration is KSClassDeclaration &&
+                depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
+                depDeclaration.packageName.asString() != busPackageName
+
+        // TODO prevent calculating nested if extractNested is false? Probably can't do this? At
+        // least prevent recursion?
+        val nestedDependencies =
+            if (isNestedDependency) {
+                nestedDependenciesOrNull(depDeclaration)
             } else {
-                allDependencies.addAll(nestedDependencies)
-                allDependencies.add(LoaderDependency(dependencyDefinition, false))
+                null
             }
+
+        if (nestedDependencies === null) {
+            allDependencies.add(LoaderDependency(dependencyDefinition, true))
+        } else {
+            if (includeNested) allDependencies.addAll(nestedDependencies)
+            allDependencies.add(LoaderDependency(dependencyDefinition, false))
         }
 
         return allDependencies
