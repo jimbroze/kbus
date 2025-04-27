@@ -12,8 +12,11 @@ import kotlin.reflect.KClass
 
 data class LoadedHandlerDefinition(
     val handlerDefinition: HandlerDefinition,
-    val loadedMessageName: String,
-)
+    val packageName: String,
+    val loadedClassName: String,
+) {
+    val loadedMessageName = "$packageName.$loadedClassName"
+}
 
 data class HandlerDefinition(
     val handler: KSClassDeclaration,
@@ -29,7 +32,27 @@ class LoadedMessageGenerator(
     fun generateLoadedMessage(handlerClass: KSClassDeclaration): LoadedHandlerDefinition? {
         val messageDefinition = messageForHandler(handlerClass) ?: return null
 
-        return createLoadedMessage(messageDefinition, handlerClass)
+        val message = messageDefinition.message
+        val handler: KSClassDeclaration = handlerClass
+
+        // TODO test for different packages?
+        val packageName = handler.containingFile!!.packageName.asString()
+        val messageClassName = message.simpleName.asString()
+        val loadedClassName = "${messageClassName}Loaded"
+
+        val loadedHandlerDefinition =
+            LoadedHandlerDefinition(messageDefinition, packageName, loadedClassName)
+
+        val file =
+            codeGenerator.createNewFile(
+                Dependencies(true, handler.containingFile!!, message.containingFile!!),
+                packageName,
+                loadedClassName,
+            )
+        file.write(generateHandlerCode(loadedHandlerDefinition).toString().toByteArray())
+        file.close()
+
+        return loadedHandlerDefinition
     }
 
     private fun messageForHandler(handlerClass: KSClassDeclaration): HandlerDefinition? {
@@ -70,32 +93,32 @@ class LoadedMessageGenerator(
         return messageType?.let { HandlerDefinition(handlerClass, messageClass, it) }
     }
 
-    private fun createLoadedMessage(
-        messageDefinition: HandlerDefinition,
-        classDeclaration: KSClassDeclaration,
-    ): LoadedHandlerDefinition {
-        val message = messageDefinition.message
-        val handler: KSClassDeclaration = classDeclaration
-        val messageTypeLowercase =
-            messageDefinition.messageBaseClass.simpleName.toString().lowercase()
+    private fun generateHandlerCode(
+        loadedHandlerDefinition: LoadedHandlerDefinition
+    ): StringBuilder {
+        val messageClassName =
+            loadedHandlerDefinition.handlerDefinition.message.simpleName.asString()
+        val handlerClassName =
+            loadedHandlerDefinition.handlerDefinition.handler.simpleName.asString()
+        val loadedClassName = loadedHandlerDefinition.loadedClassName
 
-        // TODO test for different packages?
-        val packageName = handler.containingFile!!.packageName.asString()
-        val messageClassName = message.simpleName.asString()
-        val handlerClassName = handler.simpleName.asString()
-        val loadedClassName = "${messageClassName}Loaded"
+        val messageTypeLowercase =
+            loadedHandlerDefinition.handlerDefinition.messageBaseClass.simpleName
+                .toString()
+                .lowercase()
 
         val messageConstructorDependencies =
-            message.primaryConstructor?.parameters?.map {
+            loadedHandlerDefinition.handlerDefinition.message.primaryConstructor?.parameters?.map {
                 Dependency.fromParameter(it, useParamName = true)
             } ?: emptyList()
-
         val loadedMessageConstructorParams =
             messageConstructorDependencies.joinToString(", ") { dep ->
                 "${dep.name}: ${dep.getTypeWithArgs()}"
             }
         val messageConstructorArgs =
             messageConstructorDependencies.joinToString(", ") { dep -> dep.name }
+
+        val packageName = loadedHandlerDefinition.packageName
 
         val fileText = StringBuilder()
         fileText.appendLine("package $packageName")
@@ -109,17 +132,7 @@ class LoadedMessageGenerator(
         )
         fileText.appendLine("}")
 
-        val file =
-            codeGenerator.createNewFile(
-                Dependencies(true, handler.containingFile!!, message.containingFile!!),
-                packageName,
-                loadedClassName,
-            )
-
-        file.write(fileText.toString().toByteArray())
-        file.close()
-
-        return LoadedHandlerDefinition(messageDefinition, "$packageName.$loadedClassName")
+        return fileText
     }
 }
 
