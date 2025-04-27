@@ -43,7 +43,7 @@ class ContainerGenerator(
         fileText.appendLine("abstract class $loaderClassName : $loaderInterfaceName {")
 
         for (dependency in dependencies) {
-            val dependencyDeclaration = dependency.definition.declaration
+            val dependencyDeclaration = dependency.declaration
             if (dependencyDeclaration is KSClassDeclaration && !dependency.isRoot) {
                 val string =
                     "override " +
@@ -63,8 +63,8 @@ class ContainerGenerator(
         dependency: LoaderDependency,
         dependencyDeclaration: KSClassDeclaration,
     ): StringBuilder {
-        val dependencyName = dependency.definition.name
-        val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
+        val dependencyName = dependency.name
+        val dependencyTypeWithArgs = dependency.getTypeWithArgs()
         val loaderMethodCode = StringBuilder()
 
         // fiXME constructor params are actually further (loader) dependencies.
@@ -93,7 +93,7 @@ class ContainerGenerator(
             dependencyDeclaration.primaryConstructor
                 ?.parameters
                 ?.map { param ->
-                    DependencyDefinition.fromParameter(param, useParamName = false).name
+                    LoaderDependency.fromParameter(param, useParamName = false, isRoot = true).name
                 }
                 .orEmpty()
 
@@ -101,8 +101,8 @@ class ContainerGenerator(
     }
 
     private fun generateLoaderVal(dependency: LoaderDependency): String {
-        val dependencyName = dependency.definition.name
-        val dependencyTypeWithArgs = dependency.definition.getTypeWithArgs()
+        val dependencyName = dependency.name
+        val dependencyTypeWithArgs = dependency.getTypeWithArgs()
 
         return "val $dependencyName: $dependencyTypeWithArgs"
     }

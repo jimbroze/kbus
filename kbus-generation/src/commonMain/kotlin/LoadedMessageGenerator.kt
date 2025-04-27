@@ -88,9 +88,10 @@ class LoadedMessageGenerator(
         val handlerClassName = handler.simpleName.asString()
         val loadedClassName = "${messageClassName}Loaded"
 
+        // FIXME split out dependency apart from isRoot & isSingleton?
         val messageConstructorDependencies =
             message.primaryConstructor?.parameters?.map {
-                DependencyDefinition.fromParameter(it, useParamName = true)
+                LoaderDependency.fromParameter(it, useParamName = true, isRoot = true)
             } ?: emptyList()
 
         val loadedMessageConstructorParams =

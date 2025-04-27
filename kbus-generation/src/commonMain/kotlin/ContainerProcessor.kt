@@ -41,9 +41,7 @@ class ContainerProcessor(
         for (dependency in dependencies) {
             validateNoDuplicates(dependencies, dependency)
 
-            dependency.definition.declaration.accept(DependencyVisitor(), Unit)?.let {
-                loadedMessages.add(it)
-            }
+            dependency.declaration.accept(DependencyVisitor(), Unit)?.let { loadedMessages.add(it) }
         }
 
         if (dependencies.isEmpty()) return
@@ -59,10 +57,10 @@ class ContainerProcessor(
     ) {
         val matches = dependencies.filter { other -> dependency.equalsDependency(other) }
         if (matches.isNotEmpty()) {
-            val dependencyName = dependency.definition.declaration.simpleName.asString()
+            val dependencyName = dependency.declaration.simpleName.asString()
             logger.error(
                 "Tried to generate multiple dependencies for $dependencyName",
-                dependency.definition.declaration,
+                dependency.declaration,
             )
         }
     }

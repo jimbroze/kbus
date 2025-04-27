@@ -12,38 +12,44 @@ import kotlin.collections.orEmpty
 import kotlin.reflect.KClass
 import kotlinx.datetime.Clock
 
-// Should we only return a dependencyDef for most part and then only calculate LoaderDep for
-// abstract loader?
 // FIXME isSingleton. Do handlers need to be singletons?
-// FIXME name should be on loaderDep?
-data class DependencyDefinition(
+data class LoaderDependency(
     val declaration: KSDeclaration,
     val typeArgs: List<KSTypeArgument>,
     val name: String,
     val nullability: Nullability = Nullability.NOT_NULL,
+    val isRoot: Boolean,
+    val isSingleton: Boolean = true,
 ) {
     companion object {
+        @Suppress("LongParameterList")
         fun withCustomName(
             declaration: KSDeclaration,
             typeArgs: List<KSTypeArgument>,
             customName: String? = null,
             nullability: Nullability = Nullability.NOT_NULL,
-        ): DependencyDefinition {
+            isRoot: Boolean,
+            isSingleton: Boolean = true,
+        ): LoaderDependency {
             val name =
                 customName ?: declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
 
-            return DependencyDefinition(
+            return LoaderDependency(
                 declaration,
                 typeArgs,
                 name = name,
                 nullability = nullability,
+                isRoot = isRoot,
+                isSingleton = isSingleton,
             )
         }
 
         fun fromParameter(
             parameter: KSValueParameter,
             useParamName: Boolean,
-        ): DependencyDefinition {
+            isRoot: Boolean,
+            isSingleton: Boolean = true,
+        ): LoaderDependency {
             val type = parameter.type.resolve()
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
 
@@ -54,6 +60,8 @@ data class DependencyDefinition(
                 typeArgs,
                 customName = customName,
                 nullability = type.nullability,
+                isRoot = isRoot,
+                isSingleton = isSingleton,
             )
         }
     }
@@ -73,19 +81,13 @@ data class DependencyDefinition(
 
         return typeName.toString()
     }
-}
 
-data class LoaderDependency(
-    val definition: DependencyDefinition,
-    val isRoot: Boolean,
-    val isSingleton: Boolean = true,
-) {
-    // FIXME should name be on this class instead?
     fun equalsDependency(other: LoaderDependency): Boolean {
         return other !== this &&
-            other.definition.declaration == this.definition.declaration &&
-            other.definition.typeArgs == this.definition.typeArgs &&
-            other.definition.nullability == this.definition.nullability
+            other.declaration == this.declaration &&
+            other.typeArgs == this.typeArgs &&
+            other.name == this.name &&
+            other.nullability == this.nullability
     }
 }
 
@@ -126,23 +128,20 @@ class DependencyProcessor(private val busPackageName: String, private val logger
             return null
         }
 
-        val dependencyDefinition =
-            DependencyDefinition.withCustomName(
+        val nested = nestedDependencies(depDeclaration)
+        val loaderDependency =
+            LoaderDependency.withCustomName(
                 depDeclaration,
                 typeArgs,
                 customName = customName,
                 nullability = dependency.nullability,
+                isRoot = nested === null,
             )
 
-        val nested = nestedDependencies(depDeclaration)
-        val allDependencies =
-            if (nested === null) {
-                setOf(LoaderDependency(dependencyDefinition, isRoot = true))
-            } else {
-                if (includeNested) nested + LoaderDependency(dependencyDefinition, isRoot = false)
-                else setOf(LoaderDependency(dependencyDefinition, isRoot = false))
-            }
-
+        val allDependencies = mutableSetOf(loaderDependency)
+        if (nested !== null && includeNested) {
+            allDependencies.addAll(nested)
+        }
         return allDependencies
     }
 
