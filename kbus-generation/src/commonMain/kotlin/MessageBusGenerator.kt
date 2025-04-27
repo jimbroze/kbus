@@ -8,23 +8,21 @@ import kotlin.text.StringBuilder
 class MessageBusGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
-    private val packageName: String,
+    private val busPackageName: String,
+    private val busClassName: String,
     private val loaderClassName: String,
 ) {
-    companion object {
-        const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
-    }
 
     fun generate(handlers: Set<LoadedHandlerDefinition>) {
         logger.info("Generating CompileTimeLoadedMessageBus")
 
         val fileText = StringBuilder()
 
-        fileText.appendLine("package $packageName")
+        fileText.appendLine("package $busPackageName")
         fileText.appendLine()
         fileText.append(generateBusClassCode(handlers))
 
-        val file = codeGenerator.createNewFile(Dependencies(true), packageName, BUS_CLASS_NAME)
+        val file = codeGenerator.createNewFile(Dependencies(true), busPackageName, busClassName)
         file.write(fileText.toString().toByteArray())
         file.close()
     }
@@ -33,7 +31,7 @@ class MessageBusGenerator(
         // TODO use MessageBus constructor for type safety? Replace pre-written class instead?
 
         val busClassCode = StringBuilder()
-        busClassCode.appendLine("class $BUS_CLASS_NAME(")
+        busClassCode.appendLine("class $busClassName(")
         busClassCode.appendLine("    middleware: List<Middleware>,")
         busClassCode.appendLine("    private val loader: $loaderClassName,")
         busClassCode.appendLine(") : MessageBus(middleware) {")

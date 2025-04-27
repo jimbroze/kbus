@@ -1,1 +1,2 @@
 com.jimbroze.kbus.generation.MessageProcessorProvider
+com.jimbroze.kbus.generation.ContainerProcessorProvider

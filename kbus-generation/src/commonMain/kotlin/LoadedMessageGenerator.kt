@@ -88,30 +88,24 @@ class LoadedMessageGenerator(
         val handlerClassName = handler.simpleName.asString()
         val loadedClassName = "${messageClassName}Loaded"
 
-        val loadedMessageConstructorParameters = StringBuilder()
-        val messageConstructorParameters = StringBuilder()
-        var firstParam = true
-        //            TODO handler null constructor?
-        for (messageParameter in message.primaryConstructor?.parameters!!) {
-            val messageParameterDependency =
-                DependencyDefinition.fromParameter(messageParameter, null, true)
-            val name = messageParameterDependency.getName()
-            val typeName = messageParameterDependency.getTypeWithArgs()
+        val messageConstructorDependencies =
+            message.primaryConstructor?.parameters?.map {
+                DependencyDefinition.fromParameter(it, useParamName = true)
+            } ?: emptyList()
 
-            loadedMessageConstructorParameters.append(
-                "${if (firstParam) "" else ", "}$name: $typeName"
-            )
-            messageConstructorParameters.append("${if (firstParam) "" else ", "}$name")
-
-            firstParam = false
-        }
+        val loadedMessageConstructorParams =
+            messageConstructorDependencies.joinToString(", ") { dep ->
+                "${dep.name}: ${dep.getTypeWithArgs()}"
+            }
+        val messageConstructorArgs =
+            messageConstructorDependencies.joinToString(", ") { dep -> dep.name }
 
         val fileText = StringBuilder()
         fileText.appendLine("package $packageName")
         fileText.appendLine()
-        fileText.appendLine("class $loadedClassName($loadedMessageConstructorParameters) {")
+        fileText.appendLine("class $loadedClassName($loadedMessageConstructorParams) {")
         fileText.appendLine(
-            "    val $messageTypeLowercase = ${messageClassName}(${messageConstructorParameters})"
+            "    val $messageTypeLowercase = ${messageClassName}(${messageConstructorArgs})"
         )
         fileText.appendLine(
             "    suspend fun handle(handler: $handlerClassName) = handler.handle($messageTypeLowercase)"
