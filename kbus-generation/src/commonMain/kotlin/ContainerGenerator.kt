@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.jimbroze.kbus.core.MessageHandler
 
 class ContainerGenerator(
     private val codeGenerator: CodeGenerator,
@@ -12,7 +13,7 @@ class ContainerGenerator(
     private val loaderInterfaceName: String,
     private val loaderClassName: String,
 ) {
-    fun generateLoaderInterface(dependencies: Set<LoaderDependency>) {
+    fun generateLoaderInterface(dependencies: Set<NestedDependency>) {
         logger.info("Generating dependency loader interface")
 
         val fileText = StringBuilder()
@@ -33,7 +34,7 @@ class ContainerGenerator(
         file.close()
     }
 
-    fun generateLoaderClass(dependencies: Set<LoaderDependency>) {
+    fun generateLoaderClass(overrides: Set<NestedDependency>) {
         logger.info("Generating dependency loader abstract class")
 
         val fileText = StringBuilder()
@@ -42,12 +43,12 @@ class ContainerGenerator(
 
         fileText.appendLine("abstract class $loaderClassName : $loaderInterfaceName {")
 
-        for (dependency in dependencies) {
-            val dependencyDeclaration = dependency.declaration
-            if (dependencyDeclaration is KSClassDeclaration && !dependency.isRoot) {
+        for (override in overrides) {
+            val dependencyDeclaration = override.declaration
+            if (dependencyDeclaration is KSClassDeclaration && !override.isRoot) {
                 val string =
                     "override " +
-                        generateLoaderValOverride(dependency, dependencyDeclaration).toString()
+                        generateLoaderValOverride(override, dependencyDeclaration).toString()
                 fileText.appendLine(string.prependIndent())
             }
         }
@@ -60,18 +61,17 @@ class ContainerGenerator(
     }
 
     private fun generateLoaderValOverride(
-        dependency: LoaderDependency,
+        dependency: NestedDependency,
         dependencyDeclaration: KSClassDeclaration,
     ): StringBuilder {
         val dependencyName = dependency.name
         val dependencyTypeWithArgs = dependency.getTypeWithArgs()
         val loaderMethodCode = StringBuilder()
 
-        // fiXME constructor params are actually further (loader) dependencies.
         val dependencyConstructorParams = constructorParams(dependencyDeclaration)
         val dependencyTypeWithoutArgs = dependencyDeclaration.qualifiedName!!.asString()
 
-        if (dependency.isSingleton) {
+        if (isSingleton(dependency)) {
             loaderMethodCode.appendLine("val $dependencyName: $dependencyTypeWithArgs by lazy {")
             loaderMethodCode.appendLine(
                 "    $dependencyTypeWithoutArgs($dependencyConstructorParams)"
@@ -87,23 +87,28 @@ class ContainerGenerator(
         return loaderMethodCode
     }
 
-    // FIXME name is default
     private fun constructorParams(dependencyDeclaration: KSClassDeclaration): String {
         val dependencyConstructorParamNames =
             dependencyDeclaration.primaryConstructor
                 ?.parameters
-                ?.map { param ->
-                    LoaderDependency.fromParameter(param, useParamName = false, isRoot = true).name
-                }
+                ?.map { param -> Dependency.fromParameter(param, useParamName = false).name }
                 .orEmpty()
 
         return dependencyConstructorParamNames.joinToString(", ") { "this.$it" }
     }
 
-    private fun generateLoaderVal(dependency: LoaderDependency): String {
+    private fun generateLoaderVal(dependency: NestedDependency): String {
         val dependencyName = dependency.name
         val dependencyTypeWithArgs = dependency.getTypeWithArgs()
 
         return "val $dependencyName: $dependencyTypeWithArgs"
+    }
+
+    private fun isSingleton(dependency: NestedDependency): Boolean {
+        return !(dependency.declaration is KSClassDeclaration &&
+            dependency.declaration.superTypes.any {
+                it.resolve().declaration.qualifiedName?.asString() ==
+                    MessageHandler::class.qualifiedName
+            })
     }
 }

@@ -43,12 +43,9 @@ class LoadedMessageGenerator(
 
         return when (validHandlerMethods.count()) {
             1 -> validHandlerMethods.first()
-            0 -> {
-                logger.error("Multiple valid 'handle' functions found for handler", handlerClass)
-                return null
-            }
+            0 -> null
             else -> {
-                logger.error("Message handler must have a valid 'handle' function.", handlerClass)
+                logger.error("Multiple valid 'handle' functions found for handler", handlerClass)
                 null
             }
         }
@@ -88,10 +85,9 @@ class LoadedMessageGenerator(
         val handlerClassName = handler.simpleName.asString()
         val loadedClassName = "${messageClassName}Loaded"
 
-        // FIXME split out dependency apart from isRoot & isSingleton?
         val messageConstructorDependencies =
             message.primaryConstructor?.parameters?.map {
-                LoaderDependency.fromParameter(it, useParamName = true, isRoot = true)
+                Dependency.fromParameter(it, useParamName = true)
             } ?: emptyList()
 
         val loadedMessageConstructorParams =

@@ -26,7 +26,7 @@ class MessageProcessor(
     }
 
     private fun processMessagesToLoad(symbols: Sequence<KSAnnotated>) {
-        val dependencies = mutableSetOf<LoaderDependency>()
+        val dependencies = mutableSetOf<NestedDependency>()
 
         for (symbol in symbols) {
             symbol.accept(LoadVisitor(), Unit).let { dependencies.addAll(it) }
@@ -37,15 +37,15 @@ class MessageProcessor(
         dependencyLoaderGenerator.generateLoaderInterface(dependencies)
     }
 
-    inner class LoadVisitor : KSDefaultVisitor<Unit, Set<LoaderDependency>>() {
-        override fun defaultHandler(node: KSNode, data: Unit): Set<LoaderDependency> {
+    inner class LoadVisitor : KSDefaultVisitor<Unit, Set<NestedDependency>>() {
+        override fun defaultHandler(node: KSNode, data: Unit): Set<NestedDependency> {
             return emptySet()
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
             data: Unit,
-        ): Set<LoaderDependency> {
+        ): Set<NestedDependency> {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 logger.error(
                     "Only classes can be annotated with @${Load::class.simpleName}",

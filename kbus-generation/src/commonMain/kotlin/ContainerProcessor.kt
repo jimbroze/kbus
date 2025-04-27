@@ -29,13 +29,11 @@ class ContainerProcessor(
     }
 
     private fun processContainerInterfaces(symbols: Sequence<KSAnnotated>) {
-        val dependencies = mutableSetOf<LoaderDependency>()
+        val dependencies = mutableSetOf<NestedDependency>()
 
         for (symbol in symbols) {
             dependencies.addAll(symbol.accept(ContainerVisitor(), Unit))
         }
-
-        // FIXME save name on instantiation, not customName
 
         val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
         for (dependency in dependencies) {
@@ -52,10 +50,10 @@ class ContainerProcessor(
     }
 
     private fun validateNoDuplicates(
-        dependencies: MutableSet<LoaderDependency>,
-        dependency: LoaderDependency,
+        allDependencies: MutableSet<NestedDependency>,
+        dependency: NestedDependency,
     ) {
-        val matches = dependencies.filter { other -> dependency.equalsDependency(other) }
+        val matches = allDependencies.filter { other -> dependency.isDuplicateOf(other) }
         if (matches.isNotEmpty()) {
             val dependencyName = dependency.declaration.simpleName.asString()
             logger.error(
@@ -94,15 +92,15 @@ class ContainerProcessor(
         }
     }
 
-    inner class ContainerVisitor : KSDefaultVisitor<Unit, Set<LoaderDependency>>() {
-        override fun defaultHandler(node: KSNode, data: Unit): Set<LoaderDependency> {
+    inner class ContainerVisitor : KSDefaultVisitor<Unit, Set<NestedDependency>>() {
+        override fun defaultHandler(node: KSNode, data: Unit): Set<NestedDependency> {
             return emptySet()
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
             data: Unit,
-        ): Set<LoaderDependency> {
+        ): Set<NestedDependency> {
             if (classDeclaration.classKind != ClassKind.INTERFACE) {
                 logger.error(
                     "Only interfaces can be annotated with @${GenerateContainer::class.simpleName}",

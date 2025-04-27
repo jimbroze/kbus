@@ -6,107 +6,26 @@ import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeArgument
-import com.google.devtools.ksp.symbol.KSValueParameter
-import com.google.devtools.ksp.symbol.Nullability
 import kotlin.collections.orEmpty
 import kotlin.reflect.KClass
 import kotlinx.datetime.Clock
 
-// FIXME isSingleton. Do handlers need to be singletons?
-data class LoaderDependency(
-    val declaration: KSDeclaration,
-    val typeArgs: List<KSTypeArgument>,
-    val name: String,
-    val nullability: Nullability = Nullability.NOT_NULL,
-    val isRoot: Boolean,
-    val isSingleton: Boolean = true,
-) {
-    companion object {
-        @Suppress("LongParameterList")
-        fun withCustomName(
-            declaration: KSDeclaration,
-            typeArgs: List<KSTypeArgument>,
-            customName: String? = null,
-            nullability: Nullability = Nullability.NOT_NULL,
-            isRoot: Boolean,
-            isSingleton: Boolean = true,
-        ): LoaderDependency {
-            val name =
-                customName ?: declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
-
-            return LoaderDependency(
-                declaration,
-                typeArgs,
-                name = name,
-                nullability = nullability,
-                isRoot = isRoot,
-                isSingleton = isSingleton,
-            )
-        }
-
-        fun fromParameter(
-            parameter: KSValueParameter,
-            useParamName: Boolean,
-            isRoot: Boolean,
-            isSingleton: Boolean = true,
-        ): LoaderDependency {
-            val type = parameter.type.resolve()
-            val typeArgs = parameter.type.element?.typeArguments.orEmpty()
-
-            val customName = if (useParamName) parameter.name?.asString() else null
-
-            return withCustomName(
-                type.declaration,
-                typeArgs,
-                customName = customName,
-                nullability = type.nullability,
-                isRoot = isRoot,
-                isSingleton = isSingleton,
-            )
-        }
-    }
-
-    fun getTypeWithArgs(): String {
-        val typeName = StringBuilder(declaration.qualifiedName!!.asString())
-
-        for (typeArg in typeArgs) {
-            val type = typeArg.type?.resolve()
-            val typeText = type?.declaration?.qualifiedName?.asString() ?: continue
-            val variance = typeArg.variance.label
-            val nullability = if (type.nullability == Nullability.NULLABLE) "?" else ""
-
-            typeName.append("<$variance $typeText $nullability>")
-        }
-        if (nullability == Nullability.NULLABLE) typeName.append("?")
-
-        return typeName.toString()
-    }
-
-    fun equalsDependency(other: LoaderDependency): Boolean {
-        return other !== this &&
-            other.declaration == this.declaration &&
-            other.typeArgs == this.typeArgs &&
-            other.name == this.name &&
-            other.nullability == this.nullability
-    }
-}
-
 // DependencyFactory?
 @Suppress("unused")
 class DependencyProcessor(private val busPackageName: String, private val logger: KSPLogger) {
-    fun generateFrom(type: KSType, includeNested: Boolean): Set<LoaderDependency> {
-        return extractedDependenciesOrNull(type, includeNested = includeNested) ?: emptySet()
+    fun generateFrom(type: KSType, includeNested: Boolean): Set<NestedDependency> {
+        return createDependencies(type, includeNested = includeNested) ?: emptySet()
     }
 
     fun generateFrom(
         properties: Sequence<KSPropertyDeclaration>,
         includeNested: Boolean,
-    ): Set<LoaderDependency> {
+    ): Set<NestedDependency> {
         // TODO also go through functions?
 
         return properties
             .flatMap { prop ->
-                extractedDependenciesOrNull(
+                createDependencies(
                     dependency = prop.type.resolve(),
                     customName = prop.simpleName.asString(),
                     typeArgs = prop.type.element?.typeArguments.orEmpty(),
@@ -116,25 +35,26 @@ class DependencyProcessor(private val busPackageName: String, private val logger
             .toSet()
     }
 
-    private fun extractedDependenciesOrNull(
+    private fun createDependencies(
         dependency: KSType,
         customName: String? = null,
         typeArgs: List<KSTypeArgument> = emptyList(),
         includeNested: Boolean = true,
-    ): Set<LoaderDependency>? {
-        val depDeclaration = dependency.declaration
-
-        if (cannotBeRoot(depDeclaration)) {
+    ): Set<NestedDependency>? {
+        if (cannotBeDependency(dependency.declaration)) {
             return null
         }
 
-        val nested = nestedDependencies(depDeclaration)
+        val nested = nestedDependencies(dependency.declaration)
+
         val loaderDependency =
-            LoaderDependency.withCustomName(
-                depDeclaration,
-                typeArgs,
-                customName = customName,
-                nullability = dependency.nullability,
+            NestedDependency.fromDependency(
+                Dependency.withCustomName(
+                    dependency.declaration,
+                    typeArgs,
+                    customName = customName,
+                    nullability = dependency.nullability,
+                ),
                 isRoot = nested === null,
             )
 
@@ -142,20 +62,19 @@ class DependencyProcessor(private val busPackageName: String, private val logger
         if (nested !== null && includeNested) {
             allDependencies.addAll(nested)
         }
+
         return allDependencies
     }
 
-    private fun cannotBeRoot(depDeclaration: KSDeclaration): Boolean {
-        val cannotBeRootPackages = listOf("kotlin", "kotlinx.datetime")
-        val cannotBeRootExceptions = listOf<KClass<out Any>>(Clock::class)
+    private fun cannotBeDependency(depDeclaration: KSDeclaration): Boolean {
+        val nonDependencyPackages = listOf("kotlin", "kotlinx.datetime")
+        val canBeDependency = listOf<KClass<out Any>>(Clock::class)
 
-        return cannotBeRootPackages.contains(depDeclaration.packageName.asString()) &&
-            cannotBeRootExceptions.none {
-                depDeclaration.qualifiedName!!.asString() == it.qualifiedName
-            }
+        return nonDependencyPackages.contains(depDeclaration.packageName.asString()) &&
+            canBeDependency.none { depDeclaration.qualifiedName!!.asString() == it.qualifiedName }
     }
 
-    private fun nestedDependencies(depDeclaration: KSDeclaration): MutableSet<LoaderDependency>? {
+    private fun nestedDependencies(depDeclaration: KSDeclaration): MutableSet<NestedDependency>? {
         val hasNestedDependencies =
             depDeclaration is KSClassDeclaration &&
                 depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
@@ -174,11 +93,11 @@ class DependencyProcessor(private val busPackageName: String, private val logger
 
     private fun nestedDependenciesOrNull(
         classDeclaration: KSClassDeclaration
-    ): MutableSet<LoaderDependency>? {
-        val allDependencies = mutableSetOf<LoaderDependency>()
+    ): MutableSet<NestedDependency>? {
+        val allDependencies = mutableSetOf<NestedDependency>()
 
         for (dependency in classDeclaration.primaryConstructor?.parameters.orEmpty()) {
-            extractedDependenciesOrNull(
+            createDependencies(
                     dependency.type.resolve(),
                     typeArgs = dependency.type.element?.typeArguments.orEmpty(),
                 )
