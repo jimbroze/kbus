@@ -10,30 +10,32 @@ class MessageBusGenerator(
     private val logger: KSPLogger,
     private val busPackageName: String,
     private val busClassName: String,
-    private val loaderClassName: String,
 ) {
 
-    fun generate(handlers: Set<LoadedHandlerDefinition>) {
+    fun generate(loaderName: String, handlers: Set<LoadedHandlerDefinition>) {
         logger.info("Generating CompileTimeLoadedMessageBus")
 
         val fileText = StringBuilder()
 
         fileText.appendLine("package $busPackageName")
         fileText.appendLine()
-        fileText.append(generateBusClassCode(handlers))
+        fileText.append(generateBusClassCode(loaderName, handlers))
 
         val file = codeGenerator.createNewFile(Dependencies(true), busPackageName, busClassName)
         file.write(fileText.toString().toByteArray())
         file.close()
     }
 
-    private fun generateBusClassCode(handlers: Set<LoadedHandlerDefinition>): StringBuilder {
+    private fun generateBusClassCode(
+        loaderName: String,
+        handlers: Set<LoadedHandlerDefinition>,
+    ): StringBuilder {
         // TODO use MessageBus constructor for type safety? Replace pre-written class instead?
 
         val busClassCode = StringBuilder()
         busClassCode.appendLine("class $busClassName(")
         busClassCode.appendLine("    middleware: List<Middleware>,")
-        busClassCode.appendLine("    private val loader: $loaderClassName,")
+        busClassCode.appendLine("    private val loader: $loaderName,")
         busClassCode.appendLine(") : MessageBus(middleware) {")
 
         for (handler in handlers) {

@@ -27,37 +27,50 @@ class MessageProcessor(
 
     private fun processMessagesToLoad(symbols: Sequence<KSAnnotated>) {
         val dependencies = mutableSetOf<NestedDependency>()
+        var rootPackageName = ""
 
         for (symbol in symbols) {
-            symbol.accept(LoadVisitor(), Unit).let { dependencies.addAll(it) }
+            val packageName = symbol.accept(LoadVisitor(), dependencies)
+            rootPackageName =
+                if (rootPackageName.isEmpty()) {
+                    packageName
+                } else {
+                    rootPackageName.commonPrefixWith(packageName).trimEnd('.')
+                }
         }
 
         if (dependencies.isEmpty()) return
 
-        dependencyLoaderGenerator.generateLoaderInterface(dependencies)
+        rootPackageName = "$rootPackageName.generated"
+
+        dependencyLoaderGenerator.generateLoaderInterface(rootPackageName, dependencies)
     }
 
-    inner class LoadVisitor : KSDefaultVisitor<Unit, Set<NestedDependency>>() {
-        override fun defaultHandler(node: KSNode, data: Unit): Set<NestedDependency> {
-            return emptySet()
+    inner class LoadVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, String>() {
+        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): String {
+            return ""
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: Unit,
-        ): Set<NestedDependency> {
+            data: MutableSet<NestedDependency>,
+        ): String {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 logger.error(
                     "Only classes can be annotated with @${Load::class.simpleName}",
                     classDeclaration,
                 )
-                return emptySet()
+                return ""
             }
 
-            return dependencyProcessor.generateFrom(
-                classDeclaration.asStarProjectedType(),
-                includeNested = true,
+            data.addAll(
+                dependencyProcessor.generateFrom(
+                    classDeclaration.asStarProjectedType(),
+                    includeNested = true,
+                )
             )
+
+            return classDeclaration.packageName.asString()
         }
     }
 }

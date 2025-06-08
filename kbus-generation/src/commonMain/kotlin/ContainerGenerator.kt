@@ -13,11 +13,11 @@ class ContainerGenerator(
     private val loaderInterfaceName: String,
     private val loaderClassName: String,
 ) {
-    fun generateLoaderInterface(dependencies: Set<NestedDependency>) {
+    fun generateLoaderInterface(packagePath: String, dependencies: Set<NestedDependency>) {
         logger.info("Generating dependency loader interface")
 
         val fileText = StringBuilder()
-        fileText.appendLine("package $busPackageName")
+        fileText.appendLine("package $packagePath")
         fileText.appendLine()
 
         fileText.appendLine("interface $loaderInterfaceName {")
@@ -34,14 +34,16 @@ class ContainerGenerator(
         file.close()
     }
 
-    fun generateLoaderClass(overrides: Set<NestedDependency>) {
+    fun generateLoaderClass(interfaces: Set<String>, overrides: Set<NestedDependency>): String {
         logger.info("Generating dependency loader abstract class")
+
+        val interfacesString = interfaces.joinToString(", ", prefix = " : ")
 
         val fileText = StringBuilder()
         fileText.appendLine("package $busPackageName")
         fileText.appendLine()
 
-        fileText.appendLine("abstract class $loaderClassName : $loaderInterfaceName {")
+        fileText.appendLine("abstract class $loaderClassName$interfacesString {")
 
         for (override in overrides) {
             val dependencyDeclaration = override.declaration
@@ -58,6 +60,8 @@ class ContainerGenerator(
         val file = codeGenerator.createNewFile(Dependencies(true), busPackageName, loaderClassName)
         file.write(fileText.toString().toByteArray())
         file.close()
+
+        return "$busPackageName.$loaderClassName"
     }
 
     private fun generateLoaderValOverride(

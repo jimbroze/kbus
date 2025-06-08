@@ -36,16 +36,20 @@ class LoadedMessageGenerator(
         val handler: KSClassDeclaration = handlerClass
 
         // TODO test for different packages?
-        val packageName = handler.containingFile!!.packageName.asString()
+        val packageName = handler.packageName.asString()
         val messageClassName = message.simpleName.asString()
         val loadedClassName = "${messageClassName}Loaded"
 
         val loadedHandlerDefinition =
             LoadedHandlerDefinition(messageDefinition, packageName, loadedClassName)
 
+        @Suppress("SpreadOperator")
         val file =
             codeGenerator.createNewFile(
-                Dependencies(true, handler.containingFile!!, message.containingFile!!),
+                Dependencies(
+                    true,
+                    *listOfNotNull(handler.containingFile, message.containingFile).toTypedArray(),
+                ),
                 packageName,
                 loadedClassName,
             )

@@ -29,10 +29,11 @@ class ContainerProcessor(
     }
 
     private fun processContainerInterfaces(symbols: Sequence<KSAnnotated>) {
+        val loaderInterfaces = mutableSetOf<String>()
         val dependencies = mutableSetOf<NestedDependency>()
 
         for (symbol in symbols) {
-            dependencies.addAll(symbol.accept(ContainerVisitor(), Unit))
+            loaderInterfaces.add(symbol.accept(ContainerVisitor(), dependencies))
         }
 
         val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
@@ -42,11 +43,12 @@ class ContainerProcessor(
             dependency.declaration.accept(DependencyVisitor(), Unit)?.let { loadedMessages.add(it) }
         }
 
-        if (dependencies.isEmpty()) return
+        if (loaderInterfaces.isEmpty() || dependencies.isEmpty()) return
 
-        dependencyLoaderGenerator.generateLoaderClass(dependencies)
+        val loaderName =
+            dependencyLoaderGenerator.generateLoaderClass(loaderInterfaces, dependencies)
 
-        busGenerator.generate(loadedMessages)
+        busGenerator.generate(loaderName, loadedMessages)
     }
 
     private fun validateNoDuplicates(
@@ -92,27 +94,31 @@ class ContainerProcessor(
         }
     }
 
-    inner class ContainerVisitor : KSDefaultVisitor<Unit, Set<NestedDependency>>() {
-        override fun defaultHandler(node: KSNode, data: Unit): Set<NestedDependency> {
-            return emptySet()
+    inner class ContainerVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, String>() {
+        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): String {
+            return ""
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: Unit,
-        ): Set<NestedDependency> {
+            data: MutableSet<NestedDependency>,
+        ): String {
             if (classDeclaration.classKind != ClassKind.INTERFACE) {
                 logger.error(
                     "Only interfaces can be annotated with @${GenerateContainer::class.simpleName}",
                     classDeclaration,
                 )
-                return emptySet()
+                return ""
             }
 
-            return dependencyProcessor.generateFrom(
-                classDeclaration.getAllProperties(),
-                includeNested = false,
+            data.addAll(
+                dependencyProcessor.generateFrom(
+                    classDeclaration.getAllProperties(),
+                    includeNested = false,
+                )
             )
+
+            return classDeclaration.qualifiedName!!.asString()
         }
     }
 }

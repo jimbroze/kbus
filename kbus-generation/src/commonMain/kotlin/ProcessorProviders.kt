@@ -36,7 +36,6 @@ private fun busGenerator(environment: SymbolProcessorEnvironment) =
         environment.logger,
         BUS_PACKAGE_NAME,
         BUS_CLASS_NAME,
-        LOADER_INTERFACE_NAME,
     )
 
 class MessageProcessorProvider : SymbolProcessorProvider {
