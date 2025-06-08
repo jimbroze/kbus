@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSName
 import com.jimbroze.kbus.core.MessageHandler
 
 class ContainerGenerator(
@@ -34,12 +35,13 @@ class ContainerGenerator(
 
     fun generateLoaderClass(
         packagePath: String,
-        interfaces: Set<String>,
+        interfaceClassNames: Set<KSName>,
         overrides: Set<NestedDependency>,
     ): String {
         logger.info("Generating dependency loader abstract class")
 
-        val interfacesString = interfaces.joinToString(", ", prefix = " : ")
+        val interfacesString =
+            interfaceClassNames.joinToString(", ", prefix = " : ", transform = { it.asString() })
 
         val fileText = StringBuilder()
         fileText.appendLine("package $packagePath")

@@ -17,7 +17,7 @@ const val LOADER_CLASS_NAME = "AbstractGeneratedDIContainer"
 val LOADABLE_MESSAGES = listOf(Command::class, Query::class)
 
 private fun dependencyProcessor(environment: SymbolProcessorEnvironment) =
-    DependencyProcessor(KBUS_BUS_PACKAGE_NAME, environment.logger)
+    DependencyFactory(KBUS_BUS_PACKAGE_NAME, environment.logger)
 
 private fun dependencyLoaderGenerator(environment: SymbolProcessorEnvironment) =
     ContainerGenerator(
@@ -37,7 +37,7 @@ class MessageProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         return MessageProcessor(
             logger = environment.logger,
-            dependencyProcessor = dependencyProcessor(environment),
+            dependencyFactory = dependencyProcessor(environment),
             dependencyLoaderGenerator = dependencyLoaderGenerator(environment),
         )
     }
@@ -45,9 +45,9 @@ class MessageProcessorProvider : SymbolProcessorProvider {
 
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
-        return ContainerProcessor(
+        return ContainerInterfaceProcessor(
             logger = environment.logger,
-            dependencyProcessor = dependencyProcessor(environment),
+            dependencyFactory = dependencyProcessor(environment),
             dependencyLoaderGenerator = dependencyLoaderGenerator(environment),
             loadedMessageGenerator = loadedMessageGenerator(environment),
             busGenerator = busGenerator(environment),

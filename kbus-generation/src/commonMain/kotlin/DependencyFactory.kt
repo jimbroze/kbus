@@ -10,9 +10,8 @@ import kotlin.collections.orEmpty
 import kotlin.reflect.KClass
 import kotlinx.datetime.Clock
 
-// DependencyFactory?
 @Suppress("unused")
-class DependencyProcessor(private val kbusBusPackageName: String, private val logger: KSPLogger) {
+class DependencyFactory(private val kbusBusPackageName: String, private val logger: KSPLogger) {
     fun generateFrom(type: KSType, includeNested: Boolean): Set<NestedDependency> {
         return createDependencies(type, includeNested = includeNested) ?: emptySet()
     }

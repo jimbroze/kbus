@@ -13,9 +13,9 @@ import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.GenerateContainer
 import com.jimbroze.kbus.annotations.Load
 
-class ContainerProcessor(
+class ContainerInterfaceProcessor(
     private val logger: KSPLogger,
-    private val dependencyProcessor: DependencyProcessor,
+    private val dependencyFactory: DependencyFactory,
     private val dependencyLoaderGenerator: ContainerGenerator,
     private val loadedMessageGenerator: LoadedMessageGenerator,
     private val busGenerator: MessageBusGenerator,
@@ -30,14 +30,14 @@ class ContainerProcessor(
     }
 
     private fun processContainerInterfaces(symbols: Sequence<KSAnnotated>) {
-        val loaderInterfaces = mutableSetOf<String>()
+        val loaderInterfaces = mutableSetOf<KSName>()
         val dependencies = mutableSetOf<NestedDependency>()
         val rootPackageName = RootPackageName()
 
         for (symbol in symbols) {
             val interfaceName = symbol.accept(ContainerVisitor(), dependencies)
-            loaderInterfaces.add(interfaceName.asString())
-            rootPackageName.addNameOption(interfaceName.getQualifier())
+            loaderInterfaces.add(interfaceName)
+            rootPackageName.addName(interfaceName)
         }
 
         val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
@@ -117,7 +117,7 @@ class ContainerProcessor(
             }
 
             data.addAll(
-                dependencyProcessor.generateFrom(
+                dependencyFactory.generateFrom(
                     classDeclaration.getAllProperties(),
                     includeNested = false,
                 )

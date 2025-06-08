@@ -6,14 +6,16 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
 
+@Suppress("unused")
 class MessageProcessor(
     private val logger: KSPLogger,
-    private val dependencyProcessor: DependencyProcessor,
+    private val dependencyFactory: DependencyFactory,
     private val dependencyLoaderGenerator: ContainerGenerator,
 ) : SymbolProcessor {
 
@@ -30,8 +32,7 @@ class MessageProcessor(
         val rootPackageName = RootPackageName()
 
         for (symbol in symbols) {
-            val packageName = symbol.accept(LoadVisitor(), dependencies)
-            rootPackageName.addNameOption(packageName)
+            rootPackageName.addName(symbol.accept(LoadVisitor(), dependencies))
         }
 
         if (dependencies.isEmpty()) return
@@ -41,31 +42,33 @@ class MessageProcessor(
         dependencyLoaderGenerator.generateLoaderInterface(generatedPackageName, dependencies)
     }
 
-    inner class LoadVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, String>() {
-        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): String {
-            return ""
+    inner class LoadVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
+        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): KSName {
+            error(
+                "Only classes can be annotated with @${Load::class.simpleName}. " +
+                    "$node is not a class"
+            )
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
             data: MutableSet<NestedDependency>,
-        ): String {
+        ): KSName {
             if (classDeclaration.classKind != ClassKind.CLASS) {
-                logger.error(
-                    "Only classes can be annotated with @${Load::class.simpleName}",
-                    classDeclaration,
+                error(
+                    "Only classes can be annotated with @${Load::class.simpleName}. " +
+                        "$classDeclaration is a ${classDeclaration.classKind}"
                 )
-                return ""
             }
 
             data.addAll(
-                dependencyProcessor.generateFrom(
+                dependencyFactory.generateFrom(
                     classDeclaration.asStarProjectedType(),
                     includeNested = true,
                 )
             )
 
-            return classDeclaration.packageName.asString()
+            return classDeclaration.qualifiedName!!
         }
     }
 }

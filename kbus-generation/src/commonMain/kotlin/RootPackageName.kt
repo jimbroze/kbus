@@ -1,9 +1,12 @@
 package com.jimbroze.kbus.generation
 
+import com.google.devtools.ksp.symbol.KSName
+
 class RootPackageName {
     lateinit var rootName: String
 
-    fun addNameOption(packageName: String) {
+    fun addName(classQualifiedName: KSName) {
+        val packageName = classQualifiedName.getQualifier()
         rootName =
             if (!this::rootName.isInitialized) {
                 packageName
