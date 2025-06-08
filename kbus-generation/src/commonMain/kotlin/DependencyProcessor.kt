@@ -12,7 +12,7 @@ import kotlinx.datetime.Clock
 
 // DependencyFactory?
 @Suppress("unused")
-class DependencyProcessor(private val busPackageName: String, private val logger: KSPLogger) {
+class DependencyProcessor(private val kbusBusPackageName: String, private val logger: KSPLogger) {
     fun generateFrom(type: KSType, includeNested: Boolean): Set<NestedDependency> {
         return createDependencies(type, includeNested = includeNested) ?: emptySet()
     }
@@ -78,7 +78,7 @@ class DependencyProcessor(private val busPackageName: String, private val logger
         val hasNestedDependencies =
             depDeclaration is KSClassDeclaration &&
                 depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
-                depDeclaration.packageName.asString() != busPackageName
+                depDeclaration.packageName.asString() != kbusBusPackageName
 
         // TODO prevent calculating nested if extractNested is false? Probably can't do this? At
         // least prevent recursion?

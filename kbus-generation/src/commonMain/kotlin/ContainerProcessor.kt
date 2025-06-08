@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
@@ -31,9 +32,12 @@ class ContainerProcessor(
     private fun processContainerInterfaces(symbols: Sequence<KSAnnotated>) {
         val loaderInterfaces = mutableSetOf<String>()
         val dependencies = mutableSetOf<NestedDependency>()
+        val rootPackageName = RootPackageName()
 
         for (symbol in symbols) {
-            loaderInterfaces.add(symbol.accept(ContainerVisitor(), dependencies))
+            val interfaceName = symbol.accept(ContainerVisitor(), dependencies)
+            loaderInterfaces.add(interfaceName.asString())
+            rootPackageName.addNameOption(interfaceName.getQualifier())
         }
 
         val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
@@ -45,10 +49,15 @@ class ContainerProcessor(
 
         if (loaderInterfaces.isEmpty() || dependencies.isEmpty()) return
 
+        val generatedPackagePath = "$rootPackageName.generated"
         val loaderName =
-            dependencyLoaderGenerator.generateLoaderClass(loaderInterfaces, dependencies)
+            dependencyLoaderGenerator.generateLoaderClass(
+                generatedPackagePath,
+                loaderInterfaces,
+                dependencies,
+            )
 
-        busGenerator.generate(loaderName, loadedMessages)
+        busGenerator.generate(generatedPackagePath, loaderName, loadedMessages)
     }
 
     private fun validateNoDuplicates(
@@ -94,21 +103,17 @@ class ContainerProcessor(
         }
     }
 
-    inner class ContainerVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, String>() {
-        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): String {
-            return ""
+    inner class ContainerVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
+        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): KSName {
+            error("ContainersVisitor can only visit class declarations")
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
             data: MutableSet<NestedDependency>,
-        ): String {
+        ): KSName {
             if (classDeclaration.classKind != ClassKind.INTERFACE) {
-                logger.error(
-                    "Only interfaces can be annotated with @${GenerateContainer::class.simpleName}",
-                    classDeclaration,
-                )
-                return ""
+                error("ContainerVisitor can only visit class declarations")
             }
 
             data.addAll(
@@ -118,7 +123,7 @@ class ContainerProcessor(
                 )
             )
 
-            return classDeclaration.qualifiedName!!.asString()
+            return classDeclaration.qualifiedName!!
         }
     }
 }

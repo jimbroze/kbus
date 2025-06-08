@@ -9,7 +9,6 @@ import com.jimbroze.kbus.core.MessageHandler
 class ContainerGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
-    private val busPackageName: String,
     private val loaderInterfaceName: String,
     private val loaderClassName: String,
 ) {
@@ -28,19 +27,22 @@ class ContainerGenerator(
 
         fileText.appendLine("}")
 
-        val file =
-            codeGenerator.createNewFile(Dependencies(true), busPackageName, loaderInterfaceName)
+        val file = codeGenerator.createNewFile(Dependencies(true), packagePath, loaderInterfaceName)
         file.write(fileText.toString().toByteArray())
         file.close()
     }
 
-    fun generateLoaderClass(interfaces: Set<String>, overrides: Set<NestedDependency>): String {
+    fun generateLoaderClass(
+        packagePath: String,
+        interfaces: Set<String>,
+        overrides: Set<NestedDependency>,
+    ): String {
         logger.info("Generating dependency loader abstract class")
 
         val interfacesString = interfaces.joinToString(", ", prefix = " : ")
 
         val fileText = StringBuilder()
-        fileText.appendLine("package $busPackageName")
+        fileText.appendLine("package $packagePath")
         fileText.appendLine()
 
         fileText.appendLine("abstract class $loaderClassName$interfacesString {")
@@ -57,11 +59,11 @@ class ContainerGenerator(
 
         fileText.appendLine("}")
 
-        val file = codeGenerator.createNewFile(Dependencies(true), busPackageName, loaderClassName)
+        val file = codeGenerator.createNewFile(Dependencies(true), packagePath, loaderClassName)
         file.write(fileText.toString().toByteArray())
         file.close()
 
-        return "$busPackageName.$loaderClassName"
+        return "$packagePath.$loaderClassName"
     }
 
     private fun generateLoaderValOverride(

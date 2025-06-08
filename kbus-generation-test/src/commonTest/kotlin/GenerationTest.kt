@@ -1,8 +1,6 @@
 package com.jimbroze.kbus.generation
 
-import com.jimbroze.kbus.core.AbstractGeneratedDIContainer
 import com.jimbroze.kbus.core.BusLocker
-import com.jimbroze.kbus.core.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.ClockFactoryHolder
 import com.jimbroze.kbus.generation.test.FixedClock
@@ -10,6 +8,8 @@ import com.jimbroze.kbus.generation.test.StringCombinator
 import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommandLoaded
 import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
 import com.jimbroze.kbus.generation.test.TestGeneratorQueryLoaded
+import com.jimbroze.kbus.generation.test.generated.AbstractGeneratedDIContainer
+import com.jimbroze.kbus.generation.test.generated.CompileTimeLoadedMessageBus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest

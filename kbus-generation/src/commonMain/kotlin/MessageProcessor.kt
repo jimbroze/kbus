@@ -27,23 +27,18 @@ class MessageProcessor(
 
     private fun processMessagesToLoad(symbols: Sequence<KSAnnotated>) {
         val dependencies = mutableSetOf<NestedDependency>()
-        var rootPackageName = ""
+        val rootPackageName = RootPackageName()
 
         for (symbol in symbols) {
             val packageName = symbol.accept(LoadVisitor(), dependencies)
-            rootPackageName =
-                if (rootPackageName.isEmpty()) {
-                    packageName
-                } else {
-                    rootPackageName.commonPrefixWith(packageName).trimEnd('.')
-                }
+            rootPackageName.addNameOption(packageName)
         }
 
         if (dependencies.isEmpty()) return
 
-        rootPackageName = "$rootPackageName.generated"
+        val generatedPackageName = "$rootPackageName.generated"
 
-        dependencyLoaderGenerator.generateLoaderInterface(rootPackageName, dependencies)
+        dependencyLoaderGenerator.generateLoaderInterface(generatedPackageName, dependencies)
     }
 
     inner class LoadVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, String>() {
