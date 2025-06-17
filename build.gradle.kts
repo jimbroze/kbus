@@ -1,6 +1,7 @@
 import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
 import io.gitlab.arturbosch.detekt.Detekt
 import java.util.*
+import kotlin.text.set
 
 description = "Kotlin message bus framework"
 
@@ -11,7 +12,7 @@ plugins {
 
 allprojects {
     group = "com.jimbroze"
-    version = System.getenv("VERSION_OVERRIDE") ?: "0.2.5-SNAPSHOT"
+    version = System.getenv("VERSION_OVERRIDE") ?: "0.2.6-SNAPSHOT"
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }

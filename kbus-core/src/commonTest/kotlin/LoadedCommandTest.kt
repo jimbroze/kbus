@@ -37,12 +37,13 @@ class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies
 }
 
 class CompileTimeLoadedMessageBus(
-    middleware: List<Middleware>,
+    handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     private val loader: CompileTimeGeneratedLoader,
-) : MessageBus(middleware) {
+    middleware: List<Middleware> = emptyList(),
+) : MessageBus(handlerLocator, middleware) {
     suspend fun execute(loadedCommand: UnloadedCommandLoaded): BusResult<Any, FailureReason> {
         val handler: UnloadedCommandHandler = this.loader.getUnloadedCommandHandler()
-        return this.execute(loadedCommand.command, handler)
+        return this.fetch(loadedCommand.command, handler)
     }
 }
 
@@ -53,8 +54,7 @@ class LoadedCommandTest {
             override fun getClock(): Clock = Clock.System
         }
 
-        val bus =
-            CompileTimeLoadedMessageBus(emptyList(), CompileTimeGeneratedLoader(Dependencies()))
+        val bus = CompileTimeLoadedMessageBus(loader = CompileTimeGeneratedLoader(Dependencies()))
 
         val result = bus.execute(UnloadedCommandLoaded("Test the load"))
 

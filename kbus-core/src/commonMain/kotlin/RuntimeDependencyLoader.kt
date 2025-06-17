@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core
 
-import kotlin.jvm.JvmName
 import kotlin.reflect.KClass
 
 abstract class RuntimeDependencyLoader {
@@ -11,34 +10,81 @@ abstract class RuntimeDependencyLoader {
     }
 }
 
-class RuntimeLoadedMessageBus(middleware: List<Middleware>, val loader: RuntimeDependencyLoader) :
-    MessageBus(middleware) {
-
-    //    inline fun <reified TCommand : Command, TReturn : Any?, reified THandler :
-    // CommandHandler<TCommand, TReturn>> register(
-    //        messageType: KClass<TCommand>,
-    //        handlerType: KClass<THandler>,
-    //    ) {
-    //        requireNotNull(loader) { "No class loader provided to the message bus" }
-    //        register(messageType, loader.load(handlerType))
-    //    }
-
-    @JvmName("registerTypes")
-    inline fun <reified TEvent : Event, reified THandler : EventHandler<TEvent>> register(
-        messageType: KClass<TEvent>,
-        handlerTypes: List<KClass<THandler>>,
-    ) {
-        val loadedHandlers = handlerTypes.map { loader.load(it) }
-        register(messageType, loadedHandlers)
-    }
-
-    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
-        command: TCommand,
-        handlerType: KClass<CommandHandler<TCommand, TReturn, TFailure>>,
-    ): BusResult<TReturn, TFailure> {
-        val handler = loader.load(handlerType)
-        return this.execute(command, handler)
-    }
-
-    // TODO add query
-}
+// TODO need a way of registering mappings only. HandlerManager?
+// class LoaderHandlerLocator(
+//    stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
+// ) : HandlerLocator, HasEventManager {
+//    private val persistingMapper = PersistingHandlerMapper(stores)
+//    override val messageMapper: MessageHandlerMapper = persistingMapper
+//    override val eventManager: EventHandlerManager = persistingMapper
+//
+//    override val factory: HandlerFactory = LoaderHandlerFactory(loader)
+// }
+//
+// class LoaderHandlerFactory(private val loader: RuntimeDependencyLoader) : HandlerFactory {
+//    override fun <TCommand : Command, THandler : CommandHandler<TCommand, *, *>> create(
+//        handlerType: KClass<THandler>
+//    ): THandler {
+//        return loader.load(handlerType)
+//    }
+//
+//    override fun <TQuery : Query, THandler : QueryHandler<TQuery, *, *>> create(
+//        handlerType: KClass<THandler>
+//    ): THandler {
+//        return loader.load(handlerType)
+//    }
+// }
+//
+// class LoaderHandlerMapper(
+//    store: PersistingHandlerMapper
+// ) : MessageHandlerMapper {
+//
+//    override fun <TCommand : Command> handlerFor(
+//        command: TCommand
+//    ): CommandHandler<TCommand, *, *>? {
+//        return sto
+//    }
+//
+//    override fun <TQuery : Query> handlerFor(query: TQuery): QueryHandler<TQuery, *, *>? {
+//    }
+//
+//    override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
+//    }
+//
+//    @JvmName("registerCommand")
+//    fun <TCommand : Command> register(
+//        commandType: KClass<TCommand>,
+//        handlerFactory: MessageHandlerFactory<TCommand, *>,
+//    ) {
+//    }
+//
+//    @JvmName("deregisterCommand")
+//    fun <TCommand : Command> deregister(
+//    }
+//
+//    @JvmName("registerQuery")
+//    fun <TQuery : Query> register(
+//        queryType: KClass<TQuery>,
+//        handlerFactory: MessageHandlerFactory<TQuery, *>,
+//    ) {
+//    }
+//
+//    @JvmName("deregisterQuery")
+//    fun <TQuery : Query> deregister(
+//        messageType: KClass<TQuery>,
+//        handlerType: KClass<out QueryHandler<TQuery, *, *>>,
+//    ) {
+//    }
+//
+//    override fun <TEvent : Event> register(
+//        eventType: KClass<TEvent>,
+//        handlerFactories: List<MessageHandlerFactory<TEvent, *>>,
+//    ) {
+//    }
+//
+//    override fun <TEvent : Event> deregister(
+//        messageType: KClass<TEvent>,
+//        handlerTypes: List<KClass<out EventHandler<TEvent>>>,
+//    ) {
+//    }
+// }

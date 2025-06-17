@@ -3,38 +3,78 @@ package com.jimbroze.kbus.core
 import kotlin.js.JsName
 import kotlin.reflect.KClass
 
-open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
-    private val commandStore: MessageStore<Command> = MessageStore()
-    private val queryStore: MessageStore<Query> = MessageStore()
-    private val eventStore: MessageStore<Event> = MessageStore()
+abstract class CanAccessBus {
+    private lateinit var bus: BusAccess
 
-    //    suspend fun <TCommand : Command> execute(command: TCommand): Any? {
-    //        ensureCommandHandlerExists(command::class)
-    //
-    //        val commandBus = getBus(commandStore, emptyList())
-    //        return commandBus(command)
-    //    }
+    fun setBus(bus: BusAccess) {
+        this.bus = bus
+    }
 
-    //    suspend fun <TCommand : Command, TReturn : Any?> execute(
-    //        command: TCommand,
-    //        handler: GenericCommandHandler<TCommand, TReturn>,
-    //    ): CustomResult<TReturn, ResultExceptionOptions> {
-    ////        ensureNoOtherCommandHandlers(command::class)
-    //
-    //        val commandBus = getBus(commandStore, listOfNotNull(handler))
-    //        return result(commandBus, command)
-    //    }
+    suspend fun dispatch(event: Event) {
+        bus.dispatch(event)
+    }
+}
+
+interface BusAccess {
+    suspend fun <TEvent : Event> dispatch(event: TEvent)
+}
+
+@Suppress("TooManyFunctions")
+open class MessageBus(
+    protected val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
+    val middlewares: List<Middleware> = emptyList(),
+) : BusAccess {
+    suspend fun <TCommand : Command> execute(command: TCommand): BusResult<*, *> {
+        val handler =
+            handlerLocator.messageMapper.handlerFor(command)
+                ?: throw MissingHandlerException(command::class)
+
+        handler.setBus(this)
+
+        val finalHandler: suspend (TCommand) -> Any? = { message: TCommand ->
+            handler.handle(message)
+        }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+
+        return execute(command) as BusResult<*, *>
+    }
 
     @JsName("executeCommand")
     suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
-        //        ensureNoOtherCommandHandlers(command::class)
-
         handler.setBus(this)
-        val commandBus = getBus(commandStore, listOfNotNull(handler))
-        return result(commandBus, command)
+        val finalHandler: suspend (TCommand) -> Any? = { message: TCommand ->
+            handler.handle(message)
+        }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+
+        return execute(command) as BusResult<TReturn, TFailure>
+    }
+
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
+        command: TCommand,
+        handlerType: KClass<CommandHandler<TCommand, TReturn, TFailure>>,
+    ): BusResult<TReturn, TFailure> {
+        val handler = handlerLocator.factory.create(handlerType)
+        return execute(command, handler)
+    }
+
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> fetch(
+        command: TCommand,
+        handler: CommandHandler<TCommand, TReturn, TFailure>,
+    ): BusResult<TReturn, TFailure> {
+        return execute(command, handler)
+    }
+
+    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> fetch(
+        command: TCommand,
+        handlerType: KClass<CommandHandler<TCommand, TReturn, TFailure>>,
+    ): BusResult<TReturn, TFailure> {
+        return execute(command, handlerType)
     }
 
     @JsName("executeQuery")
@@ -42,95 +82,68 @@ open class MessageBus(val middlewares: List<Middleware> = emptyList()) {
         query: TQuery,
         handler: QueryHandler<TQuery, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
-        val queryBus = getBus(queryStore, listOfNotNull(handler))
-        return result(queryBus, query)
+        val finalHandler: suspend (TQuery) -> Any? = { message: TQuery -> handler.handle(message) }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+
+        return execute(query) as BusResult<TReturn, TFailure>
+    }
+
+    suspend fun <TQuery : Query> fetch(query: TQuery): BusResult<*, *> {
+        val handler =
+            handlerLocator.messageMapper.handlerFor(query)
+                ?: throw MissingHandlerException(query::class)
+
+        val finalHandler: suspend (TQuery) -> Any? = { message: TQuery -> handler.handle(message) }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+
+        return execute(query) as BusResult<*, *>
+    }
+
+    suspend fun <TQuery : Query, TReturn : Any?, TFailure : FailureReason> fetch(
+        query: TQuery,
+        handler: QueryHandler<TQuery, TReturn, TFailure>,
+    ): BusResult<TReturn, TFailure> {
+        val finalHandler: suspend (TQuery) -> Any? = { message: TQuery -> handler.handle(message) }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+
+        return execute(query) as BusResult<TReturn, TFailure>
+    }
+
+    suspend fun <TQuery : Query, TReturn : Any?, TFailure : FailureReason> fetch(
+        query: TQuery,
+        handlerType: KClass<QueryHandler<TQuery, TReturn, TFailure>>,
+    ): BusResult<TReturn, TFailure> {
+        val handler = handlerLocator.factory.create(handlerType)
+        return fetch(query, handler)
+    }
+
+    override suspend fun <TEvent : Event> dispatch(event: TEvent) {
+        val handlers = handlerLocator.messageMapper.handlersFor(event)
+
+        val finalHandler: suspend (TEvent) -> Any? = { message: TEvent ->
+            handlers.forEach { handler -> handler.handle(message) }
+        }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+
+        execute(event)
     }
 
     suspend fun <TEvent : Event> dispatch(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
-        val eventBus = getBus(eventStore, handlers)
-        eventBus(event)
-    }
+        val allHandlers = handlerLocator.messageMapper.handlersFor(event) + handlers
 
-    //    fun <TCommand : Command, TReturn : Any?> register(
-
-    fun <TEvent : Event> register(eventType: KClass<TEvent>, handlers: List<EventHandler<TEvent>>) {
-        this.eventStore.registerHandlers(eventType, handlers)
-    }
-
-    //    fun <TCommand : Command> deregister(commandType: KClass<TCommand>) {
-
-    fun <TEvent : Event> deregister(
-        messageType: KClass<TEvent>,
-        handlers: List<EventHandler<TEvent>> = emptyList(),
-    ) {
-        this.eventStore.removeHandlers(messageType, handlers)
-    }
-
-    //    fun <TCommand : Command> isRegistered(commandType: KClass<TCommand>): Boolean {
-
-    fun <TEvent : Event> hasHandlers(eventType: KClass<TEvent>): Int {
-        return this.eventStore.getHandlers(eventType).size
-    }
-
-    //    private fun <TCommand : Command> ensureCommandHandlerExists(commandType: KClass<out
-    // TCommand>) {
-
-    //    private fun <TCommand : Command> ensureNoOtherCommandHandlers(commandType: KClass<out
-    // TCommand>) {
-
-    private suspend fun <TMessage : Message> getBus(
-        store: MessageStore<in TMessage>,
-        handlers: List<MessageHandler<TMessage>>,
-    ): MiddlewareHandler<TMessage> {
-        val finalHandler: suspend (TMessage) -> Any? = { message: TMessage ->
-            store.handle(message, handlers)
+        val finalHandler: suspend (TEvent) -> Any? = { message: TEvent ->
+            allHandlers.forEach { handler -> handler.handle(message) }
         }
-        val bus = createMiddlewareChain(finalHandler, middlewares)
 
-        return bus
-    }
+        val execute = createMiddlewareChain(finalHandler, middlewares)
 
-    //    }
-    //        }
-    //            throw TooManyHandlersException(commandType)
-    //        if (commandStore.isRegistered(commandType)) {
-    //    }
-    //        }
-    //            throw MissingHandlerException(commandType)
-    //        if (!commandStore.isRegistered(commandType)) {
-    //    }
-    //        return this.commandStore.isRegistered(commandType)
-    //    }
-    //        this.commandStore.removeHandlers(commandType)
-    //    }
-    //        this.commandStore.registerHandlers(messageType, listOfNotNull(handler))
-    //
-    //        ensureNoOtherCommandHandlers(messageType)
-    //    ) {
-    //        handler: CommandHandler<TCommand, TReturn>,
-    //        messageType: KClass<TCommand>,
-
-    private suspend fun <TMessage : Message, TReturn : Any?, TFailure : FailureReason> result(
-        messageBus: MiddlewareHandler<TMessage>,
-        message: TMessage,
-    ): BusResult<TReturn, TFailure> {
-        // TODO remove unchecked cast by adding Type params to middleware?
-        @Suppress("UNCHECKED_CAST")
-        return messageBus(message) as BusResult<TReturn, TFailure>
-    }
-}
-
-abstract class CanAccessBus {
-    private var bus: MessageBus? = null
-
-    fun setBus(bus: MessageBus) {
-        this.bus = bus
-    }
-
-    suspend fun dispatch(event: Event) {
-        bus?.dispatch(event)
+        execute(event)
     }
 }

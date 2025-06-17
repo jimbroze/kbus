@@ -14,6 +14,6 @@ abstract class CommandHandler<TCommand : Command, TReturn : Any?, TFailure : Fai
 class TooManyHandlersException(message: String = "A handler has already been registered") :
     Exception(message) {
     constructor(
-        messageCls: KClass<out Message>
-    ) : this("A handler has already been registered for the message $messageCls")
+        handlerCls: KClass<out MessageHandler<*>>
+    ) : this("The handler $handlerCls has already been registered")
 }

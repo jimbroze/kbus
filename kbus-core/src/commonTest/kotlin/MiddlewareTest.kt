@@ -12,9 +12,15 @@ class MiddlewareTest {
         val captureLogger = CaptureLogger()
         val bus =
             MessageBus(
-                listOf(
-                    MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
-                )
+                middlewares =
+                    listOf(
+                        MessageLogger(
+                            captureLogger,
+                            LogLevels.DEBUG,
+                            LogLevels.INFO,
+                            LogLevels.ERROR,
+                        )
+                    )
             )
 
         bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())
@@ -28,10 +34,11 @@ class MiddlewareTest {
         val logger2 = TimeCaptureLogger()
         val bus =
             MessageBus(
-                listOf(
-                    MessageLogger(logger1, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
-                    MessageLogger(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
-                )
+                middlewares =
+                    listOf(
+                        MessageLogger(logger1, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
+                        MessageLogger(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
+                    )
             )
 
         bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())
