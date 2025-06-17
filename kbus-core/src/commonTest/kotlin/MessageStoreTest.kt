@@ -40,9 +40,9 @@ class PrintEventHandler : EventHandler<StorageEvent> {
     }
 }
 
-class OtherPrintEventHandler : EventHandler<StorageEvent> {
+class OtherPrintEventHandler(val toPrint: String) : EventHandler<StorageEvent> {
     override suspend fun handle(message: StorageEvent) {
-        message.listStore.add(message.eventData)
+        message.listStore.add(toPrint)
     }
 }
 
@@ -98,7 +98,7 @@ class TestMessageStore {
         val bus = MessageStore<Event>()
 
         val handler1 = PrintEventHandler()
-        val handler2 = OtherPrintEventHandler()
+        val handler2 = OtherPrintEventHandler("Still testing the bus")
         bus.registerHandlers(StorageEvent::class, listOf(handler1, handler2))
 
         assertContains(bus.getHandlers(StorageEvent::class), handler1)
@@ -108,7 +108,7 @@ class TestMessageStore {
     fun test_removeHandlers_removes_handlers_for_a_given_message() {
         val bus = MessageStore<Event>()
         val handler1 = PrintEventHandler()
-        val handler2 = OtherPrintEventHandler()
+        val handler2 = OtherPrintEventHandler("Still testing the bus")
         val handler3 = PrintEventHandler()
         bus.registerHandlers(StorageEvent::class, listOf(handler1, handler2, handler3))
 
@@ -122,7 +122,7 @@ class TestMessageStore {
         val bus = MessageStore<Event>()
         bus.registerHandlers(
             StorageEvent::class,
-            listOf(PrintEventHandler(), OtherPrintEventHandler()),
+            listOf(PrintEventHandler(), OtherPrintEventHandler("Still testing the bus")),
         )
 
         bus.removeHandlers(StorageEvent::class)

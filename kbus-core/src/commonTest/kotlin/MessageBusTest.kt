@@ -141,7 +141,7 @@ class MessageBusTest {
         val bus = MessageBus()
         val list = mutableListOf("Test the bus")
 
-        val result = bus.execute(StorageQuery(0, list), StorageQueryHandler())
+        val result = bus.fetch(StorageQuery(0, list), StorageQueryHandler())
 
         assertTrue(result.isSuccess)
         assertEquals("Test the bus", result.getOrNull())
@@ -151,7 +151,7 @@ class MessageBusTest {
     fun test_resultFailure_exception_in_query_returns_failure() = runTest {
         val bus = MessageBus()
 
-        val result = bus.execute(FailureQuery(), FailureQueryHandler())
+        val result = bus.fetch(FailureQuery(), FailureQueryHandler())
 
         assertTrue(result.isFailure)
         val failure = result.failureReasonOrNull()
@@ -195,12 +195,12 @@ class MessageBusTest {
 
         bus.dispatch(
             StorageEvent("Test the bus", list),
-            listOf(PrintEventHandler(), OtherPrintEventHandler()),
+            listOf(PrintEventHandler(), OtherPrintEventHandler("Still testing the bus")),
         )
 
         assertEquals(2, list.count())
         assertEquals("Test the bus", list[0])
-        assertEquals("Test the bus", list[0])
+        assertEquals("Still testing the bus", list[1])
     }
 
     @Test

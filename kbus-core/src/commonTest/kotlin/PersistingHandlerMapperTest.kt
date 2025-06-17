@@ -71,7 +71,7 @@ class PersistingHandlerMapperTest {
             listOf(
                 TestMessageHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
                 TestMessageHandlerFactory(OtherPrintEventHandler::class) {
-                    OtherPrintEventHandler()
+                    OtherPrintEventHandler("Still testing the bus")
                 },
             ),
         )
@@ -128,7 +128,7 @@ class PersistingHandlerMapperTest {
             listOf(
                 TestMessageHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
                 TestMessageHandlerFactory(OtherPrintEventHandler::class) {
-                    OtherPrintEventHandler()
+                    OtherPrintEventHandler("Still testing the bus")
                 },
             ),
         )

@@ -1,14 +1,15 @@
 package com.jimbroze.kbus.core
 
 sealed class BusResult<out TValue, out TFailure : FailureReason> {
-    internal class Success<TValue, TFailure : FailureReason>(internal val value: TValue) :
+    internal data class Success<TValue, TFailure : FailureReason>(internal val value: TValue) :
         BusResult<TValue, TFailure>() {
         override fun toString(): String = "Success($value)"
     }
 
-    internal class Failure<TValue, TFailure : FailureReason>(internal val failureReason: TFailure) :
-        BusResult<TValue, TFailure>() {
-        override fun toString(): String = "Failure(${failureReason})"
+    internal data class Failure<TValue, TFailure : FailureReason>(
+        internal val failureReason: TFailure
+    ) : BusResult<TValue, TFailure>() {
+        override fun toString(): String = "Failure($failureReason)"
     }
 
     val isSuccess: Boolean

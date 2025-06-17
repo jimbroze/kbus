@@ -43,7 +43,7 @@ class CompileTimeLoadedMessageBus(
 ) : MessageBus(handlerLocator, middleware) {
     suspend fun execute(loadedCommand: UnloadedCommandLoaded): BusResult<Any, FailureReason> {
         val handler: UnloadedCommandHandler = this.loader.getUnloadedCommandHandler()
-        return this.fetch(loadedCommand.command, handler)
+        return this.execute(loadedCommand.command, handler)
     }
 }
 
