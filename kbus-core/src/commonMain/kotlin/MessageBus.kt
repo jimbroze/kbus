@@ -46,7 +46,7 @@ open class MessageBus(
 
     suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
-        handlerType: KClass<CommandHandler<TCommand, TReturn, TFailure>>,
+        handlerType: KClass<out CommandHandler<TCommand, TReturn, TFailure>>,
     ): BusResult<TReturn, TFailure> {
         val handler = handlerLocator.factory.create(handlerType)
 
@@ -70,7 +70,7 @@ open class MessageBus(
 
     suspend fun <TQuery : Query, TReturn : Any?, TFailure : FailureReason> fetch(
         query: TQuery,
-        handlerType: KClass<QueryHandler<TQuery, TReturn, TFailure>>,
+        handlerType: KClass<out QueryHandler<TQuery, TReturn, TFailure>>,
     ): BusResult<TReturn, TFailure> {
         val handler = handlerLocator.factory.create(handlerType)
 
