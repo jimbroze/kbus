@@ -12,10 +12,10 @@ class PersistingHandlerFactoryTest {
 
         stores.commandStore.registerHandlers(
             StorageCommand::class,
-            listOf(TestMessageHandlerFactory(handlerType) { StorageCommandHandler() }),
+            listOf(CommandHandlerFactory(handlerType) { StorageCommandHandler() }),
         )
 
-        val handler = factory.create(handlerType)
+        val handler = factory.create(handlerType, testCommandDependencies())
         assertIs<StorageCommandHandler>(handler)
     }
 
@@ -27,7 +27,7 @@ class PersistingHandlerFactoryTest {
 
         stores.queryStore.registerHandlers(
             StorageQuery::class,
-            listOf(TestMessageHandlerFactory(handlerType) { StorageQueryHandler() }),
+            listOf(QueryHandlerFactory(handlerType) { StorageQueryHandler() }),
         )
 
         val handler = factory.create(handlerType)

@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core
 
-import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -11,7 +10,11 @@ class PersistingHandlerLocatorTest {
         val locator = PersistingHandlerLocator()
         val command = StorageCommand("test", mutableListOf())
 
-        val initialHandler = locator.messageMapper.handlerFor(command)
+        val initialHandler =
+            locator.messageMapper.handlerFor(
+                command,
+                CommandDependencies(TestDomainEventPublisher()),
+            )
         assertEquals(null, initialHandler)
     }
 
@@ -23,28 +26,25 @@ class PersistingHandlerLocatorTest {
 
         (locator.messageMapper as PersistingHandlerMapper).register(
             commandType,
-            TestMessageHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
+            CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
         )
 
-        val registeredHandler = locator.messageMapper.handlerFor(command)
+        val registeredHandler = locator.messageMapper.handlerFor(command, testCommandDependencies())
         assertIs<StorageCommandHandler>(registeredHandler)
     }
 
     @Test
     fun test_locator_can_create_command_handler() {
-        val handlerType =
-            StorageCommandHandler::class as KClass<CommandHandler<StorageCommand, *, *>>
+        val handlerType = StorageCommandHandler::class
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
 
         stores.commandStore.registerHandlers(
             StorageCommand::class,
-            listOf(
-                TestMessageHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }
-            ),
+            listOf(CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }),
         )
 
-        val handler = locator.factory.create(handlerType)
+        val handler = locator.factory.create(handlerType, testCommandDependencies())
         assertIs<StorageCommandHandler>(handler)
     }
 
@@ -59,8 +59,8 @@ class PersistingHandlerLocatorTest {
         locator.eventManager.register(
             eventType,
             listOf(
-                TestMessageHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
-                TestMessageHandlerFactory(OtherPrintEventHandler::class) {
+                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
+                EventHandlerFactory(OtherPrintEventHandler::class) {
                     OtherPrintEventHandler("Still testing the bus")
                 },
             ),
@@ -79,8 +79,8 @@ class PersistingHandlerLocatorTest {
         locator.eventManager.register(
             eventType,
             listOf(
-                TestMessageHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
-                TestMessageHandlerFactory(OtherPrintEventHandler::class) {
+                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
+                EventHandlerFactory(OtherPrintEventHandler::class) {
                     OtherPrintEventHandler("Still testing the bus")
                 },
             ),

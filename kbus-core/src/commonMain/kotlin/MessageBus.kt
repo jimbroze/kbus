@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core
 
-import kotlin.js.JsName
+import kotlin.jvm.JvmName
 import kotlin.reflect.KClass
 
 abstract class CanAccessBus {
@@ -19,38 +19,50 @@ interface BusAccess {
     suspend fun <TEvent : Event> dispatch(event: TEvent)
 }
 
-@Suppress("TooManyFunctions")
+// TODO remove default handlerLocator
 open class MessageBus(
     protected val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
+    transactionManager: TransactionManager? = null,
     val middlewares: List<Middleware> = emptyList(),
 ) : BusAccess {
     private val eventDispatcher = EventDispatcher(middlewares)
-    private val commandExecutor = CommandExecutor(middlewares, this as BusAccess)
+    private val commandExecutor =
+        CommandExecutor(
+            transactionManager,
+            middlewares,
+            this as BusAccess,
+            DefaultCommandDependenciesFactory(null),
+        )
     private val queryFetcher = QueryFetcher(middlewares)
 
     suspend fun <TCommand : Command> execute(command: TCommand): BusResult<*, *> {
-        val handler =
-            handlerLocator.messageMapper.handlerFor(command)
-                ?: throw MissingHandlerException(command::class)
+        val handlerCreator =
+            { commandDependencies: CommandDependencies ->
+                handlerLocator.messageMapper.handlerFor(command, commandDependencies)
+                    ?: throw MissingHandlerException(command::class)
+            }
+                as (CommandDependencies) -> CommandHandler<TCommand, Any?, FailureReason>
 
-        return commandExecutor.execute(command, handler)
+        return commandExecutor.execute(command, handlerCreator)
     }
 
-    @JsName("executeCommand")
+    @JvmName("executeCommand")
     suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
-        return commandExecutor.execute(command, handler)
+        return commandExecutor.execute(command) { handler }
     }
 
     suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
         command: TCommand,
         handlerType: KClass<out CommandHandler<TCommand, TReturn, TFailure>>,
     ): BusResult<TReturn, TFailure> {
-        val handler = handlerLocator.factory.create(handlerType)
+        val createHandler = { commandDependencies: CommandDependencies ->
+            handlerLocator.factory.create(handlerType, commandDependencies)
+        }
 
-        return commandExecutor.execute(command, handler)
+        return commandExecutor.execute(command, createHandler)
     }
 
     suspend fun <TQuery : Query> fetch(query: TQuery): BusResult<*, *> {

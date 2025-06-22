@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core
 
-import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -11,8 +10,9 @@ class PersistingHandlerMapperTest {
     @Test
     fun test_it_returns_null_for_command_not_registered() {
         val mapper = PersistingHandlerMapper()
+        val command = StorageCommand("test", mutableListOf())
 
-        val handler = mapper.handlerFor(StorageCommand("test", mutableListOf()))
+        val handler = mapper.handlerFor(command, testCommandDependencies())
         assertNull(handler)
     }
 
@@ -41,10 +41,10 @@ class PersistingHandlerMapperTest {
 
         mapper.register(
             StorageCommand::class,
-            TestMessageHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
+            CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
         )
 
-        val registeredHandler = mapper.handlerFor(command)
+        val registeredHandler = mapper.handlerFor(command, testCommandDependencies())
         assertIs<StorageCommandHandler>(registeredHandler)
     }
 
@@ -55,7 +55,7 @@ class PersistingHandlerMapperTest {
 
         mapper.register(
             StorageQuery::class,
-            TestMessageHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() },
+            QueryHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() },
         )
 
         val registeredHandler = mapper.handlerFor(query)
@@ -69,8 +69,8 @@ class PersistingHandlerMapperTest {
         mapper.register(
             StorageEvent::class,
             listOf(
-                TestMessageHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
-                TestMessageHandlerFactory(OtherPrintEventHandler::class) {
+                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
+                EventHandlerFactory(OtherPrintEventHandler::class) {
                     OtherPrintEventHandler("Still testing the bus")
                 },
             ),
@@ -91,13 +91,13 @@ class PersistingHandlerMapperTest {
 
         mapper.register(
             commandType,
-            TestMessageHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
+            CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
         )
-        assertNotNull(mapper.handlerFor(command))
+        assertNotNull(mapper.handlerFor(command, testCommandDependencies()))
 
         mapper.deregister(commandType, StorageCommandHandler::class)
 
-        assertNull(mapper.handlerFor(command))
+        assertNull(mapper.handlerFor(command, testCommandDependencies()))
     }
 
     @Test
@@ -108,7 +108,7 @@ class PersistingHandlerMapperTest {
 
         mapper.register(
             queryType,
-            TestMessageHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() },
+            QueryHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() },
         )
         assertNotNull(mapper.handlerFor(query))
 
@@ -126,8 +126,8 @@ class PersistingHandlerMapperTest {
         mapper.register(
             eventType,
             listOf(
-                TestMessageHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
-                TestMessageHandlerFactory(OtherPrintEventHandler::class) {
+                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
+                EventHandlerFactory(OtherPrintEventHandler::class) {
                     OtherPrintEventHandler("Still testing the bus")
                 },
             ),
@@ -140,11 +140,4 @@ class PersistingHandlerMapperTest {
         assertEquals(1, handlers.size)
         assertIs<OtherPrintEventHandler>(handlers[0])
     }
-}
-
-class TestMessageHandlerFactory<TMessage : Message, THandler : MessageHandler<TMessage>>(
-    override val handlerType: KClass<THandler>,
-    private val factory: () -> THandler,
-) : MessageHandlerFactory<TMessage, THandler> {
-    override fun create(): THandler = factory()
 }

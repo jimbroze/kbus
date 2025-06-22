@@ -2,11 +2,24 @@ package com.jimbroze.kbus.core
 
 import kotlin.reflect.KClass
 
-interface MessageHandlerFactory<TMessage : Message, THandler : MessageHandler<TMessage>> {
+sealed interface MessageHandlerFactory<TMessage : Message, THandler : MessageHandler<TMessage>> {
     val handlerType: KClass<THandler>
-
-    fun create(): THandler
 }
+
+data class CommandHandlerFactory<TCommand : Command, THandler : CommandHandler<TCommand, *, *>>(
+    override val handlerType: KClass<THandler>,
+    val create: (commandDependencies: CommandDependencies) -> THandler,
+) : MessageHandlerFactory<TCommand, THandler>
+
+data class QueryHandlerFactory<TQuery : Query, THandler : QueryHandler<TQuery, *, *>>(
+    override val handlerType: KClass<THandler>,
+    val create: () -> THandler,
+) : MessageHandlerFactory<TQuery, THandler>
+
+data class EventHandlerFactory<TEvent : Event, THandler : EventHandler<TEvent>>(
+    override val handlerType: KClass<THandler>,
+    val create: () -> THandler,
+) : MessageHandlerFactory<TEvent, THandler>
 
 class MessageHandlerFactoryStore<TMessageType : Message> {
     private var factories =

@@ -212,6 +212,7 @@ class MessageBusTest {
         // Use dispatch with explicit handlers instead of registering
         bus.execute(EventCommand("Emit me", list), EventCommandHandler())
 
+        // FIXME
         // The EventCommandHandler will dispatch a StorageEvent
         // We need to manually handle it since we can't register handlers
         bus.dispatch(StorageEvent("Emit me", list), listOf(handler))

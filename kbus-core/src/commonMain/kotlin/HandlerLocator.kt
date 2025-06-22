@@ -3,7 +3,10 @@ package com.jimbroze.kbus.core
 import kotlin.reflect.KClass
 
 interface MessageHandlerMapper {
-    fun <TCommand : Command> handlerFor(command: TCommand): CommandHandler<TCommand, *, *>?
+    fun <TCommand : Command> handlerFor(
+        command: TCommand,
+        commandDependencies: CommandDependencies,
+    ): CommandHandler<TCommand, *, *>?
 
     fun <TQuery : Query> handlerFor(query: TQuery): QueryHandler<TQuery, *, *>?
 
@@ -12,7 +15,8 @@ interface MessageHandlerMapper {
 
 interface HandlerFactory {
     fun <TCommand : Command, THandler : CommandHandler<TCommand, *, *>> create(
-        handlerType: KClass<THandler>
+        handlerType: KClass<THandler>,
+        commandDependencies: CommandDependencies,
     ): THandler
 
     fun <TQuery : Query, THandler : QueryHandler<TQuery, *, *>> create(

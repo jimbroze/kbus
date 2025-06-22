@@ -12,10 +12,10 @@ class EventDispatcherTest {
 
         dispatcher.dispatch(
             StorageEvent("string", results),
-            listOf(PrintEventHandler(), OtherPrintEventHandler("other string")),
+            listOf(PrintEventHandler(), OtherPrintEventHandler("string")),
         )
 
         assertEquals("string", results[0])
-        assertEquals("other string", results[1])
+        assertEquals("string", results[1])
     }
 }

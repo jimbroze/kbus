@@ -11,8 +11,9 @@ abstract class CommandHandler<TCommand : Command, TReturn : Any?, TFailure : Fai
     abstract override suspend fun handle(message: TCommand): BusResult<TReturn, TFailure>
 }
 
-class TooManyHandlersException(message: String = "A handler has already been registered") :
-    Exception(message) {
+class TooManyHandlersException(
+    message: String = "Only one handler can be registered for a command or query"
+) : Exception(message) {
     constructor(
         handlerCls: KClass<out MessageHandler<*>>
     ) : this("The handler $handlerCls has already been registered")

@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core
 
-class EventDispatcher(private val middlewares: List<Middleware>) {
+class EventDispatcher(val middlewares: List<Middleware>) {
+
     suspend fun <TEvent : Event> dispatch(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),

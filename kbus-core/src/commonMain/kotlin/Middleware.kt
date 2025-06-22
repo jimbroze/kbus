@@ -9,12 +9,11 @@ interface Middleware {
     ): Any?
 }
 
-suspend fun <TMessage : Message> createMiddlewareChain(
+fun <TMessage : Message> createMiddlewareChain(
     finalHandler: MiddlewareHandler<TMessage>,
     middlewares: List<Middleware>,
 ): MiddlewareHandler<TMessage> {
     var lastHandler = finalHandler
-
     middlewares.reversed().forEach {
         val currentHandler = lastHandler
         lastHandler = { message: TMessage -> it.handle(message, currentHandler) }

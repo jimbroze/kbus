@@ -15,7 +15,8 @@ class PersistingHandlerLocator(
 
 class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection) : HandlerFactory {
     override fun <TCommand : Command, THandler : CommandHandler<TCommand, *, *>> create(
-        handlerType: KClass<THandler>
+        handlerType: KClass<THandler>,
+        commandDependencies: CommandDependencies,
     ): THandler {
         val factories = stores.commandStore.getHandlersByType(handlerType)
 
@@ -29,7 +30,11 @@ class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection
                     "No handler found for command type ${handlerType.simpleName}."
                 )
 
-        return factory.create()
+        require(factory is CommandHandlerFactory<TCommand, THandler>) {
+            "Factory for command handler ${handlerType::class.simpleName} was incorrectly registered"
+        }
+
+        return factory.create(commandDependencies)
     }
 
     override fun <TQuery : Query, THandler : QueryHandler<TQuery, *, *>> create(
@@ -41,10 +46,17 @@ class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection
             throw TooManyHandlersException()
         }
 
-        return handlers.firstOrNull()?.create()
-            ?: throw IllegalArgumentException(
-                "No handler found for query type ${handlerType.simpleName}."
-            )
+        val factory =
+            handlers.firstOrNull()
+                ?: throw IllegalArgumentException(
+                    "No handler found for query type ${handlerType.simpleName}."
+                )
+
+        require(factory is QueryHandlerFactory<TQuery, THandler>) {
+            "Factory for query handler ${handlerType::class.simpleName} was incorrectly registered"
+        }
+
+        return factory.create()
     }
 }
 
@@ -62,24 +74,35 @@ class PersistingHandlerMapper(
     private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
 
     override fun <TCommand : Command> handlerFor(
-        command: TCommand
+        command: TCommand,
+        commandDependencies: CommandDependencies,
     ): CommandHandler<TCommand, *, *>? {
         val factory = commandStore.getHandlers(command::class).firstOrNull() ?: return null
 
-        require(factory is MessageHandlerFactory<TCommand, *>) {
-            "Factory for command type ${command::class.simpleName} was registered as a non-command factory"
+        require(factory is CommandHandlerFactory<TCommand, *>) {
+            "Command factory was incorrectly registered for command type ${command::class.simpleName}"
         }
 
-        return factory.create() as CommandHandler<TCommand, *, *>?
+        return factory.create(commandDependencies)
     }
 
     override fun <TQuery : Query> handlerFor(query: TQuery): QueryHandler<TQuery, *, *>? {
-        return queryStore.getHandlers(query::class).firstOrNull()?.create()
-            as QueryHandler<TQuery, *, *>?
+        val factory = queryStore.getHandlers(query::class).firstOrNull() ?: return null
+
+        require(factory is QueryHandlerFactory<TQuery, *>) {
+            "Query factory was incorrectly registered for query type ${query::class.simpleName}"
+        }
+
+        return factory.create() as QueryHandler<TQuery, *, *>?
     }
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
-        return eventStore.getHandlers(event::class).map { it.create() as EventHandler<TEvent> }
+        return eventStore.getHandlers(event::class).map {
+            require(it is EventHandlerFactory<TEvent, *>) {
+                "Event factory was incorrectly registered for query type ${event::class.simpleName}"
+            }
+            it.create()
+        }
     }
 
     @JvmName("registerCommand")
@@ -91,6 +114,7 @@ class PersistingHandlerMapper(
         check(!this.commandStore.isRegistered(commandType)) {
             "A Command Handler for command type ${commandType.simpleName} is already registered."
         }
+
         this.commandStore.registerHandlers(commandType, listOf(handlerFactory))
     }
 
