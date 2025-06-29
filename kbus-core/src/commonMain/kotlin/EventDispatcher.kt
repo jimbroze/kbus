@@ -1,6 +1,31 @@
 package com.jimbroze.kbus.core
 
-class EventDispatcher(val middlewares: List<Middleware>) {
+import com.jimbroze.kbus.core.domain.DomainEvent
+
+interface DomainEventDispatcher {
+    suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork)
+}
+
+typealias GetHandlers<TEvent> = (event: TEvent) -> List<EventHandler<TEvent>>
+
+class EventDispatcher(val getHandlers: GetHandlers<Event>, val middlewares: List<Middleware>) :
+    DomainEventDispatcher {
+    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork) {
+        val handlers = getHandlers(event)
+
+        val finalHandler: suspend (TEvent) -> Any? = { message: TEvent ->
+            handlers.forEach { handler ->
+                val dispatch = suspend { handler.handle(message) }
+                when (handler) {
+                    is DispatchAfterPrimaryWork<*> -> unitOfWork.addSecondaryWork(dispatch)
+                    is DispatchAfterCommit<*> -> unitOfWork.addPostCommitWork(dispatch)
+                    else -> dispatch()
+                }
+            }
+        }
+
+        dispatchToHandlers(finalHandler, event)
+    }
 
     suspend fun <TEvent : Event> dispatch(
         event: TEvent,
@@ -10,8 +35,14 @@ class EventDispatcher(val middlewares: List<Middleware>) {
             handlers.forEach { handler -> handler.handle(message) }
         }
 
-        val execute = createMiddlewareChain(finalHandler, middlewares)
+        dispatchToHandlers(finalHandler, event)
+    }
 
+    private suspend fun <TEvent : Event> dispatchToHandlers(
+        finalHandler: suspend (TEvent) -> Any?,
+        event: TEvent,
+    ) {
+        val execute = createMiddlewareChain(finalHandler, middlewares)
         execute(event)
     }
 }

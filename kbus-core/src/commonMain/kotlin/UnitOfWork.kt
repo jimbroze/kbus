@@ -63,10 +63,6 @@ internal class UnitOfWorkImpl internal constructor() : UnitOfWork {
 
 data class CommandDependencies(val domainEventPublisher: DomainEventPublisher)
 
-interface DomainEventDispatcher {
-    suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork)
-}
-
 class UnitOfWorkDomainEventPublisher(
     val baseDispatcher: DomainEventDispatcher?,
     val unitOfWork: UnitOfWork,

@@ -25,7 +25,8 @@ open class MessageBus(
     transactionManager: TransactionManager? = null,
     val middlewares: List<Middleware> = emptyList(),
 ) : BusAccess {
-    private val eventDispatcher = EventDispatcher(middlewares)
+    private val eventDispatcher =
+        EventDispatcher(handlerLocator.messageMapper::handlersFor, middlewares)
     private val commandExecutor =
         CommandExecutor(
             transactionManager,
