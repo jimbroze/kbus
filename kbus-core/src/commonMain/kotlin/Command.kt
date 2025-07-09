@@ -2,13 +2,19 @@ package com.jimbroze.kbus.core
 
 import kotlin.reflect.KClass
 
-abstract class Command : Message() {
+abstract class Command<TReturn : Any?, TMessageFailure : MessageFailure> :
+    ResultReturningMessage<TReturn, TMessageFailure> {
     override val messageType: String = "command"
+
+    final override fun toString(): String = this::class.simpleName ?: "Command"
 }
 
-abstract class CommandHandler<TCommand : Command, TReturn : Any?, TFailure : FailureReason> :
-    MessageHandler<TCommand>, ResultReturningHandler<TCommand, TReturn, TFailure>, CanAccessBus() {
-    abstract override suspend fun handle(message: TCommand): BusResult<TReturn, TFailure>
+abstract class CommandHandler<
+    TCommand : Command<TReturn, TMessageFailure>,
+    TReturn : Any?,
+    TMessageFailure : MessageFailure,
+> : ResultReturningMessageHandler<TCommand, TReturn, TMessageFailure>, CanAccessBus() {
+    abstract override suspend fun handle(message: TCommand): BusResult<TReturn, TMessageFailure>
 }
 
 class TooManyHandlersException(

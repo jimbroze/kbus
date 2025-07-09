@@ -36,26 +36,36 @@ open class MessageBus(
         )
     private val queryFetcher = QueryFetcher(middlewares)
 
-    suspend fun <TCommand : Command> execute(command: TCommand): BusResult<*, *> {
-        val handlerCreator =
-            { commandDependencies: CommandDependencies ->
-                handlerLocator.messageMapper.handlerFor(command, commandDependencies)
-                    ?: throw MissingHandlerException(command::class)
-            }
-                as (CommandDependencies) -> CommandHandler<TCommand, Any?, FailureReason>
+    suspend fun <
+        TCommand : Command<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > execute(command: TCommand): BusResult<TReturn, TFailure> {
+        val handlerCreator = { commandDependencies: CommandDependencies ->
+            (handlerLocator.messageMapper.handlerFor(command, commandDependencies)
+                ?: throw MissingHandlerException(command::class))
+        }
 
         return commandExecutor.execute(command, handlerCreator)
     }
 
     @JvmName("executeCommand")
-    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
+    suspend fun <
+        TCommand : Command<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
         return commandExecutor.execute(command) { handler }
     }
 
-    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
+    suspend fun <
+        TCommand : Command<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > execute(
         command: TCommand,
         handlerType: KClass<out CommandHandler<TCommand, TReturn, TFailure>>,
     ): BusResult<TReturn, TFailure> {
@@ -66,22 +76,34 @@ open class MessageBus(
         return commandExecutor.execute(command, createHandler)
     }
 
-    suspend fun <TQuery : Query> fetch(query: TQuery): BusResult<*, *> {
+    suspend fun <
+        TReturn : Any?,
+        TFailure : MessageFailure,
+        TQuery : Query<TReturn, TFailure>,
+    > fetch(query: TQuery): BusResult<TReturn, TFailure> {
         val handler =
-            handlerLocator.messageMapper.handlerFor(query)
-                ?: throw MissingHandlerException(query::class)
+            (handlerLocator.messageMapper.handlerFor(query)
+                ?: throw MissingHandlerException(query::class))
 
         return queryFetcher.fetch(query, handler)
     }
 
-    suspend fun <TQuery : Query, TReturn : Any?, TFailure : FailureReason> fetch(
+    suspend fun <
+        TQuery : Query<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > fetch(
         query: TQuery,
         handler: QueryHandler<TQuery, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
         return queryFetcher.fetch(query, handler)
     }
 
-    suspend fun <TQuery : Query, TReturn : Any?, TFailure : FailureReason> fetch(
+    suspend fun <
+        TQuery : Query<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > fetch(
         query: TQuery,
         handlerType: KClass<out QueryHandler<TQuery, TReturn, TFailure>>,
     ): BusResult<TReturn, TFailure> {

@@ -7,32 +7,41 @@ class CommandExecutor(
     private val commandDependenciesFactory: CommandDependenciesFactory,
     private val unitOfWorkFactory: UnitOfWorkFactory = DefaultUnitOfWorkFactory(),
 ) {
-    suspend fun <TCommand : Command, TReturn : Any?, TFailure : FailureReason> execute(
+    suspend fun <
+        TCommand : Command<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > execute(
         command: TCommand,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TReturn, TFailure>,
     ): BusResult<TReturn, TFailure> {
-        val unitOfWork = unitOfWorkFactory.create()
+        val unitOfWork = unitOfWorkFactory.create<BusResult<TReturn, TFailure>>()
         val handler = createHandler(commandDependenciesFactory.create(unitOfWork))
 
         handler.setBus(busAccess)
 
-        val finalHandler: suspend (TCommand) -> Any? = { message: TCommand ->
-            executeInUnitOfWork(message, handler, unitOfWork)
-        }
+        val finalHandler: suspend (TCommand) -> BusResult<TReturn, TFailure> =
+            { message: TCommand ->
+                executeInUnitOfWork(message, handler, unitOfWork)
+            }
 
         val execute = createMiddlewareChain(finalHandler, middlewares)
 
-        return execute(command) as BusResult<TReturn, TFailure>
+        return execute(command)
     }
 
-    private suspend fun <TCommand : Command> executeInUnitOfWork(
+    private suspend fun <
+        TCommand : Command<TReturn, TFailure>,
+        TReturn : Any?,
+        TFailure : MessageFailure,
+    > executeInUnitOfWork(
         message: TCommand,
-        handler: CommandHandler<TCommand, *, *>,
-        unitOfWork: UnitOfWork,
-    ): Any? {
+        handler: CommandHandler<TCommand, TReturn, TFailure>,
+        unitOfWork: UnitOfWork<BusResult<TReturn, TFailure>>,
+    ): BusResult<TReturn, TFailure> {
         unitOfWork.setReturningWork { handler.handle(message) }
 
-        if (handler is ExecuteInTransaction<*>) {
+        if (handler is ExecuteInTransaction<*, *, *>) {
             unitOfWork.useTransaction(
                 handler.transactionManager
                     ?: transactionManager
@@ -45,12 +54,12 @@ class CommandExecutor(
 }
 
 interface CommandDependenciesFactory {
-    fun create(unitOfWork: UnitOfWork): CommandDependencies
+    fun create(unitOfWork: UnitOfWork<*>): CommandDependencies
 }
 
 class DefaultCommandDependenciesFactory(private val domainEventDispatcher: DomainEventDispatcher?) :
     CommandDependenciesFactory {
-    override fun create(unitOfWork: UnitOfWork): CommandDependencies {
+    override fun create(unitOfWork: UnitOfWork<*>): CommandDependencies {
         return CommandDependencies(
             UnitOfWorkDomainEventPublisher(domainEventDispatcher, unitOfWork)
         )

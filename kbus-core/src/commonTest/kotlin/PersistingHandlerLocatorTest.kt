@@ -29,7 +29,8 @@ class PersistingHandlerLocatorTest {
             CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
         )
 
-        val registeredHandler = locator.messageMapper.handlerFor(command, testCommandDependencies())
+        val registeredHandler =
+            locator.messageMapper.handlerFor(command, testCommandDependencies<Any?>())
         assertIs<StorageCommandHandler>(registeredHandler)
     }
 
@@ -44,7 +45,7 @@ class PersistingHandlerLocatorTest {
             listOf(CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }),
         )
 
-        val handler = locator.factory.create(handlerType, testCommandDependencies())
+        val handler = locator.factory.create(handlerType, testCommandDependencies<Any?>())
         assertIs<StorageCommandHandler>(handler)
     }
 

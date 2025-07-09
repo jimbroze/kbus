@@ -6,15 +6,23 @@ sealed interface MessageHandlerFactory<TMessage : Message, THandler : MessageHan
     val handlerType: KClass<THandler>
 }
 
-data class CommandHandlerFactory<TCommand : Command, THandler : CommandHandler<TCommand, *, *>>(
+data class CommandHandlerFactory<
+    TCommand : Command<TReturn, TFailure>,
+    THandler : CommandHandler<TCommand, TReturn, TFailure>,
+    TReturn,
+    TFailure : MessageFailure,
+>(
     override val handlerType: KClass<THandler>,
     val create: (commandDependencies: CommandDependencies) -> THandler,
 ) : MessageHandlerFactory<TCommand, THandler>
 
-data class QueryHandlerFactory<TQuery : Query, THandler : QueryHandler<TQuery, *, *>>(
-    override val handlerType: KClass<THandler>,
-    val create: () -> THandler,
-) : MessageHandlerFactory<TQuery, THandler>
+data class QueryHandlerFactory<
+    TQuery : Query<TReturn, TFailure>,
+    THandler : QueryHandler<TQuery, TReturn, TFailure>,
+    TReturn,
+    TFailure : MessageFailure,
+>(override val handlerType: KClass<THandler>, val create: () -> THandler) :
+    MessageHandlerFactory<TQuery, THandler>
 
 data class EventHandlerFactory<TEvent : Event, THandler : EventHandler<TEvent>>(
     override val handlerType: KClass<THandler>,
@@ -39,7 +47,7 @@ class MessageHandlerFactoryStore<TMessageType : Message> {
             }
         if (duplicateHandlerFactory !== null) {
             throw TooManyHandlersException(
-                duplicateHandlerFactory.handlerType as KClass<out MessageHandler<*>>
+                "A handler of type ${duplicateHandlerFactory.handlerType.simpleName} is already registered for this message."
             )
         }
 

@@ -1,24 +1,30 @@
 package com.jimbroze.kbus.core
 
+import com.jimbroze.kbus.core.BusResult.Companion.failure
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.TimeSource
+import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 
-class TimeReturnCommand(
-    val messageData: String,
-    val listStore: MutableList<TimeSource.Monotonic.ValueTimeMark>,
-) : Command()
+open class TimeReturnCommand(val listStore: MutableList<ValueTimeMark>) :
+    Command<ValueTimeMark, MessageFailure>()
+
+class LockAwareTimeReturnCommand(listStore: MutableList<ValueTimeMark>) :
+    TimeReturnCommand(listStore), LockingCommand<ValueTimeMark, MessageFailure> {
+    override fun busLockedFailure(failure: BusLockedFailure) = failure(TestFailure(failure))
+}
 
 class TimeReturnCommandHandler :
-    CommandHandler<TimeReturnCommand, TimeSource.Monotonic.ValueTimeMark, FailureReason>() {
+    CommandHandler<TimeReturnCommand, ValueTimeMark, MessageFailure>() {
     override suspend fun handle(
         message: TimeReturnCommand
-    ): BusResult<TimeSource.Monotonic.ValueTimeMark, FailureReason> {
+    ): BusResult<ValueTimeMark, MessageFailure> {
         val timeSource = TimeSource.Monotonic
         val time = timeSource.markNow()
 
@@ -28,20 +34,23 @@ class TimeReturnCommandHandler :
     }
 }
 
-class LockingPrintReturnCommand(
-    val messageData: String,
-    val listStore: MutableList<TimeSource.Monotonic.ValueTimeMark>,
-) : Command(), LockingCommand
+class TestFailure(override val reason: FailureReason) : MessageFailure
+
+class LockingPrintReturnCommand(val internalCommand: TimeReturnCommand) :
+    Command<Any, MessageFailure>(), LockingCommand<Any, MessageFailure> {
+    override fun busLockedFailure(failure: BusLockedFailure) = failure(TestFailure(failure))
+}
 
 class LockingPrintReturnCommandHandler(private val locker: BusLocker) :
-    CommandHandler<LockingPrintReturnCommand, Any, FailureReason>() {
-    override suspend fun handle(message: LockingPrintReturnCommand): BusResult<Any, FailureReason> {
+    CommandHandler<LockingPrintReturnCommand, Any, MessageFailure>() {
+    override suspend fun handle(
+        message: LockingPrintReturnCommand
+    ): BusResult<Any, MessageFailure> {
         val timeSource = TimeSource.Monotonic
         val preNestTime = timeSource.markNow()
 
         val result =
-            locker.handle(TimeReturnCommand(message.messageData, message.listStore)) {
-                c: TimeReturnCommand ->
+            locker.handle(message.internalCommand) { c: TimeReturnCommand ->
                 TimeReturnCommandHandler().handle(c)
             }
 
@@ -57,46 +66,47 @@ class LockingSleepCommand(
     val waitSecs: Float,
     val messageData: String,
     override val lockTimeout: Float? = null,
-) : Command(), LockingCommand
+) : Command<Any, MessageFailure>(), LockingCommand<Any, MessageFailure> {
+    override fun busLockedFailure(failure: BusLockedFailure) = failure(TestFailure(failure))
+}
 
-class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, FailureReason>() {
-    override suspend fun handle(message: LockingSleepCommand): BusResult<Any, FailureReason> {
+class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, MessageFailure>() {
+    override suspend fun handle(message: LockingSleepCommand): BusResult<Any, MessageFailure> {
         delay((1000 * message.waitSecs).toLong())
         return success(message.messageData)
     }
 }
 
-class SleepCommand(val waitSecs: Float) : Command()
+class SleepCommand(val waitSecs: Float) : Command<Unit, MessageFailure>()
 
-class SleepCommandHandler : CommandHandler<SleepCommand, Unit, FailureReason>() {
-    override suspend fun handle(message: SleepCommand): BusResult<Unit, FailureReason> {
+class SleepCommandHandler : CommandHandler<SleepCommand, Unit, MessageFailure>() {
+    override suspend fun handle(message: SleepCommand): BusResult<Unit, MessageFailure> {
         delay((1000 * message.waitSecs).toLong())
         return success()
     }
 }
 
 class LockAdjustCommand(val messageData: String, override val lockTimeout: Float) :
-    Command(), LockAdjustMessage
+    Command<Any, MessageFailure>(), LockAdjustMessage
 
-class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, FailureReason>() {
-    override suspend fun handle(message: LockAdjustCommand): BusResult<Any, FailureReason> {
+class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, MessageFailure>() {
+    override suspend fun handle(message: LockAdjustCommand): BusResult<Any, MessageFailure> {
         return success(message.messageData)
     }
 }
 
 class LockingTest {
-
     @Test
     fun message_locker_postpones_nested_command_and_returns_ResultFailure_instantly() = runTest {
         val locker = BusLocker(TestClock(testScheduler))
-        val listStore = mutableListOf<TimeSource.Monotonic.ValueTimeMark>()
+        val listStore = mutableListOf<ValueTimeMark>()
 
         val result =
-            locker.handle(LockingPrintReturnCommand("Nested call", listStore)) {
+            locker.handle(LockingPrintReturnCommand(LockAwareTimeReturnCommand(listStore))) {
                 LockingPrintReturnCommandHandler(locker).handle(it)
             }
 
-        assertIs<BusResult<Any?, FailureReason>>(result)
+        assertIs<BusResult<Any?, MessageFailure>>(result)
         val resultMap = result.getOrNull()
         assertIs<Map<String, Any?>>(resultMap)
 
@@ -104,21 +114,34 @@ class LockingTest {
         val preNest = resultMap["pre-nest"]
         val postNest = resultMap["post-nest"]
 
-        assertIs<BusResult<Any?, FailureReason>>(nestValue)
-        val nestException = nestValue.failureReasonOrNull()
-        assertIs<BusLockedFailure>(nestException)
+        assertIs<BusResult<Any?, MessageFailure>>(nestValue)
+        val nestException = nestValue.failureOrNull()
+        assertIs<TestFailure>(nestException)
+        assertIs<BusLockedFailure>(nestException.reason)
         assertEquals(
             "Cannot handle message as message bus is locked by the same coroutine",
-            nestException.message,
+            nestException.reason.message,
         )
 
-        assertIs<TimeSource.Monotonic.ValueTimeMark>(preNest)
-        assertIs<TimeSource.Monotonic.ValueTimeMark>(postNest)
+        assertIs<ValueTimeMark>(preNest)
+        assertIs<ValueTimeMark>(postNest)
 
         assertTrue(preNest < postNest)
 
         assertEquals(1, listStore.count())
         assertTrue(postNest < listStore[0])
+    }
+
+    @Test
+    fun it_throws_busLockedException_if_not_lock_aware() = runTest {
+        val locker = BusLocker(TestClock(testScheduler))
+        val listStore = mutableListOf<ValueTimeMark>()
+
+        assertFailsWith<BusLockedException> {
+            locker.handle(LockingPrintReturnCommand(TimeReturnCommand(listStore))) {
+                LockingPrintReturnCommandHandler(locker).handle(it)
+            }
+        }
     }
 
     @Test

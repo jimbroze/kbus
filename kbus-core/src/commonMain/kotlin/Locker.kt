@@ -10,25 +10,57 @@ import kotlinx.datetime.plus
 
 private const val MILLISECONDS_IN_SECOND = 1000
 
-class MessageHandlerPair<TMessage : Message>(
+class MessageHandlerPair<TMessage : Message, TResult : Any?>(
     private val message: TMessage,
-    private val handler: MiddlewareHandler<TMessage>,
+    private val handler: MiddlewareHandler<TMessage, TResult>,
 ) {
-    suspend fun handle(): Any? {
+    suspend fun handle(): TResult {
         return handler(message)
     }
 }
 
+// TODO change to lockaware and have boolean for locking
 interface LockingMessage {
     val lockTimeout: Float?
         get() = null
 }
 
+interface ResultReturningLockingMessage<TReturn : Any?, TMessageFailure : MessageFailure> :
+    ResultReturningMessage<TReturn, TMessageFailure>, LockingMessage {
+    fun busLockedFailure(failure: BusLockedFailure): BusResult<TReturn, TMessageFailure>
+}
+
+// interface AFailure : FailureReason
+
+// sealed interface TestingMessageFailure : MessageFailure {
+//    companion object {
+//        fun busLockedFailure(failure: BusLockedFailure): BusResult<Nothing, TestingMessageFailure>
+// =
+//            BusResult.failure(BusLocked(failure))
+//    }
+//
+//    data class A(override val reason: AFailure) : TestingMessageFailure
+//
+//    data class BusLocked(override val reason: BusLockedFailure) : TestingMessageFailure
+// }
+
+// TODO move to tests
+// class LockingMessageImpl(override val lockTimeout: Float? = null) :
+//    LockingCommand<Any, TestingMessageFailure>, Command<Any, TestingMessageFailure>() {
+//    override val messageType: String = "locking"
+//
+//    override fun busLockedFailure(
+//        failure: BusLockedFailure
+//    ): BusResult<Nothing, TestingMessageFailure> = TestingMessageFailure.busLockedFailure(failure)
+// }
+
+// TODO remove interface
 interface LockAdjustMessage {
     val lockTimeout: Float
 }
 
-interface LockingCommand : LockingMessage
+interface LockingCommand<TReturn : Any?, TMessageFailure : MessageFailure> :
+    ResultReturningLockingMessage<TReturn, TMessageFailure>
 
 interface LockingEvent : LockingMessage
 
@@ -36,21 +68,34 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
     @Volatile var secsToTimeout = defaultTimeout
 
     @Volatile var lockingCoroutineId: String? = null
-    private val queue: MutableList<MessageHandlerPair<*>> = mutableListOf()
+    private val queue: MutableList<MessageHandlerPair<*, *>> = mutableListOf()
 
     val busLocked: Boolean
         get() = lockingCoroutineId != null
 
-    override suspend fun <TMessage : Message> handle(
+    override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage>,
-    ): Any? {
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult {
         val coroutineId = getCoroutineId()
 
         println(coroutineId)
 
         if (busLocked && inLockingCoroutine(coroutineId)) {
-            return postponeAndFail(message, nextMiddleware)
+            return if (message is ResultReturningLockingMessage<*, *>) {
+                this.postponeHandling(message, nextMiddleware)
+
+                // TODO combine TReturn and TFailure into TResult
+                @Suppress("UNCHECKED_CAST")
+                message.busLockedFailure(
+                    BusLockedFailure(
+                        "Cannot handle message as message bus is locked by the same coroutine"
+                    )
+                ) as TResult
+            } else {
+                postponeHandling(message, nextMiddleware)
+                throw BusLockedException()
+            }
         }
 
         waitForUnlock(message)
@@ -62,12 +107,12 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
         }
     }
 
-    private suspend fun <TMessage : LockingMessage> lockAndProcess(
+    private suspend fun <TMessage : Message, TResult> lockAndProcess(
         coroutineId: String,
         message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage>,
-    ): Any? {
-        lockBus(coroutineId, message)
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult {
+        lockBus(coroutineId, message as LockingMessage)
         val result = nextMiddleware(message)
         unlockBus()
 
@@ -75,22 +120,11 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
         return result
     }
 
-    private fun <TMessage : Message> postponeAndFail(
-        message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage>,
-    ): BusResult<Unit, BusLockedFailure> {
-        postponeHandling(message, nextMiddleware)
-
-        return BusResult.failure(
-            BusLockedFailure("Cannot handle message as message bus is locked by the same coroutine")
-        )
-    }
-
     private fun inLockingCoroutine(coroutineId: String): Boolean = lockingCoroutineId == coroutineId
 
-    private fun <TMessage : Message> postponeHandling(
+    private fun <TMessage : Message, TReturn> postponeHandling(
         message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage>,
+        nextMiddleware: MiddlewareHandler<TMessage, TReturn>,
     ) {
         queue.add(MessageHandlerPair(message, nextMiddleware))
     }
@@ -118,7 +152,9 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
     }
 
     private suspend fun handleQueue() {
-        for (messageHandler in queue) {
+        val queuedHandlers = queue.toList()
+        queue.clear()
+        for (messageHandler in queuedHandlers) {
             messageHandler.handle()
         }
     }
@@ -128,4 +164,8 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
     }
 }
 
-class BusLockedFailure(message: String? = null) : FailureReason(message)
+class BusLockedFailure(override val message: String) : FailureReason
+
+class BusLockedException(
+    override val message: String = "The message bus is locked by another coroutine"
+) : Exception(message)

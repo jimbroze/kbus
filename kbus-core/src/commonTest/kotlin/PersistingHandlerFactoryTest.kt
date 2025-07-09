@@ -15,7 +15,7 @@ class PersistingHandlerFactoryTest {
             listOf(CommandHandlerFactory(handlerType) { StorageCommandHandler() }),
         )
 
-        val handler = factory.create(handlerType, testCommandDependencies())
+        val handler = factory.create(handlerType, testCommandDependencies<Any?>())
         assertIs<StorageCommandHandler>(handler)
     }
 

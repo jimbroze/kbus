@@ -35,19 +35,21 @@ class TimeCaptureLogger : Logger {
     }
 }
 
-class LoggingLogCommand(val messageToLog: String, val logger: Logger) : Command(), LoggingCommand
+class LoggingLogCommand(val messageToLog: String, val logger: Logger) :
+    Command<Unit, MessageFailure>(), LoggingCommand
 
-class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, FailureReason>() {
-    override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, FailureReason> {
+class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, MessageFailure>() {
+    override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)
         return success()
     }
 }
 
-class LoggingLogQuery(val messageToLog: String, val logger: Logger) : Query(), LoggingQuery
+class LoggingLogQuery(val messageToLog: String, val logger: Logger) :
+    Query<Unit, MessageFailure>(), LoggingQuery
 
-class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, FailureReason> {
-    override suspend fun handle(message: LoggingLogQuery): BusResult<Unit, FailureReason> {
+class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, MessageFailure> {
+    override suspend fun handle(message: LoggingLogQuery): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)
         return success()
     }
@@ -58,10 +60,13 @@ class LoggingStorageEvent(message: String, listStore: MutableList<String>) :
 
 class TestException(message: String) : Exception(message)
 
-class LoggingExceptionCommand : Command(), LoggingCommand
+class LoggingExceptionCommand : Command<Unit, MessageFailure>(), LoggingCommand
 
-class ExceptionCommandHandler : CommandHandler<Command, Unit, FailureReason>() {
-    override suspend fun handle(message: Command): BusResult<Unit, FailureReason> {
+class ExceptionCommandHandler :
+    CommandHandler<Command<Unit, MessageFailure>, Unit, MessageFailure>() {
+    override suspend fun handle(
+        message: Command<Unit, MessageFailure>
+    ): BusResult<Unit, MessageFailure> {
         throw TestException("Exception raised")
     }
 }

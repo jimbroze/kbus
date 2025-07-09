@@ -3,26 +3,26 @@ package com.jimbroze.kbus.core
 import com.jimbroze.kbus.core.domain.DomainEvent
 import com.jimbroze.kbus.core.domain.DomainEventPublisher
 
-interface UnitOfWork {
-    suspend fun execute(): Any?
+interface UnitOfWork<TResult> {
+    suspend fun execute(): TResult
 
     fun addSecondaryWork(subUnitOfWork: suspend () -> Unit)
 
     fun addPostCommitWork(subUnitOfWork: suspend () -> Unit)
 
-    fun setReturningWork(primaryWork: suspend () -> Any?)
+    fun setReturningWork(primaryWork: suspend () -> TResult)
 
     fun useTransaction(transactionManager: TransactionManager)
 }
 
-internal class UnitOfWorkImpl internal constructor() : UnitOfWork {
-    private var primaryWork: suspend () -> Any? = {}
+internal class UnitOfWorkImpl<TResult> internal constructor() : UnitOfWork<TResult> {
+    private lateinit var primaryWork: suspend () -> TResult
     private val secondaryWork: MutableList<suspend () -> Unit> = mutableListOf()
     private val postCommitWork: MutableList<suspend () -> Unit> = mutableListOf()
     private var transactionManager: TransactionManager = EmptyTransactionManager()
 
-    override suspend fun execute(): Any? {
-        val blockForTransaction: suspend () -> Any? = {
+    override suspend fun execute(): TResult {
+        val blockForTransaction: suspend () -> TResult = {
             val result = primaryWork()
             executeSecondaryWork()
             result
@@ -36,7 +36,7 @@ internal class UnitOfWorkImpl internal constructor() : UnitOfWork {
         return result
     }
 
-    override fun setReturningWork(primaryWork: suspend () -> Any?) {
+    override fun setReturningWork(primaryWork: suspend () -> TResult) {
         this.primaryWork = primaryWork
     }
 
@@ -65,7 +65,7 @@ data class CommandDependencies(val domainEventPublisher: DomainEventPublisher)
 
 class UnitOfWorkDomainEventPublisher(
     val baseDispatcher: DomainEventDispatcher?,
-    val unitOfWork: UnitOfWork,
+    val unitOfWork: UnitOfWork<*>,
 ) : DomainEventPublisher {
     override suspend fun dispatch(event: DomainEvent) {
         baseDispatcher?.dispatch(event, unitOfWork)
@@ -73,22 +73,26 @@ class UnitOfWorkDomainEventPublisher(
 }
 
 interface UnitOfWorkFactory {
-    fun create(): UnitOfWork
+    fun <TResult> create(): UnitOfWork<TResult>
 }
 
 class DefaultUnitOfWorkFactory : UnitOfWorkFactory {
-    override fun create(): UnitOfWork = UnitOfWorkImpl()
+    override fun <TResult> create(): UnitOfWork<TResult> = UnitOfWorkImpl()
 }
 
-interface ExecuteInTransaction<TCommand : Command> : MessageHandler<TCommand> {
+interface ExecuteInTransaction<
+    TCommand : Command<TReturn, TFailure>,
+    TReturn : Any?,
+    TFailure : MessageFailure,
+> : ResultReturningMessageHandler<TCommand, TReturn, TFailure> {
     val transactionManager: TransactionManager?
         get() = null
 }
 
 interface TransactionManager {
-    suspend fun execute(block: suspend () -> Any?): Any?
+    suspend fun <TResult> execute(block: suspend () -> TResult): TResult
 }
 
 class EmptyTransactionManager : TransactionManager {
-    override suspend fun execute(block: suspend () -> Any?): Any? = block()
+    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult = block()
 }

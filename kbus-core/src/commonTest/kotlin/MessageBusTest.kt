@@ -4,50 +4,43 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-open class FailureCommand : Command()
+open class FailureCommand : Command<String, FailureCommandFailure>()
 
-class GenericFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason>() {
-    override suspend fun handle(message: FailureCommand): BusResult<String, FailureReason> {
-        return failure("The command failed")
+class BrokenStateFailureReason(override val message: String) : FailureReason
+
+sealed interface FailureCommandFailure : MessageFailure {
+    class BrokenStateFailure(message: String) : FailureCommandFailure {
+        override val reason = BrokenStateFailureReason(message)
     }
 }
-
-class BrokenStateFailure(message: String?) : FailureReason(message)
 
 class BrokenStateFailureCommandHandler :
-    CommandHandler<FailureCommand, String, BrokenStateFailure>() {
-    override suspend fun handle(message: FailureCommand): BusResult<String, BrokenStateFailure> {
-        return failure(BrokenStateFailure("Illegal state in command handling"))
-    }
-}
-
-class MultipleFailureCommandHandler : CommandHandler<FailureCommand, String, FailureReason>() {
-    override suspend fun handle(message: FailureCommand): BusResult<String, FailureReason> {
+    CommandHandler<FailureCommand, String, FailureCommandFailure>() {
+    override suspend fun handle(message: FailureCommand): BusResult<String, FailureCommandFailure> {
         return failure(
-            listOf(
-                GenericFailure("The command failed"),
-                BrokenStateFailure("Illegal state in command handling"),
-            )
+            FailureCommandFailure.BrokenStateFailure("Illegal state in command handling")
         )
     }
 }
 
-open class StorageQuery(val index: Int, val listStore: MutableList<String>) : Query()
+open class StorageQuery(val index: Int, val listStore: MutableList<String>) :
+    Query<String, MessageFailure>()
 
-class StorageQueryHandler : QueryHandler<StorageQuery, String, GenericFailure> {
-    override suspend fun handle(message: StorageQuery): BusResult<String, GenericFailure> {
+class StorageQueryHandler : QueryHandler<StorageQuery, String, MessageFailure> {
+    override suspend fun handle(message: StorageQuery): BusResult<String, MessageFailure> {
         return success(message.listStore[message.index])
     }
 }
 
-open class FailureQuery : Query()
+open class FailureQuery : Query<String, FailureCommandFailure>()
 
-class FailureQueryHandler : QueryHandler<FailureQuery, String, GenericFailure> {
-    override suspend fun handle(message: FailureQuery): BusResult<String, GenericFailure> {
-        return failure("The query failed")
+class FailureQueryHandler : QueryHandler<FailureQuery, String, FailureCommandFailure> {
+    override suspend fun handle(message: FailureQuery): BusResult<String, FailureCommandFailure> {
+        return failure(FailureCommandFailure.BrokenStateFailure("The query failed"))
     }
 }
 
@@ -60,10 +53,11 @@ class TestIntegrationEventHandler(val messageOutput: MutableList<String>) :
     }
 }
 
-class EventCommand(val message: String, val listStore: MutableList<String>) : Command()
+class EventCommand(val message: String, val listStore: MutableList<String>) :
+    Command<Unit, MessageFailure>()
 
-class EventCommandHandler : CommandHandler<EventCommand, Unit, FailureReason>() {
-    override suspend fun handle(message: EventCommand): BusResult<Unit, FailureReason> {
+class EventCommandHandler : CommandHandler<EventCommand, Unit, MessageFailure>() {
+    override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
         dispatch(StorageEvent(message.message, message.listStore))
         return success()
     }
@@ -92,48 +86,16 @@ class MessageBusTest {
     }
 
     @Test
-    fun test_resultFailure_exception_in_command_returns_failure() = runTest {
-        val bus = MessageBus()
-
-        val result = bus.execute(FailureCommand(), GenericFailureCommandHandler())
-
-        assertTrue(result.isFailure)
-        val failure = result.failureReasonOrNull()
-        assertIs<FailureReason>(failure)
-        assertEquals("The command failed", failure.message)
-        assertEquals("Failure(The command failed)", result.toString())
-    }
-
-    @Test
     fun test_failure_will_return_exception_if_provided() = runTest {
         val bus = MessageBus()
 
         val result = bus.execute(FailureCommand(), BrokenStateFailureCommandHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.failureReasonOrNull()
-        assertIs<BrokenStateFailure>(failure)
-        assertEquals("Illegal state in command handling", failure.message)
-        assertEquals("Failure(Illegal state in command handling)", result.toString())
-    }
-
-    @Test
-    fun test_failure_can_hold_multiple_exceptions() = runTest {
-        val bus = MessageBus()
-
-        val result = bus.execute(FailureCommand(), MultipleFailureCommandHandler())
-
-        assertTrue(result.isFailure)
-
-        assertIs<BusResult<Any?, MultipleFailureReasons>>(result)
-        val failureReasons = result.failureReasonOrNull()!!.reasons
-
-        assertEquals(2, failureReasons.size)
-        assertIs<GenericFailure>(failureReasons[0])
-        assertEquals("The command failed", failureReasons[0].message)
-        assertIs<BrokenStateFailure>(failureReasons[1])
-        assertEquals("Illegal state in command handling", failureReasons[1].message)
-        assertEquals("Failure(There were multiple failures)", result.toString())
+        val failure = result.failureOrNull()
+        assertIs<FailureCommandFailure>(failure)
+        assertEquals("Illegal state in command handling", failure.reason.message)
+        assertEquals("Failure: Illegal state in command handling", result.toString())
     }
 
     @Test
@@ -154,9 +116,10 @@ class MessageBusTest {
         val result = bus.fetch(FailureQuery(), FailureQueryHandler())
 
         assertTrue(result.isFailure)
-        val failure = result.failureReasonOrNull()
-        assertIs<FailureReason>(failure)
-        assertEquals("The query failed", failure.message)
+        val failure = result.failureOrNull()
+        assertNotNull(failure)
+        assertIs<FailureReason>(failure.reason)
+        assertEquals("The query failed", failure.reason.message)
     }
 
     //    @Test

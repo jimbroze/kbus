@@ -2,11 +2,13 @@ package com.jimbroze.kbus.core
 
 import com.jimbroze.kbus.core.domain.DomainEvent
 
-abstract class Event : Message() {
+abstract class Event : Message {
     override val messageType: String = "event"
+
+    final override fun toString(): String = this::class.simpleName ?: "Event"
 }
 
-interface EventHandler<TEvent : Event> : MessageHandler<TEvent> {
+interface EventHandler<TEvent : Event> : VoidReturningMessageHandler<TEvent> {
     override suspend fun handle(message: TEvent)
 }
 

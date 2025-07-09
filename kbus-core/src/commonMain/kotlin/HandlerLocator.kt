@@ -3,25 +3,32 @@ package com.jimbroze.kbus.core
 import kotlin.reflect.KClass
 
 interface MessageHandlerMapper {
-    fun <TCommand : Command> handlerFor(
+    fun <TCommand : Command<TReturn, TFailure>, TReturn, TFailure : MessageFailure> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
-    ): CommandHandler<TCommand, *, *>?
+    ): CommandHandler<TCommand, TReturn, TFailure>?
 
-    fun <TQuery : Query> handlerFor(query: TQuery): QueryHandler<TQuery, *, *>?
+    fun <TQuery : Query<TReturn, TFailure>, TReturn, TFailure : MessageFailure> handlerFor(
+        query: TQuery
+    ): QueryHandler<TQuery, TReturn, TFailure>?
 
     fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
 }
 
 interface HandlerFactory {
-    fun <TCommand : Command, THandler : CommandHandler<TCommand, *, *>> create(
-        handlerType: KClass<THandler>,
-        commandDependencies: CommandDependencies,
-    ): THandler
+    fun <
+        TCommand : Command<TReturn, TFailure>,
+        THandler : CommandHandler<TCommand, TReturn, TFailure>,
+        TReturn,
+        TFailure : MessageFailure,
+    > create(handlerType: KClass<THandler>, commandDependencies: CommandDependencies): THandler
 
-    fun <TQuery : Query, THandler : QueryHandler<TQuery, *, *>> create(
-        handlerType: KClass<THandler>
-    ): THandler
+    fun <
+        TQuery : Query<TReturn, TFailure>,
+        THandler : QueryHandler<TQuery, TReturn, TFailure>,
+        TReturn,
+        TFailure : MessageFailure,
+    > create(handlerType: KClass<THandler>): THandler
 }
 
 interface HandlerLocator {
@@ -36,7 +43,7 @@ interface HasEventManager : HandlerLocator {
 interface EventHandlerManager {
     fun <TEvent : Event> register(
         eventType: KClass<TEvent>,
-        handlerFactories: List<MessageHandlerFactory<TEvent, *>>,
+        handlerFactories: List<EventHandlerFactory<TEvent, *>>,
     )
 
     fun <TEvent : Event> deregister(

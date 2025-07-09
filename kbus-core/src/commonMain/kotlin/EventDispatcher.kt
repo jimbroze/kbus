@@ -3,17 +3,19 @@ package com.jimbroze.kbus.core
 import com.jimbroze.kbus.core.domain.DomainEvent
 
 interface DomainEventDispatcher {
-    suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork)
+    suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>)
 }
 
 typealias GetHandlers<TEvent> = (event: TEvent) -> List<EventHandler<TEvent>>
 
-class EventDispatcher(val getHandlers: GetHandlers<Event>, val middlewares: List<Middleware>) :
-    DomainEventDispatcher {
-    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork) {
+class EventDispatcher(
+    val getHandlers: GetHandlers<DomainEvent>,
+    val middlewares: List<Middleware>,
+) : DomainEventDispatcher {
+    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>) {
         val handlers = getHandlers(event)
 
-        val finalHandler: suspend (TEvent) -> Any? = { message: TEvent ->
+        val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             handlers.forEach { handler ->
                 val dispatch = suspend { handler.handle(message) }
                 when (handler) {
@@ -31,7 +33,7 @@ class EventDispatcher(val getHandlers: GetHandlers<Event>, val middlewares: List
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
-        val finalHandler: suspend (TEvent) -> Any? = { message: TEvent ->
+        val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             handlers.forEach { handler -> handler.handle(message) }
         }
 
@@ -39,7 +41,7 @@ class EventDispatcher(val getHandlers: GetHandlers<Event>, val middlewares: List
     }
 
     private suspend fun <TEvent : Event> dispatchToHandlers(
-        finalHandler: suspend (TEvent) -> Any?,
+        finalHandler: suspend (TEvent) -> Unit,
         event: TEvent,
     ) {
         val execute = createMiddlewareChain(finalHandler, middlewares)

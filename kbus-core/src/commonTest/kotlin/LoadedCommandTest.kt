@@ -2,11 +2,11 @@ package com.jimbroze.kbus.core
 
 import kotlinx.datetime.Clock
 
-class UnloadedCommand(val messageData: String) : Command()
+class UnloadedCommand(val messageData: String) : Command<Any, MessageFailure>()
 
 class UnloadedCommandHandler(val clock: Clock) :
-    CommandHandler<UnloadedCommand, Any, FailureReason>() {
-    override suspend fun handle(message: UnloadedCommand): BusResult<Any, FailureReason> {
+    CommandHandler<UnloadedCommand, Any, MessageFailure>() {
+    override suspend fun handle(message: UnloadedCommand): BusResult<Any, MessageFailure> {
         return success(message.messageData)
     }
 }
@@ -38,7 +38,7 @@ class CompileTimeGeneratedLoader(private val dependencies: GeneratedDependencies
 //    private val loader: CompileTimeGeneratedLoader,
 //    middleware: List<Middleware> = emptyList(),
 // ) : MessageBus(handlerLocator, middleware) {
-//    suspend fun execute(loadedCommand: UnloadedCommandLoaded): BusResult<Any, FailureReason> {
+//    suspend fun execute(loadedCommand: UnloadedCommandLoaded): BusResult<Any, MessageFailure> {
 //        val handler: UnloadedCommandHandler = this.loader.getUnloadedCommandHandler()
 //        return this.execute(loadedCommand.command, handler)
 //    }

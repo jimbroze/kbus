@@ -29,7 +29,6 @@ class CommandExecutorTest {
     @Test
     fun test_it_executes_handler_in_unit_of_work() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        val unitOfWork = unitOfWorkFactory.unitOfWork
         val executor =
             CommandExecutor(
                 null,
@@ -41,8 +40,9 @@ class CommandExecutorTest {
 
         executor.execute(ReturnCommand("Primary")) { ReturnCommandHandler() }
 
+        val unitOfWork = unitOfWorkFactory.unitOfWork
         assertEquals(1, unitOfWork.executedWork.size)
-        assertEquals(BusResult.success<String, FailureReason>("Primary"), unitOfWork.execute())
+        assertEquals(BusResult.success<Any>("Primary"), unitOfWork.execute())
     }
 
     @Test
@@ -59,7 +59,7 @@ class CommandExecutorTest {
         executor.execute(TransactionCommand("Transaction")) { TransactionCommandHandler() }
 
         assertContentEquals(
-            listOf(BusResult.success<String, FailureReason>("Transaction")),
+            listOf(BusResult.success("Transaction")),
             testTransactionManager.executedWork,
         )
     }
@@ -92,7 +92,7 @@ class CommandExecutorTest {
 
         assertEquals(0, defaultTransactionManager.executedWork.size)
         assertContentEquals(
-            listOf(BusResult.success<String, FailureReason>("HandlerTransaction")),
+            listOf(BusResult.success("HandlerTransaction")),
             handlerTransactionManager.executedWork,
         )
     }
@@ -108,7 +108,7 @@ class CommandExecutorTest {
         executor.execute(command) { TransactionCommandHandler(handlerTransactionManager) }
 
         assertContentEquals(
-            listOf(BusResult.success<String, FailureReason>("Transaction")),
+            listOf(BusResult.success("Transaction")),
             handlerTransactionManager.executedWork,
         )
     }
@@ -116,7 +116,6 @@ class CommandExecutorTest {
     @Test
     fun test_it_passes_command_dependencies_to_handler() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        val unitOfWork = unitOfWorkFactory.unitOfWork
         var testDependencies: CommandDependencies? = null
         val dependenciesFactory = TestCommandDependenciesFactory()
         val executor =
@@ -134,6 +133,7 @@ class CommandExecutorTest {
 
         executor.execute(ReturnCommand("Primary"), createHandler)
 
+        val unitOfWork = unitOfWorkFactory.unitOfWork
         assertNotNull(testDependencies)
         assertSame(testDependencies, dependenciesFactory.commandDependencies)
         assertSame(unitOfWork, dependenciesFactory.unitOfWork)
@@ -147,9 +147,9 @@ class TestBusAccess : BusAccess {
 }
 
 class TestDomainEventDispatcher : DomainEventDispatcher {
-    val dispatchedEvents = mutableListOf<Pair<DomainEvent, UnitOfWork>>()
+    val dispatchedEvents = mutableListOf<Pair<DomainEvent, UnitOfWork<*>>>()
 
-    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork) {
+    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>) {
         dispatchedEvents.add(Pair(event, unitOfWork))
     }
 }
@@ -157,41 +157,45 @@ class TestDomainEventDispatcher : DomainEventDispatcher {
 class TestTransactionManager : TransactionManager {
     val executedWork = mutableListOf<Any?>()
 
-    override suspend fun execute(block: suspend () -> Any?): Any? {
-        executedWork.add(block())
+    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult {
+        val result = block()
+        executedWork.add(result)
 
-        return block()
+        return result
     }
 }
 
 class NonExecutingTransactionManager : TransactionManager {
-    override suspend fun execute(block: suspend () -> Any?): Any? {
-        return null
+    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult {
+        @Suppress("UNCHECKED_CAST")
+        return null as TResult
     }
 }
 
 class TestUnitOfWorkFactory : UnitOfWorkFactory {
-    val unitOfWork = TestUnitOfWork()
+    lateinit var unitOfWork: TestUnitOfWork<*>
 
-    override fun create(): UnitOfWork {
+    override fun <TResult> create(): UnitOfWork<TResult> {
+        val unitOfWork = TestUnitOfWork<TResult>()
+        this.unitOfWork = unitOfWork
         return unitOfWork
     }
 }
 
-class TestUnitOfWork : UnitOfWork {
-    var primaryWork: suspend () -> Any? = {}
+class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
+    lateinit var primaryWork: suspend () -> TResult
     val secondaryWork = mutableListOf<suspend () -> Unit>()
     val postCommitWork = mutableListOf<suspend () -> Unit>()
     val executedWork = mutableListOf<suspend () -> Any?>()
     var transactionManager: TransactionManager? = null
 
-    override suspend fun execute(): Any? {
+    override suspend fun execute(): TResult {
         executedWork.add(primaryWork)
 
         return primaryWork()
     }
 
-    override fun setReturningWork(primaryWork: suspend () -> Any?) {
+    override fun setReturningWork(primaryWork: suspend () -> TResult) {
         this.primaryWork = primaryWork
     }
 
@@ -209,10 +213,10 @@ class TestUnitOfWork : UnitOfWork {
 }
 
 class TestCommandDependenciesFactory : CommandDependenciesFactory {
-    var unitOfWork: UnitOfWork? = null
+    var unitOfWork: UnitOfWork<*>? = null
     var commandDependencies: CommandDependencies? = null
 
-    override fun create(unitOfWork: UnitOfWork): CommandDependencies {
+    override fun create(unitOfWork: UnitOfWork<*>): CommandDependencies {
         if (this.unitOfWork !== null) {
             error("Unit of work has already been set")
         }
@@ -226,7 +230,8 @@ class TestCommandDependenciesFactory : CommandDependenciesFactory {
     }
 }
 
-fun testCommandDependencies() = TestCommandDependenciesFactory().create(TestUnitOfWork())
+fun <TResult> testCommandDependencies() =
+    TestCommandDependenciesFactory().create(TestUnitOfWork<TResult>())
 
 class TestDomainEventPublisher : DomainEventPublisher {
     val publishedEvents = mutableListOf<DomainEvent>()
@@ -236,13 +241,13 @@ class TestDomainEventPublisher : DomainEventPublisher {
     }
 }
 
-class TransactionCommand(val message: String) : Command()
+class TransactionCommand(val message: String) : Command<String, MessageFailure>()
 
 class TransactionCommandHandler(override val transactionManager: TransactionManager? = null) :
-    CommandHandler<TransactionCommand, String, FailureReason>(),
-    ExecuteInTransaction<TransactionCommand> {
+    CommandHandler<TransactionCommand, String, MessageFailure>(),
+    ExecuteInTransaction<TransactionCommand, String, MessageFailure> {
 
-    override suspend fun handle(message: TransactionCommand): BusResult<String, FailureReason> {
+    override suspend fun handle(message: TransactionCommand): BusResult<String, MessageFailure> {
         return success(message.message)
     }
 }

@@ -77,10 +77,10 @@ class MessageLogger(
     private val postDispatchLevel: LogLevel,
     private val errorLevel: LogLevel,
 ) : Middleware {
-    override suspend fun <TMessage : Message> handle(
+    override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage>,
-    ): Any? {
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult {
         if (message !is LoggingMessage) return nextMiddleware(message)
 
         logger.log(preDispatchLevel, message.preHandleLog(), null)

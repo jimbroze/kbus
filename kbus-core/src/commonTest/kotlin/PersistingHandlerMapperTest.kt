@@ -12,7 +12,7 @@ class PersistingHandlerMapperTest {
         val mapper = PersistingHandlerMapper()
         val command = StorageCommand("test", mutableListOf())
 
-        val handler = mapper.handlerFor(command, testCommandDependencies())
+        val handler = mapper.handlerFor(command, testCommandDependencies<Any?>())
         assertNull(handler)
     }
 
@@ -44,7 +44,7 @@ class PersistingHandlerMapperTest {
             CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
         )
 
-        val registeredHandler = mapper.handlerFor(command, testCommandDependencies())
+        val registeredHandler = mapper.handlerFor(command, testCommandDependencies<Any?>())
         assertIs<StorageCommandHandler>(registeredHandler)
     }
 
@@ -93,11 +93,11 @@ class PersistingHandlerMapperTest {
             commandType,
             CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() },
         )
-        assertNotNull(mapper.handlerFor(command, testCommandDependencies()))
+        assertNotNull(mapper.handlerFor(command, testCommandDependencies<Any?>()))
 
         mapper.deregister(commandType, StorageCommandHandler::class)
 
-        assertNull(mapper.handlerFor(command, testCommandDependencies()))
+        assertNull(mapper.handlerFor(command, testCommandDependencies<Any?>()))
     }
 
     @Test

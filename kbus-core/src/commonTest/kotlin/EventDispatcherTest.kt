@@ -23,8 +23,9 @@ class EventDispatcherTest {
     @Test
     fun test_it_dispatches_domain_event_immediately_by_default() = runTest {
         val results = mutableListOf<String>()
-        val unitOfWork = TestUnitOfWork()
-        val handlers = listOf(TestDomainEventHandler(results) as EventHandler<Event>)
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers = listOf(TestDomainEventHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
         dispatcher.dispatch(TestDomainEvent("immediate"), unitOfWork)
@@ -36,9 +37,10 @@ class EventDispatcherTest {
     @Test
     fun test_it_schedules_domain_event_for_after_primary_work() = runTest {
         val results = mutableListOf<String>()
-        val unitOfWork = TestUnitOfWork()
-        val handler = TestDispatchAfterPrimaryWorkHandler(results)
-        val handlers = listOf(handler as EventHandler<Event>)
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(TestDispatchAfterPrimaryWorkHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
         dispatcher.dispatch(TestDomainEvent("after-primary"), unitOfWork)
@@ -53,9 +55,9 @@ class EventDispatcherTest {
     @Test
     fun test_it_schedules_domain_event_for_after_commit() = runTest {
         val results = mutableListOf<String>()
-        val unitOfWork = TestUnitOfWork()
-        val handler = TestDispatchAfterCommitHandler(results)
-        val handlers = listOf(handler as EventHandler<Event>)
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers = listOf(TestDispatchAfterCommitHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
         dispatcher.dispatch(TestDomainEvent("after-commit"), unitOfWork)
@@ -71,14 +73,15 @@ class EventDispatcherTest {
     fun test_it_handles_multiple_domain_event_handlers_with_different_dispatch_strategies() =
         runTest {
             val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork()
+            val unitOfWork = TestUnitOfWork<Any?>()
+            @Suppress("UNCHECKED_CAST")
             val handlers =
                 listOf(
-                    TestDomainEventHandler(results),
-                    TestDispatchAfterPrimaryWorkHandler(results),
-                    TestDispatchAfterCommitHandler(results),
+                    TestDomainEventHandler(results) as EventHandler<DomainEvent>,
+                    TestDispatchAfterPrimaryWorkHandler(results) as EventHandler<DomainEvent>,
+                    TestDispatchAfterCommitHandler(results) as EventHandler<DomainEvent>,
                 )
-                    as List<EventHandler<Event>>
+
             val dispatcher = EventDispatcher({ handlers }, emptyList())
 
             dispatcher.dispatch(TestDomainEvent("mixed"), unitOfWork)

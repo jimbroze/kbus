@@ -2,14 +2,20 @@ package com.jimbroze.kbus.core
 
 import kotlin.reflect.KClass
 
-abstract class Message {
-    abstract val messageType: String
+interface Message {
+    val messageType: String
 
-    final override fun toString(): String = this::class.simpleName ?: ""
+    override fun toString(): String
 }
+
+interface ResultReturningMessage<TReturn : Any?, TFailure : MessageFailure> : Message
 
 interface MessageHandler<TMessage : Message> {
     suspend fun handle(message: TMessage): Any?
+}
+
+interface VoidReturningMessageHandler<TMessage : Message> : MessageHandler<TMessage> {
+    override suspend fun handle(message: TMessage): Unit
 }
 
 class MissingHandlerException(

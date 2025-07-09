@@ -10,7 +10,7 @@ class MessageStore<TMessageType : Message> {
         messageType: KClass<TMessage>,
         handlers: List<MessageHandler<TMessage>>,
     ) {
-        this.handlers[messageType] = (this.handlers[messageType] ?: emptyList()) + handlers
+        this.handlers[messageType] = ((this.handlers[messageType] ?: emptyList()) + handlers)
     }
 
     fun <TMessage : TMessageType> removeHandlers(
