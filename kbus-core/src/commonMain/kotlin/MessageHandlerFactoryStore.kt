@@ -7,20 +7,18 @@ sealed interface MessageHandlerFactory<TMessage : Message, THandler : MessageHan
 }
 
 data class CommandHandlerFactory<
-    TCommand : Command<TReturn, TFailure>,
-    THandler : CommandHandler<TCommand, TReturn, TFailure>,
-    TReturn,
-    TFailure : MessageFailure,
+    TCommand : Command<TResult>,
+    THandler : CommandHandler<TCommand, TResult>,
+    TResult : KBusResult,
 >(
     override val handlerType: KClass<THandler>,
     val create: (commandDependencies: CommandDependencies) -> THandler,
 ) : MessageHandlerFactory<TCommand, THandler>
 
 data class QueryHandlerFactory<
-    TQuery : Query<TReturn, TFailure>,
-    THandler : QueryHandler<TQuery, TReturn, TFailure>,
-    TReturn,
-    TFailure : MessageFailure,
+    TQuery : Query<TResult>,
+    THandler : QueryHandler<TQuery, TResult>,
+    TResult : KBusResult,
 >(override val handlerType: KClass<THandler>, val create: () -> THandler) :
     MessageHandlerFactory<TQuery, THandler>
 
@@ -47,7 +45,8 @@ class MessageHandlerFactoryStore<TMessageType : Message> {
             }
         if (duplicateHandlerFactory !== null) {
             throw TooManyHandlersException(
-                "A handler of type ${duplicateHandlerFactory.handlerType.simpleName} is already registered for this message."
+                "A handler of type ${duplicateHandlerFactory.handlerType.simpleName} is already " +
+                    "registered for this message."
             )
         }
 

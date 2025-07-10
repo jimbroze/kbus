@@ -5,7 +5,9 @@ import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.CommandHandler
 import com.jimbroze.kbus.core.MessageFailure
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlinx.coroutines.test.runTest
 
 sealed class TwoPossibleInvariants(message: String) : InvalidInvariantException(message) {
@@ -18,15 +20,19 @@ class FailureReasonOne(cause: InvalidInvariantException) : InvalidInvariantFailu
 
 class FailureReasonTwo(cause: InvalidInvariantException) : InvalidInvariantFailureReason(cause)
 
+data class InvariantTestFailure(override val reason: InvalidInvariantFailureReason) :
+    MessageFailure
+
 open class InvalidInvariantsCommand(val exception: InvalidInvariantException) :
-    Command<Unit, MessageFailure>()
+    Command<BusResult<Unit, InvariantTestFailure>>()
 
 class InvalidInvariantsCatchingCommand(exception: InvalidInvariantException) :
-    InvalidInvariantsCommand(exception), InvariantCatchingMessage<Unit, MessageFailure> {
+    InvalidInvariantsCommand(exception),
+    InvariantCatchingMessage<BusResult<Unit, InvariantTestFailure>> {
     override fun invariantFailure(
         failure: InvalidInvariantFailureReason
-    ): BusResult<Unit, MessageFailure> {
-        TODO("Not yet implemented")
+    ): BusResult<Unit, InvariantTestFailure> {
+        return BusResult.failure(InvariantTestFailure(failure))
     }
 
     override fun handleException(
@@ -40,30 +46,11 @@ class InvalidInvariantsCatchingCommand(exception: InvalidInvariantException) :
     }
 }
 
-class MultipleInvalidInvariantsCatchingCommand(exception: InvalidInvariantException) :
-    InvalidInvariantsCommand(exception), InvariantCatchingMessage<Unit, MessageFailure> {
-    override fun invariantFailure(
-        failure: InvalidInvariantFailureReason
-    ): BusResult<Unit, MessageFailure> {
-        TODO("Not yet implemented")
-    }
-
-    override fun handleException(
-        exception: InvalidInvariantException
-    ): InvalidInvariantFailureReason {
-        if (exception !is TwoPossibleInvariants) throw exception
-        return when (exception) {
-            is TwoPossibleInvariants.OneInvariantException -> FailureReasonOne(exception)
-            is TwoPossibleInvariants.TwoInvariantExceptions -> FailureReasonTwo(exception)
-        }
-    }
-}
-
 class InvalidInvariantsCommandHandler :
-    CommandHandler<InvalidInvariantsCommand, Unit, MessageFailure>() {
+    CommandHandler<InvalidInvariantsCommand, BusResult<Unit, InvariantTestFailure>>() {
     override suspend fun handle(
         message: InvalidInvariantsCommand
-    ): BusResult<Unit, MessageFailure> {
+    ): BusResult<Unit, InvariantTestFailure> {
         throw message.exception
     }
 }
@@ -80,53 +67,24 @@ class InvariantsTest {
         }
     }
 
-    //    @Test
-    //    fun invariant_catcher_converts_invalid_invariant_exception_to_result_failure() = runTest {
-    //        val catcher = InvalidInvariantCatcher()
-    //
-    //        val result =
-    //            catcher.handle(
-    //                InvalidInvariantsCatchingCommand(
-    //                    TwoPossibleInvariants.OneInvariantException("Failure message one")
-    //                )
-    //            ) {
-    //                InvalidInvariantsCommandHandler().handle(it)
-    //            }
-    //
-    //        assertIs<BusResult<Any?, MessageFailure>>(result)
-    //        val failureReason = result.failureOrNull()
-    //
-    //        assertIs<InvalidInvariantFailureReason>(failureReason)
-    //        assertEquals("Failure message one", failureReason.message)
-    //    }
+    @Test
+    fun invariant_catcher_converts_invalid_invariant_exception_to_result_failure() = runTest {
+        val catcher = InvalidInvariantCatcher()
 
-    //    @Test
-    //    fun invariant_catcher_converts_multiple_invalid_invariant_exception_to_result_failures() =
-    //        runTest {
-    //            val catcher = InvalidInvariantCatcher()
-    //
-    //            val result =
-    //                catcher.handle(
-    //                    MultipleInvalidInvariantsCatchingCommand(
-    //                        MultipleInvalidInvariantsException(
-    //                            errors =
-    //                                listOf(
-    //                                    TwoPossibleInvariants.OneInvariantException("Failure
-    // message"),
-    //                                    TwoPossibleInvariants.TwoInvariantExceptions(
-    //                                        "Other failure message"
-    //                                    ),
-    //                                )
-    //                        )
-    //                    )
-    //                ) {
-    //                    InvalidInvariantsCommandHandler().handle(it)
-    //                }
-    //
-    //            assertIs<BusResult<Any?, MultipleFailureReasons>>(result)
-    //            val failureReasons = result.failureOrNull()!!.reasons
-    //            assertEquals(2, failureReasons.size)
-    //            assertEquals("Failure message", failureReasons[0].message)
-    //            assertEquals("Other failure message", failureReasons[1].message)
-    //        }
+        val result =
+            catcher.handle(
+                InvalidInvariantsCatchingCommand(
+                    TwoPossibleInvariants.OneInvariantException("Failure message one")
+                )
+            ) {
+                InvalidInvariantsCommandHandler().handle(it)
+            }
+
+        assertIs<BusResult<Any?, MessageFailure>>(result)
+        val failure = result.failureOrNull()
+        assertIs<InvariantTestFailure>(failure)
+        val failureReason = failure.reason
+        assertIs<FailureReasonOne>(failureReason)
+        assertEquals("Failure message one", failureReason.message)
+    }
 }

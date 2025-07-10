@@ -81,10 +81,9 @@ class DefaultUnitOfWorkFactory : UnitOfWorkFactory {
 }
 
 interface ExecuteInTransaction<
-    TCommand : Command<TReturn, TFailure>,
-    TReturn : Any?,
-    TFailure : MessageFailure,
-> : ResultReturningMessageHandler<TCommand, TReturn, TFailure> {
+    TCommand : Command<TResult>,
+    TResult : KBusResult,
+> : ResultReturningMessageHandler<TCommand, TResult> {
     val transactionManager: TransactionManager?
         get() = null
 }

@@ -241,13 +241,13 @@ class TestDomainEventPublisher : DomainEventPublisher {
     }
 }
 
-class TransactionCommand(val message: String) : Command<String, MessageFailure>()
+class TransactionCommand(val message: String) : Command<BusResult<String, MessageFailure>>()
 
 class TransactionCommandHandler(override val transactionManager: TransactionManager? = null) :
-    CommandHandler<TransactionCommand, String, MessageFailure>(),
-    ExecuteInTransaction<TransactionCommand, String, MessageFailure> {
+    CommandHandler<TransactionCommand, BusResult<String, MessageFailure>>(),
+    ExecuteInTransaction<TransactionCommand, BusResult<String, MessageFailure>> {
 
     override suspend fun handle(message: TransactionCommand): BusResult<String, MessageFailure> {
-        return success(message.message)
+        return BusResult.success(message.message)
     }
 }

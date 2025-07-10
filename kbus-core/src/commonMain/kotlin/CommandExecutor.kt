@@ -7,41 +7,32 @@ class CommandExecutor(
     private val commandDependenciesFactory: CommandDependenciesFactory,
     private val unitOfWorkFactory: UnitOfWorkFactory = DefaultUnitOfWorkFactory(),
 ) {
-    suspend fun <
-        TCommand : Command<TReturn, TFailure>,
-        TReturn : Any?,
-        TFailure : MessageFailure,
-    > execute(
+    suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
-        createHandler: (CommandDependencies) -> CommandHandler<TCommand, TReturn, TFailure>,
-    ): BusResult<TReturn, TFailure> {
-        val unitOfWork = unitOfWorkFactory.create<BusResult<TReturn, TFailure>>()
+        createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
+    ): TResult {
+        val unitOfWork = unitOfWorkFactory.create<TResult>()
         val handler = createHandler(commandDependenciesFactory.create(unitOfWork))
 
         handler.setBus(busAccess)
 
-        val finalHandler: suspend (TCommand) -> BusResult<TReturn, TFailure> =
-            { message: TCommand ->
-                executeInUnitOfWork(message, handler, unitOfWork)
-            }
+        val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
+            executeInUnitOfWork(message, handler, unitOfWork)
+        }
 
         val execute = createMiddlewareChain(finalHandler, middlewares)
 
         return execute(command)
     }
 
-    private suspend fun <
-        TCommand : Command<TReturn, TFailure>,
-        TReturn : Any?,
-        TFailure : MessageFailure,
-    > executeInUnitOfWork(
+    private suspend fun <TCommand : Command<TResult>, TResult : KBusResult> executeInUnitOfWork(
         message: TCommand,
-        handler: CommandHandler<TCommand, TReturn, TFailure>,
-        unitOfWork: UnitOfWork<BusResult<TReturn, TFailure>>,
-    ): BusResult<TReturn, TFailure> {
+        handler: CommandHandler<TCommand, TResult>,
+        unitOfWork: UnitOfWork<TResult>,
+    ): TResult {
         unitOfWork.setReturningWork { handler.handle(message) }
 
-        if (handler is ExecuteInTransaction<*, *, *>) {
+        if (handler is ExecuteInTransaction<*, *>) {
             unitOfWork.useTransaction(
                 handler.transactionManager
                     ?: transactionManager

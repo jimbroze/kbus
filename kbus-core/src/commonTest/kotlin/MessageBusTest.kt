@@ -8,7 +8,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-open class FailureCommand : Command<String, FailureCommandFailure>()
+open class FailureCommand : Command<BusResult<String, FailureCommandFailure>>()
 
 class BrokenStateFailureReason(override val message: String) : FailureReason
 
@@ -19,28 +19,28 @@ sealed interface FailureCommandFailure : MessageFailure {
 }
 
 class BrokenStateFailureCommandHandler :
-    CommandHandler<FailureCommand, String, FailureCommandFailure>() {
+    CommandHandler<FailureCommand, BusResult<String, FailureCommandFailure>>() {
     override suspend fun handle(message: FailureCommand): BusResult<String, FailureCommandFailure> {
-        return failure(
+        return BusResult.failure(
             FailureCommandFailure.BrokenStateFailure("Illegal state in command handling")
         )
     }
 }
 
 open class StorageQuery(val index: Int, val listStore: MutableList<String>) :
-    Query<String, MessageFailure>()
+    Query<BusResult<String, MessageFailure>>()
 
-class StorageQueryHandler : QueryHandler<StorageQuery, String, MessageFailure> {
+class StorageQueryHandler : QueryHandler<StorageQuery, BusResult<String, MessageFailure>> {
     override suspend fun handle(message: StorageQuery): BusResult<String, MessageFailure> {
-        return success(message.listStore[message.index])
+        return BusResult.success(message.listStore[message.index])
     }
 }
 
-open class FailureQuery : Query<String, FailureCommandFailure>()
+open class FailureQuery : Query<BusResult<String, FailureCommandFailure>>()
 
-class FailureQueryHandler : QueryHandler<FailureQuery, String, FailureCommandFailure> {
+class FailureQueryHandler : QueryHandler<FailureQuery, BusResult<String, FailureCommandFailure>> {
     override suspend fun handle(message: FailureQuery): BusResult<String, FailureCommandFailure> {
-        return failure(FailureCommandFailure.BrokenStateFailure("The query failed"))
+        return BusResult.failure(FailureCommandFailure.BrokenStateFailure("The query failed"))
     }
 }
 
@@ -54,12 +54,12 @@ class TestIntegrationEventHandler(val messageOutput: MutableList<String>) :
 }
 
 class EventCommand(val message: String, val listStore: MutableList<String>) :
-    Command<Unit, MessageFailure>()
+    Command<BusResult<Unit, MessageFailure>>()
 
-class EventCommandHandler : CommandHandler<EventCommand, Unit, MessageFailure>() {
+class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
         dispatch(StorageEvent(message.message, message.listStore))
-        return success()
+        return BusResult.success(Unit)
     }
 }
 

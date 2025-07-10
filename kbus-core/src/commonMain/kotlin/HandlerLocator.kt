@@ -3,31 +3,29 @@ package com.jimbroze.kbus.core
 import kotlin.reflect.KClass
 
 interface MessageHandlerMapper {
-    fun <TCommand : Command<TReturn, TFailure>, TReturn, TFailure : MessageFailure> handlerFor(
+    fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
-    ): CommandHandler<TCommand, TReturn, TFailure>?
+    ): CommandHandler<TCommand, TResult>?
 
-    fun <TQuery : Query<TReturn, TFailure>, TReturn, TFailure : MessageFailure> handlerFor(
+    fun <TQuery : Query<TResult>, TResult : KBusResult> handlerFor(
         query: TQuery
-    ): QueryHandler<TQuery, TReturn, TFailure>?
+    ): QueryHandler<TQuery, TResult>?
 
     fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
 }
 
 interface HandlerFactory {
     fun <
-        TCommand : Command<TReturn, TFailure>,
-        THandler : CommandHandler<TCommand, TReturn, TFailure>,
-        TReturn,
-        TFailure : MessageFailure,
+        TCommand : Command<TResult>,
+        THandler : CommandHandler<TCommand, TResult>,
+        TResult : KBusResult,
     > create(handlerType: KClass<THandler>, commandDependencies: CommandDependencies): THandler
 
     fun <
-        TQuery : Query<TReturn, TFailure>,
-        THandler : QueryHandler<TQuery, TReturn, TFailure>,
-        TReturn,
-        TFailure : MessageFailure,
+        TQuery : Query<TResult>,
+        THandler : QueryHandler<TQuery, TResult>,
+        TResult : KBusResult,
     > create(handlerType: KClass<THandler>): THandler
 }
 

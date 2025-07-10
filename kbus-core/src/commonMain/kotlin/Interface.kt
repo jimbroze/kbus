@@ -8,7 +8,7 @@ interface Message {
     override fun toString(): String
 }
 
-interface ResultReturningMessage<TReturn : Any?, TFailure : MessageFailure> : Message
+interface ResultReturningMessage<TResult : KBusResult> : Message
 
 interface MessageHandler<TMessage : Message> {
     suspend fun handle(message: TMessage): Any?

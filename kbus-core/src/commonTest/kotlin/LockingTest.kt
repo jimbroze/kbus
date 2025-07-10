@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core
 
 import com.jimbroze.kbus.core.BusResult.Companion.failure
+import com.jimbroze.kbus.core.BusResult.Companion.success
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -13,15 +14,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 
 open class TimeReturnCommand(val listStore: MutableList<ValueTimeMark>) :
-    Command<ValueTimeMark, MessageFailure>()
+    Command<BusResult<ValueTimeMark, MessageFailure>>()
 
 class LockAwareTimeReturnCommand(listStore: MutableList<ValueTimeMark>) :
-    TimeReturnCommand(listStore), LockingCommand<ValueTimeMark, MessageFailure> {
-    override fun busLockedFailure(failure: BusLockedFailure) = failure(TestFailure(failure))
+    TimeReturnCommand(listStore), LockingCommand<BusResult<ValueTimeMark, MessageFailure>> {
+    override fun busLockedFailure(failure: BusLockedFailure): BusResult<ValueTimeMark, MessageFailure> =
+        failure(TestFailure(failure))
 }
 
 class TimeReturnCommandHandler :
-    CommandHandler<TimeReturnCommand, ValueTimeMark, MessageFailure>() {
+    CommandHandler<TimeReturnCommand, BusResult<ValueTimeMark, MessageFailure>>() {
     override suspend fun handle(
         message: TimeReturnCommand
     ): BusResult<ValueTimeMark, MessageFailure> {
@@ -37,12 +39,13 @@ class TimeReturnCommandHandler :
 class TestFailure(override val reason: FailureReason) : MessageFailure
 
 class LockingPrintReturnCommand(val internalCommand: TimeReturnCommand) :
-    Command<Any, MessageFailure>(), LockingCommand<Any, MessageFailure> {
-    override fun busLockedFailure(failure: BusLockedFailure) = failure(TestFailure(failure))
+    Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
+    override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
+        failure(TestFailure(failure))
 }
 
 class LockingPrintReturnCommandHandler(private val locker: BusLocker) :
-    CommandHandler<LockingPrintReturnCommand, Any, MessageFailure>() {
+    CommandHandler<LockingPrintReturnCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
         message: LockingPrintReturnCommand
     ): BusResult<Any, MessageFailure> {
@@ -66,30 +69,33 @@ class LockingSleepCommand(
     val waitSecs: Float,
     val messageData: String,
     override val lockTimeout: Float? = null,
-) : Command<Any, MessageFailure>(), LockingCommand<Any, MessageFailure> {
-    override fun busLockedFailure(failure: BusLockedFailure) = failure(TestFailure(failure))
+) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
+    override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
+        failure(TestFailure(failure))
 }
 
-class LockingSleepCommandHandler : CommandHandler<LockingSleepCommand, Any, MessageFailure>() {
+class LockingSleepCommandHandler :
+    CommandHandler<LockingSleepCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: LockingSleepCommand): BusResult<Any, MessageFailure> {
         delay((1000 * message.waitSecs).toLong())
         return success(message.messageData)
     }
 }
 
-class SleepCommand(val waitSecs: Float) : Command<Unit, MessageFailure>()
+class SleepCommand(val waitSecs: Float) : Command<BusResult<Unit, MessageFailure>>()
 
-class SleepCommandHandler : CommandHandler<SleepCommand, Unit, MessageFailure>() {
+class SleepCommandHandler : CommandHandler<SleepCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: SleepCommand): BusResult<Unit, MessageFailure> {
         delay((1000 * message.waitSecs).toLong())
-        return success()
+        return success(Unit)
     }
 }
 
 class LockAdjustCommand(val messageData: String, override val lockTimeout: Float) :
-    Command<Any, MessageFailure>(), LockAdjustMessage
+    Command<BusResult<Any, MessageFailure>>(), LockAdjustMessage
 
-class LockAdjustCommandHandler : CommandHandler<LockAdjustCommand, Any, MessageFailure>() {
+class LockAdjustCommandHandler :
+    CommandHandler<LockAdjustCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: LockAdjustCommand): BusResult<Any, MessageFailure> {
         return success(message.messageData)
     }

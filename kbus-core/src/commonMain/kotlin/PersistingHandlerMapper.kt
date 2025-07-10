@@ -15,10 +15,9 @@ class PersistingHandlerLocator(
 
 class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection) : HandlerFactory {
     override fun <
-        TCommand : Command<TReturn, TFailure>,
-        THandler : CommandHandler<TCommand, TReturn, TFailure>,
-        TReturn,
-        TFailure : MessageFailure,
+        TCommand : Command<TResult>,
+        THandler : CommandHandler<TCommand, TResult>,
+        TResult : KBusResult,
     > create(handlerType: KClass<THandler>, commandDependencies: CommandDependencies): THandler {
         val factories = stores.commandStore.getHandlersByType(handlerType)
 
@@ -32,18 +31,17 @@ class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection
                     "No handler found for command type ${handlerType.simpleName}."
                 )
 
-        require(factory is CommandHandlerFactory<TCommand, THandler, *, *>) {
-            "Factory for command handler ${handlerType::class.simpleName} was incorrectly registered"
+        require(factory is CommandHandlerFactory<TCommand, THandler, *>) {
+            "Factory for command handler ${handlerType.simpleName} was incorrectly registered"
         }
 
         return factory.create(commandDependencies)
     }
 
     override fun <
-        TQuery : Query<TReturn, TFailure>,
-        THandler : QueryHandler<TQuery, TReturn, TFailure>,
-        TReturn,
-        TFailure : MessageFailure,
+        TQuery : Query<TResult>,
+        THandler : QueryHandler<TQuery, TResult>,
+        TResult : KBusResult,
     > create(handlerType: KClass<THandler>): THandler {
         val handlers = stores.queryStore.getHandlersByType(handlerType)
 
@@ -57,8 +55,8 @@ class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection
                     "No handler found for query type ${handlerType.simpleName}."
                 )
 
-        require(factory is QueryHandlerFactory<TQuery, THandler, *, *>) {
-            "Factory for query handler ${handlerType::class.simpleName} was incorrectly registered"
+        require(factory is QueryHandlerFactory<TQuery, THandler, *>) {
+            "Factory for query handler ${handlerType.simpleName} was incorrectly registered"
         }
 
         return factory.create()
@@ -66,47 +64,43 @@ class PersistingHandlerFactory(private val stores: HandlerFactoryStoreCollection
 }
 
 data class HandlerFactoryStoreCollection(
-    val commandStore: MessageHandlerFactoryStore<Command<*, *>> = MessageHandlerFactoryStore(),
-    val queryStore: MessageHandlerFactoryStore<Query<*, *>> = MessageHandlerFactoryStore(),
+    val commandStore: MessageHandlerFactoryStore<Command<*>> = MessageHandlerFactoryStore(),
+    val queryStore: MessageHandlerFactoryStore<Query<*>> = MessageHandlerFactoryStore(),
     val eventStore: MessageHandlerFactoryStore<Event> = MessageHandlerFactoryStore(),
 )
 
 class PersistingHandlerMapper(
     stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
 ) : MessageHandlerMapper, EventHandlerManager {
-    private val commandStore: MessageHandlerFactoryStore<Command<*, *>> = stores.commandStore
-    private val queryStore: MessageHandlerFactoryStore<Query<*, *>> = stores.queryStore
+    private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
+    private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
     private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
 
-    override fun <
-        TCommand : Command<TReturn, TFailure>,
-        TReturn : Any?,
-        TFailure : MessageFailure,
-    > handlerFor(
+    override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
-    ): CommandHandler<TCommand, TReturn, TFailure>? {
+    ): CommandHandler<TCommand, TResult>? {
         val factory = commandStore.getHandlers(command::class).firstOrNull() ?: return null
 
-        require(factory is CommandHandlerFactory<TCommand, *, *, *>) {
+        require(factory is CommandHandlerFactory<TCommand, *, *>) {
             "Command factory was incorrectly registered for command type ${command::class.simpleName}"
         }
 
-        return factory.create(commandDependencies) as CommandHandler<TCommand, TReturn, TFailure>?
+        @Suppress("UNCHECKED_CAST")
+        return factory.create(commandDependencies) as CommandHandler<TCommand, TResult>
     }
 
-    override fun <
-        TQuery : Query<TReturn, TFailure>,
-        TReturn : Any?,
-        TFailure : MessageFailure,
-    > handlerFor(query: TQuery): QueryHandler<TQuery, TReturn, TFailure>? {
+    override fun <TQuery : Query<TResult>, TResult : KBusResult> handlerFor(
+        query: TQuery
+    ): QueryHandler<TQuery, TResult>? {
         val factory = queryStore.getHandlers(query::class).firstOrNull() ?: return null
 
-        require(factory is QueryHandlerFactory<TQuery, *, *, *>) {
+        require(factory is QueryHandlerFactory<TQuery, *, *>) {
             "Query factory was incorrectly registered for query type ${query::class.simpleName}"
         }
 
-        return factory.create() as QueryHandler<TQuery, TReturn, TFailure>?
+        @Suppress("UNCHECKED_CAST")
+        return factory.create() as QueryHandler<TQuery, TResult>
     }
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
@@ -119,7 +113,7 @@ class PersistingHandlerMapper(
     }
 
     @JvmName("registerCommand")
-    fun <TCommand : Command<TReturn, TFailure>, TReturn : Any?, TFailure : MessageFailure> register(
+    fun <TCommand : Command<*>> register(
         commandType: KClass<TCommand>,
         handlerFactory: MessageHandlerFactory<TCommand, *>,
     ) {
@@ -132,19 +126,15 @@ class PersistingHandlerMapper(
     }
 
     @JvmName("deregisterCommand")
-    fun <
-        TCommand : Command<TReturn, TFailure>,
-        TReturn : Any?,
-        TFailure : MessageFailure,
-    > deregister(
+    fun <TCommand : Command<TResult>, TResult : KBusResult> deregister(
         messageType: KClass<TCommand>,
-        handlerType: KClass<out CommandHandler<TCommand, TReturn, TFailure>>,
+        handlerType: KClass<out CommandHandler<TCommand, TResult>>,
     ) {
         this.commandStore.removeHandlers(messageType, listOf(handlerType))
     }
 
     @JvmName("registerQuery")
-    fun <TQuery : Query<TReturn, TFailure>, TReturn : Any?, TFailure : MessageFailure> register(
+    fun <TQuery : Query<*>> register(
         queryType: KClass<TQuery>,
         handlerFactory: MessageHandlerFactory<TQuery, *>,
     ) {
@@ -156,9 +146,9 @@ class PersistingHandlerMapper(
     }
 
     @JvmName("deregisterQuery")
-    fun <TQuery : Query<TReturn, TFailure>, TReturn : Any?, TFailure : MessageFailure> deregister(
+    fun <TQuery : Query<TResult>, TResult : KBusResult> deregister(
         messageType: KClass<TQuery>,
-        handlerType: KClass<out QueryHandler<TQuery, TReturn, TFailure>>,
+        handlerType: KClass<out QueryHandler<TQuery, TResult>>,
     ) {
         this.queryStore.removeHandlers(messageType, listOf(handlerType))
     }

@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core
 
+import com.jimbroze.kbus.core.BusResult.Companion.success
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -9,29 +10,30 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-class ReturnCommand(val messageData: String) : Command<String, MessageFailure>()
+class ReturnCommand(val messageData: String) : Command<BusResult<String, MessageFailure>>()
 
-class ReturnCommandHandler : CommandHandler<ReturnCommand, String, MessageFailure>() {
+class ReturnCommandHandler : CommandHandler<ReturnCommand, BusResult<String, MessageFailure>>() {
     override suspend fun handle(message: ReturnCommand): BusResult<String, MessageFailure> {
         return success(message.messageData)
     }
 }
 
 open class StorageCommand(val messageData: String, val listStore: MutableList<String>) :
-    Command<Unit, MessageFailure>()
+    Command<BusResult<Unit, MessageFailure>>()
 
-class StorageCommandHandler : CommandHandler<StorageCommand, Unit, MessageFailure>() {
+class StorageCommandHandler : CommandHandler<StorageCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: StorageCommand): BusResult<Unit, MessageFailure> {
         message.listStore.add(message.messageData)
-        return success()
+        return success(Unit)
     }
 }
 
-class AnyCommandHandler : CommandHandler<Command<Unit, MessageFailure>, Unit, MessageFailure>() {
+class AnyCommandHandler :
+    CommandHandler<Command<BusResult<Unit, MessageFailure>>, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(
-        message: Command<Unit, MessageFailure>
+        message: Command<BusResult<Unit, MessageFailure>>
     ): BusResult<Unit, MessageFailure> {
-        return success()
+        return success(Unit)
     }
 }
 
@@ -52,14 +54,14 @@ class OtherPrintEventHandler(val toPrint: String) : EventHandler<StorageEvent> {
 class TestMessageStore {
     @Test
     fun test_handle_handles_a_specific_message() = runTest {
-        val bus = MessageStore<Command<*, *>>()
+        val bus = MessageStore<Command<*>>()
 
         bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
     }
 
     @Test
     fun test_handle_can_return_a_value() = runTest {
-        val bus = MessageStore<Command<*, *>>()
+        val bus = MessageStore<Command<*>>()
 
         val result = bus.handle(ReturnCommand("Testing"), listOf(ReturnCommandHandler()))
 
@@ -69,7 +71,7 @@ class TestMessageStore {
 
     @Test
     fun test_handle_finds_a_previously_registered_message() = runTest {
-        val bus = MessageStore<Command<*, *>>()
+        val bus = MessageStore<Command<*>>()
         bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
         val result = bus.handle(ReturnCommand("Testing"))
@@ -80,7 +82,7 @@ class TestMessageStore {
 
     @Test
     fun test_is_registered_returns_false_for_non_registered_message() {
-        val bus = MessageStore<Command<*, *>>()
+        val bus = MessageStore<Command<*>>()
 
         bus.registerHandlers(StorageCommand::class, listOf(StorageCommandHandler()))
 
@@ -89,7 +91,7 @@ class TestMessageStore {
 
     @Test
     fun test_isRegistered_returns_true_for_registered_message() {
-        val bus = MessageStore<Command<*, *>>()
+        val bus = MessageStore<Command<*>>()
 
         bus.registerHandlers(ReturnCommand::class, listOf(ReturnCommandHandler()))
 
@@ -135,7 +137,7 @@ class TestMessageStore {
 
     @Test
     fun test_removeHandlers_throws_exception_if_message_is_not_registered() {
-        val bus = MessageStore<Command<*, *>>()
+        val bus = MessageStore<Command<*>>()
 
         assertFailsWith<MissingHandlerException> { bus.removeHandlers(ReturnCommand::class) }
     }

@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core
 
+import com.jimbroze.kbus.core.BusResult.Companion.success
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -36,42 +37,43 @@ class TimeCaptureLogger : Logger {
 }
 
 class LoggingLogCommand(val messageToLog: String, val logger: Logger) :
-    Command<Unit, MessageFailure>(), LoggingCommand
+    Command<BusResult<Unit, MessageFailure>>(), LoggingMessage
 
-class LoggingLogCommandHandler : CommandHandler<LoggingLogCommand, Unit, MessageFailure>() {
+class LoggingLogCommandHandler :
+    CommandHandler<LoggingLogCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)
-        return success()
+        return success(Unit)
     }
 }
 
 class LoggingLogQuery(val messageToLog: String, val logger: Logger) :
-    Query<Unit, MessageFailure>(), LoggingQuery
+    Query<BusResult<Unit, MessageFailure>>(), LoggingMessage
 
-class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, Unit, MessageFailure> {
+class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, BusResult<Unit, MessageFailure>> {
     override suspend fun handle(message: LoggingLogQuery): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)
-        return success()
+        return success(Unit)
     }
 }
 
 class LoggingStorageEvent(message: String, listStore: MutableList<String>) :
-    StorageEvent(message, listStore), LoggingEvent
+    StorageEvent(message, listStore), LoggingMessage
 
 class TestException(message: String) : Exception(message)
 
-class LoggingExceptionCommand : Command<Unit, MessageFailure>(), LoggingCommand
+class LoggingExceptionCommand : Command<BusResult<Unit, MessageFailure>>(), LoggingMessage
 
 class ExceptionCommandHandler :
-    CommandHandler<Command<Unit, MessageFailure>, Unit, MessageFailure>() {
+    CommandHandler<Command<BusResult<Unit, MessageFailure>>, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(
-        message: Command<Unit, MessageFailure>
+        message: Command<BusResult<Unit, MessageFailure>>
     ): BusResult<Unit, MessageFailure> {
         throw TestException("Exception raised")
     }
 }
 
-class LoggingExceptionEvent : Event(), LoggingEvent
+class LoggingExceptionEvent : Event(), LoggingMessage
 
 class ExceptionEventHandler : EventHandler<Event> {
     override suspend fun handle(message: Event) {
@@ -119,8 +121,8 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "Executing command")
-        assertContains(allLogs, "executed command")
+        assertContains(allLogs, "Handling command")
+        assertContains(allLogs, "handled command")
     }
 
     @Test
@@ -134,8 +136,8 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "Processing query")
-        assertContains(allLogs, "processed query")
+        assertContains(allLogs, "Handling query")
+        assertContains(allLogs, "handled query")
     }
 
     @Test
@@ -149,7 +151,7 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "ERROR: Failed executing")
+        assertContains(allLogs, "ERROR: Failed handling")
         assertTrue(
             captureLogger.exceptions.any { it is Exception && it.message == "Exception raised" }
         )
@@ -166,8 +168,8 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "Dispatching event")
-        assertContains(allLogs, "dispatched event")
+        assertContains(allLogs, "Handling event")
+        assertContains(allLogs, "handled event")
     }
 
     @Test
@@ -181,6 +183,6 @@ class LoggingTest {
 
         val allLogs = captureLogger.logs.joinToString(" | ")
 
-        assertContains(allLogs, "ERROR: Failed dispatching")
+        assertContains(allLogs, "ERROR: Failed handling")
     }
 }

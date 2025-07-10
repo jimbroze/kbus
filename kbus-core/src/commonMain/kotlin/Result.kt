@@ -1,5 +1,7 @@
 package com.jimbroze.kbus.core
 
+typealias KBusResult = BusResult<*, *>
+
 sealed class BusResult<out TValue : Any?, out TMessageFailure : MessageFailure> {
     internal data class Success<out TValue>(internal val value: TValue) :
         BusResult<TValue, Nothing>() {
@@ -49,16 +51,8 @@ interface MessageFailure {
 }
 
 interface ResultReturningMessageHandler<
-    TMessage : ResultReturningMessage<TReturn, TMessageFailure>,
-    TReturn : Any?,
-    TMessageFailure : MessageFailure,
+    TMessage : ResultReturningMessage<TResult>,
+    TResult : KBusResult,
 > : MessageHandler<TMessage> {
-    override suspend fun handle(message: TMessage): BusResult<TReturn, TMessageFailure>
-
-    fun success(returnValue: TReturn): BusResult<TReturn, Nothing> = BusResult.success(returnValue)
-
-    fun success(): BusResult<Unit, Nothing> = BusResult.success(Unit)
-
-    fun failure(failure: TMessageFailure): BusResult<Nothing, TMessageFailure> =
-        BusResult.failure(failure)
+    override suspend fun handle(message: TMessage): TResult
 }

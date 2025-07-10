@@ -1,11 +1,12 @@
 package com.jimbroze.kbus.core
 
+import com.jimbroze.kbus.core.BusResult.Companion.success
 import kotlinx.datetime.Clock
 
-class UnloadedCommand(val messageData: String) : Command<Any, MessageFailure>()
+class UnloadedCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
 class UnloadedCommandHandler(val clock: Clock) :
-    CommandHandler<UnloadedCommand, Any, MessageFailure>() {
+    CommandHandler<UnloadedCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: UnloadedCommand): BusResult<Any, MessageFailure> {
         return success(message.messageData)
     }

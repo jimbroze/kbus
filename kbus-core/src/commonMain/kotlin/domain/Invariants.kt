@@ -1,9 +1,8 @@
 package com.jimbroze.kbus.core.domain
 
-import com.jimbroze.kbus.core.BusResult
 import com.jimbroze.kbus.core.FailureReason
+import com.jimbroze.kbus.core.KBusResult
 import com.jimbroze.kbus.core.Message
-import com.jimbroze.kbus.core.MessageFailure
 import com.jimbroze.kbus.core.Middleware
 import com.jimbroze.kbus.core.MiddlewareHandler
 import com.jimbroze.kbus.core.ResultReturningMessage
@@ -29,11 +28,8 @@ abstract class HasInvariants {
     }
 }
 
-interface InvariantCatchingMessage<TReturn, TMessageFailure : MessageFailure> :
-    ResultReturningMessage<TReturn, TMessageFailure> {
-    fun invariantFailure(
-        failure: InvalidInvariantFailureReason
-    ): BusResult<TReturn, TMessageFailure>
+interface InvariantCatchingMessage<TResult : KBusResult> : ResultReturningMessage<TResult> {
+    fun invariantFailure(failure: InvalidInvariantFailureReason): TResult
 
     fun handleException(exception: InvalidInvariantException): InvalidInvariantFailureReason
 }
@@ -43,7 +39,7 @@ class InvalidInvariantCatcher : Middleware {
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        if (message !is InvariantCatchingMessage<*, *>) return nextMiddleware(message)
+        if (message !is InvariantCatchingMessage<*>) return nextMiddleware(message)
 
         @Suppress("UNCHECKED_CAST")
         return try {

@@ -25,42 +25,41 @@ interface LockingMessage {
         get() = null
 }
 
-interface ResultReturningLockingMessage<TReturn : Any?, TMessageFailure : MessageFailure> :
-    ResultReturningMessage<TReturn, TMessageFailure>, LockingMessage {
-    fun busLockedFailure(failure: BusLockedFailure): BusResult<TReturn, TMessageFailure>
+interface ResultReturningLockingMessage<TResult : KBusResult> :
+    ResultReturningMessage<TResult>, LockingMessage {
+    fun busLockedFailure(failure: BusLockedFailure): TResult
 }
 
-// interface AFailure : FailureReason
+interface AFailure : FailureReason
 
-// sealed interface TestingMessageFailure : MessageFailure {
-//    companion object {
-//        fun busLockedFailure(failure: BusLockedFailure): BusResult<Nothing, TestingMessageFailure>
-// =
-//            BusResult.failure(BusLocked(failure))
-//    }
-//
-//    data class A(override val reason: AFailure) : TestingMessageFailure
-//
-//    data class BusLocked(override val reason: BusLockedFailure) : TestingMessageFailure
-// }
+sealed interface TestingMessageFailure : MessageFailure {
+    companion object {
+        fun busLockedFailure(failure: BusLockedFailure): BusResult<Nothing, TestingMessageFailure> =
+            BusResult.failure(BusLocked(failure))
+    }
+
+    data class A(override val reason: AFailure) : TestingMessageFailure
+
+    data class BusLocked(override val reason: BusLockedFailure) : TestingMessageFailure
+}
 
 // TODO move to tests
-// class LockingMessageImpl(override val lockTimeout: Float? = null) :
-//    LockingCommand<Any, TestingMessageFailure>, Command<Any, TestingMessageFailure>() {
-//    override val messageType: String = "locking"
-//
-//    override fun busLockedFailure(
-//        failure: BusLockedFailure
-//    ): BusResult<Nothing, TestingMessageFailure> = TestingMessageFailure.busLockedFailure(failure)
-// }
+class LockingMessageImpl(override val lockTimeout: Float? = null) :
+    LockingCommand<BusResult<Any, TestingMessageFailure>>, Command<BusResult<Any, TestingMessageFailure>>() {
+    override val messageType: String = "locking"
+
+    override fun busLockedFailure(
+        failure: BusLockedFailure
+    ): BusResult<Any, TestingMessageFailure> = TestingMessageFailure.busLockedFailure(failure)
+}
 
 // TODO remove interface
 interface LockAdjustMessage {
     val lockTimeout: Float
 }
 
-interface LockingCommand<TReturn : Any?, TMessageFailure : MessageFailure> :
-    ResultReturningLockingMessage<TReturn, TMessageFailure>
+interface LockingCommand<TResult : KBusResult> :
+    ResultReturningLockingMessage<TResult>
 
 interface LockingEvent : LockingMessage
 
@@ -82,10 +81,9 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
         println(coroutineId)
 
         if (busLocked && inLockingCoroutine(coroutineId)) {
-            return if (message is ResultReturningLockingMessage<*, *>) {
+            return if (message is ResultReturningLockingMessage<*>) {
                 this.postponeHandling(message, nextMiddleware)
 
-                // TODO combine TReturn and TFailure into TResult
                 @Suppress("UNCHECKED_CAST")
                 message.busLockedFailure(
                     BusLockedFailure(
