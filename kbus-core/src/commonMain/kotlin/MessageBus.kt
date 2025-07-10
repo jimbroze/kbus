@@ -24,14 +24,19 @@ open class MessageBus(
     protected val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = null,
     val middlewares: List<Middleware> = emptyList(),
-) : BusAccess {
+) {
+    private val busAccess =
+        object : BusAccess {
+            override suspend fun <TEvent : Event> dispatch(event: TEvent) =
+                this@MessageBus.dispatch(event)
+        }
     private val eventDispatcher =
         EventDispatcher(handlerLocator.messageMapper::handlersFor, middlewares)
     private val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
-            this as BusAccess,
+            busAccess,
             DefaultCommandDependenciesFactory(null),
         )
     private val queryFetcher = QueryFetcher(middlewares)
@@ -93,16 +98,9 @@ open class MessageBus(
         return queryFetcher.fetch(query, handler)
     }
 
-    override suspend fun <TEvent : Event> dispatch(event: TEvent) {
+    private suspend fun <TEvent : Event> dispatch(event: TEvent) {
         val handlers = handlerLocator.messageMapper.handlersFor(event)
 
-        eventDispatcher.dispatch(event, handlers)
-    }
-
-    suspend fun <TEvent : Event> dispatch(
-        event: TEvent,
-        handlers: List<EventHandler<TEvent>> = emptyList(),
-    ) {
         eventDispatcher.dispatch(event, handlers)
     }
 }

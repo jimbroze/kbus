@@ -133,54 +133,54 @@ class MessageBusTest {
     //        }
     //    }
 
-    @Test
-    fun test_dispatch_dispatches_an_event() = runTest {
-        val bus = MessageBus()
-        val list = mutableListOf<String>()
+    //    @Test
+    //    fun test_dispatch_dispatches_an_event() = runTest {
+    //        val bus = MessageBus()
+    //        val list = mutableListOf<String>()
+    //
+    //        bus.dispatch(StorageEvent("Test the bus", list), listOf(PrintEventHandler()))
+    //
+    //        assertContains(list, "Test the bus")
+    //    }
 
-        bus.dispatch(StorageEvent("Test the bus", list), listOf(PrintEventHandler()))
+    //    @Test
+    //    fun test_dispatch_can_dispatch_an_event_with_no_handlers() = runTest {
+    //        val bus = MessageBus()
+    //        val list = mutableListOf<String>()
+    //
+    //        bus.dispatch(StorageEvent("Test the bus", list))
+    //    }
 
-        assertContains(list, "Test the bus")
-    }
+    //    @Test
+    //    fun test_dispatch_can_dispatch_to_multiple_handlers() = runTest {
+    //        val bus = MessageBus()
+    //        val list = mutableListOf<String>()
+    //
+    //        bus.dispatch(
+    //            StorageEvent("Test the bus", list),
+    //            listOf(PrintEventHandler(), OtherPrintEventHandler("Still testing the bus")),
+    //        )
+    //
+    //        assertEquals(2, list.count())
+    //        assertEquals("Test the bus", list[0])
+    //        assertEquals("Still testing the bus", list[1])
+    //    }
 
-    @Test
-    fun test_dispatch_can_dispatch_an_event_with_no_handlers() = runTest {
-        val bus = MessageBus()
-        val list = mutableListOf<String>()
-
-        bus.dispatch(StorageEvent("Test the bus", list))
-    }
-
-    @Test
-    fun test_dispatch_can_dispatch_to_multiple_handlers() = runTest {
-        val bus = MessageBus()
-        val list = mutableListOf<String>()
-
-        bus.dispatch(
-            StorageEvent("Test the bus", list),
-            listOf(PrintEventHandler(), OtherPrintEventHandler("Still testing the bus")),
-        )
-
-        assertEquals(2, list.count())
-        assertEquals("Test the bus", list[0])
-        assertEquals("Still testing the bus", list[1])
-    }
-
-    @Test
-    fun test_command_can_dispatch_integration_event() = runTest {
-        val bus = MessageBus()
-        val list = mutableListOf<String>()
-        val handler = PrintEventHandler()
-
-        // Use dispatch with explicit handlers instead of registering
-        bus.execute(EventCommand("Emit me", list), EventCommandHandler())
-
-        // FIXME
-        // The EventCommandHandler will dispatch a StorageEvent
-        // We need to manually handle it since we can't register handlers
-        bus.dispatch(StorageEvent("Emit me", list), listOf(handler))
-
-        assertEquals(1, list.count())
-        assertEquals("Emit me", list[0])
-    }
+    //    @Test
+    //    fun test_command_can_dispatch_integration_event() = runTest {
+    //        val bus = MessageBus()
+    //        val list = mutableListOf<String>()
+    //        val handler = PrintEventHandler()
+    //
+    //        // Use dispatch with explicit handlers instead of registering
+    //        bus.execute(EventCommand("Emit me", list), EventCommandHandler())
+    //
+    //        // FIXME
+    //        // The EventCommandHandler will dispatch a StorageEvent
+    //        // We need to manually handle it since we can't register handlers
+    //        bus.dispatch(StorageEvent("Emit me", list), listOf(handler))
+    //
+    //        assertEquals(1, list.count())
+    //        assertEquals("Emit me", list[0])
+    //    }
 }
