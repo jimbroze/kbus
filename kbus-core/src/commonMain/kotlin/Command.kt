@@ -9,7 +9,7 @@ abstract class Command<TResult : KBusResult> : ResultReturningMessage<TResult> {
 }
 
 abstract class CommandHandler<TCommand : Command<TResult>, TResult : KBusResult> :
-    ResultReturningMessageHandler<TCommand, TResult>, CanAccessBus() {
+    ResultReturningMessageHandler<TCommand, TResult>, CanDispatchIntegrationEvent() {
     abstract override suspend fun handle(message: TCommand): TResult
 }
 

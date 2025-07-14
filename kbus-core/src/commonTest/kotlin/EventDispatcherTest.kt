@@ -101,17 +101,25 @@ class EventDispatcherTest {
         }
 }
 
-open class TestDomainEvent(val data: String) : DomainEvent()
+class TestDomainEvent(val data: String) : DomainEvent()
 
-open class TestDomainEventHandler(private val results: MutableList<String>) :
-    DomainEventHandler<TestDomainEvent> {
+class TestDomainEventHandler(private val results: MutableList<String>) :
+    DomainEventHandler<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
 }
 
-class TestDispatchAfterPrimaryWorkHandler(results: MutableList<String>) :
-    DispatchAfterPrimaryWork<TestDomainEvent>, TestDomainEventHandler(results)
+class TestDispatchAfterPrimaryWorkHandler(private val results: MutableList<String>) :
+    DispatchAfterPrimaryWork<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        results.add(message.data)
+    }
+}
 
-class TestDispatchAfterCommitHandler(results: MutableList<String>) :
-    DispatchAfterCommit<TestDomainEvent>, TestDomainEventHandler(results)
+class TestDispatchAfterCommitHandler(private val results: MutableList<String>) :
+    DispatchAfterCommit<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        results.add(message.data)
+    }
+}

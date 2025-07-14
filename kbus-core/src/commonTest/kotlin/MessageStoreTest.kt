@@ -37,7 +37,8 @@ class AnyCommandHandler :
     }
 }
 
-open class StorageEvent(val eventData: String, val listStore: MutableList<String>) : Event()
+open class StorageEvent(val eventData: String, val listStore: MutableList<String>) :
+    IntegrationEvent()
 
 class PrintEventHandler : EventHandler<StorageEvent> {
     override suspend fun handle(message: StorageEvent) {

@@ -1,16 +1,17 @@
 package com.jimbroze.kbus.core
 
+import kotlin.js.JsName
 import kotlin.jvm.JvmName
 import kotlin.reflect.KClass
 
-abstract class CanAccessBus {
+abstract class CanDispatchIntegrationEvent {
     private lateinit var bus: BusAccess
 
     fun setBus(bus: BusAccess) {
         this.bus = bus
     }
 
-    suspend fun dispatch(event: Event) {
+    suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) {
         bus.dispatch(event)
     }
 }
@@ -53,6 +54,7 @@ open class MessageBus(
     }
 
     @JvmName("executeCommand")
+    @JsName("executeCommand")
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
         handler: CommandHandler<TCommand, TResult>,

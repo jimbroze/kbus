@@ -12,12 +12,19 @@ interface EventHandler<TEvent : Event> : VoidReturningMessageHandler<TEvent> {
     override suspend fun handle(message: TEvent)
 }
 
-interface DomainEventHandler<TEvent : DomainEvent> : EventHandler<TEvent> {
-    override suspend fun handle(message: TEvent)
+abstract class DomainEventHandler<TEvent : DomainEvent> :
+    EventHandler<TEvent>, CanDispatchIntegrationEvent() {
+    abstract override suspend fun handle(message: TEvent)
 }
 
-interface DispatchImmediately<TEvent : DomainEvent> : DomainEventHandler<TEvent>
+abstract class DispatchImmediately<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-interface DispatchAfterPrimaryWork<TEvent : DomainEvent> : DomainEventHandler<TEvent>
+abstract class DispatchAfterPrimaryWork<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-interface DispatchAfterCommit<TEvent : DomainEvent> : EventHandler<TEvent>
+abstract class DispatchAfterCommit<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+
+abstract class IntegrationEvent : Event()
+
+interface IntegrationEventHandler<TEvent : IntegrationEvent> : EventHandler<TEvent> {
+    override suspend fun handle(message: TEvent)
+}
