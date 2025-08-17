@@ -2,7 +2,7 @@ package com.jimbroze.kbus.core
 
 import kotlin.reflect.KClass
 
-interface MessageHandlerMapper {
+interface MessageHandlerLocator {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
@@ -27,16 +27,20 @@ interface HandlerFactory {
         THandler : QueryHandler<TQuery, TResult>,
         TResult : KBusResult,
     > create(handlerType: KClass<THandler>): THandler
+
+    //    fun <TEvent : Event, THandler : EventHandler<TEvent>> create(
+    //        handlerType: KClass<THandler>
+    //    ): THandler
 }
 
-interface HandlerLocator {
-    val messageMapper: MessageHandlerMapper
-    val factory: HandlerFactory
-}
+// interface HandlerLocator {
+//    val messageMapper: MessageHandlerLocator
+//    val factory: HandlerFactory
+// }
 
-interface HasEventManager : HandlerLocator {
-    val eventManager: EventHandlerManager
-}
+// interface HasEventManager : HandlerLocator {
+//    val eventManager: EventHandlerManager
+// }
 
 interface EventHandlerManager {
     fun <TEvent : Event> register(
