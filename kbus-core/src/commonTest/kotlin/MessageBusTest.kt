@@ -66,10 +66,16 @@ class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, Message
 class MessageBusTest {
     @Test
     fun test_execute_executes_a_command_successfully() = runTest {
-        val bus = MessageBus()
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            StorageCommand::class,
+            listOf(CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }),
+        )
+
+        val bus = MessageBus(PersistingHandlerLocator(stores))
         val list = mutableListOf<String>()
 
-        val result = bus.execute(StorageCommand("Test the bus", list), StorageCommandHandler())
+        val result = bus.execute(StorageCommand("Test the bus", list))
 
         assertTrue(result.isSuccess)
         assertContains(list, "Test the bus")
@@ -77,9 +83,15 @@ class MessageBusTest {
 
     @Test
     fun test_command_can_return_a_success_value() = runTest {
-        val bus = MessageBus()
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            ReturnCommand::class,
+            listOf(CommandHandlerFactory(ReturnCommandHandler::class) { ReturnCommandHandler() }),
+        )
 
-        val result = bus.execute(ReturnCommand("Test the bus"), ReturnCommandHandler())
+        val bus = MessageBus(PersistingHandlerLocator(stores))
+
+        val result = bus.execute(ReturnCommand("Test the bus"))
 
         assertTrue(result.isSuccess)
         assertEquals("Test the bus", result.getOrNull())
@@ -87,9 +99,19 @@ class MessageBusTest {
 
     @Test
     fun test_failure_will_return_exception_if_provided() = runTest {
-        val bus = MessageBus()
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            FailureCommand::class,
+            listOf(
+                CommandHandlerFactory(BrokenStateFailureCommandHandler::class) {
+                    BrokenStateFailureCommandHandler()
+                }
+            ),
+        )
 
-        val result = bus.execute(FailureCommand(), BrokenStateFailureCommandHandler())
+        val bus = MessageBus(PersistingHandlerLocator(stores))
+
+        val result = bus.execute(FailureCommand())
 
         assertTrue(result.isFailure)
         val failure = result.failureOrNull()
@@ -100,10 +122,16 @@ class MessageBusTest {
 
     @Test
     fun test_executed_query_returns_a_successful_result_value() = runTest {
-        val bus = MessageBus()
+        val stores = HandlerFactoryStoreCollection()
+        stores.queryStore.registerHandlers(
+            StorageQuery::class,
+            listOf(QueryHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() }),
+        )
+
+        val bus = MessageBus(PersistingHandlerLocator(stores))
         val list = mutableListOf("Test the bus")
 
-        val result = bus.fetch(StorageQuery(0, list), StorageQueryHandler())
+        val result = bus.fetch(StorageQuery(0, list))
 
         assertTrue(result.isSuccess)
         assertEquals("Test the bus", result.getOrNull())
@@ -111,9 +139,15 @@ class MessageBusTest {
 
     @Test
     fun test_resultFailure_exception_in_query_returns_failure() = runTest {
-        val bus = MessageBus()
+        val stores = HandlerFactoryStoreCollection()
+        stores.queryStore.registerHandlers(
+            FailureQuery::class,
+            listOf(QueryHandlerFactory(FailureQueryHandler::class) { FailureQueryHandler() }),
+        )
 
-        val result = bus.fetch(FailureQuery(), FailureQueryHandler())
+        val bus = MessageBus(PersistingHandlerLocator(stores))
+
+        val result = bus.fetch(FailureQuery())
 
         assertTrue(result.isFailure)
         val failure = result.failureOrNull()

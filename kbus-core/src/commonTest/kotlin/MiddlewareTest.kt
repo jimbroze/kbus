@@ -9,9 +9,20 @@ class MiddlewareTest {
 
     @Test
     fun test_MessageLogger_logs_and_executes_command() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            LoggingLogCommand::class,
+            listOf(
+                CommandHandlerFactory(LoggingLogCommandHandler::class) {
+                    LoggingLogCommandHandler()
+                }
+            ),
+        )
+
         val captureLogger = CaptureLogger()
         val bus =
             MessageBus(
+                PersistingHandlerLocator(stores),
                 middlewares =
                     listOf(
                         MessageLogger(
@@ -20,28 +31,39 @@ class MiddlewareTest {
                             LogLevels.INFO,
                             LogLevels.ERROR,
                         )
-                    )
+                    ),
             )
 
-        bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())
+        bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()))
 
         assertEquals(2, captureLogger.logs.size)
     }
 
     @Test
     fun test_MessageBus_handlers_middleware_in_the_correct_order() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            LoggingLogCommand::class,
+            listOf(
+                CommandHandlerFactory(LoggingLogCommandHandler::class) {
+                    LoggingLogCommandHandler()
+                }
+            ),
+        )
+
         val logger1 = TimeCaptureLogger()
         val logger2 = TimeCaptureLogger()
         val bus =
             MessageBus(
+                PersistingHandlerLocator(stores),
                 middlewares =
                     listOf(
                         MessageLogger(logger1, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
                         MessageLogger(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
-                    )
+                    ),
             )
 
-        bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()), LoggingLogCommandHandler())
+        bus.execute(LoggingLogCommand("Test the bus", CaptureLogger()))
 
         assertTrue(logger1.logs[0] < logger2.logs[0])
         assertTrue(logger2.logs[0] < logger1.logs[1])

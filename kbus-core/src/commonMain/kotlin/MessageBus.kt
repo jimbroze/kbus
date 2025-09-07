@@ -48,51 +48,12 @@ open class MessageBus(
         return commandExecutor.execute(command, handlerCreator)
     }
 
-    //    @JvmName("executeCommand")
-    //    @JsName("executeCommand")
-    //    suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
-    //        command: TCommand,
-    //        handler: CommandHandler<TCommand, TResult>,
-    //    ): TResult {
-    //        return commandExecutor.execute(command) { handler }
-    //    }
-
-    //    suspend fun <
-    //        TCommand : Command<TResult>,
-    //        THandler : CommandHandler<TCommand, TResult>,
-    //        TResult : KBusResult,
-    //    > execute(command: TCommand, handlerType: KClass<THandler>): TResult {
-    //        val createHandler = { commandDependencies: CommandDependencies ->
-    //            handlerLocator.factory.create(handlerType, commandDependencies)
-    //        }
-    //
-    //        return commandExecutor.execute(command, createHandler)
-    //    }
-
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult {
         val handler =
             (handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
 
         return queryFetcher.fetch(query, handler)
     }
-
-    //    suspend fun <
-    //        TQuery : Query<TResult>,
-    //        THandler : QueryHandler<TQuery, TResult>,
-    //        TResult : KBusResult,
-    //    > fetch(query: TQuery, handler: THandler): TResult {
-    //        return queryFetcher.fetch(query, handler)
-    //    }
-    //
-    //    suspend fun <
-    //        TQuery : Query<TResult>,
-    //        THandler : QueryHandler<TQuery, TResult>,
-    //        TResult : KBusResult,
-    //    > fetch(query: TQuery, handlerType: KClass<THandler>): TResult {
-    //        val handler = handlerLocator.factory.create(handlerType)
-    //
-    //        return queryFetcher.fetch(query, handler)
-    //    }
 
     private suspend fun <TEvent : Event> dispatch(event: TEvent) {
         val handlers = handlerLocator.handlersFor(event)
