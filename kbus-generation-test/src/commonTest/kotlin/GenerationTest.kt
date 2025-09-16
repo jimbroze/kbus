@@ -1,15 +1,15 @@
 package com.jimbroze.kbus.generation
 
 import com.jimbroze.kbus.core.BusLocker
+import com.jimbroze.kbus.core.EmptyTransactionManager
 import com.jimbroze.kbus.core.MessageBus
-import com.jimbroze.kbus.generation.test.ClockFactoryHolder
+import com.jimbroze.kbus.generation.test.AbstractGeneratedDIContainer
+import com.jimbroze.kbus.generation.test.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generation.test.FixedClock
 import com.jimbroze.kbus.generation.test.StringCombinator
-import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommandLoaded
-import com.jimbroze.kbus.generation.test.TestGeneratorCommandLoaded
-import com.jimbroze.kbus.generation.test.TestGeneratorQueryLoaded
-import com.jimbroze.kbus.generation.test.generated.AbstractGeneratedDIContainer
-import com.jimbroze.kbus.generation.test.generated.CompileTimeLoadedMessageBus
+import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommand
+import com.jimbroze.kbus.generation.test.TestGeneratorCommand
+import com.jimbroze.kbus.generation.test.TestGeneratorQuery
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
@@ -22,11 +22,12 @@ class Dependencies(instant: Instant) : AbstractGeneratedDIContainer() {
     override val busLocker by lazy { BusLocker(clock) }
 
     // Transient
-    override val clockFactoryHolder: ClockFactoryHolder
-        get() = ClockFactoryHolder(clockFactory)
+    //    override val clockFactoryHolder: ClockFactoryHolder
+    //        get() = ClockFactoryHolder(clockFactory)
 
     override val messageBus by lazy { MessageBus() }
 
+    // TODO don't allow primitive types?
     override val typeAliasString = "hello, "
 
     override val stringCombinator by lazy { StringCombinator({ a, b -> a + b }, { a, b -> a + b }) }
@@ -37,9 +38,14 @@ class GenerationTest {
     fun test_execute_executes_a_command() = runTest {
         val instant = Instant.parse("2024-02-23T19:01:09Z")
 
-        val bus = CompileTimeLoadedMessageBus(emptyList(), Dependencies(instant))
+        val bus =
+            CompileTimeLoadedMessageBus(
+                emptyList(),
+                EmptyTransactionManager(),
+                Dependencies(instant),
+            )
 
-        val result = bus.execute(TestGeneratorCommandLoaded("The time is "))
+        val result = bus.execute(TestGeneratorCommand("The time is "))
 
         assertEquals("The time is 2024-02-23T19:01:09Z", result.getOrNull())
     }
@@ -48,9 +54,14 @@ class GenerationTest {
     fun test_execute_executes_a_command_two() = runTest {
         val instant = Instant.parse("2024-02-23T19:01:09Z")
 
-        val bus = CompileTimeLoadedMessageBus(emptyList(), Dependencies(instant))
+        val bus =
+            CompileTimeLoadedMessageBus(
+                emptyList(),
+                EmptyTransactionManager(),
+                Dependencies(instant),
+            )
 
-        val result = bus.execute(TestDuplicateGeneratorCommandLoaded(null))
+        val result = bus.execute(TestDuplicateGeneratorCommand(null))
 
         assertEquals("Null message hello, 2024-02-23T19:01:09Z[]", result.getOrNull())
     }
@@ -59,9 +70,14 @@ class GenerationTest {
     fun test_execute_executes_a_query() = runTest {
         val instant = Instant.parse("2024-02-23T19:01:09Z")
 
-        val bus = CompileTimeLoadedMessageBus(emptyList(), Dependencies(instant))
+        val bus =
+            CompileTimeLoadedMessageBus(
+                emptyList(),
+                EmptyTransactionManager(),
+                Dependencies(instant),
+            )
 
-        val result = bus.execute(TestGeneratorQueryLoaded("The time is ", "now "))
+        val result = bus.fetch(TestGeneratorQuery("The time is ", "now "))
 
         assertEquals("The time is now 2024-02-23T19:01:09Z", result.getOrNull())
     }

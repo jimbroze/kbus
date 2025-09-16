@@ -20,29 +20,7 @@ data class EventHandlerMapping<TEvent : Event>(
     val handlers: List<KClass<out EventHandler<TEvent>>>,
 )
 
-// Application layer
-interface DomainEventMapper {
-    fun addDomainHandlers(mappings: List<EventHandlerMapping<out DomainEvent>>)
-}
-
-// Top layer
-interface IntegrationEventMapper {
-    fun addEventHandlers(mappings: List<EventHandlerMapping<out IntegrationEvent>>)
-}
-
-interface InlineIntegrationEventMapper {
-    fun addInlineEventHandlers(mappings: List<EventAndHandlerFactories<out IntegrationEvent>>)
-
-    fun removeInlineEventHandlers(mappings: List<EventAndHandlerFactories<out IntegrationEvent>>)
-}
-
-interface EventMapperProvider {
-    val domainEventMapper: DomainEventMapper
-    val integrationEventMapper: IntegrationEventMapper
-    val inlineIntegrationEventMapper: InlineIntegrationEventMapper
-}
-
-internal class EventMapper(private val eventFactory: EventFactory) :
+class EventMapper(private val eventFactory: EventFactory) :
     DomainEventMapper, IntegrationEventMapper, InlineIntegrationEventMapper {
     private val mappings = mutableMapOf<KClass<out Event>, List<KClass<EventHandler<*>>>>()
     private val inlineMappings = mutableMapOf<KClass<out Event>, List<EventHandlerFactory<*, *>>>()
@@ -111,6 +89,24 @@ interface EventFactory {
     ): List<EventHandler<TEvent>>
 }
 
+// TODO should we allow multiple of same handler?
+class PersistingEventFactory(val eventStore: MessageHandlerFactoryStore<Event>) : EventFactory {
+    override fun <TEvent : Event> create(
+        eventClass: KClass<TEvent>,
+        handlerClasses: List<KClass<EventHandler<TEvent>>>,
+    ): List<EventHandler<TEvent>> {
+        val handlerFactories =
+            eventStore.getHandlers(eventClass).filterIsInstance<EventHandlerFactory<TEvent, *>>()
+
+        val factoriesByHandlerClass = handlerFactories.associateBy { it.handlerType }
+
+        return handlerClasses.map { handlerClass ->
+            factoriesByHandlerClass[handlerClass]?.create()
+                ?: error("No factory found for handler class: ${handlerClass.simpleName}")
+        }
+    }
+}
+
 class PersistingHandlerLocator(
     stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
 ) : MessageHandlerLocator, EventMapperProvider {
@@ -150,26 +146,5 @@ class PersistingHandlerLocator(
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         return eventMapper.handlersFor(event)
-    }
-
-    // TODO should we allow multiple of same handler?
-    internal class PersistingEventFactory(val eventStore: MessageHandlerFactoryStore<Event>) :
-        EventFactory {
-        override fun <TEvent : Event> create(
-            eventClass: KClass<TEvent>,
-            handlerClasses: List<KClass<EventHandler<TEvent>>>,
-        ): List<EventHandler<TEvent>> {
-            val handlerFactories =
-                eventStore
-                    .getHandlers(eventClass)
-                    .filterIsInstance<EventHandlerFactory<TEvent, *>>()
-
-            val factoriesByHandlerClass = handlerFactories.associateBy { it.handlerType }
-
-            return handlerClasses.map { handlerClass ->
-                factoriesByHandlerClass[handlerClass]?.create()
-                    ?: error("No factory found for handler class: ${handlerClass.simpleName}")
-            }
-        }
     }
 }

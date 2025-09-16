@@ -5,10 +5,12 @@ import com.jimbroze.kbus.core.BusLocker
 import com.jimbroze.kbus.core.BusResult
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.CommandHandler
-import com.jimbroze.kbus.core.FailureReason
+import com.jimbroze.kbus.core.ExecuteInTransaction
 import com.jimbroze.kbus.core.MessageBus
+import com.jimbroze.kbus.core.MessageFailure
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
+import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
@@ -20,7 +22,10 @@ class FixedClock(private var fixedInstant: Instant) : Clock {
     }
 }
 
-class ClockFactory(private val clock: Clock) {
+class ClockFactory(
+    private val clock: Clock,
+    private val domainEventPublisher: DomainEventPublisher,
+) {
     fun createClock(): Clock {
         return clock
     }
@@ -28,11 +33,12 @@ class ClockFactory(private val clock: Clock) {
 
 class ClockFactoryHolder(
     private val clockFactory: ClockFactory,
+    private val domainEventPublisher: DomainEventPublisher,
     private val timeOverride: Instant? = null,
 ) {
     fun getClockFactory(): ClockFactory {
         return if (timeOverride != null) {
-            ClockFactory(FixedClock(timeOverride))
+            ClockFactory(FixedClock(timeOverride), domainEventPublisher)
         } else {
             clockFactory
         }
@@ -50,21 +56,24 @@ class StringCombinator(
 
 typealias TypeAliasString = String
 
-class TestGeneratorCommand(val messageData: String) : Command()
+class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
 @Load
 class TestGeneratorCommandHandler(
     private val locker: BusLocker,
     private val clockFactoryHolder: ClockFactoryHolder,
-) : CommandHandler<TestGeneratorCommand, Any, FailureReason>() {
-    override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, FailureReason> {
+) :
+    CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
+    ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
         val clock = clockFactoryHolder.getClockFactory().createClock()
         locker.toString()
-        return success(message.messageData + clock.now().toString())
+        return BusResult.success(message.messageData + clock.now().toString())
     }
 }
 
-class TestDuplicateGeneratorCommand(val messageData: String?) : Command()
+class TestDuplicateGeneratorCommand(val messageData: String?) :
+    Command<BusResult<Any, MessageFailure>>()
 
 @Load
 class TestDuplicateGeneratorCommandHandler(
@@ -72,10 +81,10 @@ class TestDuplicateGeneratorCommandHandler(
     private val bus: MessageBus,
     private val aString: TypeAliasString,
     private val stringCombiner: StringCombinator,
-) : CommandHandler<TestDuplicateGeneratorCommand, Any, FailureReason>() {
+) : CommandHandler<TestDuplicateGeneratorCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
         message: TestDuplicateGeneratorCommand
-    ): BusResult<Any, FailureReason> {
+    ): BusResult<Any, MessageFailure> {
         val stringOne =
             if (message.messageData === null) {
                 "Null message $aString"
@@ -90,17 +99,20 @@ class TestDuplicateGeneratorCommandHandler(
                 bus.middlewares.toString(),
             )
 
-        return success(returnMessage)
+        return BusResult.success(returnMessage)
     }
 }
 
-class TestGeneratorQuery(val messageData: String, val moreMessageData: String) : Query()
+class TestGeneratorQuery(val messageData: String, val moreMessageData: String) :
+    Query<BusResult<Any, MessageFailure>>()
 
 @Load
 class TestGeneratorQueryHandler(private val locker: BusLocker, private val clock: Clock) :
-    QueryHandler<TestGeneratorQuery, Any, FailureReason> {
-    override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, FailureReason> {
+    QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, MessageFailure> {
         locker.toString()
-        return success(message.messageData + message.moreMessageData + clock.now().toString())
+        return BusResult.success(
+            message.messageData + message.moreMessageData + clock.now().toString()
+        )
     }
 }

@@ -28,14 +28,14 @@ open class MessageBus(
                 this@MessageBus.dispatch(event)
         }
     private val eventDispatcher = EventDispatcher(handlerLocator::handlersFor, middlewares)
-    private val commandExecutor =
+    protected val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
             busAccess,
             DefaultCommandDependenciesFactory(null),
         )
-    private val queryFetcher = QueryFetcher(middlewares)
+    protected val queryFetcher = QueryFetcher(middlewares)
 
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand

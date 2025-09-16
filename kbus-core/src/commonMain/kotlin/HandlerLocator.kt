@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core
 
-import kotlin.reflect.KClass
+import com.jimbroze.kbus.core.domain.DomainEvent
 
 interface MessageHandlerLocator {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
@@ -15,43 +15,24 @@ interface MessageHandlerLocator {
     fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
 }
 
-interface HandlerFactory {
-    fun <
-        TCommand : Command<TResult>,
-        THandler : CommandHandler<TCommand, TResult>,
-        TResult : KBusResult,
-    > create(handlerType: KClass<THandler>, commandDependencies: CommandDependencies): THandler
-
-    fun <
-        TQuery : Query<TResult>,
-        THandler : QueryHandler<TQuery, TResult>,
-        TResult : KBusResult,
-    > create(handlerType: KClass<THandler>): THandler
-
-    //    fun <TEvent : Event, THandler : EventHandler<TEvent>> create(
-    //        handlerType: KClass<THandler>
-    //    ): THandler
+// Application layer
+interface DomainEventMapper {
+    fun addDomainHandlers(mappings: List<EventHandlerMapping<out DomainEvent>>)
 }
 
-// interface HandlerLocator {
-//    val messageMapper: MessageHandlerLocator
-//    val factory: HandlerFactory
-// }
+// Top layer
+interface IntegrationEventMapper {
+    fun addEventHandlers(mappings: List<EventHandlerMapping<out IntegrationEvent>>)
+}
 
-// interface HasEventManager : HandlerLocator {
-//    val eventManager: EventHandlerManager
-// }
+interface InlineIntegrationEventMapper {
+    fun addInlineEventHandlers(mappings: List<EventAndHandlerFactories<out IntegrationEvent>>)
 
-interface EventHandlerManager {
-    fun <TEvent : Event> register(
-        eventType: KClass<TEvent>,
-        handlerFactories: List<EventHandlerFactory<TEvent, *>>,
-    )
+    fun removeInlineEventHandlers(mappings: List<EventAndHandlerFactories<out IntegrationEvent>>)
+}
 
-    fun <TEvent : Event> deregister(
-        messageType: KClass<TEvent>,
-        handlerTypes: List<KClass<out EventHandler<TEvent>>>,
-    )
-
-    fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
+interface EventMapperProvider {
+    val domainEventMapper: DomainEventMapper
+    val integrationEventMapper: IntegrationEventMapper
+    val inlineIntegrationEventMapper: InlineIntegrationEventMapper
 }
