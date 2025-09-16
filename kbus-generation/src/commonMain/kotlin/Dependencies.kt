@@ -63,6 +63,8 @@ open class Dependency(
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
 
             val isCommandDependency =
+                (parameter.parent as? KSDeclaration)?.qualifiedName?.asString() == "com.jimbroze.kbus.core.CommandDependencies" ||
+                        type.declaration.qualifiedName?.asString() == "com.jimbroze.kbus.core.CommandDependencies"
 
             val customName = if (useParamName) parameter.name?.asString() else null
 
