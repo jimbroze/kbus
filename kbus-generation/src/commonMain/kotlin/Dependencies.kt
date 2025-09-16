@@ -5,8 +5,6 @@ import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
 import com.jimbroze.kbus.core.CommandDependencies
-import kotlin.reflect.KClass
-import kotlin.reflect.full.primaryConstructor
 
 data class NestedDependency(
     override val declaration: KSDeclaration,
@@ -42,12 +40,6 @@ open class Dependency(
     open val nullability: Nullability = Nullability.NOT_NULL,
 ) {
     companion object {
-        private val commandDependencyTypes: Set<String> by lazy {
-            CommandDependencies::class.primaryConstructor?.parameters?.mapNotNull {
-                (it.type.classifier as? KClass<*>)?.qualifiedName
-            }?.toSet() ?: emptySet()
-        }
-
         fun withCustomName(
             declaration: KSDeclaration,
             typeArgs: List<KSTypeArgument>,
@@ -69,7 +61,8 @@ open class Dependency(
 
         fun fromParameter(
             parameter: KSValueParameter,
-            useParamName: Boolean
+            useParamName: Boolean,
+            commandDependencyTypes: Set<String>
         ): Dependency {
             val type = parameter.type.resolve()
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
