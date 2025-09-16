@@ -59,13 +59,17 @@ open class Dependency(
             )
         }
 
-        fun fromParameter(parameter: KSValueParameter, useParamName: Boolean): Dependency {
+        fun fromParameter(
+            parameter: KSValueParameter,
+            useParamName: Boolean,
+            commandDependencyTypes: Set<String>
+        ): Dependency {
             val type = parameter.type.resolve()
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
+            val qualifiedName = type.declaration.qualifiedName?.asString()
 
             val isCommandDependency =
-                (parameter.parent as? KSDeclaration)?.qualifiedName?.asString() == CommandDependencies::class.qualifiedName ||
-                        type.declaration.qualifiedName?.asString() == CommandDependencies::class.qualifiedName
+                qualifiedName == CommandDependencies::class.qualifiedName || commandDependencyTypes.contains(qualifiedName)
 
             val customName = if (useParamName) parameter.name?.asString() else null
 
