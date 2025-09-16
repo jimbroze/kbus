@@ -4,6 +4,7 @@ import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
+import com.jimbroze.kbus.core.CommandDependencies
 
 data class NestedDependency(
     override val declaration: KSDeclaration,
@@ -63,8 +64,8 @@ open class Dependency(
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
 
             val isCommandDependency =
-                (parameter.parent as? KSDeclaration)?.qualifiedName?.asString() == "com.jimbroze.kbus.core.CommandDependencies" ||
-                        type.declaration.qualifiedName?.asString() == "com.jimbroze.kbus.core.CommandDependencies"
+                (parameter.parent as? KSDeclaration)?.qualifiedName?.asString() == CommandDependencies::class.qualifiedName ||
+                        type.declaration.qualifiedName?.asString() == CommandDependencies::class.qualifiedName
 
             val customName = if (useParamName) parameter.name?.asString() else null
 
