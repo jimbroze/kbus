@@ -8,15 +8,17 @@ import com.google.devtools.ksp.symbol.Nullability
 data class NestedDependency(
     override val declaration: KSDeclaration,
     override val typeArgs: List<KSTypeArgument>,
+    override val isCommandDependency: Boolean,
     override val name: String,
     override val nullability: Nullability,
     val isRoot: Boolean,
-) : Dependency(declaration, typeArgs, name, nullability) {
+) : Dependency(declaration, typeArgs, isCommandDependency, name, nullability) {
     companion object {
         fun fromDependency(dependency: Dependency, isRoot: Boolean): NestedDependency {
             return NestedDependency(
                 dependency.declaration,
                 dependency.typeArgs,
+                dependency.isCommandDependency,
                 dependency.name,
                 dependency.nullability,
                 isRoot = isRoot,
@@ -32,6 +34,7 @@ data class NestedDependency(
 open class Dependency(
     open val declaration: KSDeclaration,
     open val typeArgs: List<KSTypeArgument>,
+    open val isCommandDependency: Boolean,
     open val name: String,
     open val nullability: Nullability = Nullability.NOT_NULL,
 ) {
@@ -39,24 +42,34 @@ open class Dependency(
         fun withCustomName(
             declaration: KSDeclaration,
             typeArgs: List<KSTypeArgument>,
+            isCommandDependency: Boolean,
             customName: String? = null,
             nullability: Nullability = Nullability.NOT_NULL,
         ): Dependency {
             val name =
                 customName ?: declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
 
-            return Dependency(declaration, typeArgs, name = name, nullability = nullability)
+            return Dependency(
+                declaration,
+                typeArgs,
+                isCommandDependency,
+                name = name,
+                nullability = nullability,
+            )
         }
 
         fun fromParameter(parameter: KSValueParameter, useParamName: Boolean): Dependency {
             val type = parameter.type.resolve()
             val typeArgs = parameter.type.element?.typeArguments.orEmpty()
 
+            val isCommandDependency =
+
             val customName = if (useParamName) parameter.name?.asString() else null
 
             return withCustomName(
                 type.declaration,
                 typeArgs,
+                isCommandDependency,
                 customName = customName,
                 nullability = type.nullability,
             )
@@ -87,6 +100,7 @@ open class Dependency(
 
         if (declaration != other.declaration) return false
         if (typeArgs != other.typeArgs) return false
+        if (isCommandDependency != other.isCommandDependency) return false
         if (name != other.name) return false
         if (nullability != other.nullability) return false
 
@@ -96,6 +110,7 @@ open class Dependency(
     override fun hashCode(): Int {
         var result = declaration.hashCode()
         result = 31 * result + typeArgs.hashCode()
+        result = 31 * result + isCommandDependency.hashCode()
         result = 31 * result + name.hashCode()
         result = 31 * result + nullability.hashCode()
         return result
