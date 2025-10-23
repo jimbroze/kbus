@@ -16,33 +16,41 @@ import com.jimbroze.kbus.annotations.Load
 class MessageProcessor(
     private val logger: KSPLogger,
     private val dependencyFactory: DependencyFactory,
-    private val dependencyLoaderGenerator: ContainerGenerator,
+    private val containerGenerator: ContainerGenerator,
 ) : SymbolProcessor {
-
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val messagesToLoad = resolver.getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
 
-        processMessagesToLoad(messagesToLoad)
+        processMessagesToLoad(
+            messagesToLoad,
+            CommandDependencyProperties.fromResolver(resolver, dependencyFactory),
+        )
 
         return messagesToLoad.filterNot { it.validate() }.toList()
     }
 
-    private fun processMessagesToLoad(symbols: Sequence<KSAnnotated>) {
+    private fun processMessagesToLoad(
+        symbols: Sequence<KSAnnotated>,
+        commandDependenciesProps: CommandDependencyProperties,
+    ) {
         val dependencies = mutableSetOf<NestedDependency>()
         val rootPackageName = RootPackageName()
 
         for (symbol in symbols) {
-            rootPackageName.addName(symbol.accept(LoadVisitor(), dependencies))
+            rootPackageName.addName(
+                symbol.accept(LoadVisitor(commandDependenciesProps), dependencies)
+            )
         }
 
         if (dependencies.isEmpty()) return
 
         val generatedPackageName = "$rootPackageName.generated"
 
-        dependencyLoaderGenerator.generateLoaderInterface(generatedPackageName, dependencies)
+        containerGenerator.generateLoaderInterface(generatedPackageName, dependencies)
     }
 
-    inner class LoadVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
+    inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :
+        KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
         override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): KSName {
             error(
                 "Only classes can be annotated with @${Load::class.simpleName}. " +
@@ -62,9 +70,10 @@ class MessageProcessor(
             }
 
             data.addAll(
-                dependencyFactory.generateFrom(
+                dependencyFactory.generateFromType(
                     classDeclaration.asStarProjectedType(),
                     includeNested = true,
+                    commandDependenciesProps,
                 )
             )
 

@@ -45,7 +45,8 @@ sealed interface TestingMessageFailure : MessageFailure {
 
 // TODO move to tests
 class LockingMessageImpl(override val lockTimeout: Float? = null) :
-    LockingCommand<BusResult<Any, TestingMessageFailure>>, Command<BusResult<Any, TestingMessageFailure>>() {
+    LockingCommand<BusResult<Any, TestingMessageFailure>>,
+    Command<BusResult<Any, TestingMessageFailure>>() {
     override val messageType: String = "locking"
 
     override fun busLockedFailure(
@@ -58,8 +59,7 @@ interface LockAdjustMessage {
     val lockTimeout: Float
 }
 
-interface LockingCommand<TResult : KBusResult> :
-    ResultReturningLockingMessage<TResult>
+interface LockingCommand<TResult : KBusResult> : ResultReturningLockingMessage<TResult>
 
 interface LockingEvent : LockingMessage
 

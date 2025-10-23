@@ -10,7 +10,7 @@ interface IContainer {
 
     val busLocker: BusLocker
 
-    fun clockFactoryHolder(commandDependencies: CommandDependencies): ClockFactoryHolder
+    val containsInstant: ContainsInstant
 
     fun clockFactory(commandDependencies: CommandDependencies): ClockFactory
 

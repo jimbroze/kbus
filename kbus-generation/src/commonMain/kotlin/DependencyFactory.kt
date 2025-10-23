@@ -1,108 +1,239 @@
 package com.jimbroze.kbus.generation
 
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
-import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeArgument
+import com.jimbroze.kbus.core.CommandDependencies
+import kotlin.String
 import kotlin.collections.orEmpty
 import kotlin.reflect.KClass
 import kotlinx.datetime.Clock
 
-@Suppress("unused")
-class DependencyFactory(private val kbusBusPackageName: String, private val logger: KSPLogger) {
-    fun generateFrom(type: KSType, includeNested: Boolean): Set<NestedDependency> {
-        return createDependencies(type, includeNested = includeNested) ?: emptySet()
+class CommandDependencyProperties(
+    private val dependencyFactory: DependencyFactory,
+    private val properties: Set<KSType>,
+) {
+    val propertyNames: Set<String> =
+        properties.mapNotNull { it.declaration.qualifiedName?.asString() }.toSet()
+
+    companion object {
+        fun fromResolver(
+            resolver: Resolver,
+            dependencyFactory: DependencyFactory,
+        ): CommandDependencyProperties {
+            val commandDependenciesClass =
+                resolver.getClassDeclarationByName(CommandDependencies::class.qualifiedName!!)!!
+
+            val props =
+                commandDependenciesClass.getAllProperties().map { it.type.resolve() }.toMutableSet()
+
+            return CommandDependencyProperties(
+                dependencyFactory,
+                props + commandDependenciesClass.asStarProjectedType(),
+            )
+        }
     }
 
-    fun generateFrom(
-        properties: Sequence<KSPropertyDeclaration>,
-        includeNested: Boolean,
-    ): Set<NestedDependency> {
-        // TODO also go through functions?
+    fun contains(prop: KSDeclaration): Boolean {
+        return this.propertyNames.contains(prop.qualifiedName?.asString())
+    }
 
+    fun asDependencies(): Set<NestedDependency> {
         return properties
-            .flatMap { prop ->
-                createDependencies(
-                    dependency = prop.type.resolve(),
-                    customName = prop.simpleName.asString(),
-                    typeArgs = prop.type.element?.typeArguments.orEmpty(),
-                    includeNested,
-                ) ?: emptySet()
+            .flatMap {
+                dependencyFactory.generateFromType(
+                    it,
+                    includeNested = false,
+                    commandDependenciesProps =
+                        CommandDependencyProperties(this.dependencyFactory, emptySet()),
+                )
             }
             .toSet()
     }
+}
 
-    private fun createDependencies(
-        dependency: KSType,
+// TODO rename isRoot
+// TODO rename class to NestedDependency and do something with current NestedDependency
+// TODO reduce levels of recursion if not getting all children?
+// TODO create ABC to split noDependency
+class DependencyWithChildren(
+    private val dependency: NestedDependency,
+    private val children: AllChildrenDependencies,
+    private val removeDependency: Boolean = false,
+) {
+    companion object {
+        fun noDependency(dependency: NestedDependency) =
+            DependencyWithChildren(
+                dependency,
+                AllChildrenDependencies.noChildren(),
+                removeDependency = true,
+            )
+    }
+
+    fun getAll(includeNested: Boolean): List<NestedDependency> {
+        val dependencies = mutableListOf<NestedDependency>()
+
+        if (!removeDependency) {
+            dependencies.add(dependency)
+        }
+        //        dependency?.let { dependencies.add(it) }
+
+        if (includeNested) {
+            dependencies.addAll(children.dependencies)
+        }
+
+        return dependencies
+    }
+
+    fun requiresCommandDependencies(): Boolean {
+        return dependency.isCommandDependency || children.requireCommandDependencies
+    }
+
+    fun getName(): String? {
+        return dependency.name.takeIf {
+            !removeDependency || grandParentIsNonRootButHasMissingChild()
+        }
+    }
+
+    fun grandParentIsNonRootButHasMissingChild(): Boolean =
+        removeDependency && requiresCommandDependencies()
+
+    fun grandParentIsRoot(): Boolean = removeDependency && !requiresCommandDependencies()
+}
+
+data class AllChildrenDependencies(
+    val dependencies: List<NestedDependency>,
+    val requireCommandDependencies: Boolean,
+    val directChildrenNames: List<String>,
+    private val parentIsRoot: Boolean,
+) {
+    companion object Companion {
+        fun noChildren() = AllChildrenDependencies(mutableListOf(), false, emptyList(), true)
+    }
+
+    fun parentIsRoot(): Boolean = parentIsRoot || dependencies.isEmpty()
+}
+
+@Suppress("unused")
+class DependencyFactory(private val kbusBusPackageName: String, private val logger: KSPLogger) {
+    // TODO rename type. Type of what?
+    fun generateFromType(
+        type: KSType,
+        includeNested: Boolean,
+        commandDependenciesProps: CommandDependencyProperties,
         customName: String? = null,
         typeArgs: List<KSTypeArgument> = emptyList(),
-        includeNested: Boolean = true,
-    ): Set<NestedDependency>? {
-        if (cannotBeDependency(dependency.declaration)) {
-            return null
-        }
+    ): List<NestedDependency> {
+        return createDependency(commandDependenciesProps, type, customName, typeArgs)
+            .getAll(includeNested)
+            .distinct()
+    }
 
-        val nested = nestedDependencies(dependency.declaration)
+    // TODO combine with below funcs?? multiple places that decide if root
+    private fun createDependency(
+        commandDependenciesProps: CommandDependencyProperties,
+        parameterType: KSType,
+        customName: String? = null,
+        typeArgs: List<KSTypeArgument> = emptyList(),
+    ): DependencyWithChildren {
+        val parameter = parameterType.declaration
 
-        val loaderDependency =
+        val cannotBeDependency = cannotBeDependency(parameter, commandDependenciesProps)
+
+        val children =
+            if (parameter !is KSClassDeclaration || cannotBeDependency || mustBeRoot(parameter)) {
+                AllChildrenDependencies.noChildren()
+            } else {
+                nestedDependencies(commandDependenciesProps, parameter)
+            }
+
+        // TODO Move to DependencyWithChildren???
+        val dependency =
             NestedDependency.fromDependency(
                 Dependency.withCustomName(
-                    dependency.declaration,
+                    parameter,
                     typeArgs,
                     customName = customName,
-                    nullability = dependency.nullability,
+                    nullability = parameterType.nullability,
                 ),
-                isRoot = nested === null,
+                children.parentIsRoot(),
+                commandDependenciesProps.contains(parameter) || children.requireCommandDependencies,
+                children.directChildrenNames,
             )
 
-        val allDependencies = mutableSetOf(loaderDependency)
-        if (nested !== null && includeNested) {
-            allDependencies.addAll(nested)
-        }
-
-        return allDependencies
+        return DependencyWithChildren(dependency, children, cannotBeDependency)
     }
 
-    private fun cannotBeDependency(depDeclaration: KSDeclaration): Boolean {
-        val nonDependencyPackages = listOf("kotlin", "kotlinx.datetime")
-        val canBeDependency = listOf<KClass<out Any>>(Clock::class)
-
-        return nonDependencyPackages.contains(depDeclaration.packageName.asString()) &&
-            canBeDependency.none { depDeclaration.qualifiedName!!.asString() == it.qualifiedName }
-    }
-
-    private fun nestedDependencies(depDeclaration: KSDeclaration): MutableSet<NestedDependency>? {
-        val hasNestedDependencies =
-            depDeclaration is KSClassDeclaration &&
-                depDeclaration.primaryConstructor?.parameters.isNullOrEmpty().not() &&
-                depDeclaration.packageName.asString() != kbusBusPackageName
-
+    // TODO decides if root (has nested). Combine with below??? And above!! (cannoteBeDependency)
+    private fun nestedDependencies(
+        commandDependenciesProps: CommandDependencyProperties,
+        parent: KSClassDeclaration,
+    ): AllChildrenDependencies {
         // TODO prevent calculating nested if extractNested is false? Probably can't do this? At
         // least prevent recursion?
-        val nestedDependencies =
-            if (hasNestedDependencies) {
-                nestedDependenciesOrNull(depDeclaration)
-            } else {
-                null
-            }
-        return nestedDependencies
-    }
+        val allDependencies = mutableListOf<NestedDependency>()
+        var parentIsRoot = false
+        var childrenRequireCommandDependencies = false
+        val childNames = mutableListOf<String>()
 
-    private fun nestedDependenciesOrNull(
-        classDeclaration: KSClassDeclaration
-    ): MutableSet<NestedDependency>? {
-        val allDependencies = mutableSetOf<NestedDependency>()
-
-        for (dependency in classDeclaration.primaryConstructor?.parameters.orEmpty()) {
-            createDependencies(
-                    dependency.type.resolve(),
-                    typeArgs = dependency.type.element?.typeArguments.orEmpty(),
+        for (childParameter in parent.primaryConstructor?.parameters.orEmpty()) {
+            val childWithChildren =
+                createDependency(
+                    commandDependenciesProps,
+                    childParameter.type.resolve(),
+                    typeArgs = childParameter.type.element?.typeArguments.orEmpty(),
                 )
-                ?.let { allDependencies.addAll(it) } ?: return null
+
+            childWithChildren.getName()?.let { childNames.add(it) }
+            allDependencies.addAll(childWithChildren.getAll(includeNested = true))
+
+            if (childWithChildren.grandParentIsRoot()) {
+                parentIsRoot = true
+            }
+            if (childWithChildren.requiresCommandDependencies()) {
+                childrenRequireCommandDependencies = true
+            }
         }
 
-        return allDependencies
+        //        val allDependencies =
+        //            parent.primaryConstructor?.parameters.orEmpty().map { childParameter ->
+        //                createDependency(
+        //                    commandDependenciesProps,
+        //                    childParameter.type.resolve(),
+        //                    typeArgs = childParameter.type.element?.typeArguments.orEmpty(),
+        //                )
+        //            }
+        //        val childrenRequireCommandDependencies =
+        //            allDependencies.any { it.requiresCommandDependencies() }
+        //        val childNames = allDependencies.mapNotNull { it.getName() }
+
+        return AllChildrenDependencies(
+            allDependencies,
+            childrenRequireCommandDependencies,
+            childNames,
+            parentIsRoot,
+        )
+    }
+
+    private fun mustBeRoot(parameter: KSClassDeclaration): Boolean {
+        return parameter.packageName.asString() == kbusBusPackageName
+    }
+
+    private fun cannotBeDependency(
+        parameter: KSDeclaration,
+        commandDependencyProperties: CommandDependencyProperties,
+    ): Boolean {
+        val nonDependencyPackages = setOf("kotlin", "kotlinx.datetime")
+        val canBeDependency = setOf<KClass<out Any>>(Clock::class)
+
+        val disallowedByPackage =
+            nonDependencyPackages.contains(parameter.packageName.asString()) &&
+                canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
+
+        return commandDependencyProperties.contains(parameter) || disallowedByPackage
     }
 }

@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSName
+import com.jimbroze.kbus.core.CommandDependencies
 import com.jimbroze.kbus.core.MessageHandler
 
 class ContainerGenerator(
@@ -23,7 +24,7 @@ class ContainerGenerator(
         fileText.appendLine("interface $loaderInterfaceName {")
 
         for (dependency in dependencies) {
-            fileText.appendLine(generateLoaderVal(dependency).prependIndent())
+            fileText.appendLine(generateAbstractDependency(dependency).prependIndent())
         }
 
         fileText.appendLine("}")
@@ -36,7 +37,8 @@ class ContainerGenerator(
     fun generateLoaderClass(
         packagePath: String,
         interfaceClassNames: Set<KSName>,
-        overrides: Set<NestedDependency>,
+        dependencies: Set<NestedDependency>,
+        commandDependenciesProps: CommandDependencyProperties,
     ): String {
         logger.info("Generating dependency loader abstract class")
 
@@ -49,12 +51,21 @@ class ContainerGenerator(
 
         fileText.appendLine("abstract class $loaderClassName$interfacesString {")
 
-        for (override in overrides) {
-            val dependencyDeclaration = override.declaration
-            if (dependencyDeclaration is KSClassDeclaration && !override.isRoot) {
+        val allDependencies = dependencies + commandDependenciesProps.asDependencies()
+        for (dependency in dependencies) {
+            val dependencyIsNotRoot =
+                dependency.declaration is KSClassDeclaration && !dependency.isRoot
+            if (dependencyIsNotRoot) {
+                // TODO move override?
                 val string =
                     "override " +
-                        generateLoaderValOverride(override, dependencyDeclaration).toString()
+                        generateLoaderValOverride(
+                                dependency,
+                                dependency.declaration,
+                                allDependencies,
+                                commandDependenciesProps,
+                            )
+                            .toString()
                 fileText.appendLine(string.prependIndent())
             }
         }
@@ -68,55 +79,114 @@ class ContainerGenerator(
         return "$packagePath.$loaderClassName"
     }
 
+    @Suppress("ReturnCount")
     private fun generateLoaderValOverride(
         dependency: NestedDependency,
         dependencyDeclaration: KSClassDeclaration,
+        allDependencies: Set<NestedDependency>,
+        commandDependenciesProps: CommandDependencyProperties,
     ): StringBuilder {
         val dependencyName = dependency.name
         val dependencyTypeWithArgs = dependency.getTypeWithArgs()
-        val loaderMethodCode = StringBuilder()
 
-        val dependencyConstructorParams = constructorParams(dependencyDeclaration)
+        val dependencyConstructorParams =
+            constructorParams(dependency, dependencyDeclaration, allDependencies)
         val dependencyTypeWithoutArgs = dependencyDeclaration.qualifiedName!!.asString()
 
-        if (isSingleton(dependency)) {
+        // If require command deps, use function. If not, use val
+        if (shouldBeFunctional(dependency)) {
+            val functionConstructorParamNames =
+                dependencyConstructorParams.map {
+                    if (commandDependenciesProps.contains(it.declaration)) {
+                        "commandDependencies.${it.name}"
+                    } else {
+                        if (it.isCommandDependency) {
+                            "${it.name}(commandDependencies)"
+                        } else {
+                            it.name
+                        }
+                    }
+                }
+            val paramNames = combineParameterNames(functionConstructorParamNames)
+            val loaderMethodCode = StringBuilder()
+            loaderMethodCode.appendLine(
+                generateAbstractFunctionDependency(dependencyName, dependencyTypeWithArgs)
+            )
+            loaderMethodCode.appendLine("    = $dependencyTypeWithoutArgs($paramNames)")
+            return loaderMethodCode
+        } else if (isSingleton(dependency)) {
+            val paramNames = combineParameterNames(dependencyConstructorParams.map { it.name })
+            val loaderMethodCode = StringBuilder()
             loaderMethodCode.appendLine("val $dependencyName: $dependencyTypeWithArgs by lazy {")
-            loaderMethodCode.appendLine(
-                "    $dependencyTypeWithoutArgs($dependencyConstructorParams)"
-            )
+            loaderMethodCode.appendLine("    $dependencyTypeWithoutArgs($paramNames)")
             loaderMethodCode.appendLine("}")
+            return loaderMethodCode
         } else {
-            loaderMethodCode.appendLine("val $dependencyName: $dependencyTypeWithArgs")
+            val paramNames = combineParameterNames(dependencyConstructorParams.map { it.name })
+            val loaderMethodCode = StringBuilder()
             loaderMethodCode.appendLine(
-                "    get() = $dependencyTypeWithoutArgs($dependencyConstructorParams)"
+                generateAbstractPropertyDependency(dependencyName, dependencyTypeWithArgs)
             )
+            loaderMethodCode.appendLine("    get() = $dependencyTypeWithoutArgs($paramNames)")
+            return loaderMethodCode
         }
-
-        return loaderMethodCode
     }
 
-    private fun constructorParams(dependencyDeclaration: KSClassDeclaration): String {
-        val dependencyConstructorParamNames =
+    private fun constructorParams(
+        dependency: NestedDependency,
+        dependencyDeclaration: KSClassDeclaration,
+        allDependencies: Set<NestedDependency>,
+    ): List<NestedDependency> {
+        val orEmpty =
             dependencyDeclaration.primaryConstructor
                 ?.parameters
-                ?.map { param -> Dependency.fromParameter(param, useParamName = false).name }
+                ?.mapIndexedNotNull { idx, _ ->
+                    allDependencies.find { it.name == dependency.childNames[idx] }
+                }
                 .orEmpty()
-
-        return dependencyConstructorParamNames.joinToString(", ") { "this.$it" }
+        return orEmpty
     }
 
-    private fun generateLoaderVal(dependency: NestedDependency): String {
+    private fun combineParameterNames(dependencies: List<String>): String {
+        return dependencies
+            .map { it }
+            .joinToString(", ") { it.takeIf { it.startsWith("commandDependencies") } ?: "this.$it" }
+    }
+
+    private fun generateAbstractDependency(dependency: NestedDependency): String {
         val dependencyName = dependency.name
         val dependencyTypeWithArgs = dependency.getTypeWithArgs()
 
-        return "val $dependencyName: $dependencyTypeWithArgs"
+        return if (shouldBeFunctional(dependency)) {
+            generateAbstractFunctionDependency(dependencyName, dependencyTypeWithArgs)
+        } else {
+            generateAbstractPropertyDependency(dependencyName, dependencyTypeWithArgs)
+        }
     }
 
+    private fun generateAbstractPropertyDependency(
+        dependencyName: String,
+        dependencyTypeWithArgs: String,
+    ): String = "val $dependencyName: $dependencyTypeWithArgs"
+
+    private fun generateAbstractFunctionDependency(
+        dependencyName: String,
+        dependencyTypeWithArgs: String,
+    ): String {
+        val commandDependenciesType = CommandDependencies::class.qualifiedName!!
+        return "fun $dependencyName(commandDependencies: $commandDependenciesType): $dependencyTypeWithArgs"
+    }
+
+    // TODO check this?
     private fun isSingleton(dependency: NestedDependency): Boolean {
         return !(dependency.declaration is KSClassDeclaration &&
             dependency.declaration.superTypes.any {
                 it.resolve().declaration.qualifiedName?.asString() ==
                     MessageHandler::class.qualifiedName
             })
+    }
+
+    private fun shouldBeFunctional(dependency: NestedDependency): Boolean {
+        return dependency.isCommandDependency
     }
 }

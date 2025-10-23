@@ -80,10 +80,8 @@ class DefaultUnitOfWorkFactory : UnitOfWorkFactory {
     override fun <TResult> create(): UnitOfWork<TResult> = UnitOfWorkImpl()
 }
 
-interface ExecuteInTransaction<
-    TCommand : Command<TResult>,
-    TResult : KBusResult,
-> : ResultReturningMessageHandler<TCommand, TResult> {
+interface ExecuteInTransaction<TCommand : Command<TResult>, TResult : KBusResult> :
+    ResultReturningMessageHandler<TCommand, TResult> {
     val transactionManager: TransactionManager?
         get() = null
 }

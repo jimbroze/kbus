@@ -16,26 +16,32 @@ import com.jimbroze.kbus.annotations.Load
 class ContainerInterfaceProcessor(
     private val logger: KSPLogger,
     private val dependencyFactory: DependencyFactory,
-    private val dependencyLoaderGenerator: ContainerGenerator,
+    private val containerGenerator: ContainerGenerator,
     private val loadedMessageGenerator: LoadedMessageGenerator,
     private val busGenerator: MessageBusGenerator,
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
+        val commandDependenciesProps =
+            CommandDependencyProperties.fromResolver(resolver, dependencyFactory)
         val containerInterfaces =
             resolver.getSymbolsWithAnnotation(GenerateContainer::class.qualifiedName.toString())
 
-        processContainerInterfaces(containerInterfaces)
+        processContainerInterfaces(containerInterfaces, commandDependenciesProps)
 
         return containerInterfaces.filterNot { it.validate() }.toList()
     }
 
-    private fun processContainerInterfaces(symbols: Sequence<KSAnnotated>) {
+    private fun processContainerInterfaces(
+        symbols: Sequence<KSAnnotated>,
+        commandDependenciesProps: CommandDependencyProperties,
+    ) {
         val loaderInterfaces = mutableSetOf<KSName>()
         val dependencies = mutableSetOf<NestedDependency>()
         val rootPackageName = RootPackageName()
 
         for (symbol in symbols) {
-            val interfaceName = symbol.accept(ContainerVisitor(), dependencies)
+            val interfaceName =
+                symbol.accept(ContainerVisitor(commandDependenciesProps), dependencies)
             loaderInterfaces.add(interfaceName)
             rootPackageName.addName(interfaceName)
         }
@@ -51,10 +57,11 @@ class ContainerInterfaceProcessor(
 
         val generatedPackagePath = "$rootPackageName.generated"
         val loaderName =
-            dependencyLoaderGenerator.generateLoaderClass(
+            containerGenerator.generateLoaderClass(
                 generatedPackagePath,
                 loaderInterfaces,
                 dependencies,
+                commandDependenciesProps,
             )
 
         busGenerator.generate(generatedPackagePath, loaderName, loadedMessages)
@@ -103,7 +110,9 @@ class ContainerInterfaceProcessor(
         }
     }
 
-    inner class ContainerVisitor : KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
+    inner class ContainerVisitor(
+        private val commandDependenciesProps: CommandDependencyProperties
+    ) : KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
         override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): KSName {
             error("ContainersVisitor can only visit class declarations")
         }
@@ -117,10 +126,35 @@ class ContainerInterfaceProcessor(
             }
 
             data.addAll(
-                dependencyFactory.generateFrom(
-                    classDeclaration.getAllProperties(),
-                    includeNested = false,
-                )
+                classDeclaration
+                    .getAllProperties()
+                    .flatMap { prop ->
+                        dependencyFactory.generateFromType(
+                            prop.type.resolve(),
+                            includeNested = false,
+                            commandDependenciesProps = commandDependenciesProps,
+                            customName = prop.simpleName.asString(),
+                            typeArgs = prop.type.element?.typeArguments.orEmpty(),
+                        )
+                    }
+                    .toList()
+                    .distinct()
+            )
+
+            data.addAll(
+                classDeclaration
+                    .getAllFunctions()
+                    .flatMap { func ->
+                        dependencyFactory.generateFromType(
+                            func.returnType!!.resolve(),
+                            includeNested = false,
+                            commandDependenciesProps = commandDependenciesProps,
+                            customName = func.simpleName.asString(),
+                            typeArgs = func.returnType!!.element?.typeArguments.orEmpty(),
+                        )
+                    }
+                    .toList()
+                    .distinct()
             )
 
             return classDeclaration.qualifiedName!!

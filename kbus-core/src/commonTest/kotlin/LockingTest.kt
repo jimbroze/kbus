@@ -18,8 +18,9 @@ open class TimeReturnCommand(val listStore: MutableList<ValueTimeMark>) :
 
 class LockAwareTimeReturnCommand(listStore: MutableList<ValueTimeMark>) :
     TimeReturnCommand(listStore), LockingCommand<BusResult<ValueTimeMark, MessageFailure>> {
-    override fun busLockedFailure(failure: BusLockedFailure): BusResult<ValueTimeMark, MessageFailure> =
-        failure(TestFailure(failure))
+    override fun busLockedFailure(
+        failure: BusLockedFailure
+    ): BusResult<ValueTimeMark, MessageFailure> = failure(TestFailure(failure))
 }
 
 class TimeReturnCommandHandler :
