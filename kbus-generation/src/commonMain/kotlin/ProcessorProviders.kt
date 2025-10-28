@@ -12,6 +12,7 @@ val KBUS_BUS_PACKAGE_NAME =
 const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
 
 const val LOADER_INTERFACE_NAME = "IGeneratedDIContainer"
+const val COMBINED_CONTAINER_INTERFACE_NAME = "DIContainer"
 const val LOADER_CLASS_NAME = "AbstractGeneratedDIContainer"
 
 val LOADABLE_MESSAGES = listOf(Command::class, Query::class)
@@ -24,6 +25,7 @@ private fun containerGenerator(environment: SymbolProcessorEnvironment) =
         environment.codeGenerator,
         environment.logger,
         LOADER_INTERFACE_NAME,
+        COMBINED_CONTAINER_INTERFACE_NAME,
         LOADER_CLASS_NAME,
     )
 

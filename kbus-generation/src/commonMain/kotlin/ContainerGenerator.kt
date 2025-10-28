@@ -12,6 +12,7 @@ class ContainerGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
     private val loaderInterfaceName: String,
+    private val combinedContainerInterfaceName: String,
     private val loaderClassName: String,
 ) {
     fun generateLoaderInterface(packagePath: String, dependencies: Set<NestedDependency>) {
@@ -34,13 +35,11 @@ class ContainerGenerator(
         file.close()
     }
 
-    fun generateLoaderClass(
+    fun generateCombinedContainerInterface(
         packagePath: String,
         interfaceClassNames: Set<KSName>,
-        dependencies: Set<NestedDependency>,
-        commandDependenciesProps: CommandDependencyProperties,
     ): String {
-        logger.info("Generating dependency loader abstract class")
+        logger.info("Generating combined dependency loader interface")
 
         val interfacesString =
             interfaceClassNames.joinToString(", ", prefix = " : ", transform = { it.asString() })
@@ -49,7 +48,32 @@ class ContainerGenerator(
         fileText.appendLine("package $packagePath")
         fileText.appendLine()
 
-        fileText.appendLine("abstract class $loaderClassName$interfacesString {")
+        fileText.appendLine("interface $combinedContainerInterfaceName$interfacesString")
+
+        val file =
+            codeGenerator.createNewFile(
+                Dependencies(true),
+                packagePath,
+                combinedContainerInterfaceName,
+            )
+        file.write(fileText.toString().toByteArray())
+        file.close()
+
+        return "$packagePath.$combinedContainerInterfaceName"
+    }
+
+    fun generateLoaderClass(
+        packagePath: String,
+        dependencies: Set<NestedDependency>,
+        commandDependenciesProps: CommandDependencyProperties,
+    ) {
+        logger.info("Generating dependency loader abstract class")
+
+        val fileText = StringBuilder()
+        fileText.appendLine("package $packagePath")
+        fileText.appendLine()
+
+        fileText.appendLine("abstract class $loaderClassName : $combinedContainerInterfaceName {")
 
         val allDependencies = dependencies + commandDependenciesProps.asDependencies()
         for (dependency in dependencies) {
@@ -75,8 +99,6 @@ class ContainerGenerator(
         val file = codeGenerator.createNewFile(Dependencies(true), packagePath, loaderClassName)
         file.write(fileText.toString().toByteArray())
         file.close()
-
-        return "$packagePath.$loaderClassName"
     }
 
     @Suppress("ReturnCount")

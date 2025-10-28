@@ -57,12 +57,16 @@ class ContainerInterfaceProcessor(
 
         val generatedPackagePath = "$rootPackageName.generated"
         val loaderName =
-            containerGenerator.generateLoaderClass(
+            containerGenerator.generateCombinedContainerInterface(
                 generatedPackagePath,
                 loaderInterfaces,
-                dependencies,
-                commandDependenciesProps,
             )
+
+        containerGenerator.generateLoaderClass(
+            generatedPackagePath,
+            dependencies,
+            commandDependenciesProps,
+        )
 
         busGenerator.generate(generatedPackagePath, loaderName, loadedMessages)
     }
