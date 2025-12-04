@@ -1,9 +1,12 @@
 package com.jimbroze.kbus.generation
 
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Nullability
+import com.jimbroze.kbus.core.CommandHandler
+import com.jimbroze.kbus.core.QueryHandler
 import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
@@ -88,6 +91,23 @@ open class Dependency(
         if (nullability == Nullability.NULLABLE) typeName.append("?")
 
         return typeName.toString()
+    }
+
+    fun isCommandHandler(): Boolean {
+        val declaration = declaration
+        if (declaration !is KSClassDeclaration) return false
+        return declaration.superTypes.any {
+            it.resolve().declaration.qualifiedName?.asString() ==
+                CommandHandler::class.qualifiedName
+        }
+    }
+
+    fun isQueryHandler(): Boolean {
+        val declaration = declaration
+        if (declaration !is KSClassDeclaration) return false
+        return declaration.superTypes.any {
+            it.resolve().declaration.qualifiedName?.asString() == QueryHandler::class.qualifiedName
+        }
     }
 
     override fun equals(other: Any?): Boolean {

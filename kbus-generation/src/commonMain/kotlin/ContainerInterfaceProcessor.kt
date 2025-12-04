@@ -68,6 +68,14 @@ class ContainerInterfaceProcessor(
             commandDependenciesProps,
         )
 
+        containerGenerator.generateHandlerLocator(
+            generatedPackagePath,
+            dependencies,
+            commandDependenciesProps,
+            "GeneratedHandlerLocator",
+            "GeneratedHandlerFactory",
+        )
+
         busGenerator.generate(generatedPackagePath, loaderName, loadedMessages)
     }
 
