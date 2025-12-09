@@ -16,6 +16,8 @@ kotlin {
             implementation(projects.kbusAnnotations)
             implementation(projects.kbusCore)
             implementation(libs.symbol.processing.api)
+            implementation(libs.kotlin.poet)
+            implementation(libs.kotlin.poet.ksp)
             implementation(libs.kotlinx.datetime)
         }
     }
