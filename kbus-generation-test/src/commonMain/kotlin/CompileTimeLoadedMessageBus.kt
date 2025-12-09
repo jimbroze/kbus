@@ -7,12 +7,19 @@ import com.jimbroze.kbus.core.MessageFailure
 import com.jimbroze.kbus.core.Middleware
 import com.jimbroze.kbus.core.TransactionManager
 
-class CompileTimeLoadedMessageBus(
-    middleware: List<Middleware>,
+// TODO change to decorator Requires MessageBus interface
+class CompileTimeLoadedMessageBus
+private constructor(
+    private val locator: GeneratedHandlerLocator,
     transactionManager: TransactionManager,
-    loader: AbstractGeneratedDIContainer,
-) : MessageBus(GeneratedHandlerLocator(loader), transactionManager, middleware) {
-    private val locator = GeneratedHandlerLocator(loader)
+    middleware: List<Middleware>,
+) : MessageBus(locator, transactionManager, middleware) {
+
+    constructor(
+        loader: IContainer,
+        transactionManager: TransactionManager,
+        middleware: List<Middleware>,
+    ) : this(GeneratedHandlerLocator(loader), transactionManager, middleware)
 
     suspend fun execute(
         command: com.jimbroze.kbus.generation.test.TestGeneratorCommand
