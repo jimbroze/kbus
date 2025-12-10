@@ -74,7 +74,8 @@ class GeneratedHandlerFactory(private val dependencies: IContainer) {
     ): TestGeneratorCommandHandler {
         return TestGeneratorCommandHandler(
             this.dependencies.busLocker,
-            this.dependencies.clockFactoryHolder(commandDependencies),
+            this.dependencies.containsInstant(commandDependencies),
+            this.dependencies.containsString,
         )
     }
 

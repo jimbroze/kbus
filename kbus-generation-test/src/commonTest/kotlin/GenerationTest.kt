@@ -1,10 +1,13 @@
 package com.jimbroze.kbus.generation
 
 import com.jimbroze.kbus.core.BusLocker
+import com.jimbroze.kbus.core.CommandDependencies
 import com.jimbroze.kbus.core.EmptyTransactionManager
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.AbstractGeneratedDIContainer
 import com.jimbroze.kbus.generation.test.CompileTimeLoadedMessageBus
+import com.jimbroze.kbus.generation.test.ContainsInstant
+import com.jimbroze.kbus.generation.test.ContainsString
 import com.jimbroze.kbus.generation.test.FixedClock
 import com.jimbroze.kbus.generation.test.StringCombinator
 import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommand
@@ -20,6 +23,12 @@ class Dependencies(instant: Instant) : AbstractGeneratedDIContainer() {
     override val clock: Clock by lazy { FixedClock(instant) }
 
     override val busLocker by lazy { BusLocker(clock) }
+
+    // TODO do we want this to auto-generate because of the default param? Create option for this
+    override fun containsInstant(commandDependencies: CommandDependencies) =
+        ContainsInstant(this.clockFactory(commandDependencies), clock.now())
+
+    override val containsString by lazy { ContainsString("a string") }
 
     // Transient
     //    override val clockFactoryHolder: ClockFactoryHolder
@@ -40,9 +49,9 @@ class GenerationTest {
 
         val bus =
             CompileTimeLoadedMessageBus(
-                emptyList(),
-                EmptyTransactionManager(),
                 Dependencies(instant),
+                EmptyTransactionManager(),
+                emptyList(),
             )
 
         val result = bus.execute(TestGeneratorCommand("The time is "))
@@ -56,9 +65,9 @@ class GenerationTest {
 
         val bus =
             CompileTimeLoadedMessageBus(
-                emptyList(),
-                EmptyTransactionManager(),
                 Dependencies(instant),
+                EmptyTransactionManager(),
+                emptyList(),
             )
 
         val result = bus.execute(TestDuplicateGeneratorCommand(null))
@@ -72,9 +81,9 @@ class GenerationTest {
 
         val bus =
             CompileTimeLoadedMessageBus(
-                emptyList(),
-                EmptyTransactionManager(),
                 Dependencies(instant),
+                EmptyTransactionManager(),
+                emptyList(),
             )
 
         val result = bus.fetch(TestGeneratorQuery("The time is ", "now "))

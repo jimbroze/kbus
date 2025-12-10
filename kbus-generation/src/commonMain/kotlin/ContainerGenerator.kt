@@ -42,6 +42,7 @@ class ContainerGenerator(
         fileText.appendLine("interface $loaderInterfaceName {")
 
         for (dependency in dependencies) {
+            if (dependency.isQueryHandler() || dependency.isCommandHandler()) continue
             fileText.appendLine(generateAbstractDependency(dependency).prependIndent())
         }
 
@@ -96,19 +97,21 @@ class ContainerGenerator(
         for (dependency in dependencies) {
             val dependencyIsNotRoot =
                 dependency.declaration is KSClassDeclaration && !dependency.isRoot
-            if (dependencyIsNotRoot) {
-                // TODO move override?
-                val string =
-                    "override " +
-                        generateLoaderValOverride(
-                                dependency,
-                                dependency.declaration,
-                                allDependencies,
-                                commandDependenciesProps,
-                            )
-                            .toString()
-                fileText.appendLine(string.prependIndent())
-            }
+            if (
+                !dependencyIsNotRoot || dependency.isQueryHandler() || dependency.isCommandHandler()
+            )
+                continue
+            // TODO move override?
+            val string =
+                "override " +
+                    generateLoaderValOverride(
+                            dependency,
+                            dependency.declaration,
+                            allDependencies,
+                            commandDependenciesProps,
+                        )
+                        .toString()
+            fileText.appendLine(string.prependIndent())
         }
 
         fileText.appendLine("}")

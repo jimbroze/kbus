@@ -5,9 +5,6 @@ import com.jimbroze.kbus.core.CommandDependencies
 abstract class AbstractGeneratedDIContainer : IContainer {
     override fun clockFactory(commandDependencies: CommandDependencies): ClockFactory =
         ClockFactory(this.clock, commandDependencies.domainEventPublisher)
-
-    override fun clockFactoryHolder(): ContainsInstant =
-        ContainsInstant(this.clockFactory(), commandDependencies.domainEventPublisher)
 }
 
 // first see if commanddeps are needed
