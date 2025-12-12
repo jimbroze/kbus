@@ -43,7 +43,7 @@ class GeneratedHandlerLocator(dependencies: IContainer) :
     }
 }
 
-class GeneratedHandlerFactory(private val dependencies: IContainer) {
+class GeneratedHandlerFactory(private val dependencies: IContainer) : IHandlers {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
@@ -69,7 +69,7 @@ class GeneratedHandlerFactory(private val dependencies: IContainer) {
             as QueryHandler<TQuery, TResult>?
     }
 
-    fun testGeneratorCommandHandler(
+    override fun testGeneratorCommandHandler(
         commandDependencies: CommandDependencies
     ): TestGeneratorCommandHandler {
         return TestGeneratorCommandHandler(
@@ -79,7 +79,7 @@ class GeneratedHandlerFactory(private val dependencies: IContainer) {
         )
     }
 
-    fun testDuplicateGeneratorCommandHandler(
+    override fun testDuplicateGeneratorCommandHandler(
         commandDependencies: CommandDependencies
     ): TestDuplicateGeneratorCommandHandler {
         return TestDuplicateGeneratorCommandHandler(
@@ -90,7 +90,7 @@ class GeneratedHandlerFactory(private val dependencies: IContainer) {
         )
     }
 
-    fun testGeneratorQueryHandler(): TestGeneratorQueryHandler {
+    override fun testGeneratorQueryHandler(): TestGeneratorQueryHandler {
         return TestGeneratorQueryHandler(this.dependencies.busLocker, this.dependencies.clock)
     }
 }

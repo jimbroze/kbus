@@ -24,7 +24,7 @@ import com.jimbroze.kbus.core.PersistingEventFactory
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
 
-// TODO change reflection to use resolver
+// TODO change reflection to use resolver (or kpoet)
 class ContainerGenerator(
     private val codeGenerator: CodeGenerator,
     private val logger: KSPLogger,
@@ -42,7 +42,6 @@ class ContainerGenerator(
         fileText.appendLine("interface $loaderInterfaceName {")
 
         for (dependency in dependencies) {
-            if (dependency.isQueryHandler() || dependency.isCommandHandler()) continue
             fileText.appendLine(generateAbstractDependency(dependency).prependIndent())
         }
 
@@ -97,21 +96,20 @@ class ContainerGenerator(
         for (dependency in dependencies) {
             val dependencyIsNotRoot =
                 dependency.declaration is KSClassDeclaration && !dependency.isRoot
-            if (
-                !dependencyIsNotRoot || dependency.isQueryHandler() || dependency.isCommandHandler()
-            )
-                continue
-            // TODO move override?
-            val string =
-                "override " +
-                    generateLoaderValOverride(
-                            dependency,
-                            dependency.declaration,
-                            allDependencies,
-                            commandDependenciesProps,
-                        )
-                        .toString()
-            fileText.appendLine(string.prependIndent())
+            if (dependencyIsNotRoot)
+                // TODO move override?
+            {
+                val string =
+                    "override " +
+                        generateLoaderValOverride(
+                                dependency,
+                                dependency.declaration,
+                                allDependencies,
+                                commandDependenciesProps,
+                            )
+                            .toString()
+                fileText.appendLine(string.prependIndent())
+            }
         }
 
         fileText.appendLine("}")

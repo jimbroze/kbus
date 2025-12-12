@@ -22,3 +22,15 @@ interface IContainer {
 
     val stringCombinator: StringCombinator
 }
+
+interface IHandlers {
+    fun testGeneratorCommandHandler(
+        commandDependencies: CommandDependencies
+    ): TestGeneratorCommandHandler
+
+    fun testDuplicateGeneratorCommandHandler(
+        commandDependencies: CommandDependencies
+    ): TestDuplicateGeneratorCommandHandler
+
+    fun testGeneratorQueryHandler(): TestGeneratorQueryHandler
+}
