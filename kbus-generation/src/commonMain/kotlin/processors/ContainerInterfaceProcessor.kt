@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.processors
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
@@ -12,6 +12,14 @@ import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.GenerateContainer
 import com.jimbroze.kbus.annotations.Load
+import com.jimbroze.kbus.generation.CommandDependencyProperties
+import com.jimbroze.kbus.generation.DependencyFactory
+import com.jimbroze.kbus.generation.NestedDependency
+import com.jimbroze.kbus.generation.RootPackageName
+import com.jimbroze.kbus.generation.generators.ContainerGenerator
+import com.jimbroze.kbus.generation.generators.LoadedHandlerDefinition
+import com.jimbroze.kbus.generation.generators.LoadedMessageGenerator
+import com.jimbroze.kbus.generation.generators.MessageBusGenerator
 
 class ContainerInterfaceProcessor(
     private val logger: KSPLogger,
@@ -22,7 +30,7 @@ class ContainerInterfaceProcessor(
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val commandDependenciesProps =
-            CommandDependencyProperties.fromResolver(resolver, dependencyFactory)
+            CommandDependencyProperties.Companion.fromResolver(resolver, dependencyFactory)
         val containerInterfaces =
             resolver.getSymbolsWithAnnotation(GenerateContainer::class.qualifiedName.toString())
 

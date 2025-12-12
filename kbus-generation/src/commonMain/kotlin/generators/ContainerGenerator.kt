@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.generators
 
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.CodeGenerator
@@ -23,6 +23,9 @@ import com.jimbroze.kbus.core.MessageHandlerLocator
 import com.jimbroze.kbus.core.PersistingEventFactory
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
+import com.jimbroze.kbus.generation.CommandDependencyProperties
+import com.jimbroze.kbus.generation.NestedDependency
+import com.jimbroze.kbus.generation.provider.LOADABLE_MESSAGES
 
 // TODO change reflection to use resolver (or kpoet)
 class ContainerGenerator(

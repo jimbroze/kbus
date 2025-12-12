@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.generators
 
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.CodeGenerator
@@ -8,6 +8,7 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.jimbroze.kbus.core.Message
+import com.jimbroze.kbus.generation.Dependency
 import kotlin.reflect.KClass
 
 data class LoadedHandlerDefinition(
@@ -113,7 +114,7 @@ class LoadedMessageGenerator(
 
         val messageConstructorDependencies =
             loadedHandlerDefinition.handlerDefinition.message.primaryConstructor?.parameters?.map {
-                Dependency.fromParameter(it, useParamName = true)
+                Dependency.Companion.fromParameter(it, useParamName = true)
             } ?: emptyList()
         val loadedMessageConstructorParams =
             messageConstructorDependencies.joinToString(", ") { dep ->

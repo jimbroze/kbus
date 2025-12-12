@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.processors
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
@@ -11,6 +11,11 @@ import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
+import com.jimbroze.kbus.generation.CommandDependencyProperties
+import com.jimbroze.kbus.generation.DependencyFactory
+import com.jimbroze.kbus.generation.NestedDependency
+import com.jimbroze.kbus.generation.RootPackageName
+import com.jimbroze.kbus.generation.generators.ContainerGenerator
 
 @Suppress("unused")
 class MessageProcessor(
@@ -23,7 +28,7 @@ class MessageProcessor(
 
         processMessagesToLoad(
             messagesToLoad,
-            CommandDependencyProperties.fromResolver(resolver, dependencyFactory),
+            CommandDependencyProperties.Companion.fromResolver(resolver, dependencyFactory),
         )
 
         return messagesToLoad.filterNot { it.validate() }.toList()

@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.generators
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies

@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.provider
 
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
@@ -6,6 +6,11 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Query
+import com.jimbroze.kbus.generation.generators.ContainerGenerator
+import com.jimbroze.kbus.generation.generators.LoadedMessageGenerator
+import com.jimbroze.kbus.generation.generators.MessageBusGenerator
+import com.jimbroze.kbus.generation.processors.ContainerInterfaceProcessor
+import com.jimbroze.kbus.generation.processors.MessageProcessor
 
 val KBUS_BUS_PACKAGE_NAME =
     MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
@@ -18,7 +23,10 @@ const val LOADER_CLASS_NAME = "AbstractGeneratedDIContainer"
 val LOADABLE_MESSAGES = listOf(Command::class, Query::class)
 
 private fun dependencyFactory(environment: SymbolProcessorEnvironment) =
-    DependencyFactory(KBUS_BUS_PACKAGE_NAME, environment.logger)
+    _root_ide_package_.com.jimbroze.kbus.generation.DependencyFactory(
+        KBUS_BUS_PACKAGE_NAME,
+        environment.logger,
+    )
 
 private fun containerGenerator(environment: SymbolProcessorEnvironment) =
     ContainerGenerator(
