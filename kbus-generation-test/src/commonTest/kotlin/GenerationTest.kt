@@ -6,9 +6,9 @@ import com.jimbroze.kbus.core.EmptyTransactionManager
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.generation.test.AbstractGeneratedDIContainer
 import com.jimbroze.kbus.generation.test.CompileTimeLoadedMessageBus
-import com.jimbroze.kbus.generation.test.ContainsInstant
 import com.jimbroze.kbus.generation.test.ContainsString
 import com.jimbroze.kbus.generation.test.FixedClock
+import com.jimbroze.kbus.generation.test.FunctionalContainsInstant
 import com.jimbroze.kbus.generation.test.StringCombinator
 import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommand
 import com.jimbroze.kbus.generation.test.TestGeneratorCommand
@@ -26,7 +26,7 @@ class Dependencies(instant: Instant) : AbstractGeneratedDIContainer() {
 
     // TODO do we want this to auto-generate because of the default param? Create option for this
     override fun containsInstant(commandDependencies: CommandDependencies) =
-        ContainsInstant(this.clockFactory(commandDependencies), clock.now())
+        FunctionalContainsInstant(this.clockFactory(commandDependencies), clock.now())
 
     override val containsString by lazy { ContainsString("a string") }
 

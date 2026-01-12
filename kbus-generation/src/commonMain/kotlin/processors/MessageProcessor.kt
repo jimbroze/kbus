@@ -6,29 +6,31 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.generation.CommandDependencyProperties
 import com.jimbroze.kbus.generation.DependencyFactory
-import com.jimbroze.kbus.generation.NestedDependency
-import com.jimbroze.kbus.generation.RootPackageName
-import com.jimbroze.kbus.generation.generators.ContainerGenerator
+import com.jimbroze.kbus.generation.HandlerFactory
+import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
 
 @Suppress("unused")
 class MessageProcessor(
     private val logger: KSPLogger,
+    private val handlerFactory: HandlerFactory,
     private val dependencyFactory: DependencyFactory,
-    private val containerGenerator: ContainerGenerator,
+    private val containerInterfaceGenerator: ContainerInterfaceGenerator,
+    private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val messagesToLoad = resolver.getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
 
         processMessagesToLoad(
             messagesToLoad,
-            CommandDependencyProperties.Companion.fromResolver(resolver, dependencyFactory),
+            CommandDependencyProperties.fromResolver(resolver, dependencyFactory),
         )
 
         return messagesToLoad.filterNot { it.validate() }.toList()
@@ -38,25 +40,25 @@ class MessageProcessor(
         symbols: Sequence<KSAnnotated>,
         commandDependenciesProps: CommandDependencyProperties,
     ) {
-        val dependencies = mutableSetOf<NestedDependency>()
-        val rootPackageName = RootPackageName()
+        val handlers = HandlersContext()
 
-        for (symbol in symbols) {
-            rootPackageName.addName(
-                symbol.accept(LoadVisitor(commandDependenciesProps), dependencies)
-            )
-        }
+        symbols.forEach { it.accept(LoadVisitor(commandDependenciesProps), handlers) }
 
-        if (dependencies.isEmpty()) return
+        if (handlers.isEmpty()) return
 
-        val generatedPackageName = "$rootPackageName.generated"
+        val generatedPackagePath = "com.jimbroze.kbus.generated"
 
-        containerGenerator.generateLoaderInterface(generatedPackageName, dependencies)
+        containerInterfaceGenerator.generateInterface(
+            generatedPackagePath,
+            handlers.allDependencies,
+        )
+        handlersInterfaceGenerator.generateInterface(generatedPackagePath, handlers.handlers)
     }
 
     inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :
-        KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
-        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): KSName {
+        KSDefaultVisitor<HandlersContext, Unit>() {
+
+        override fun defaultHandler(node: KSNode, data: HandlersContext) {
             error(
                 "Only classes can be annotated with @${Load::class.simpleName}. " +
                     "$node is not a class"
@@ -65,8 +67,8 @@ class MessageProcessor(
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: MutableSet<NestedDependency>,
-        ): KSName {
+            data: HandlersContext,
+        ) {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 error(
                     "Only classes can be annotated with @${Load::class.simpleName}. " +
@@ -74,15 +76,8 @@ class MessageProcessor(
                 )
             }
 
-            data.addAll(
-                dependencyFactory.generateFromType(
-                    classDeclaration.asStarProjectedType(),
-                    includeNested = true,
-                    commandDependenciesProps,
-                )
-            )
-
-            return classDeclaration.qualifiedName!!
+            // TODO don't like that this modifies data. Move to visitor context!!?
+            data.addHandler(classDeclaration, commandDependenciesProps, handlerFactory)
         }
     }
 }

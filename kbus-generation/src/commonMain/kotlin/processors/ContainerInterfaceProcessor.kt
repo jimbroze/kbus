@@ -1,183 +1,205 @@
 package com.jimbroze.kbus.generation.processors
 
+import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSName
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSNode
+import com.google.devtools.ksp.symbol.Origin
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.annotations.GenerateContainer
-import com.jimbroze.kbus.annotations.Load
+import com.jimbroze.kbus.annotations.ContainerInterface
+import com.jimbroze.kbus.annotations.HandlersInterface
 import com.jimbroze.kbus.generation.CommandDependencyProperties
 import com.jimbroze.kbus.generation.DependencyFactory
-import com.jimbroze.kbus.generation.NestedDependency
-import com.jimbroze.kbus.generation.RootPackageName
-import com.jimbroze.kbus.generation.generators.ContainerGenerator
-import com.jimbroze.kbus.generation.generators.LoadedHandlerDefinition
-import com.jimbroze.kbus.generation.generators.LoadedMessageGenerator
+import com.jimbroze.kbus.generation.HandlerFactory
+import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
+import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
+import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.MessageBusGenerator
+import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
 
 class ContainerInterfaceProcessor(
     private val logger: KSPLogger,
+    private val handlerFactory: HandlerFactory,
     private val dependencyFactory: DependencyFactory,
-    private val containerGenerator: ContainerGenerator,
-    private val loadedMessageGenerator: LoadedMessageGenerator,
+    private val containerInterfaceGenerator: ContainerInterfaceGenerator,
+    private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
+    private val autoLoaderGenerator: AutoLoaderGenerator,
+    private val handlersFactoryGenerator: HandlersFactoryGenerator,
     private val busGenerator: MessageBusGenerator,
 ) : SymbolProcessor {
+    private val dependencies = HandlersContext()
+    private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
+    private val containerInterfaces = mutableSetOf<KSClassDeclaration>()
+
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val commandDependenciesProps =
-            CommandDependencyProperties.Companion.fromResolver(resolver, dependencyFactory)
+            CommandDependencyProperties.fromResolver(resolver, dependencyFactory)
+
         val containerInterfaces =
-            resolver.getSymbolsWithAnnotation(GenerateContainer::class.qualifiedName.toString())
+            resolver.getSymbolsWithAnnotation(ContainerInterface::class.qualifiedName.toString())
+        val (validContainerSymbols, invalidContainerSymbols) =
+            containerInterfaces.partition { it.validate() }
+        validContainerSymbols.forEach {
+            it.accept(ContainerInterfaceVisitor(commandDependenciesProps), dependencies)
+        }
 
-        processContainerInterfaces(containerInterfaces, commandDependenciesProps)
+        val handlerInterfaces =
+            resolver.getSymbolsWithAnnotation(HandlersInterface::class.qualifiedName.toString())
+        val (validHandlerSymbols, invalidHandlerSymbols) =
+            handlerInterfaces.partition { it.validate() }
+        validHandlerSymbols.forEach {
+            it.accept(HandlersInterfaceVisitor(commandDependenciesProps), dependencies)
+        }
 
-        return containerInterfaces.filterNot { it.validate() }.toList()
+        return invalidContainerSymbols + invalidHandlerSymbols
     }
 
-    private fun processContainerInterfaces(
-        symbols: Sequence<KSAnnotated>,
-        commandDependenciesProps: CommandDependencyProperties,
-    ) {
-        val loaderInterfaces = mutableSetOf<KSName>()
-        val dependencies = mutableSetOf<NestedDependency>()
-        val rootPackageName = RootPackageName()
+    /**
+     * Use finish function as this 'consumes' interfaces produced by other processors. Ensure that
+     * other processors have run before this
+     */
+    override fun finish() {
+        if (dependencies.isEmpty()) return
 
-        for (symbol in symbols) {
-            val interfaceName =
-                symbol.accept(ContainerVisitor(commandDependenciesProps), dependencies)
-            loaderInterfaces.add(interfaceName)
-            rootPackageName.addName(interfaceName)
-        }
+        // TODO change to user-provided package name with fallback
+        val generatedPackagePath = "com.jimbroze.kbus.generated"
 
-        val loadedMessages = mutableSetOf<LoadedHandlerDefinition>()
-        for (dependency in dependencies) {
-            validateNoDuplicates(dependencies, dependency)
-
-            dependency.declaration.accept(DependencyVisitor(), Unit)?.let { loadedMessages.add(it) }
-        }
-
-        if (loaderInterfaces.isEmpty() || dependencies.isEmpty()) return
-
-        val generatedPackagePath = "$rootPackageName.generated"
-        val loaderName =
-            containerGenerator.generateCombinedContainerInterface(
-                generatedPackagePath,
-                loaderInterfaces,
-            )
-
-        containerGenerator.generateLoaderClass(
+        containerInterfaceGenerator.generateCombinedInterface(
             generatedPackagePath,
-            dependencies,
-            commandDependenciesProps,
+            this.containerInterfaces,
         )
-
-        containerGenerator.generateHandlerLocator(
+        handlersInterfaceGenerator.generateCombinedInterface(
             generatedPackagePath,
-            dependencies,
-            commandDependenciesProps,
-            "GeneratedHandlerLocator",
-            "GeneratedHandlerFactory",
+            this.handlersInterfaces,
         )
-
-        busGenerator.generate(generatedPackagePath, loaderName, loadedMessages)
+        autoLoaderGenerator.generateAutoloader(generatedPackagePath, dependencies.allDependencies)
+        handlersFactoryGenerator.generateClass(generatedPackagePath, dependencies.handlers)
+        //        busGenerator.generate(generatedPackagePath, dependencies.handlers)
     }
 
-    private fun validateNoDuplicates(
-        allDependencies: MutableSet<NestedDependency>,
-        dependency: NestedDependency,
-    ) {
-        val matches = allDependencies.filter { other -> dependency.isDuplicateOf(other) }
-        if (matches.isNotEmpty()) {
-            val dependencyName = dependency.declaration.simpleName.asString()
-            logger.error(
-                "Tried to generate multiple dependencies for $dependencyName",
-                dependency.declaration,
+    //    private fun validateNoDuplicates(
+    //        allDependencies: MutableSet<NestedDependency>,
+    //        dependency: NestedDependency,
+    //    ) {
+    //        val matches = allDependencies.filter { other -> dependency.isDuplicateOf(other) }
+    //        if (matches.isNotEmpty()) {
+    //            val dependencyName = dependency.declaration.simpleName.asString()
+    //            logger.error(
+    //                "Tried to generate multiple dependencies for $dependencyName",
+    //                dependency.declaration,
+    //            )
+    //        }
+    //    }
+
+    inner class HandlersInterfaceVisitor(
+        val commandDependenciesProps: CommandDependencyProperties
+    ) : KSDefaultVisitor<HandlersContext, Unit>() {
+
+        override fun defaultHandler(node: KSNode, data: HandlersContext) {
+            error(
+                "Only interfaces can be annotated with @${HandlersInterface::class.simpleName}. " +
+                    "$node is not a class"
             )
-        }
-    }
-
-    inner class DependencyVisitor : KSDefaultVisitor<Unit, LoadedHandlerDefinition?>() {
-        override fun defaultHandler(node: KSNode, data: Unit): LoadedHandlerDefinition? {
-            return null
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: Unit,
-        ): LoadedHandlerDefinition? {
-            return if (isLoadableHandler(classDeclaration)) {
-                loadedMessageGenerator.generateLoadedMessage(classDeclaration)
-            } else {
-                null
-            }
-        }
-
-        private fun isLoadableHandler(classDeclaration: KSClassDeclaration): Boolean {
-            val potentialLoadAnnotations =
-                classDeclaration.annotations.filter {
-                    it.shortName.asString() == Load::class.simpleName
-                }
-
-            return Load::class.qualifiedName in
-                potentialLoadAnnotations.map {
-                    it.annotationType.resolve().declaration.qualifiedName?.asString()
-                }
-        }
-    }
-
-    inner class ContainerVisitor(
-        private val commandDependenciesProps: CommandDependencyProperties
-    ) : KSDefaultVisitor<MutableSet<NestedDependency>, KSName>() {
-        override fun defaultHandler(node: KSNode, data: MutableSet<NestedDependency>): KSName {
-            error("ContainersVisitor can only visit class declarations")
-        }
-
-        override fun visitClassDeclaration(
-            classDeclaration: KSClassDeclaration,
-            data: MutableSet<NestedDependency>,
-        ): KSName {
+            data: HandlersContext,
+        ) {
             if (classDeclaration.classKind != ClassKind.INTERFACE) {
-                error("ContainerVisitor can only visit class declarations")
+                error(
+                    "Only interfaces can be annotated with @${HandlersInterface::class.simpleName}. " +
+                        "$classDeclaration is a ${classDeclaration.classKind}"
+                )
             }
 
-            data.addAll(
-                classDeclaration
-                    .getAllProperties()
-                    .flatMap { prop ->
-                        dependencyFactory.generateFromType(
-                            prop.type.resolve(),
-                            includeNested = false,
-                            commandDependenciesProps = commandDependenciesProps,
-                            customName = prop.simpleName.asString(),
-                            typeArgs = prop.type.element?.typeArguments.orEmpty(),
-                        )
-                    }
-                    .toList()
-                    .distinct()
-            )
+            val handlerFunctions = classDeclaration.getAllUserFunctions()
+            for (handlerFunction in handlerFunctions) {
+                val handlerDeclaration =
+                    handlerFunction.returnType?.resolve()?.declaration as? KSClassDeclaration
+                if (handlerDeclaration != null) {
+                    data.addHandler(handlerDeclaration, commandDependenciesProps, handlerFactory)
+                }
+            }
 
-            data.addAll(
-                classDeclaration
-                    .getAllFunctions()
-                    .flatMap { func ->
-                        dependencyFactory.generateFromType(
-                            func.returnType!!.resolve(),
-                            includeNested = false,
-                            commandDependenciesProps = commandDependenciesProps,
-                            customName = func.simpleName.asString(),
-                            typeArgs = func.returnType!!.element?.typeArguments.orEmpty(),
-                        )
-                    }
-                    .toList()
-                    .distinct()
-            )
-
-            return classDeclaration.qualifiedName!!
+            handlersInterfaces.add(classDeclaration)
         }
+    }
+
+    inner class ContainerInterfaceVisitor(
+        val commandDependenciesProps: CommandDependencyProperties
+    ) : KSDefaultVisitor<HandlersContext, Unit>() {
+        override fun defaultHandler(node: KSNode, data: HandlersContext) {
+            error("Only interfaces can be annotated with @${ContainerInterface::class.simpleName}")
+        }
+
+        override fun visitClassDeclaration(
+            classDeclaration: KSClassDeclaration,
+            data: HandlersContext,
+        ) {
+            if (classDeclaration.classKind != ClassKind.INTERFACE) {
+                error(
+                    "Only interfaces can be annotated with @${ContainerInterface::class.simpleName}. " +
+                        "$classDeclaration is a ${classDeclaration.classKind}"
+                )
+            }
+
+            // TODO override dependency type (fun/val/name) using interface
+            // TODO getAllUserFunctions???
+            val functionDependencies = classDeclaration.getAllFunctions()
+            for (functionDependency in functionDependencies) {
+                val dependencyTypeRef = functionDependency.returnType ?: continue
+                data.addDependency(dependencyTypeRef, commandDependenciesProps, handlerFactory)
+            }
+
+            val propertyDependencies = classDeclaration.getAllProperties()
+            for (propertyDependency in propertyDependencies) {
+                data.addDependency(
+                    propertyDependency.type,
+                    commandDependenciesProps,
+                    handlerFactory,
+                )
+            }
+
+            containerInterfaces.add(classDeclaration)
+        }
+    }
+}
+
+fun KSClassDeclaration.getAllUserFunctions(): Sequence<KSFunctionDeclaration> {
+    return getFunctionsRecursively().filter { func ->
+        func.simpleName.asString() !in setOf("equals", "hashCode", "toString") &&
+            func.origin == Origin.KOTLIN || func.origin == Origin.JAVA
+    }
+}
+
+/**
+ * Recursively collects declared functions from the class and all its supertypes. This bypasses
+ * KSP's getAllFunctions() limitations across module boundaries.
+ */
+fun KSClassDeclaration.getFunctionsRecursively(
+    visited: MutableSet<KSClassDeclaration> = mutableSetOf()
+): Sequence<KSFunctionDeclaration> {
+    // 1. Avoid cycles or diamond inheritance duplicates
+    if (!visited.add(this)) return emptySequence()
+
+    return sequence {
+        // 2. Yield functions declared strictly in this interface/class
+        yieldAll(getDeclaredFunctions())
+
+        // 3. Resolve and recurse into supertypes
+        superTypes
+            .map { it.resolve().declaration }
+            .filterIsInstance<KSClassDeclaration>()
+            .forEach { parentDeclaration ->
+                yieldAll(parentDeclaration.getFunctionsRecursively(visited))
+            }
     }
 }

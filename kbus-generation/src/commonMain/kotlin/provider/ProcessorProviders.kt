@@ -6,60 +6,100 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.jimbroze.kbus.core.Command
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.generation.generators.ContainerGenerator
-import com.jimbroze.kbus.generation.generators.LoadedMessageGenerator
+import com.jimbroze.kbus.generation.DependencyFactory
+import com.jimbroze.kbus.generation.HandlerFactory
+import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
+import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
+import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.MessageBusGenerator
 import com.jimbroze.kbus.generation.processors.ContainerInterfaceProcessor
 import com.jimbroze.kbus.generation.processors.MessageProcessor
 
 val KBUS_BUS_PACKAGE_NAME =
     MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
-const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
 
-const val LOADER_INTERFACE_NAME = "IGeneratedDIContainer"
-const val COMBINED_CONTAINER_INTERFACE_NAME = "DIContainer"
-const val LOADER_CLASS_NAME = "AbstractGeneratedDIContainer"
+const val DEPENDENCIES_INTERFACE_NAME = "DependenciesInterface"
+const val HANDLERS_INTERFACE_NAME = "HandlerInterface"
+
+const val COMBINED_DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
+const val COMBINED_HANDLERS_INTERFACE_NAME = "AllHandlers"
+
+const val LOADER_CLASS_NAME = "AutoLoader"
+const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
+
+const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
 
 val LOADABLE_MESSAGES = listOf(Command::class, Query::class)
 
 private fun dependencyFactory(environment: SymbolProcessorEnvironment) =
-    _root_ide_package_.com.jimbroze.kbus.generation.DependencyFactory(
-        KBUS_BUS_PACKAGE_NAME,
-        environment.logger,
-    )
+    DependencyFactory(KBUS_BUS_PACKAGE_NAME, environment.logger)
 
-private fun containerGenerator(environment: SymbolProcessorEnvironment) =
-    ContainerGenerator(
+private fun handlerFactory(
+    environment: SymbolProcessorEnvironment,
+    dependencyFactory: DependencyFactory,
+) = HandlerFactory(environment.logger, dependencyFactory)
+
+private fun containerInterfaceGenerator(environment: SymbolProcessorEnvironment) =
+    ContainerInterfaceGenerator(
         environment.codeGenerator,
         environment.logger,
-        LOADER_INTERFACE_NAME,
-        COMBINED_CONTAINER_INTERFACE_NAME,
-        LOADER_CLASS_NAME,
+        DEPENDENCIES_INTERFACE_NAME,
+        COMBINED_DEPENDENCIES_INTERFACE_NAME,
     )
 
-private fun loadedMessageGenerator(environment: SymbolProcessorEnvironment) =
-    LoadedMessageGenerator(environment.codeGenerator, environment.logger, LOADABLE_MESSAGES)
+private fun handlersInterfaceGenerator(environment: SymbolProcessorEnvironment) =
+    HandlersInterfaceGenerator(
+        environment.codeGenerator,
+        environment.logger,
+        HANDLERS_INTERFACE_NAME,
+        COMBINED_HANDLERS_INTERFACE_NAME,
+    )
+
+private fun handlersFactoryGenerator(environment: SymbolProcessorEnvironment) =
+    HandlersFactoryGenerator(
+        environment.codeGenerator,
+        environment.logger,
+        HANDLER_FACTORY_CLASS_NAME,
+        COMBINED_DEPENDENCIES_INTERFACE_NAME,
+        COMBINED_HANDLERS_INTERFACE_NAME,
+    )
+
+private fun autoLoaderGenerator(environment: SymbolProcessorEnvironment) =
+    AutoLoaderGenerator(
+        environment.codeGenerator,
+        environment.logger,
+        COMBINED_DEPENDENCIES_INTERFACE_NAME,
+        LOADER_CLASS_NAME,
+    )
 
 private fun busGenerator(environment: SymbolProcessorEnvironment) =
     MessageBusGenerator(environment.codeGenerator, environment.logger, BUS_CLASS_NAME)
 
 class MessageProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
+        val dependencyFactory = dependencyFactory(environment)
         return MessageProcessor(
             logger = environment.logger,
-            dependencyFactory = dependencyFactory(environment),
-            containerGenerator = containerGenerator(environment),
+            handlerFactory = handlerFactory(environment, dependencyFactory),
+            dependencyFactory = dependencyFactory,
+            containerInterfaceGenerator = containerInterfaceGenerator(environment),
+            handlersInterfaceGenerator = handlersInterfaceGenerator(environment),
         )
     }
 }
 
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
+        val dependencyFactory = dependencyFactory(environment)
         return ContainerInterfaceProcessor(
             logger = environment.logger,
-            dependencyFactory = dependencyFactory(environment),
-            containerGenerator = containerGenerator(environment),
-            loadedMessageGenerator = loadedMessageGenerator(environment),
+            handlerFactory = handlerFactory(environment, dependencyFactory),
+            dependencyFactory = dependencyFactory,
+            containerInterfaceGenerator = containerInterfaceGenerator(environment),
+            handlersInterfaceGenerator = handlersInterfaceGenerator(environment),
+            autoLoaderGenerator = autoLoaderGenerator(environment),
+            handlersFactoryGenerator = handlersFactoryGenerator(environment),
             busGenerator = busGenerator(environment),
         )
     }

@@ -10,7 +10,7 @@ interface IContainer {
 
     val busLocker: BusLocker
 
-    fun containsInstant(commandDependencies: CommandDependencies): ContainsInstant
+    fun containsInstant(commandDependencies: CommandDependencies): FunctionalContainsInstant
 
     val containsString: ContainsString
 

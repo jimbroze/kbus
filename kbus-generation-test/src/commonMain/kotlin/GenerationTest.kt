@@ -31,7 +31,7 @@ class ClockFactory(
     }
 }
 
-class ContainsInstant(val clockFactory: ClockFactory, private val now: Instant? = null)
+class FunctionalContainsInstant(val clockFactory: ClockFactory, private val now: Instant? = null)
 
 class ContainsString(private val aString: String)
 
@@ -51,13 +51,13 @@ class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, Mes
 @Load
 class TestGeneratorCommandHandler(
     private val locker: BusLocker,
-    private val containsInstant: ContainsInstant,
+    private val functionalContainsInstant: FunctionalContainsInstant,
     private val containsString: ContainsString,
 ) :
     CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
     override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
-        val clock = containsInstant.clockFactory.createClock()
+        val clock = functionalContainsInstant.clockFactory.createClock()
         locker.toString()
         return BusResult.success(message.messageData + clock.now().toString())
     }
