@@ -71,6 +71,7 @@ class TestGeneratorCommandHandler(
 class TestDuplicateGeneratorCommand(val messageData: String?) :
     Command<BusResult<Any, MessageFailure>>()
 
+@Suppress("unused")
 @Load
 class TestDuplicateGeneratorCommandHandler(
     private val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
@@ -92,7 +93,7 @@ class TestDuplicateGeneratorCommandHandler(
             stringCombiner.combine(
                 stringOne,
                 requiresCommandDepsContainsClock.createClock().now().toString(),
-                bus.middlewares.toString(),
+                "[]",
             )
 
         return BusResult.success(returnMessage)

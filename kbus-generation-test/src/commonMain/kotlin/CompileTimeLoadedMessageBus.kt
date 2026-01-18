@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.generation.test
 
+import com.jimbroze.kbus.core.BaseMessageBus
 import com.jimbroze.kbus.core.BusResult
 import com.jimbroze.kbus.core.CommandDependencies
-import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.MessageFailure
 import com.jimbroze.kbus.core.Middleware
 import com.jimbroze.kbus.core.TransactionManager
@@ -13,7 +13,7 @@ private constructor(
     private val locator: GeneratedHandlerLocator,
     transactionManager: TransactionManager,
     middleware: List<Middleware>,
-) : MessageBus(locator, transactionManager, middleware) {
+) : BaseMessageBus(locator, transactionManager, middleware) {
 
     constructor(
         loader: IContainer,

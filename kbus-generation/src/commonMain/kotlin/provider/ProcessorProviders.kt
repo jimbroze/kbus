@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.provider
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.jimbroze.kbus.core.BaseMessageBus
 import com.jimbroze.kbus.core.GenerationHandlerLocator
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Middleware
@@ -82,7 +83,7 @@ private fun busGenerator(environment: SymbolProcessorEnvironment) =
             BUS_CLASS_NAME,
             COMBINED_DEPENDENCIES_INTERFACE_NAME,
             HANDLER_FACTORY_CLASS_NAME,
-            MessageBus::class,
+            BaseMessageBus::class,
             Middleware::class,
             TransactionManager::class,
             GenerationHandlerLocator::class,

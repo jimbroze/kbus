@@ -16,18 +16,25 @@ interface BusAccess {
     suspend fun <TEvent : Event> dispatch(event: TEvent)
 }
 
-// TODO remove default handlerLocator
-open class MessageBus(
-    protected val handlerLocator: MessageHandlerLocator = PersistingHandlerLocator(),
-    transactionManager: TransactionManager? = null,
-    val middlewares: List<Middleware> = emptyList(),
-) {
+interface IMessageBus {
+    suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
+        command: TCommand
+    ): TResult
+
+    suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult
+}
+
+abstract class BaseMessageBus(
+    protected val handlerLocator: MessageHandlerLocator,
+    transactionManager: TransactionManager?,
+    protected val middlewares: List<Middleware>,
+) : IMessageBus {
     private val busAccess =
         object : BusAccess {
             override suspend fun <TEvent : Event> dispatch(event: TEvent) =
-                this@MessageBus.dispatch(event)
+                this@BaseMessageBus.dispatch(event)
         }
-    private val eventDispatcher = EventDispatcher(handlerLocator::handlersFor, middlewares)
+    protected val eventDispatcher = EventDispatcher(handlerLocator::handlersFor, middlewares)
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
@@ -37,7 +44,7 @@ open class MessageBus(
         )
     protected val queryFetcher = QueryFetcher(middlewares)
 
-    suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
+    override suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand
     ): TResult {
         val handlerCreator = { commandDependencies: CommandDependencies ->
@@ -48,7 +55,9 @@ open class MessageBus(
         return commandExecutor.execute(command, handlerCreator)
     }
 
-    suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult {
+    override suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(
+        query: TQuery
+    ): TResult {
         val handlerCreator = {
             (handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
         }
@@ -62,3 +71,10 @@ open class MessageBus(
         eventDispatcher.dispatch(event, handlers)
     }
 }
+
+// TODO remove default handlerLocator
+class MessageBus(
+    handlerLocator: MessageHandlerLocator = PersistingHandlerLocator(),
+    transactionManager: TransactionManager? = null,
+    middlewares: List<Middleware> = emptyList(),
+) : BaseMessageBus(handlerLocator, transactionManager, middlewares)
