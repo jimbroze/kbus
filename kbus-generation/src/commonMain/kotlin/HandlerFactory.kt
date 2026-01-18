@@ -142,7 +142,6 @@ class HandlerFactory(private val logger: KSPLogger, val dependencyFactory: Depen
         handlerClass: KSClassDeclaration,
         constructorDependencies: List<DependencyMetadata>,
     ): HandlerDefinition? {
-        // FIXME Query is interface
         val handlerBaseClassReference = findBaseClass(handlerClass) ?: return null
 
         val baseClassTypeArgs: List<KSTypeArgument> =

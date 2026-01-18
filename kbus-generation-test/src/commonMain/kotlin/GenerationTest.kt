@@ -99,7 +99,7 @@ class TestGeneratorQuery(val messageData: String, val moreMessageData: String) :
 
 @Load
 class TestGeneratorQueryHandler(private val locker: BusLocker, private val clock: Clock) :
-    QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>> {
+    QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, MessageFailure> {
         locker.toString()
         return BusResult.success(
