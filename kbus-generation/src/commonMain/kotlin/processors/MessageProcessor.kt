@@ -16,6 +16,8 @@ import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyPro
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
 
+// FIXME go through TODOs
+
 class MessageProcessor(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,

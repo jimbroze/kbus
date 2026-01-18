@@ -30,7 +30,7 @@ class BrokenStateFailureCommandHandler :
 open class StorageQuery(val index: Int, val listStore: MutableList<String>) :
     Query<BusResult<String, MessageFailure>>()
 
-class StorageQueryHandler() : QueryHandler<StorageQuery, BusResult<String, MessageFailure>>() {
+class StorageQueryHandler : QueryHandler<StorageQuery, BusResult<String, MessageFailure>>() {
     override suspend fun handle(message: StorageQuery): BusResult<String, MessageFailure> {
         return BusResult.success(message.listStore[message.index])
     }
@@ -38,8 +38,7 @@ class StorageQueryHandler() : QueryHandler<StorageQuery, BusResult<String, Messa
 
 open class FailureQuery : Query<BusResult<String, FailureCommandFailure>>()
 
-class FailureQueryHandler() :
-    QueryHandler<FailureQuery, BusResult<String, FailureCommandFailure>>() {
+class FailureQueryHandler : QueryHandler<FailureQuery, BusResult<String, FailureCommandFailure>>() {
     override suspend fun handle(message: FailureQuery): BusResult<String, FailureCommandFailure> {
         return BusResult.failure(FailureCommandFailure.BrokenStateFailure("The query failed"))
     }

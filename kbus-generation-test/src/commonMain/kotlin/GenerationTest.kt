@@ -22,6 +22,7 @@ class FixedClock(private var fixedInstant: Instant) : Clock {
     }
 }
 
+@Suppress("unused")
 class ClockFactory(
     private val clock: Clock,
     private val domainEventPublisher: DomainEventPublisher,
@@ -49,6 +50,7 @@ typealias TypeAliasString = String
 class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
 @Load
+@Suppress("unused")
 class TestGeneratorCommandHandler(
     private val locker: BusLocker,
     private val functionalContainsInstant: FunctionalContainsInstant,

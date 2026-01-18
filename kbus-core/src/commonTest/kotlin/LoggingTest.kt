@@ -50,7 +50,7 @@ class LoggingLogCommandHandler :
 class LoggingLogQuery(val messageToLog: String, val logger: Logger) :
     Query<BusResult<Unit, MessageFailure>>(), LoggingMessage
 
-class LoggingLogQueryHandler() : QueryHandler<LoggingLogQuery, BusResult<Unit, MessageFailure>>() {
+class LoggingLogQueryHandler : QueryHandler<LoggingLogQuery, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: LoggingLogQuery): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)
         return success(Unit)
