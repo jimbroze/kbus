@@ -49,10 +49,11 @@ open class MessageBus(
     }
 
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult {
-        val handler =
+        val handlerCreator = {
             (handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
+        }
 
-        return queryFetcher.fetch(query, handler)
+        return queryFetcher.fetch(query, handlerCreator)
     }
 
     private suspend fun <TEvent : Event> dispatch(event: TEvent) {

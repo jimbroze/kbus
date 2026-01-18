@@ -9,7 +9,8 @@ class QueryFetcherTest {
     fun test_it_invokes_handler_and_returns_result() = runTest {
         val fetcher = QueryFetcher(emptyList())
 
-        val result = fetcher.fetch(StorageQuery(0, mutableListOf("Wassup")), StorageQueryHandler())
+        val createHandler = { StorageQueryHandler() }
+        val result = fetcher.fetch(StorageQuery(0, mutableListOf("Wassup")), createHandler)
 
         assertEquals(BusResult.success("Wassup"), result)
     }

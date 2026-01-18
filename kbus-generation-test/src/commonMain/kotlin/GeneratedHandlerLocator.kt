@@ -17,9 +17,8 @@ import com.jimbroze.kbus.core.PersistingEventFactory
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
 
-class GeneratedHandlerLocator(dependencies: IContainer) :
+class GeneratedHandlerLocator(val generatedHandlerFactory: GeneratedHandlerFactory) :
     MessageHandlerLocator, EventMapperProvider {
-    internal val generatedHandlerFactory = GeneratedHandlerFactory(dependencies)
     private val eventMapper = EventMapper(PersistingEventFactory(MessageHandlerFactoryStore()))
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper

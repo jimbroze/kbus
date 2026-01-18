@@ -18,10 +18,10 @@ import com.jimbroze.kbus.generation.CommandDependencyProperties
 import com.jimbroze.kbus.generation.DependencyFactory
 import com.jimbroze.kbus.generation.HandlerFactory
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
+import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
-import com.jimbroze.kbus.generation.generators.MessageBusGenerator
 import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
 
 class ContainerInterfaceProcessor(
@@ -32,7 +32,7 @@ class ContainerInterfaceProcessor(
     private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
     private val autoLoaderGenerator: AutoLoaderGenerator,
     private val handlersFactoryGenerator: HandlersFactoryGenerator,
-    private val busGenerator: MessageBusGenerator,
+    private val busGenerator: BusGenerator,
 ) : SymbolProcessor {
     private val dependencies = HandlersContext()
     private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
@@ -81,7 +81,7 @@ class ContainerInterfaceProcessor(
         )
         autoLoaderGenerator.generateAutoloader(generatedPackagePath, dependencies.allDependencies)
         handlersFactoryGenerator.generateClass(generatedPackagePath, dependencies.handlers)
-        //        busGenerator.generate(generatedPackagePath, dependencies.handlers)
+        busGenerator.generateClass(generatedPackagePath, dependencies.handlers)
     }
 
     //    private fun validateNoDuplicates(

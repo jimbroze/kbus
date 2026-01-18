@@ -3,8 +3,10 @@ package com.jimbroze.kbus.core
 class QueryFetcher(private val middlewares: List<Middleware>) {
     suspend fun <TResult : KBusResult, TQuery : Query<TResult>> fetch(
         query: TQuery,
-        handler: QueryHandler<TQuery, TResult>,
+        createHandler: () -> QueryHandler<TQuery, TResult>,
     ): TResult {
+        val handler = createHandler()
+
         val finalHandler: suspend (TQuery) -> KBusResult = { message: TQuery ->
             handler.handle(message)
         }

@@ -19,7 +19,11 @@ private constructor(
         loader: IContainer,
         transactionManager: TransactionManager,
         middleware: List<Middleware>,
-    ) : this(GeneratedHandlerLocator(loader), transactionManager, middleware)
+    ) : this(
+        GeneratedHandlerLocator(GeneratedHandlerFactory(loader)),
+        transactionManager,
+        middleware,
+    )
 
     suspend fun execute(
         command: com.jimbroze.kbus.generation.test.TestGeneratorCommand
@@ -46,8 +50,8 @@ private constructor(
     suspend fun fetch(
         query: com.jimbroze.kbus.generation.test.TestGeneratorQuery
     ): BusResult<Any, MessageFailure> {
-        val handler = locator.generatedHandlerFactory.testGeneratorQueryHandler()
+        val handlerCreator = { -> locator.generatedHandlerFactory.testGeneratorQueryHandler() }
 
-        return queryFetcher.fetch(query, handler)
+        return queryFetcher.fetch(query, handlerCreator)
     }
 }

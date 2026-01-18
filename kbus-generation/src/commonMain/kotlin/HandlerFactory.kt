@@ -61,7 +61,7 @@ data class CommandDependencyMetadata(override val typeRef: KSType) : DependencyM
 
 data class NonDependencyMetadata(override val typeRef: KSType) : DependencyMetadata {
     override val prefix
-        get() = error("This dependency should not be used: ${typeRef.toString()}")
+        get() = error("This dependency should not be used: $typeRef")
 }
 
 interface HasChildren {
@@ -78,6 +78,8 @@ data class HandlerData(
 ) : HasChildren
 
 sealed interface HandlerDefinition {
+    val processorMethodName: String
+    val messageProcessorName: String
     val handlerData: HandlerData
     val handlerBaseClass: KClass<out MessageHandler<*>>
     val messageBaseClass: KClass<out Message>
@@ -105,6 +107,12 @@ data class CommandHandlerDefinition(override val handlerData: HandlerData) : Han
     override val messageBaseClass
         get() = Command::class
 
+    override val processorMethodName: String
+        get() = "execute"
+
+    override val messageProcessorName: String
+        get() = "commandExecutor"
+
     override val functionParameters: List<DependencyConstructorParameters>
         get() =
             listOf(
@@ -118,6 +126,12 @@ data class QueryHandlerDefinition(override val handlerData: HandlerData) : Handl
 
     override val messageBaseClass: KClass<out Message>
         get() = Query::class
+
+    override val processorMethodName: String
+        get() = "fetch"
+
+    override val messageProcessorName: String
+        get() = "queryFetcher"
 
     override val functionParameters: List<DependencyConstructorParameters>
         get() = emptyList()
