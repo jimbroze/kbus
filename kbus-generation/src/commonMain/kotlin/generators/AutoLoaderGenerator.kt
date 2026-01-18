@@ -3,12 +3,12 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
-import com.jimbroze.kbus.generation.CommandDependencyMetadata
-import com.jimbroze.kbus.generation.DependencyMetadata
-import com.jimbroze.kbus.generation.DependencyNested
-import com.jimbroze.kbus.generation.FunctionalDependencyMetadata
-import com.jimbroze.kbus.generation.NonDependencyMetadata
-import com.jimbroze.kbus.generation.PropertyDependencyMetadata
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.Dependency
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
+import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
+import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
+import com.jimbroze.kbus.generation.processing.dependencies.PropertyDependency
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -23,7 +23,7 @@ class AutoLoaderGenerator(
     private val loaderInterfaceName: String,
     private val loaderClassName: String,
 ) {
-    fun generateAutoloader(packagePath: String, dependencies: Set<DependencyNested>) {
+    fun generateAutoloader(packagePath: String, dependencies: Set<DependencyWithChildren>) {
         val superClassName = ClassName(packagePath, loaderInterfaceName)
 
         val classBuilder =
@@ -33,16 +33,16 @@ class AutoLoaderGenerator(
 
         for (dependency in dependencies) {
             when (val metadata = dependency.metadata) {
-                is FunctionalDependencyMetadata ->
+                is FunctionalDependency ->
                     this.addFunctionalDependency(
                         classBuilder,
                         metadata,
                         dependency.topLevelDependencies,
                         dependency.isRoot,
                     )
-                is PropertyDependencyMetadata -> continue
-                is CommandDependencyMetadata -> continue
-                is NonDependencyMetadata -> continue
+                is PropertyDependency -> continue
+                is CommandDependency -> continue
+                is NonDependency -> continue
             }
         }
 
@@ -53,8 +53,8 @@ class AutoLoaderGenerator(
 
     private fun addFunctionalDependency(
         classBuilder: TypeSpec.Builder,
-        dependency: FunctionalDependencyMetadata,
-        topLevelDependencies: List<DependencyMetadata>,
+        dependency: FunctionalDependency,
+        topLevelDependencies: List<Dependency>,
         isRoot: Boolean,
     ) {
         if (isRoot) return

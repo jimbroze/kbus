@@ -2,40 +2,16 @@ package com.jimbroze.kbus.generation.processors.visitors
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.jimbroze.kbus.generation.CommandDependencyProperties
-import com.jimbroze.kbus.generation.DependencyNested
-import com.jimbroze.kbus.generation.HandlerDefinition
-import com.jimbroze.kbus.generation.HandlerFactory
-
-// class HandlerVisitor(
-//    private val logger: KSPLogger,
-//    private val dependencyFactory: DependencyFactory,
-//    private val handlerFactory: HandlerFactory,
-// ) {
-//    fun addHandler(
-//        data: HandlersContext,
-//        classDeclaration: KSClassDeclaration,
-//        commandDependenciesProps: CommandDependencyProperties,
-//    ) {
-//        val dependencies =
-//            dependencyFactory.generateChildDependencies(
-//                classDeclaration.asStarProjectedType(),
-//                commandDependenciesProps,
-//            )
-//
-//        val handler =
-//            handlerFactory.createHandler(classDeclaration, dependencies.topLevelDependencies)
-//                ?: return
-//
-//        data.addHandler(handler, classDeclaration.qualifiedName!!, dependencies.allDependencies)
-//    }
-// }
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
+import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 
 class HandlersContext {
-    private val _allDependencies = mutableSetOf<DependencyNested>()
+    private val _allDependencies = mutableSetOf<DependencyWithChildren>()
     private val _handlers = mutableSetOf<HandlerDefinition>()
 
-    val allDependencies: Set<DependencyNested>
+    val allDependencies: Set<DependencyWithChildren>
         get() = _allDependencies
 
     val handlers: Set<HandlerDefinition>
@@ -76,15 +52,4 @@ class HandlersContext {
     }
 
     fun isEmpty() = handlers.isEmpty()
-
-    //    fun addHandler(
-    //        definition: HandlerDefinition,
-    //        classQualifiedName: KSName,
-    //        dependencies: Set<DependencyNested>,
-    //    ) {
-    //
-    //        _handlers.add(definition)
-    //        _allDependencies.addAll(dependencies)
-    //        rootPackageName.addName(classQualifiedName)
-    //    }
 }

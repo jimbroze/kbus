@@ -9,9 +9,9 @@ import com.jimbroze.kbus.core.CommandHandler
 import com.jimbroze.kbus.core.GenerationHandlerFactory
 import com.jimbroze.kbus.core.Query
 import com.jimbroze.kbus.core.QueryHandler
-import com.jimbroze.kbus.generation.CommandHandlerDefinition
-import com.jimbroze.kbus.generation.HandlerDefinition
-import com.jimbroze.kbus.generation.QueryHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec

@@ -4,11 +4,11 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.jimbroze.kbus.generation.CommandDependencyMetadata
-import com.jimbroze.kbus.generation.DependencyNested
-import com.jimbroze.kbus.generation.FunctionalDependencyMetadata
-import com.jimbroze.kbus.generation.NonDependencyMetadata
-import com.jimbroze.kbus.generation.PropertyDependencyMetadata
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
+import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
+import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
+import com.jimbroze.kbus.generation.processing.dependencies.PropertyDependency
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
@@ -36,30 +36,27 @@ class ContainerInterfaceGenerator(
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
 
-    fun generateInterface(packagePath: String, dependencies: Set<DependencyNested>) {
+    fun generateInterface(packagePath: String, dependencies: Set<DependencyWithChildren>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(loaderInterfaceName)
 
         for (dependency in dependencies) {
             when (val metadata = dependency.metadata) {
-                is FunctionalDependencyMetadata ->
-                    this.addFunctionalDependency(interfaceBuilder, metadata)
-                is PropertyDependencyMetadata ->
-                    this.addPropertyDependency(interfaceBuilder, metadata)
-                is CommandDependencyMetadata -> continue
-                is NonDependencyMetadata -> continue
+                is FunctionalDependency -> this.addFunctionalDependency(interfaceBuilder, metadata)
+                is PropertyDependency -> this.addPropertyDependency(interfaceBuilder, metadata)
+                is CommandDependency -> continue
+                is NonDependency -> continue
             }
         }
 
         val file = FileSpec.builder(packagePath, loaderInterfaceName)
         file.addType(interfaceBuilder.build())
 
-        //        logger.error(file.toString())
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
 
     private fun addFunctionalDependency(
         interfaceBuilder: TypeSpec.Builder,
-        dependency: FunctionalDependencyMetadata,
+        dependency: FunctionalDependency,
     ) {
         val functionBuilder =
             FunSpec.builder(dependency.name)
@@ -75,7 +72,7 @@ class ContainerInterfaceGenerator(
 
     private fun addPropertyDependency(
         interfaceBuilder: TypeSpec.Builder,
-        dependency: PropertyDependencyMetadata,
+        dependency: PropertyDependency,
     ) {
         interfaceBuilder.addProperty(
             PropertySpec.builder(dependency.name, dependency.typeRef.toTypeName()).build()

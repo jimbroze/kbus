@@ -14,14 +14,14 @@ import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.ContainerInterface
 import com.jimbroze.kbus.annotations.HandlersInterface
-import com.jimbroze.kbus.generation.CommandDependencyProperties
-import com.jimbroze.kbus.generation.DependencyFactory
-import com.jimbroze.kbus.generation.HandlerFactory
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
+import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
 
 class ContainerInterfaceProcessor(
@@ -39,8 +39,7 @@ class ContainerInterfaceProcessor(
     private val containerInterfaces = mutableSetOf<KSClassDeclaration>()
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val commandDependenciesProps =
-            CommandDependencyProperties.fromResolver(resolver, dependencyFactory)
+        val commandDependenciesProps = CommandDependencyProperties.fromResolver(resolver)
 
         val containerInterfaces =
             resolver.getSymbolsWithAnnotation(ContainerInterface::class.qualifiedName.toString())

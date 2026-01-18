@@ -1,56 +1,22 @@
-package com.jimbroze.kbus.generation
+package com.jimbroze.kbus.generation.processing.dependencies
 
-import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.KSPLogger
-import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSType
-import com.jimbroze.kbus.core.CommandDependencies
-import kotlin.String
-import kotlin.collections.orEmpty
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.reflect.KClass
 import kotlinx.datetime.Clock
 
-class CommandDependencyProperties(
-    private val dependencyFactory: DependencyFactory,
-    properties: Set<KSType>,
-) {
-    val propertyNames: Set<String> =
-        properties.mapNotNull { it.declaration.qualifiedName?.asString() }.toSet()
-
-    companion object {
-        fun fromResolver(
-            resolver: Resolver,
-            dependencyFactory: DependencyFactory,
-        ): CommandDependencyProperties {
-            val commandDependenciesClass =
-                resolver.getClassDeclarationByName(CommandDependencies::class.qualifiedName!!)!!
-
-            val props =
-                commandDependenciesClass.getAllProperties().map { it.type.resolve() }.toMutableSet()
-
-            return CommandDependencyProperties(
-                dependencyFactory,
-                props + commandDependenciesClass.asStarProjectedType(),
-            )
-        }
-    }
-
-    fun contains(prop: KSDeclaration): Boolean {
-        return this.propertyNames.contains(prop.qualifiedName?.asString())
-    }
-}
-
 interface Dependencies {
-    val topLevelDependencies: List<DependencyMetadata>
-    val allDependencies: Set<DependencyNested>
+    val topLevelDependencies: List<Dependency>
+    val allDependencies: Set<DependencyWithChildren>
 }
 
 @Suppress("unused")
 class DependencyFactory(private val kbusBusPackageName: String, private val logger: KSPLogger) {
+
     fun generateChildDependencies(
         type: KSType,
         commandDependenciesProps: CommandDependencyProperties,
@@ -78,6 +44,10 @@ class DependencyFactory(private val kbusBusPackageName: String, private val logg
         return dependencies
     }
 
+    fun nameForDependency(handlerClass: KSDeclaration): String {
+        return handlerClass.simpleName.asString().replaceFirstChar { it.lowercase() }
+    }
+
     private fun mustBeRoot(parameter: KSDeclaration): Boolean {
         return parameter.packageName.asString() == kbusBusPackageName
     }
@@ -94,10 +64,6 @@ class DependencyFactory(private val kbusBusPackageName: String, private val logg
                 canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
 
         return commandDependencyProperties.contains(parameter) || disallowedByPackage
-    }
-
-    fun nameForDependency(handlerClass: KSDeclaration): String {
-        return handlerClass.simpleName.asString().replaceFirstChar { it.lowercase() }
     }
 
     private fun createNewDependency(
@@ -126,17 +92,17 @@ class DependencyFactory(private val kbusBusPackageName: String, private val logg
 
         val metadata =
             if (isCommandDependency) {
-                CommandDependencyMetadata(type)
+                CommandDependency(type)
             } else if (cannotBeDependency) {
-                NonDependencyMetadata(type)
+                NonDependency(type)
             } else if (requiresCommandDependencies) {
-                FunctionalDependencyMetadata(type, true)
+                FunctionalDependency(type, true)
             } else {
-                PropertyDependencyMetadata(type)
+                PropertyDependency(type)
             }
 
         val newDependency =
-            DependencyNested(metadata, children?.topLevelChildren ?: emptyList(), isRoot)
+            DependencyWithChildren(metadata, children?.topLevelChildren ?: emptyList(), isRoot)
 
         return NewDependencyWithChildren(
             newDependency,
@@ -160,8 +126,8 @@ class DependencyFactory(private val kbusBusPackageName: String, private val logg
         parentClass: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
     ): ChildrenDependencies {
-        val topLevelDependencies = mutableListOf<DependencyMetadata>()
-        val allDependencies = mutableSetOf<DependencyNested>()
+        val topLevelDependencies = mutableListOf<Dependency>()
+        val allDependencies = mutableSetOf<DependencyWithChildren>()
         var parentIsRoot = false
         var childrenRequireCommandDependencies = false
 
@@ -190,8 +156,9 @@ class DependencyFactory(private val kbusBusPackageName: String, private val logg
     }
 
     private class MutableDependencies : Dependencies {
-        override val topLevelDependencies = mutableListOf<DependencyMetadata>()
-        override val allDependencies = mutableSetOf<DependencyNested>()
+        override val topLevelDependencies = mutableListOf<Dependency>()
+
+        override val allDependencies = mutableSetOf<DependencyWithChildren>()
 
         fun add(dependencies: NewDependencyWithChildren) {
             topLevelDependencies.add(dependencies.newDependency.metadata)
@@ -200,65 +167,20 @@ class DependencyFactory(private val kbusBusPackageName: String, private val logg
     }
 
     private data class NewDependencyWithChildren(
-        val newDependency: DependencyNested,
-        val allChildren: Set<DependencyNested>,
+        val newDependency: DependencyWithChildren,
+        val allChildren: Set<DependencyWithChildren>,
         val parentIsRoot: Boolean,
         val requireCommandDependencies: Boolean,
     ) {
-        fun getAll(): Set<DependencyNested> {
+        fun getAll(): Set<DependencyWithChildren> {
             return setOf(newDependency) + allChildren
         }
     }
 
     private data class ChildrenDependencies(
-        val topLevelChildren: List<DependencyMetadata>,
-        val allDependencies: Set<DependencyNested>,
+        val topLevelChildren: List<Dependency>,
+        val allDependencies: Set<DependencyWithChildren>,
         val parentIsRoot: Boolean,
         val requireCommandDependencies: Boolean,
     )
-}
-
-// TODO add constructorArgs method and make handlerData implement this?
-data class DependencyNested(
-    val metadata: DependencyMetadata,
-    override val topLevelDependencies: List<DependencyMetadata>,
-    val isRoot: Boolean,
-) : HasChildren {
-
-    //    override fun equals(other: Any?): Boolean {
-    //        return other is DependencyNested && metadata == other.metadata
-    //    }
-
-    //    override fun hashCode(): Int {
-    //        var result = isRoot.hashCode()
-    //        result = 31 * result + metadata.hashCode()
-    //        result = 31 * result + topLevelDependencies.hashCode()
-    //        return result
-    //    }
-    //    override fun hashCode(): Int {
-    //        return metadata.hashCode()
-    //    }
-
-    //    val isRoot: Boolean // Do we need non-root deps? What for?
-    //    val requiresCommandDependencies: Boolean // Do we need this? Is it just for creation?
-    //    companion object {
-    //        fun create(
-    //            typeRef: KSType,
-    //            isRoot: Boolean,
-    //            requiresCommandDependencies: Boolean,
-    //            commandDependenciesProps: CommandDependencyProperties,
-    //            constructorDependencies: List<DependencyMetadata>,
-    //        ): DependencyNested {
-    //            val metadata =
-    //                if (commandDependenciesProps.contains(typeRef.declaration)) {
-    //                    CommandDependencyMetadata(typeRef)
-    //                } else if (requiresCommandDependencies) {
-    //                    FunctionalDependencyMetadata(typeRef, requiresCommandDependencies)
-    //                } else {
-    //                    PropertyDependencyMetadata(typeRef)
-    //                }
-    //
-    //            return DependencyNested(metadata, constructorDependencies, isRoot)
-    //        }
-    //    }
 }

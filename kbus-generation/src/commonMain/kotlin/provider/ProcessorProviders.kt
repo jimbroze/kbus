@@ -7,13 +7,13 @@ import com.jimbroze.kbus.core.GenerationHandlerLocator
 import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Middleware
 import com.jimbroze.kbus.core.TransactionManager
-import com.jimbroze.kbus.generation.DependencyFactory
-import com.jimbroze.kbus.generation.HandlerFactory
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
+import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.ContainerInterfaceProcessor
 import com.jimbroze.kbus.generation.processors.MessageProcessor
 

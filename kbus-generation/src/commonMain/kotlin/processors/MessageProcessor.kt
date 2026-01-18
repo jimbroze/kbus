@@ -10,11 +10,11 @@ import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.Load
-import com.jimbroze.kbus.generation.CommandDependencyProperties
-import com.jimbroze.kbus.generation.DependencyFactory
-import com.jimbroze.kbus.generation.HandlerFactory
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
+import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
 
 @Suppress("unused")
@@ -28,10 +28,7 @@ class MessageProcessor(
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val messagesToLoad = resolver.getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
 
-        processMessagesToLoad(
-            messagesToLoad,
-            CommandDependencyProperties.fromResolver(resolver, dependencyFactory),
-        )
+        processMessagesToLoad(messagesToLoad, CommandDependencyProperties.fromResolver(resolver))
 
         return messagesToLoad.filterNot { it.validate() }.toList()
     }
