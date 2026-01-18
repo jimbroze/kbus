@@ -23,7 +23,7 @@ class FixedClock(private var fixedInstant: Instant) : Clock {
 }
 
 @Suppress("unused")
-class ClockFactory(
+class RequiresCommandDepsContainsClock(
     private val clock: Clock,
     private val domainEventPublisher: DomainEventPublisher,
 ) {
@@ -32,11 +32,14 @@ class ClockFactory(
     }
 }
 
-class FunctionalContainsInstant(val clockFactory: ClockFactory, private val now: Instant? = null)
+class RequiresCommandDepsContainsInstant(
+    val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
+    private val now: Instant? = null,
+)
 
 class ContainsString(private val aString: String)
 
-class StringCombinator(
+class ContainsFunctions(
     private val stringCombinerOne: (String, String) -> String,
     private val stringCombinerTwo: (String, String) -> String,
 ) {
@@ -53,13 +56,13 @@ class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, Mes
 @Suppress("unused")
 class TestGeneratorCommandHandler(
     private val locker: BusLocker,
-    private val functionalContainsInstant: FunctionalContainsInstant,
+    private val functionalContainsInstant: RequiresCommandDepsContainsInstant,
     private val containsString: ContainsString,
 ) :
     CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
     override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
-        val clock = functionalContainsInstant.clockFactory.createClock()
+        val clock = functionalContainsInstant.requiresCommandDepsContainsClock.createClock()
         locker.toString()
         return BusResult.success(message.messageData + clock.now().toString())
     }
@@ -70,10 +73,10 @@ class TestDuplicateGeneratorCommand(val messageData: String?) :
 
 @Load
 class TestDuplicateGeneratorCommandHandler(
-    private val clockFactory: ClockFactory,
+    private val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
     private val bus: MessageBus,
     private val aString: TypeAliasString,
-    private val stringCombiner: StringCombinator,
+    private val stringCombiner: ContainsFunctions,
 ) : CommandHandler<TestDuplicateGeneratorCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
         message: TestDuplicateGeneratorCommand
@@ -88,7 +91,7 @@ class TestDuplicateGeneratorCommandHandler(
         val returnMessage =
             stringCombiner.combine(
                 stringOne,
-                clockFactory.createClock().now().toString(),
+                requiresCommandDepsContainsClock.createClock().now().toString(),
                 bus.middlewares.toString(),
             )
 

@@ -85,7 +85,7 @@ class GeneratedHandlerFactory(private val dependencies: IContainer) : IHandlers 
             this.dependencies.clockFactory(commandDependencies),
             this.dependencies.messageBus,
             this.dependencies.typeAliasString,
-            this.dependencies.stringCombinator,
+            this.dependencies.containsFunctions,
         )
     }
 

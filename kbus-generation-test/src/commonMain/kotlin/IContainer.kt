@@ -10,17 +10,19 @@ interface IContainer {
 
     val busLocker: BusLocker
 
-    fun containsInstant(commandDependencies: CommandDependencies): FunctionalContainsInstant
+    fun containsInstant(
+        commandDependencies: CommandDependencies
+    ): RequiresCommandDepsContainsInstant
 
     val containsString: ContainsString
 
-    fun clockFactory(commandDependencies: CommandDependencies): ClockFactory
+    fun clockFactory(commandDependencies: CommandDependencies): RequiresCommandDepsContainsClock
 
     val clock: Clock
 
     val typeAliasString: TypeAliasString
 
-    val stringCombinator: StringCombinator
+    val containsFunctions: ContainsFunctions
 }
 
 interface IHandlers {
