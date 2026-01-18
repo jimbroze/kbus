@@ -14,8 +14,10 @@ interface Dependencies {
     val allDependencies: Set<DependencyWithChildren>
 }
 
-@Suppress("unused")
-class DependencyFactory(private val kbusBusPackageName: String, private val logger: KSPLogger) {
+class DependencyFactory(
+    private val kbusBusPackageName: String,
+    @Suppress("unused") private val logger: KSPLogger,
+) {
 
     fun generateChildDependencies(
         type: KSType,

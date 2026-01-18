@@ -19,7 +19,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
 
 class AutoLoaderGenerator(
     private val codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
+    @Suppress("unused") private val logger: KSPLogger,
     private val loaderInterfaceName: String,
     private val loaderClassName: String,
 ) {
@@ -40,9 +40,9 @@ class AutoLoaderGenerator(
                         dependency.topLevelDependencies,
                         dependency.isRoot,
                     )
-                is PropertyDependency -> continue
-                is CommandDependency -> continue
-                is NonDependency -> continue
+                is PropertyDependency -> Unit
+                is CommandDependency -> Unit
+                is NonDependency -> Unit
             }
         }
 

@@ -20,21 +20,23 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
-import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
+import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
+
+class ContainerGenerators(
+    val containerInterface: ContainerInterfaceGenerator,
+    val handlersInterface: HandlersInterfaceGenerator,
+    val autoLoader: AutoLoaderGenerator,
+    val handlersFactory: HandlersFactoryGenerator,
+    val bus: BusGenerator,
+)
 
 class ContainerInterfaceProcessor(
-    private val logger: KSPLogger,
+    @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
-    private val dependencyFactory: DependencyFactory,
-    private val containerInterfaceGenerator: ContainerInterfaceGenerator,
-    private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
-    private val autoLoaderGenerator: AutoLoaderGenerator,
-    private val handlersFactoryGenerator: HandlersFactoryGenerator,
-    private val busGenerator: BusGenerator,
+    private val generators: ContainerGenerators,
 ) : SymbolProcessor {
-    private val dependencies = HandlersContext()
+    private val dependencies = HandlersAndDependencies()
     private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
     private val containerInterfaces = mutableSetOf<KSClassDeclaration>()
 
@@ -70,19 +72,20 @@ class ContainerInterfaceProcessor(
         // TODO change to user-provided package name with fallback
         val generatedPackagePath = "com.jimbroze.kbus.generated"
 
-        containerInterfaceGenerator.generateCombinedInterface(
+        generators.containerInterface.generateCombinedInterface(
             generatedPackagePath,
             this.containerInterfaces,
         )
-        handlersInterfaceGenerator.generateCombinedInterface(
+        generators.handlersInterface.generateCombinedInterface(
             generatedPackagePath,
             this.handlersInterfaces,
         )
-        autoLoaderGenerator.generateAutoloader(generatedPackagePath, dependencies.allDependencies)
-        handlersFactoryGenerator.generateClass(generatedPackagePath, dependencies.handlers)
-        busGenerator.generateClass(generatedPackagePath, dependencies.handlers)
+        generators.autoLoader.generateAutoloader(generatedPackagePath, dependencies.allDependencies)
+        generators.handlersFactory.generateClass(generatedPackagePath, dependencies.handlers)
+        generators.bus.generateClass(generatedPackagePath, dependencies.handlers)
     }
 
+    // TODO validate duplicates?
     //    private fun validateNoDuplicates(
     //        allDependencies: MutableSet<NestedDependency>,
     //        dependency: NestedDependency,
@@ -99,9 +102,9 @@ class ContainerInterfaceProcessor(
 
     inner class HandlersInterfaceVisitor(
         val commandDependenciesProps: CommandDependencyProperties
-    ) : KSDefaultVisitor<HandlersContext, Unit>() {
+    ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
 
-        override fun defaultHandler(node: KSNode, data: HandlersContext) {
+        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
             error(
                 "Only interfaces can be annotated with @${HandlersInterface::class.simpleName}. " +
                     "$node is not a class"
@@ -110,7 +113,7 @@ class ContainerInterfaceProcessor(
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: HandlersContext,
+            data: HandlersAndDependencies,
         ) {
             if (classDeclaration.classKind != ClassKind.INTERFACE) {
                 error(
@@ -134,14 +137,14 @@ class ContainerInterfaceProcessor(
 
     inner class ContainerInterfaceVisitor(
         val commandDependenciesProps: CommandDependencyProperties
-    ) : KSDefaultVisitor<HandlersContext, Unit>() {
-        override fun defaultHandler(node: KSNode, data: HandlersContext) {
+    ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
             error("Only interfaces can be annotated with @${ContainerInterface::class.simpleName}")
         }
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: HandlersContext,
+            data: HandlersAndDependencies,
         ) {
             if (classDeclaration.classKind != ClassKind.INTERFACE) {
                 error(

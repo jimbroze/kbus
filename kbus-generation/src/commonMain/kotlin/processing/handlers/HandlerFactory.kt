@@ -8,7 +8,10 @@ import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 
-class HandlerFactory(private val logger: KSPLogger, val dependencyFactory: DependencyFactory) {
+class HandlerFactory(
+    @Suppress("unused") private val logger: KSPLogger,
+    val dependencyFactory: DependencyFactory,
+) {
     fun createHandler(
         handlerClass: KSClassDeclaration,
         constructorDependencies: List<Dependency>,

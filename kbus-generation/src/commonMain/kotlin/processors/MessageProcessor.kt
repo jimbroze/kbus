@@ -13,15 +13,12 @@ import com.jimbroze.kbus.annotations.Load
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
-import com.jimbroze.kbus.generation.processors.visitors.HandlersContext
+import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
 
-@Suppress("unused")
 class MessageProcessor(
-    private val logger: KSPLogger,
+    @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
-    private val dependencyFactory: DependencyFactory,
     private val containerInterfaceGenerator: ContainerInterfaceGenerator,
     private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
 ) : SymbolProcessor {
@@ -37,7 +34,7 @@ class MessageProcessor(
         symbols: Sequence<KSAnnotated>,
         commandDependenciesProps: CommandDependencyProperties,
     ) {
-        val handlers = HandlersContext()
+        val handlers = HandlersAndDependencies()
 
         symbols.forEach { it.accept(LoadVisitor(commandDependenciesProps), handlers) }
 
@@ -53,9 +50,9 @@ class MessageProcessor(
     }
 
     inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :
-        KSDefaultVisitor<HandlersContext, Unit>() {
+        KSDefaultVisitor<HandlersAndDependencies, Unit>() {
 
-        override fun defaultHandler(node: KSNode, data: HandlersContext) {
+        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
             error(
                 "Only classes can be annotated with @${Load::class.simpleName}. " +
                     "$node is not a class"
@@ -64,7 +61,7 @@ class MessageProcessor(
 
         override fun visitClassDeclaration(
             classDeclaration: KSClassDeclaration,
-            data: HandlersContext,
+            data: HandlersAndDependencies,
         ) {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 error(

@@ -8,12 +8,14 @@ import com.jimbroze.kbus.core.MessageBus
 import com.jimbroze.kbus.core.Middleware
 import com.jimbroze.kbus.core.TransactionManager
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
+import com.jimbroze.kbus.generation.generators.BusConfig
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
+import com.jimbroze.kbus.generation.processors.ContainerGenerators
 import com.jimbroze.kbus.generation.processors.ContainerInterfaceProcessor
 import com.jimbroze.kbus.generation.processors.MessageProcessor
 
@@ -76,24 +78,25 @@ private fun busGenerator(environment: SymbolProcessorEnvironment) =
     BusGenerator(
         environment.codeGenerator,
         environment.logger,
-        BUS_CLASS_NAME,
-        COMBINED_DEPENDENCIES_INTERFACE_NAME,
-        HANDLER_FACTORY_CLASS_NAME,
-        MessageBus::class,
-        Middleware::class,
-        TransactionManager::class,
-        GenerationHandlerLocator::class,
+        BusConfig(
+            BUS_CLASS_NAME,
+            COMBINED_DEPENDENCIES_INTERFACE_NAME,
+            HANDLER_FACTORY_CLASS_NAME,
+            MessageBus::class,
+            Middleware::class,
+            TransactionManager::class,
+            GenerationHandlerLocator::class,
+        ),
     )
 
 class MessageProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val dependencyFactory = dependencyFactory(environment)
         return MessageProcessor(
-            logger = environment.logger,
-            handlerFactory = handlerFactory(environment, dependencyFactory),
-            dependencyFactory = dependencyFactory,
-            containerInterfaceGenerator = containerInterfaceGenerator(environment),
-            handlersInterfaceGenerator = handlersInterfaceGenerator(environment),
+            environment.logger,
+            handlerFactory(environment, dependencyFactory),
+            containerInterfaceGenerator(environment),
+            handlersInterfaceGenerator(environment),
         )
     }
 }
@@ -102,14 +105,15 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val dependencyFactory = dependencyFactory(environment)
         return ContainerInterfaceProcessor(
-            logger = environment.logger,
-            handlerFactory = handlerFactory(environment, dependencyFactory),
-            dependencyFactory = dependencyFactory,
-            containerInterfaceGenerator = containerInterfaceGenerator(environment),
-            handlersInterfaceGenerator = handlersInterfaceGenerator(environment),
-            autoLoaderGenerator = autoLoaderGenerator(environment),
-            handlersFactoryGenerator = handlersFactoryGenerator(environment),
-            busGenerator = busGenerator(environment),
+            environment.logger,
+            handlerFactory(environment, dependencyFactory),
+            ContainerGenerators(
+                containerInterfaceGenerator(environment),
+                handlersInterfaceGenerator(environment),
+                autoLoaderGenerator(environment),
+                handlersFactoryGenerator(environment),
+                busGenerator(environment),
+            ),
         )
     }
 }

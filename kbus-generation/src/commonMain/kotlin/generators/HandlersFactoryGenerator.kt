@@ -28,7 +28,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
 
 class HandlersFactoryGenerator(
     private val codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
+    @Suppress("unused") private val logger: KSPLogger,
     private val factoryClassName: String,
     private val combinedDependenciesInterfaceName: String,
     private val combinedHandlersInterfaceName: String,

@@ -13,29 +13,37 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asClassName
+import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 import kotlin.reflect.KClass
 
+data class BusConfig(
+    val busClassName: String,
+    val combinedDependenciesInterfaceName: String,
+    val handlerFactoryName: String,
+    val busSuperClass: KClass<*>,
+    val middlewareClass: KClass<*>,
+    val transactionManagerClass: KClass<*>,
+    val handlerLocatorInterface: KClass<*>,
+)
+
 class BusGenerator(
     private val codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
-    private val busClassName: String,
-    private val combinedDependenciesInterfaceName: String,
-    private val handlerFactoryName: String,
-    private val busSuperClass: KClass<*>,
-    private val middlewareClass: KClass<*>,
-    private val transactionManagerClass: KClass<*>,
-    private val handlerLocatorInterface: KClass<*>,
+    @Suppress("unused") private val logger: KSPLogger,
+    private val config: BusConfig,
 ) {
     fun generateClass(packagePath: String, handlers: Set<HandlerDefinition>) {
-        val dependenciesClassName = ClassName(packagePath, combinedDependenciesInterfaceName)
-        val handlerFactoryClassName = ClassName(packagePath, handlerFactoryName)
+        val dependenciesClassName = ClassName(packagePath, config.combinedDependenciesInterfaceName)
+        val handlerFactoryClassName = ClassName(packagePath, config.handlerFactoryName)
 
         val classBuilder =
-            TypeSpec.classBuilder(busClassName)
-                .superclass(busSuperClass)
-                .addSuperclassConstructorParameter("%T(handlerFactory)", handlerLocatorInterface)
+            TypeSpec.classBuilder(config.busClassName)
+                .superclass(config.busSuperClass)
+                .addSuperclassConstructorParameter(
+                    "%T(handlerFactory)",
+                    config.handlerLocatorInterface,
+                )
                 .addSuperclassConstructorParameter("transactionManager")
                 .addSuperclassConstructorParameter("middleware")
 
@@ -44,10 +52,11 @@ class BusGenerator(
                 FunSpec.constructorBuilder()
                     .addModifiers(KModifier.PRIVATE)
                     .addParameter("handlerFactory", handlerFactoryClassName)
-                    .addParameter("transactionManager", transactionManagerClass)
+                    .addParameter("transactionManager", config.transactionManagerClass)
                     .addParameter(
                         "middleware",
-                        List::class.asClassName().parameterizedBy(middlewareClass.asClassName()),
+                        List::class.asClassName()
+                            .parameterizedBy(config.middlewareClass.asClassName()),
                     )
                     .build()
             )
@@ -60,10 +69,11 @@ class BusGenerator(
             .addFunction(
                 FunSpec.constructorBuilder()
                     .addParameter("loader", dependenciesClassName)
-                    .addParameter("transactionManager", transactionManagerClass)
+                    .addParameter("transactionManager", config.transactionManagerClass)
                     .addParameter(
                         "middleware",
-                        List::class.asClassName().parameterizedBy(middlewareClass.asClassName()),
+                        List::class.asClassName()
+                            .parameterizedBy(config.middlewareClass.asClassName()),
                     )
                     .callThisConstructor(
                         CodeBlock.of("%T(loader)", handlerFactoryClassName),
@@ -75,7 +85,7 @@ class BusGenerator(
 
         handlers.forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
 
-        val file = FileSpec.builder(packagePath, busClassName)
+        val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
@@ -93,8 +103,10 @@ class BusGenerator(
         val processMethod = handler.processorMethodName
 
         val factoryParameters = handler.functionParameters.joinToString(", ") { it.name }
-        val lambdaParamsFormat = handler.functionParameters.joinToString(", ") { "${it.name}: %T" }
-        val lambdaParamTypes = handler.functionParameters.map { it.typeRef }.toTypedArray()
+        val factoryParametersWithTypes =
+            handler.functionParameters
+                .map { parameter -> CodeBlock.of("${parameter.name}: %T", parameter.typeRef) }
+                .joinToCode(", ")
 
         val functionBuilder =
             FunSpec.builder(processMethod)
@@ -104,10 +116,7 @@ class BusGenerator(
 
         functionBuilder.addCode(
             CodeBlock.builder()
-                .beginControlFlow(
-                    "val handlerCreator = { $lambdaParamsFormat ->",
-                    *lambdaParamTypes,
-                )
+                .beginControlFlow("val handlerCreator = { %L ->", factoryParametersWithTypes)
                 .addStatement(
                     "handlerFactory.%L($factoryParameters)",
                     handler.handlerData.nameAsDependency,

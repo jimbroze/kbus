@@ -19,7 +19,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
 
 class ContainerInterfaceGenerator(
     private val codeGenerator: CodeGenerator,
-    private val logger: KSPLogger,
+    @Suppress("unused") private val logger: KSPLogger,
     private val loaderInterfaceName: String,
     private val combinedInterfaceName: String,
 ) {
@@ -43,8 +43,8 @@ class ContainerInterfaceGenerator(
             when (val metadata = dependency.metadata) {
                 is FunctionalDependency -> this.addFunctionalDependency(interfaceBuilder, metadata)
                 is PropertyDependency -> this.addPropertyDependency(interfaceBuilder, metadata)
-                is CommandDependency -> continue
-                is NonDependency -> continue
+                is CommandDependency -> Unit
+                is NonDependency -> Unit
             }
         }
 

@@ -7,7 +7,7 @@ import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildr
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 
-class HandlersContext {
+class HandlersAndDependencies {
     private val _allDependencies = mutableSetOf<DependencyWithChildren>()
     private val _handlers = mutableSetOf<HandlerDefinition>()
 
