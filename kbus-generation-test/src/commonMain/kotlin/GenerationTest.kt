@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.annotations.Load
+import com.jimbroze.kbus.annotations.LoadMessageHandler
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import com.jimbroze.kbus.core.messages.command.Command
@@ -52,7 +52,7 @@ typealias TypeAliasString = String
 
 class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
-@Load
+@LoadMessageHandler
 @Suppress("unused")
 class TestGeneratorCommandHandler(
     private val locker: BusLocker,
@@ -72,7 +72,7 @@ class TestDuplicateGeneratorCommand(val messageData: String?) :
     Command<BusResult<Any, MessageFailure>>()
 
 @Suppress("unused")
-@Load
+@LoadMessageHandler
 class TestDuplicateGeneratorCommandHandler(
     private val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
     private val bus: MessageBus,
@@ -103,7 +103,7 @@ class TestDuplicateGeneratorCommandHandler(
 class TestGeneratorQuery(val messageData: String, val moreMessageData: String) :
     Query<BusResult<Any, MessageFailure>>()
 
-@Load
+@LoadMessageHandler
 class TestGeneratorQueryHandler(private val locker: BusLocker, private val clock: Clock) :
     QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, MessageFailure> {

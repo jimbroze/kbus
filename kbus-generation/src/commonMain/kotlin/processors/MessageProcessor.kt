@@ -9,14 +9,12 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.annotations.Load
+import com.jimbroze.kbus.annotations.LoadMessageHandler
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
-
-// FIXME go through TODOs
 
 class MessageProcessor(
     @Suppress("unused") private val logger: KSPLogger,
@@ -25,7 +23,8 @@ class MessageProcessor(
     private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val messagesToLoad = resolver.getSymbolsWithAnnotation(Load::class.qualifiedName.toString())
+        val messagesToLoad =
+            resolver.getSymbolsWithAnnotation(LoadMessageHandler::class.qualifiedName.toString())
 
         processMessagesToLoad(messagesToLoad, CommandDependencyProperties.fromResolver(resolver))
 
@@ -56,7 +55,7 @@ class MessageProcessor(
 
         override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
             error(
-                "Only classes can be annotated with @${Load::class.simpleName}. " +
+                "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
                     "$node is not a class"
             )
         }
@@ -67,7 +66,7 @@ class MessageProcessor(
         ) {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 error(
-                    "Only classes can be annotated with @${Load::class.simpleName}. " +
+                    "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
                         "$classDeclaration is a ${classDeclaration.classKind}"
                 )
             }
