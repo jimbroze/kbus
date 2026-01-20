@@ -4,8 +4,27 @@ import com.google.devtools.ksp.symbol.KSType
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import kotlin.reflect.KClass
 
+enum class DependencyType {
+    PROPERTY,
+    FUNCTIONAL,
+}
+
 // TODO names for same declaration with different type args
 sealed interface Dependency {
+    companion object {
+        fun fromDependencyType(
+            dependencyType: DependencyType,
+            typeRef: KSType,
+            requiresCommandDependencies: Boolean,
+        ): Dependency {
+            return when (dependencyType) {
+                DependencyType.PROPERTY -> PropertyDependency(typeRef)
+                DependencyType.FUNCTIONAL ->
+                    FunctionalDependency(typeRef, requiresCommandDependencies)
+            }
+        }
+    }
+
     val name: String
         get() = typeRef.declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
 

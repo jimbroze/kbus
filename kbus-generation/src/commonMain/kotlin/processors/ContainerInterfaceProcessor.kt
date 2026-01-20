@@ -20,6 +20,7 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyType
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
 
@@ -69,7 +70,6 @@ class ContainerInterfaceProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        // TODO change to user-provided package name with fallback
         val generatedPackagePath = "com.jimbroze.kbus.generated"
 
         generators.containerInterface.generateCombinedInterface(
@@ -153,12 +153,15 @@ class ContainerInterfaceProcessor(
                 )
             }
 
-            // TODO override dependency type (fun/val/name) using interface
-            // TODO getAllUserFunctions???
-            val functionDependencies = classDeclaration.getAllFunctions()
+            val functionDependencies = classDeclaration.getAllUserFunctions()
             for (functionDependency in functionDependencies) {
                 val dependencyTypeRef = functionDependency.returnType ?: continue
-                data.addDependency(dependencyTypeRef, commandDependenciesProps, handlerFactory)
+                data.addDependency(
+                    dependencyTypeRef,
+                    commandDependenciesProps,
+                    handlerFactory,
+                    DependencyType.FUNCTIONAL,
+                )
             }
 
             val propertyDependencies = classDeclaration.getAllProperties()
@@ -167,6 +170,7 @@ class ContainerInterfaceProcessor(
                     propertyDependency.type,
                     commandDependenciesProps,
                     handlerFactory,
+                    DependencyType.PROPERTY,
                 )
             }
 

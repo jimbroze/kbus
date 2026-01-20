@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.processors.visitors
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyType
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -40,12 +41,13 @@ class HandlersAndDependencies {
         dependencyTypeRef: KSTypeReference,
         commandDependenciesProps: CommandDependencyProperties,
         handlerFactory: HandlerFactory,
+        dependencyTypeOverride: DependencyType? = null,
     ) {
-        val dependencyType = dependencyTypeRef.resolve()
         val dependencies =
             handlerFactory.dependencyFactory.generateDependencyWithChildren(
-                dependencyType,
+                dependencyTypeRef.resolve(),
                 commandDependenciesProps,
+                dependencyTypeOverride,
             )
 
         _allDependencies.addAll(dependencies.allDependencies)

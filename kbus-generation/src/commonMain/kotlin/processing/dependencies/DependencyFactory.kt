@@ -39,9 +39,12 @@ class DependencyFactory(
     fun generateDependencyWithChildren(
         type: KSType,
         commandDependenciesProps: CommandDependencyProperties,
+        dependencyTypeOverride: DependencyType? = null,
     ): Dependencies {
         val dependencies = MutableDependencies()
-        dependencies.add(createNewDependency(commandDependenciesProps, type = type))
+        dependencies.add(
+            createNewDependency(commandDependenciesProps, type, dependencyTypeOverride)
+        )
 
         return dependencies
     }
@@ -71,6 +74,7 @@ class DependencyFactory(
     private fun createNewDependency(
         commandDependenciesProps: CommandDependencyProperties,
         type: KSType,
+        dependencyTypeOverride: DependencyType? = null,
     ): NewDependencyWithChildren {
         val parameter = type.declaration
 
@@ -97,6 +101,12 @@ class DependencyFactory(
                 CommandDependency(type)
             } else if (cannotBeDependency) {
                 NonDependency(type)
+            } else if (dependencyTypeOverride != null) {
+                Dependency.fromDependencyType(
+                    dependencyTypeOverride,
+                    type,
+                    requiresCommandDependencies,
+                )
             } else if (requiresCommandDependencies) {
                 FunctionalDependency(type, true)
             } else {
