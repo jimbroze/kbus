@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.generation.processing.dependencies
 
 import com.google.devtools.ksp.symbol.KSType
-import com.jimbroze.kbus.core.CommandDependencies
+import com.jimbroze.kbus.core.uow.CommandDependencies
 import kotlin.reflect.KClass
 
 // TODO names for same declaration with different type args

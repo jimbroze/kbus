@@ -3,11 +3,11 @@ package com.jimbroze.kbus.generation.provider
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
-import com.jimbroze.kbus.core.BaseMessageBus
-import com.jimbroze.kbus.core.GenerationHandlerLocator
-import com.jimbroze.kbus.core.MessageBus
-import com.jimbroze.kbus.core.Middleware
-import com.jimbroze.kbus.core.TransactionManager
+import com.jimbroze.kbus.core.bus.BaseMessageBus
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.registry.GenerationHandlerLocator
+import com.jimbroze.kbus.core.uow.TransactionManager
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusConfig
 import com.jimbroze.kbus.generation.generators.BusGenerator

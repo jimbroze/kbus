@@ -1,9 +1,10 @@
 package com.jimbroze.kbus.core.domain
 
-import com.jimbroze.kbus.core.BusResult
-import com.jimbroze.kbus.core.Command
-import com.jimbroze.kbus.core.CommandHandler
-import com.jimbroze.kbus.core.MessageFailure
+import com.jimbroze.kbus.core.messages.command.Command
+import com.jimbroze.kbus.core.messages.command.CommandHandler
+import com.jimbroze.kbus.core.middleware.middleware.InvariantCatcherMiddleware
+import com.jimbroze.kbus.core.result.BusResult
+import com.jimbroze.kbus.core.result.MessageFailure
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -58,7 +59,7 @@ class InvalidInvariantsCommandHandler :
 class InvariantsTest {
     @Test
     fun invariant_catcher_only_processes_invariant_catching_Message() = runTest {
-        val catcher = InvalidInvariantCatcher()
+        val catcher = InvariantCatcherMiddleware()
 
         assertFailsWith<InvalidInvariantException>("Failure message") {
             catcher.handle(InvalidInvariantsCommand(InvalidInvariantException("Failure message"))) {
@@ -69,7 +70,7 @@ class InvariantsTest {
 
     @Test
     fun invariant_catcher_converts_invalid_invariant_exception_to_result_failure() = runTest {
-        val catcher = InvalidInvariantCatcher()
+        val catcher = InvariantCatcherMiddleware()
 
         val result =
             catcher.handle(

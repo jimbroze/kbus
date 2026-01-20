@@ -1,16 +1,16 @@
 package com.jimbroze.kbus.generation.test
 
 import com.jimbroze.kbus.annotations.Load
-import com.jimbroze.kbus.core.BusLocker
-import com.jimbroze.kbus.core.BusResult
-import com.jimbroze.kbus.core.Command
-import com.jimbroze.kbus.core.CommandHandler
-import com.jimbroze.kbus.core.ExecuteInTransaction
-import com.jimbroze.kbus.core.MessageBus
-import com.jimbroze.kbus.core.MessageFailure
-import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.core.QueryHandler
+import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.domain.DomainEventPublisher
+import com.jimbroze.kbus.core.messages.command.Command
+import com.jimbroze.kbus.core.messages.command.CommandHandler
+import com.jimbroze.kbus.core.messages.query.Query
+import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.core.middleware.middleware.BusLocker
+import com.jimbroze.kbus.core.result.BusResult
+import com.jimbroze.kbus.core.result.MessageFailure
+import com.jimbroze.kbus.core.uow.ExecuteInTransaction
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 

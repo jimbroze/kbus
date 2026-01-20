@@ -1,21 +1,21 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.core.Command
-import com.jimbroze.kbus.core.CommandDependencies
-import com.jimbroze.kbus.core.CommandHandler
-import com.jimbroze.kbus.core.DomainEventMapper
-import com.jimbroze.kbus.core.Event
-import com.jimbroze.kbus.core.EventHandler
-import com.jimbroze.kbus.core.EventMapper
-import com.jimbroze.kbus.core.EventMapperProvider
-import com.jimbroze.kbus.core.InlineIntegrationEventMapper
-import com.jimbroze.kbus.core.IntegrationEventMapper
-import com.jimbroze.kbus.core.KBusResult
-import com.jimbroze.kbus.core.MessageHandlerFactoryStore
-import com.jimbroze.kbus.core.MessageHandlerLocator
-import com.jimbroze.kbus.core.PersistingEventFactory
-import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.core.QueryHandler
+import com.jimbroze.kbus.core.messages.command.Command
+import com.jimbroze.kbus.core.messages.command.CommandHandler
+import com.jimbroze.kbus.core.messages.event.Event
+import com.jimbroze.kbus.core.messages.event.EventHandler
+import com.jimbroze.kbus.core.messages.query.Query
+import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.EventMapper
+import com.jimbroze.kbus.core.registry.EventMapperProvider
+import com.jimbroze.kbus.core.registry.InlineIntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.MessageHandlerFactoryStore
+import com.jimbroze.kbus.core.registry.MessageHandlerLocator
+import com.jimbroze.kbus.core.registry.PersistingEventFactory
+import com.jimbroze.kbus.core.result.KBusResult
+import com.jimbroze.kbus.core.uow.CommandDependencies
 
 class GeneratedHandlerLocator(val generatedHandlerFactory: GeneratedHandlerFactory) :
     MessageHandlerLocator, EventMapperProvider {

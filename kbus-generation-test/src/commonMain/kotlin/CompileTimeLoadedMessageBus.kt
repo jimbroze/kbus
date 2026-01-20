@@ -1,11 +1,11 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.core.BaseMessageBus
-import com.jimbroze.kbus.core.BusResult
-import com.jimbroze.kbus.core.CommandDependencies
-import com.jimbroze.kbus.core.MessageFailure
-import com.jimbroze.kbus.core.Middleware
-import com.jimbroze.kbus.core.TransactionManager
+import com.jimbroze.kbus.core.bus.BaseMessageBus
+import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.result.BusResult
+import com.jimbroze.kbus.core.result.MessageFailure
+import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.jimbroze.kbus.core.uow.TransactionManager
 
 // TODO change to decorator Requires MessageBus interface
 class CompileTimeLoadedMessageBus

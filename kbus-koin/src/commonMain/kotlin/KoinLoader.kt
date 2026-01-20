@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.koin
 
-import com.jimbroze.kbus.core.RuntimeDependencyLoader
+import com.jimbroze.kbus.core.registry.RuntimeDependencyLoader
 import kotlin.reflect.KClass
 import org.koin.core.Koin
 

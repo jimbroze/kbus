@@ -1,13 +1,13 @@
 package com.jimbroze.kbus.generation.processing.handlers
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.jimbroze.kbus.core.Command
-import com.jimbroze.kbus.core.CommandDependencies
-import com.jimbroze.kbus.core.CommandHandler
-import com.jimbroze.kbus.core.Message
-import com.jimbroze.kbus.core.MessageHandler
-import com.jimbroze.kbus.core.Query
-import com.jimbroze.kbus.core.QueryHandler
+import com.jimbroze.kbus.core.common.Message
+import com.jimbroze.kbus.core.common.MessageHandler
+import com.jimbroze.kbus.core.messages.command.Command
+import com.jimbroze.kbus.core.messages.command.CommandHandler
+import com.jimbroze.kbus.core.messages.query.Query
+import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
 import kotlin.reflect.KClass
 

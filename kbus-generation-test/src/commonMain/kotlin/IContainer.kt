@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.core.BusLocker
-import com.jimbroze.kbus.core.CommandDependencies
-import com.jimbroze.kbus.core.MessageBus
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.middleware.middleware.BusLocker
+import com.jimbroze.kbus.core.uow.CommandDependencies
 import kotlinx.datetime.Clock
 
 interface IContainer {

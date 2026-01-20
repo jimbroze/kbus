@@ -1,11 +1,8 @@
 package com.jimbroze.kbus.core.domain
 
-import com.jimbroze.kbus.core.FailureReason
-import com.jimbroze.kbus.core.KBusResult
-import com.jimbroze.kbus.core.Message
-import com.jimbroze.kbus.core.Middleware
-import com.jimbroze.kbus.core.MiddlewareHandler
-import com.jimbroze.kbus.core.ResultReturningMessage
+import com.jimbroze.kbus.core.common.ResultReturningMessage
+import com.jimbroze.kbus.core.result.FailureReason
+import com.jimbroze.kbus.core.result.KBusResult
 
 open class InvalidInvariantException(override val message: String) : Throwable(message)
 
@@ -32,21 +29,4 @@ interface InvariantCatchingMessage<TResult : KBusResult> : ResultReturningMessag
     fun invariantFailure(failure: InvalidInvariantFailureReason): TResult
 
     fun handleException(exception: InvalidInvariantException): InvalidInvariantFailureReason
-}
-
-class InvalidInvariantCatcher : Middleware {
-    override suspend fun <TMessage : Message, TResult> handle(
-        message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
-    ): TResult {
-        if (message !is InvariantCatchingMessage<*>) return nextMiddleware(message)
-
-        @Suppress("UNCHECKED_CAST")
-        return try {
-            nextMiddleware(message)
-        } catch (e: InvalidInvariantException) {
-            message.invariantFailure(message.handleException(e))
-        }
-            as TResult
-    }
 }

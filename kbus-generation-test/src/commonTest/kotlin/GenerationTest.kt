@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.generation
 
-import com.jimbroze.kbus.core.BusLocker
-import com.jimbroze.kbus.core.CommandDependencies
-import com.jimbroze.kbus.core.EmptyTransactionManager
-import com.jimbroze.kbus.core.MessageBus
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.middleware.middleware.BusLocker
+import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generation.test.ContainsFunctions
