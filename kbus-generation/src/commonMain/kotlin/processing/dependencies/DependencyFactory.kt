@@ -144,7 +144,6 @@ class DependencyFactory(
         var childrenRequireCommandDependencies = false
 
         for (childParameter in parentClass.primaryConstructor?.parameters.orEmpty()) {
-            // TODO if in allDependencies, get metadata from there and don't recreate
             val childWithChildren =
                 createNewDependency(commandDependenciesProps, type = childParameter.type.resolve())
 

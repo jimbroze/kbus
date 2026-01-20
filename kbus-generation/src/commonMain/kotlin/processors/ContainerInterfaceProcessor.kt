@@ -85,21 +85,6 @@ class ContainerInterfaceProcessor(
         generators.bus.generateClass(generatedPackagePath, dependencies.handlers)
     }
 
-    // TODO validate duplicates?
-    //    private fun validateNoDuplicates(
-    //        allDependencies: MutableSet<NestedDependency>,
-    //        dependency: NestedDependency,
-    //    ) {
-    //        val matches = allDependencies.filter { other -> dependency.isDuplicateOf(other) }
-    //        if (matches.isNotEmpty()) {
-    //            val dependencyName = dependency.declaration.simpleName.asString()
-    //            logger.error(
-    //                "Tried to generate multiple dependencies for $dependencyName",
-    //                dependency.declaration,
-    //            )
-    //        }
-    //    }
-
     inner class HandlersInterfaceVisitor(
         val commandDependenciesProps: CommandDependencyProperties
     ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
@@ -127,7 +112,12 @@ class ContainerInterfaceProcessor(
                 val handlerDeclaration =
                     handlerFunction.returnType?.resolve()?.declaration as? KSClassDeclaration
                 if (handlerDeclaration != null) {
-                    data.addHandler(handlerDeclaration, commandDependenciesProps, handlerFactory)
+                    data.addHandler(
+                        handlerDeclaration,
+                        commandDependenciesProps,
+                        handlerFactory,
+                        logger,
+                    )
                 }
             }
 
@@ -160,6 +150,7 @@ class ContainerInterfaceProcessor(
                     dependencyTypeRef,
                     commandDependenciesProps,
                     handlerFactory,
+                    logger,
                     DependencyType.FUNCTIONAL,
                 )
             }
@@ -170,6 +161,7 @@ class ContainerInterfaceProcessor(
                     propertyDependency.type,
                     commandDependenciesProps,
                     handlerFactory,
+                    logger,
                     DependencyType.PROPERTY,
                 )
             }

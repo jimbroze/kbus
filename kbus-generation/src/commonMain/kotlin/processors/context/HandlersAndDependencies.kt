@@ -1,8 +1,10 @@
 package com.jimbroze.kbus.generation.processors.visitors
 
+import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
+import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyType
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
@@ -22,6 +24,7 @@ class HandlersAndDependencies {
         classDeclaration: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
         handlerFactory: HandlerFactory,
+        logger: KSPLogger,
     ) {
         val dependencies =
             handlerFactory.dependencyFactory.generateChildDependencies(
@@ -33,6 +36,7 @@ class HandlersAndDependencies {
             handlerFactory.createHandler(classDeclaration, dependencies.topLevelDependencies)
                 ?: return
 
+        validateNoDuplicates(dependencies, logger)
         _handlers.add(handler)
         _allDependencies.addAll(dependencies.allDependencies)
     }
@@ -41,6 +45,7 @@ class HandlersAndDependencies {
         dependencyTypeRef: KSTypeReference,
         commandDependenciesProps: CommandDependencyProperties,
         handlerFactory: HandlerFactory,
+        logger: KSPLogger,
         dependencyTypeOverride: DependencyType? = null,
     ) {
         val dependencies =
@@ -50,8 +55,26 @@ class HandlersAndDependencies {
                 dependencyTypeOverride,
             )
 
+        validateNoDuplicates(dependencies, logger)
         _allDependencies.addAll(dependencies.allDependencies)
     }
 
-    fun isEmpty() = handlers.isEmpty()
+    fun isEmpty() = handlers.isEmpty() && allDependencies.isEmpty()
+
+    private fun validateNoDuplicates(dependencies: Dependencies, logger: KSPLogger) {
+        for (dependency in dependencies.allDependencies) {
+            val isDuplicate =
+                allDependencies.any { other ->
+                    dependency.metadata.hasConflictingNameWith(other.metadata)
+                }
+
+            if (isDuplicate) {
+                val dependencyName = dependency.metadata.name
+                logger.error(
+                    "Tried to generate multiple dependencies for $dependencyName",
+                    dependency.metadata.typeRef.declaration,
+                )
+            }
+        }
+    }
 }

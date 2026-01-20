@@ -71,8 +71,7 @@ class MessageProcessor(
                 )
             }
 
-            // TODO don't like that this modifies data. Move to visitor context!!?
-            data.addHandler(classDeclaration, commandDependenciesProps, handlerFactory)
+            data.addHandler(classDeclaration, commandDependenciesProps, handlerFactory, logger)
         }
     }
 }

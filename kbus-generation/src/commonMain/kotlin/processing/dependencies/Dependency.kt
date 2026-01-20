@@ -25,6 +25,10 @@ sealed interface Dependency {
         }
     }
 
+    fun hasConflictingNameWith(other: Dependency): Boolean {
+        return this.name == other.name && this != other
+    }
+
     val name: String
         get() = typeRef.declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
 
