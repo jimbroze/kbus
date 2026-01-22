@@ -29,6 +29,7 @@ class HandlersAndDependencies {
         val dependencies =
             handlerFactory.dependencyFactory.generateChildDependencies(
                 classDeclaration.asStarProjectedType(),
+                classDeclaration,
                 commandDependenciesProps,
             )
 

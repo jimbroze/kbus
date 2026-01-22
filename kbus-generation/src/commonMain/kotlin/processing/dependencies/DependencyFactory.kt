@@ -22,16 +22,18 @@ class DependencyFactory(
 ) {
 
     fun generateChildDependencies(
-        type: KSType,
+        classType: KSType,
+        classDeclaration: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
     ): Dependencies {
-        val parameter = type.declaration as KSClassDeclaration
+        if (classType.declaration != classDeclaration)
+            error("Provided class type and declaration do not match")
 
         val dependencies = MutableDependencies()
 
-        for (childParameter in parameter.primaryConstructor?.parameters.orEmpty()) {
-            val childType = resolveConstructorParameterType(childParameter, type)
-            dependencies.add(createNewDependency(commandDependenciesProps, type = childType))
+        for (childParameter in classDeclaration.primaryConstructor?.parameters.orEmpty()) {
+            val childType = resolveConstructorParameterType(childParameter, classType)
+            dependencies.add(createNewDependency(commandDependenciesProps, childType))
         }
 
         return dependencies
@@ -82,7 +84,7 @@ class DependencyFactory(
 
         val cannotBeDependency = cannotBeDependency(parameter, commandDependenciesProps)
 
-        // TODO Move resolveConstructorParameterType calls?
+        // FIXME Move resolveConstructorParameterType calls?
         val children =
             if (shouldFindChildren(!cannotBeDependency, parameter))
                 getNewChildren(type, parameter, commandDependenciesProps)
@@ -142,6 +144,9 @@ class DependencyFactory(
         parentClass: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
     ): ChildrenDependencies {
+        if (parentType.declaration != parentClass)
+            error("Provided parent type and declaration do not match")
+
         val topLevelDependencies = mutableListOf<Dependency>()
         val allDependencies = mutableSetOf<DependencyWithChildren>()
         var parentIsRoot = false
