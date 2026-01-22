@@ -25,14 +25,15 @@ sealed interface Dependency {
         }
     }
 
+    val requiresCommandDependencies: Boolean
+
+    // TODO combine with dep factory naming function. Combine interfaces??
+    val name: String
+        get() = getNameForType(typeRef)
+
     fun hasConflictingNameWith(other: Dependency): Boolean {
         return this.name == other.name && this != other
     }
-
-    // TODO combine with dep factory naming function. Combine interfaces??
-    // TODO handle typealias' using alias name
-    val name: String
-        get() = getNameForType(typeRef)
 
     private fun getNameForType(type: KSType, isNested: Boolean = false): String {
         val declarationName = type.declaration.simpleName.asString()
@@ -57,11 +58,13 @@ sealed interface Dependency {
         get() = "$prefix$name"
 }
 
-data class PropertyDependency(override val typeRef: KSType) : Dependency
+data class PropertyDependency(override val typeRef: KSType) : Dependency {
+    override val requiresCommandDependencies = false
+}
 
 data class FunctionalDependency(
     override val typeRef: KSType,
-    private val requiresCommandDependencies: Boolean,
+    override val requiresCommandDependencies: Boolean,
 ) : Dependency {
     data class DependencyConstructorParameters(val name: String, val typeRef: KClass<*>)
 
@@ -85,9 +88,12 @@ data class FunctionalDependency(
 
 data class CommandDependency(override val typeRef: KSType) : Dependency {
     override val prefix = "commandDependencies."
+    override val requiresCommandDependencies = false
 }
 
 data class NonDependency(override val typeRef: KSType) : Dependency {
     override val prefix
         get() = error("This dependency should not be used: $typeRef")
+
+    override val requiresCommandDependencies = false
 }

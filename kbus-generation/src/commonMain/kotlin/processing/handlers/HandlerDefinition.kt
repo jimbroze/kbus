@@ -57,7 +57,17 @@ data class CommandHandlerDefinition(override val handlerData: HandlerData) : Han
             )
 }
 
+// TODO is error() and require() ok or better UX for errors? Use Logger?
 data class QueryHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
+    init {
+        val commandDependencyOrNull =
+            handlerData.topLevelDependencies.firstOrNull { it.requiresCommandDependencies }
+        require(commandDependencyOrNull == null) {
+            "Query handlers cannot have command dependencies. " +
+                "${handlerData.handlerClass.simpleName} contains $commandDependencyOrNull"
+        }
+    }
+
     override val handlerBaseClass
         get() = QueryHandler::class
 

@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.generation.test
 
 import com.jimbroze.kbus.annotations.LoadMessageHandler
+import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import com.jimbroze.kbus.core.messages.command.Command
@@ -37,37 +38,42 @@ class RequiresCommandDepsContainsInstant(
     private val now: Instant? = null,
 )
 
-class ContainsString(private val aString: String)
-
-class ContainsFunctions(
-    private val stringCombinerOne: (String, String) -> String,
-    private val stringCombinerTwo: (String, String) -> String,
-) {
-    fun combine(stringOne: String, stringTwo: String, stringThree: String): String {
-        return stringCombinerTwo(stringCombinerOne(stringOne, stringTwo), stringThree)
-    }
-}
+@Suppress("unused") class ContainsString(private val aString: String)
 
 typealias TypeAliasString = String
+
+typealias TypeAliasStringCombiner = (String, String) -> String
+
+@Suppress("unused")
+class ContainsFunctions(
+    private val stringCombinerOne: (String, String) -> String,
+    private val stringCombinerTwo: TypeAliasStringCombiner,
+)
+
+@Suppress("unused")
+class ContainsTypeAliases(
+    private val aliasString: TypeAliasString,
+    private val aliasFunction: TypeAliasStringCombiner,
+)
 
 class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
 class GenericClass<T>(val data: T)
 
+// TODO organise deps into handlers
 @LoadMessageHandler
 @Suppress("unused")
-class TestGeneratorCommandHandler(
-    private val locker: BusLocker,
+class NestedClassesCommandHandler(
     private val functionalContainsInstant: RequiresCommandDepsContainsInstant,
     private val containsString: ContainsString,
-    private val genericClassString: GenericClass<String>,
+    private val containsFunctions: ContainsFunctions,
+    private val containsTypeAliases: ContainsTypeAliases,
+    private val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
 ) :
     CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
     override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
-        val clock = functionalContainsInstant.requiresCommandDepsContainsClock.createClock()
-        locker.toString()
-        return BusResult.success(message.messageData + clock.now().toString())
+        return BusResult.success("success")
     }
 }
 
@@ -87,44 +93,57 @@ class GenericClassCommandHandler(
     }
 }
 
-class TestDuplicateGeneratorCommand(val messageData: String?) :
+class OtherClassesCommandCommand(val messageData: String?) :
     Command<BusResult<Any, MessageFailure>>()
 
 @Suppress("unused")
 @LoadMessageHandler
-class TestDuplicateGeneratorCommandHandler(
-    private val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
-    private val bus: MessageBus,
-    private val aString: TypeAliasString,
-    private val stringCombiner: ContainsFunctions,
-) : CommandHandler<TestDuplicateGeneratorCommand, BusResult<Any, MessageFailure>>() {
+class OtherClassesCommandHandler(private val locker: BusLocker, private val bus: MessageBus) :
+    CommandHandler<OtherClassesCommandCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
-        message: TestDuplicateGeneratorCommand
+        message: OtherClassesCommandCommand
     ): BusResult<Any, MessageFailure> {
-        val stringOne =
-            if (message.messageData === null) {
-                "Null message $aString"
-            } else {
-                message.messageData + aString
-            }
+        return BusResult.success("success")
+    }
+}
 
-        val returnMessage =
-            stringCombiner.combine(
-                stringOne,
-                requiresCommandDepsContainsClock.createClock().now().toString(),
-                "[]",
-            )
+class InterfacesCommandCommand(val messageData: String?) :
+    Command<BusResult<Any, MessageFailure>>()
 
-        return BusResult.success(returnMessage)
+@Suppress("unused")
+@LoadMessageHandler
+class InterfacesCommandHandler(private val bus: BaseMessageBus, private val clock: Clock) :
+    CommandHandler<InterfacesCommandCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: InterfacesCommandCommand): BusResult<Any, MessageFailure> {
+        return BusResult.success("success")
+    }
+}
+
+class NonClassTypesCommand(val messageData: String?) : Command<BusResult<Any, MessageFailure>>()
+
+@Suppress("unused")
+@LoadMessageHandler
+class NonClassTypesCommandHandler(
+    private val stringTypeAlias: TypeAliasString,
+    private val stringCombiner: TypeAliasStringCombiner,
+) : CommandHandler<NonClassTypesCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: NonClassTypesCommand): BusResult<Any, MessageFailure> {
+        return BusResult.success("success")
     }
 }
 
 class TestGeneratorQuery(val messageData: String, val moreMessageData: String) :
     Query<BusResult<Any, MessageFailure>>()
 
+@Suppress("unused")
 @LoadMessageHandler
-class TestGeneratorQueryHandler(private val locker: BusLocker, private val clock: Clock) :
-    QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>>() {
+class TestGeneratorQueryHandler(
+    private val locker: BusLocker,
+    private val clock: Clock,
+    private val genericClassString: GenericClass<String>,
+    private val stringCombiner: TypeAliasStringCombiner,
+    private val containsFunctions: ContainsFunctions,
+) : QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, MessageFailure> {
         locker.toString()
         return BusResult.success(
