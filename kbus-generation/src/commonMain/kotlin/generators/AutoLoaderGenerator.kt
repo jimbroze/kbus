@@ -10,10 +10,14 @@ import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
 import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
 import com.jimbroze.kbus.generation.processing.dependencies.PropertyDependency
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 
@@ -32,15 +36,17 @@ class AutoLoaderGenerator(
                 .addSuperinterface(superClassName)
 
         for (dependency in dependencies) {
+            if (dependency.isRoot) continue
+
             when (val metadata = dependency.metadata) {
                 is FunctionalDependency ->
-                    this.addFunctionalDependency(
-                        classBuilder,
-                        metadata,
-                        dependency.topLevelDependencies,
-                        dependency.isRoot,
+                    classBuilder.addFunction(
+                        this.generateLoaderFunction(metadata, dependency.topLevelDependencies)
                     )
-                is PropertyDependency -> Unit
+                is PropertyDependency ->
+                    classBuilder.addProperty(
+                        this.generateLoaderProperty(metadata, dependency.topLevelDependencies)
+                    )
                 is CommandDependency -> Unit
                 is NonDependency -> Unit
             }
@@ -51,28 +57,44 @@ class AutoLoaderGenerator(
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
 
-    private fun addFunctionalDependency(
-        classBuilder: TypeSpec.Builder,
+    private fun generateLoaderFunction(
         dependency: FunctionalDependency,
         topLevelDependencies: List<Dependency>,
-        isRoot: Boolean,
-    ) {
-        if (isRoot) return
-
+    ): FunSpec {
         val returnType = dependency.typeRef.toTypeName()
 
-        val subDependencyArgs = topLevelDependencies.joinToString(", ") { it.accessReference }
+        val arguments =
+            topLevelDependencies.joinToCode(", ") { CodeBlock.of("%L", it.accessReference) }
+
+        val parameterSpecs =
+            dependency.functionParameters.map { arg ->
+                ParameterSpec.builder(arg.name, arg.typeRef).build()
+            }
 
         val functionBuilder =
             FunSpec.builder(dependency.name)
                 .addModifiers(KModifier.OVERRIDE)
                 .returns(returnType)
-                .addStatement("return %T($subDependencyArgs)", returnType)
+                .addParameters(parameterSpecs)
+                .addStatement("return %T(%L)", returnType, arguments)
 
-        for (constructorArg in dependency.functionParameters) {
-            functionBuilder.addParameter(constructorArg.name, constructorArg.typeRef)
-        }
+        return functionBuilder.build()
+    }
 
-        classBuilder.addFunction(functionBuilder.build())
+    private fun generateLoaderProperty(
+        dependency: PropertyDependency,
+        topLevelDependencies: List<Dependency>,
+    ): PropertySpec {
+        val propertyType = dependency.typeRef.toTypeName()
+
+        val arguments =
+            topLevelDependencies.joinToCode(", ") { CodeBlock.of("%L", it.accessReference) }
+
+        val propertyBuilder =
+            PropertySpec.builder(dependency.name, propertyType)
+                .addModifiers(KModifier.OVERRIDE)
+                .initializer("%T(%L)", propertyType, arguments)
+
+        return propertyBuilder.build()
     }
 }

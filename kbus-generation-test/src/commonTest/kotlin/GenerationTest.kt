@@ -37,10 +37,6 @@ class Dependencies(instant: Instant) : AutoLoader() {
     override val genericClassOfListOfString: GenericClass<List<String>> =
         GenericClass(listOf("a string in a list"))
 
-    // TODO This should autoload
-    override val genericClassOfGenericClassOfString: GenericClass<GenericClass<String>> =
-        GenericClass(this.genericClassOfString)
-
     // TODO Transient examples
     //    override val clockFactoryHolder: ClockFactoryHolder
     //        get() = ClockFactoryHolder(clockFactory)

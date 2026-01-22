@@ -60,7 +60,7 @@ class TestGeneratorCommandHandler(
     private val locker: BusLocker,
     private val functionalContainsInstant: RequiresCommandDepsContainsInstant,
     private val containsString: ContainsString,
-    //    private val genericClassString: GenericClass<String>, //TODO re-add this
+    private val genericClassString: GenericClass<String>,
 ) :
     CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {

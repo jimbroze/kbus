@@ -60,7 +60,6 @@ class DependencyFactory(
         return parameter.packageName.asString() == kbusBusPackageName
     }
 
-    // TODO ensure collection classes are removed
     private fun cannotBeDependency(
         parameter: KSDeclaration,
         commandDependencyProperties: CommandDependencyProperties,
@@ -85,7 +84,6 @@ class DependencyFactory(
 
         val cannotBeDependency = cannotBeDependency(parameter, commandDependenciesProps)
 
-        // FIXME Move resolveConstructorParameterType calls?
         val children =
             if (shouldFindChildren(!cannotBeDependency, parameter))
                 getNewChildren(type, parameter, commandDependenciesProps)
