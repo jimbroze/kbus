@@ -32,12 +32,13 @@ class HandlersAndDependencies {
                 classDeclaration,
                 commandDependenciesProps,
             )
+        validateNoDuplicateDependencies(dependencies, logger)
 
         val handler =
             handlerFactory.createHandler(classDeclaration, dependencies.topLevelDependencies)
                 ?: return
+        validateCanAddHandler(handler, logger)
 
-        validateNoDuplicates(dependencies, logger)
         _handlers.add(handler)
         _allDependencies.addAll(dependencies.allDependencies)
     }
@@ -55,14 +56,14 @@ class HandlersAndDependencies {
                 commandDependenciesProps,
                 dependencyTypeOverride,
             )
+        validateNoDuplicateDependencies(dependencies, logger)
 
-        validateNoDuplicates(dependencies, logger)
         _allDependencies.addAll(dependencies.allDependencies)
     }
 
     fun isEmpty() = handlers.isEmpty() && allDependencies.isEmpty()
 
-    private fun validateNoDuplicates(dependencies: Dependencies, logger: KSPLogger) {
+    private fun validateNoDuplicateDependencies(dependencies: Dependencies, logger: KSPLogger) {
         for (dependency in dependencies.allDependencies) {
             val isDuplicate =
                 allDependencies.any { other ->
@@ -76,6 +77,24 @@ class HandlersAndDependencies {
                     dependency.metadata.typeRef.declaration,
                 )
             }
+        }
+    }
+
+    private fun validateCanAddHandler(newHandler: HandlerDefinition, logger: KSPLogger) {
+        val handlerUsingSameMessageOrNull =
+            handlers.firstOrNull { other ->
+                newHandler.handlerData.messageClass.simpleName == other.handlerData.messageClass
+            }
+
+        handlerUsingSameMessageOrNull?.let {
+            val messageClassName = newHandler.handlerData.messageClass.simpleName.asString()
+            val oldHandlerName =
+                handlerUsingSameMessageOrNull.handlerData.handlerClass.simpleName.asString()
+            val newHandlerName = newHandler.handlerData.handlerClass.simpleName.asString()
+            logger.error(
+                "Message class $messageClassName is used by multiple handlers: '$oldHandlerName' & '$newHandlerName'",
+                newHandler.handlerData.messageClass,
+            )
         }
     }
 }

@@ -9,6 +9,7 @@ import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generation.test.ContainsFunctions
 import com.jimbroze.kbus.generation.test.ContainsString
 import com.jimbroze.kbus.generation.test.FixedClock
+import com.jimbroze.kbus.generation.test.GenericClass
 import com.jimbroze.kbus.generation.test.RequiresCommandDepsContainsInstant
 import com.jimbroze.kbus.generation.test.TestDuplicateGeneratorCommand
 import com.jimbroze.kbus.generation.test.TestGeneratorCommand
@@ -24,7 +25,6 @@ class Dependencies(instant: Instant) : AutoLoader() {
 
     override val busLocker by lazy { BusLocker(clock) }
 
-    // TODO do we want this to auto-generate because of the default param? Create option for this
     override fun requiresCommandDepsContainsInstant(commandDependencies: CommandDependencies) =
         RequiresCommandDepsContainsInstant(
             this.requiresCommandDepsContainsClock(commandDependencies),
@@ -32,6 +32,17 @@ class Dependencies(instant: Instant) : AutoLoader() {
         )
 
     override val containsString by lazy { ContainsString("a string") }
+    override val genericClassOfString: GenericClass<String> = GenericClass("a string")
+    override val genericClassOfListOfString: GenericClass<List<String>> =
+        GenericClass(listOf("a string in a list"))
+
+    // FIXME collections are not allowed?
+    override val listOfString: List<String>
+        get() = TODO("Not yet implemented")
+
+    // TODO This should autoload
+    override val genericClassOfGenericClassOfString: GenericClass<GenericClass<String>> =
+        GenericClass(this.genericClassOfString)
 
     // Transient
     //    override val clockFactoryHolder: ClockFactoryHolder

@@ -71,6 +71,8 @@ class TestGeneratorCommandHandler(
     }
 }
 
+class GenericClassCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
+
 @LoadMessageHandler
 @Suppress("unused")
 class GenericClassCommandHandler(
@@ -78,9 +80,9 @@ class GenericClassCommandHandler(
     private val genericClassListString: GenericClass<List<String>>,
     private val genericClassGenericClassString: GenericClass<GenericClass<String>>,
 ) :
-    CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
-    override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
+    CommandHandler<GenericClassCommand, BusResult<Any, MessageFailure>>(),
+    ExecuteInTransaction<GenericClassCommand, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(message: GenericClassCommand): BusResult<Any, MessageFailure> {
         return BusResult.success(message.messageData)
     }
 }
