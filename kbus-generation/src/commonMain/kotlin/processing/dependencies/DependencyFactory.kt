@@ -4,6 +4,8 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeParameter
+import com.google.devtools.ksp.symbol.KSValueParameter
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.reflect.KClass
@@ -28,9 +30,8 @@ class DependencyFactory(
         val dependencies = MutableDependencies()
 
         for (childParameter in parameter.primaryConstructor?.parameters.orEmpty()) {
-            dependencies.add(
-                createNewDependency(commandDependenciesProps, type = childParameter.type.resolve())
-            )
+            val childType = resolveConstructorParameterType(childParameter, type)
+            dependencies.add(createNewDependency(commandDependenciesProps, type = childType))
         }
 
         return dependencies
@@ -49,14 +50,15 @@ class DependencyFactory(
         return dependencies
     }
 
-    fun nameForDependency(handlerClass: KSDeclaration): String {
-        return handlerClass.simpleName.asString().replaceFirstChar { it.lowercase() }
+    fun nameForDependency(declaration: KSDeclaration): String {
+        return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
     }
 
     private fun mustBeRoot(parameter: KSDeclaration): Boolean {
         return parameter.packageName.asString() == kbusBusPackageName
     }
 
+    // TODO ensure collection classes are removed
     private fun cannotBeDependency(
         parameter: KSDeclaration,
         commandDependencyProperties: CommandDependencyProperties,
@@ -80,9 +82,10 @@ class DependencyFactory(
 
         val cannotBeDependency = cannotBeDependency(parameter, commandDependenciesProps)
 
+        // TODO Move resolveConstructorParameterType calls?
         val children =
             if (shouldFindChildren(!cannotBeDependency, parameter))
-                getNewChildren(parameter, commandDependenciesProps)
+                getNewChildren(type, parameter, commandDependenciesProps)
             else null
 
         val isRoot =
@@ -135,6 +138,7 @@ class DependencyFactory(
     }
 
     private fun getNewChildren(
+        parentType: KSType,
         parentClass: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
     ): ChildrenDependencies {
@@ -144,8 +148,8 @@ class DependencyFactory(
         var childrenRequireCommandDependencies = false
 
         for (childParameter in parentClass.primaryConstructor?.parameters.orEmpty()) {
-            val childWithChildren =
-                createNewDependency(commandDependenciesProps, type = childParameter.type.resolve())
+            val childType = resolveConstructorParameterType(childParameter, parentType)
+            val childWithChildren = createNewDependency(commandDependenciesProps, childType)
 
             topLevelDependencies.add(childWithChildren.newDependency.metadata)
             allDependencies.addAll(childWithChildren.getAll())
@@ -164,6 +168,28 @@ class DependencyFactory(
             parentIsRoot,
             childrenRequireCommandDependencies,
         )
+    }
+
+    fun resolveConstructorParameterType(parameter: KSValueParameter, parentType: KSType): KSType {
+        val parameterTypeNoTypeArgs = parameter.type.resolve()
+
+        val declaration = parameterTypeNoTypeArgs.declaration
+
+        if (declaration is KSTypeParameter) {
+            val index =
+                parentType.declaration.typeParameters.indexOfFirst {
+                    it.name.asString() == declaration.name.asString()
+                }
+
+            if (index != -1 && index < parentType.arguments.size) {
+                val resolvedArgument = parentType.arguments[index].type?.resolve()
+                if (resolvedArgument != null) {
+                    return resolvedArgument
+                }
+            }
+        }
+
+        return parameterTypeNoTypeArgs
     }
 
     private class MutableDependencies : Dependencies {

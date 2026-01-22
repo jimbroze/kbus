@@ -4,12 +4,12 @@ import com.google.devtools.ksp.symbol.KSType
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import kotlin.reflect.KClass
 
+// TODO throw error if override but not creating dependency
 enum class DependencyType {
     PROPERTY,
     FUNCTIONAL,
 }
 
-// TODO names for same declaration with different type args
 sealed interface Dependency {
     companion object {
         fun fromDependencyType(
@@ -29,8 +29,25 @@ sealed interface Dependency {
         return this.name == other.name && this != other
     }
 
+    // TODO combine with dep factory naming function. Combine interfaces??
+    // TODO handle typealias' using alias name
     val name: String
-        get() = typeRef.declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
+        get() = getNameForType(typeRef)
+
+    private fun getNameForType(type: KSType, isNested: Boolean = false): String {
+        val declarationName = type.declaration.simpleName.asString()
+
+        val typeArgumentsString =
+            type.arguments
+                .takeIf { it.isNotEmpty() }
+                ?.joinToString(separator = "And", prefix = "Of") { arg ->
+                    arg.type?.resolve()?.let { getNameForType(it, true) } ?: ""
+                } ?: ""
+
+        return declarationName.replaceFirstChar {
+            if (isNested) it.uppercase() else it.lowercase()
+        } + typeArgumentsString
+    }
 
     val typeRef: KSType
     val prefix: String

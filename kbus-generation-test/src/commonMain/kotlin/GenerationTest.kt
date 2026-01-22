@@ -52,12 +52,15 @@ typealias TypeAliasString = String
 
 class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
+class GenericClass<T>(val data: T)
+
 @LoadMessageHandler
 @Suppress("unused")
 class TestGeneratorCommandHandler(
     private val locker: BusLocker,
     private val functionalContainsInstant: RequiresCommandDepsContainsInstant,
     private val containsString: ContainsString,
+    //    private val genericClassString: GenericClass<String>, //TODO re-add this
 ) :
     CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
@@ -65,6 +68,20 @@ class TestGeneratorCommandHandler(
         val clock = functionalContainsInstant.requiresCommandDepsContainsClock.createClock()
         locker.toString()
         return BusResult.success(message.messageData + clock.now().toString())
+    }
+}
+
+@LoadMessageHandler
+@Suppress("unused")
+class GenericClassCommandHandler(
+    private val genericClassString: GenericClass<String>,
+    private val genericClassListString: GenericClass<List<String>>,
+    private val genericClassGenericClassString: GenericClass<GenericClass<String>>,
+) :
+    CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
+    ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
+        return BusResult.success(message.messageData)
     }
 }
 

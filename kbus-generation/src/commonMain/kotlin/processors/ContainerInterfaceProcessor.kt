@@ -144,6 +144,7 @@ class ContainerInterfaceProcessor(
             }
 
             val functionDependencies = classDeclaration.getAllUserFunctions()
+            // TODO can we get generics here?
             for (functionDependency in functionDependencies) {
                 val dependencyTypeRef = functionDependency.returnType ?: continue
                 data.addDependency(

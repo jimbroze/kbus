@@ -90,6 +90,8 @@ class BusGenerator(
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
 
+    // FIXME handlers using same command
+    // Enforce one per handler? Or rename execute functions.
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
         val returnTypeName = handler.handlerData.returnType.toTypeName()
 
