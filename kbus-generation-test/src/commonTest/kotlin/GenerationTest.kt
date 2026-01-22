@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
+// TODO don't add any dependencies not in module???
 class Dependencies(instant: Instant) : AutoLoader() {
     override val clock: Clock by lazy { FixedClock(instant) }
 
@@ -36,15 +37,11 @@ class Dependencies(instant: Instant) : AutoLoader() {
     override val genericClassOfListOfString: GenericClass<List<String>> =
         GenericClass(listOf("a string in a list"))
 
-    // FIXME collections are not allowed?
-    override val listOfString: List<String>
-        get() = TODO("Not yet implemented")
-
     // TODO This should autoload
     override val genericClassOfGenericClassOfString: GenericClass<GenericClass<String>> =
         GenericClass(this.genericClassOfString)
 
-    // Transient
+    // TODO Transient examples
     //    override val clockFactoryHolder: ClockFactoryHolder
     //        get() = ClockFactoryHolder(clockFactory)
 

@@ -65,12 +65,13 @@ class DependencyFactory(
         parameter: KSDeclaration,
         commandDependencyProperties: CommandDependencyProperties,
     ): Boolean {
-        val nonDependencyPackages = setOf("kotlin", "kotlinx.datetime")
+        val nonDependencyPrefixes = setOf("kotlin", "kotlinx")
         val canBeDependency = setOf<KClass<out Any>>(Clock::class)
 
         val disallowedByPackage =
-            nonDependencyPackages.contains(parameter.packageName.asString()) &&
-                canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
+            nonDependencyPrefixes.any { prefix ->
+                parameter.packageName.asString().startsWith(prefix)
+            } && canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
 
         return commandDependencyProperties.contains(parameter) || disallowedByPackage
     }
