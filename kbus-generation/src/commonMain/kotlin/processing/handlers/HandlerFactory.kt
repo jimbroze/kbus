@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.processing.handlers
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
@@ -41,7 +42,7 @@ class HandlerFactory(
         return HandlerDefinition.create(
             handlerBaseClassReference.resolve().declaration as KSClassDeclaration,
             HandlerData(
-                dependencyFactory.nameForDependency(handlerClass),
+                nameForDependency(handlerClass),
                 handlerClass,
                 messageClass,
                 returnType,
@@ -55,4 +56,8 @@ class HandlerFactory(
             (it.resolve().declaration as? KSClassDeclaration)!!.classKind == ClassKind.CLASS
         }
     }
+}
+
+fun nameForDependency(declaration: KSDeclaration): String {
+    return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
 }

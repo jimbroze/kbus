@@ -17,7 +17,6 @@ interface Dependencies {
     val allDependencies: Set<DependencyWithChildren>
 }
 
-@Suppress("TooManyFunctions")
 class DependencyFactory(
     private val kbusBusPackageName: String,
     @Suppress("unused") private val logger: KSPLogger,
@@ -33,7 +32,7 @@ class DependencyFactory(
         val dependencies = MutableDependencies()
 
         for (childParameter in classDeclaration.primaryConstructor?.parameters.orEmpty()) {
-            val childType = resolveConstructorParameterType(childParameter, classType)
+            val childType = childParameter.resolveTypeUsingParent(classType)
             dependencies.add(createNewDependency(commandDependenciesProps, childType))
         }
 
@@ -51,10 +50,6 @@ class DependencyFactory(
         )
 
         return dependencies
-    }
-
-    fun nameForDependency(declaration: KSDeclaration): String {
-        return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
     }
 
     private fun createNewDependency(
@@ -110,7 +105,7 @@ class DependencyFactory(
         var childrenRequireCommandDependencies = false
 
         for (childParameter in parentClass.primaryConstructor?.parameters.orEmpty()) {
-            val childType = resolveConstructorParameterType(childParameter, parentType)
+            val childType = childParameter.resolveTypeUsingParent(parentType)
             val childWithGrandchildren = createNewDependency(commandDependenciesProps, childType)
 
             topLevelDependencies.add(childWithGrandchildren.newDependency.metadata)
@@ -132,65 +127,6 @@ class DependencyFactory(
         )
     }
 
-    private fun createDependencyMetadata(
-        type: KSType,
-        isCommandDependency: Boolean,
-        cannotBeDependency: Boolean,
-        requiresCommandDependencies: Boolean,
-        dependencyTypeOverride: DependencyType?,
-    ): Dependency {
-        return if (isCommandDependency) {
-            CommandDependency(type)
-        } else if (cannotBeDependency) {
-            NonDependency(type)
-        } else if (dependencyTypeOverride != null) {
-            Dependency.fromDependencyType(dependencyTypeOverride, type, requiresCommandDependencies)
-        } else if (requiresCommandDependencies) {
-            FunctionalDependency(type, true)
-        } else {
-            PropertyDependency(type)
-        }
-    }
-
-    private fun mustBeRoot(parameter: KSDeclaration): Boolean {
-        return parameter.packageName.asString() == kbusBusPackageName
-    }
-
-    private fun cannotBeDependency(
-        parameter: KSDeclaration,
-        commandDependencyProperties: CommandDependencyProperties,
-    ): Boolean {
-        val nonDependencyPrefixes = setOf("kotlin", "kotlinx")
-        val canBeDependency = setOf<KClass<out Any>>(Clock::class)
-
-        val disallowedByPackage =
-            nonDependencyPrefixes.any { prefix ->
-                parameter.packageName.asString().startsWith(prefix)
-            } && canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
-
-        return commandDependencyProperties.contains(parameter) || disallowedByPackage
-    }
-
-    private fun cannotBeAutoloaded(children: ChildrenDependencies?): Boolean =
-        children == null || children.topLevelChildren.isEmpty() || children.parentCannotBeAutoloaded
-
-    private fun parentCannotBeAutoloaded(
-        childParameter: KSDeclaration,
-        childIsCommandDependency: Boolean,
-        childCannotBeDependency: Boolean,
-    ): Boolean {
-        if (childIsCommandDependency) return false
-
-        val isSupportedConstructorParamTypeForAutoloading =
-            when (childParameter) {
-                is KSClassDeclaration,
-                is KSTypeAlias -> true
-                else -> false
-            }
-
-        return childCannotBeDependency || !isSupportedConstructorParamTypeForAutoloading
-    }
-
     @OptIn(ExperimentalContracts::class)
     private fun shouldFindChildren(
         isPossibleDependency: Boolean,
@@ -201,54 +137,113 @@ class DependencyFactory(
         return parameter is KSClassDeclaration && isPossibleDependency && !mustBeRoot(parameter)
     }
 
-    fun resolveConstructorParameterType(parameter: KSValueParameter, parentType: KSType): KSType {
-        val parameterTypeNoTypeArgs = parameter.type.resolve()
+    private fun mustBeRoot(parameter: KSDeclaration): Boolean {
+        return parameter.packageName.asString() == kbusBusPackageName
+    }
+}
 
-        val declaration = parameterTypeNoTypeArgs.declaration
+fun KSValueParameter.resolveTypeUsingParent(parentType: KSType): KSType {
+    val parameterTypeNoTypeArgs = this.type.resolve()
 
-        if (declaration is KSTypeParameter) {
-            val index =
-                parentType.declaration.typeParameters.indexOfFirst {
-                    it.name.asString() == declaration.name.asString()
-                }
+    val declaration = parameterTypeNoTypeArgs.declaration
 
-            if (index != -1 && index < parentType.arguments.size) {
-                val resolvedArgument = parentType.arguments[index].type?.resolve()
-                if (resolvedArgument != null) {
-                    return resolvedArgument
-                }
+    if (declaration is KSTypeParameter) {
+        val index =
+            parentType.declaration.typeParameters.indexOfFirst {
+                it.name.asString() == declaration.name.asString()
+            }
+
+        if (index != -1 && index < parentType.arguments.size) {
+            val resolvedArgument = parentType.arguments[index].type?.resolve()
+            if (resolvedArgument != null) {
+                return resolvedArgument
             }
         }
-
-        return parameterTypeNoTypeArgs
     }
 
-    private class MutableDependencies : Dependencies {
-        override val topLevelDependencies = mutableListOf<Dependency>()
-
-        override val allDependencies = mutableSetOf<DependencyWithChildren>()
-
-        fun add(dependencies: NewDependencyWithChildren) {
-            topLevelDependencies.add(dependencies.newDependency.metadata)
-            allDependencies.addAll(dependencies.getAll())
-        }
-    }
-
-    private data class NewDependencyWithChildren(
-        val newDependency: DependencyWithChildren,
-        val allChildren: Set<DependencyWithChildren>,
-        val parentOfNewDependencyCannotBeAutoloaded: Boolean,
-        val requireCommandDependencies: Boolean,
-    ) {
-        fun getAll(): Set<DependencyWithChildren> {
-            return setOf(newDependency) + allChildren
-        }
-    }
-
-    private data class ChildrenDependencies(
-        val topLevelChildren: List<Dependency>,
-        val allDependencies: Set<DependencyWithChildren>,
-        val parentCannotBeAutoloaded: Boolean,
-        val requireCommandDependencies: Boolean,
-    )
+    return parameterTypeNoTypeArgs
 }
+
+private fun createDependencyMetadata(
+    type: KSType,
+    isCommandDependency: Boolean,
+    cannotBeDependency: Boolean,
+    requiresCommandDependencies: Boolean,
+    dependencyTypeOverride: DependencyType?,
+): Dependency {
+    return if (isCommandDependency) {
+        CommandDependency(type)
+    } else if (cannotBeDependency) {
+        NonDependency(type)
+    } else if (dependencyTypeOverride != null) {
+        Dependency.fromDependencyType(dependencyTypeOverride, type, requiresCommandDependencies)
+    } else if (requiresCommandDependencies) {
+        FunctionalDependency(type, true)
+    } else {
+        PropertyDependency(type)
+    }
+}
+
+private fun cannotBeDependency(
+    parameter: KSDeclaration,
+    commandDependencyProperties: CommandDependencyProperties,
+): Boolean {
+    val nonDependencyPrefixes = setOf("kotlin", "kotlinx")
+    val canBeDependency = setOf<KClass<out Any>>(Clock::class)
+
+    val disallowedByPackage =
+        nonDependencyPrefixes.any { prefix ->
+            parameter.packageName.asString().startsWith(prefix)
+        } && canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
+
+    return commandDependencyProperties.contains(parameter) || disallowedByPackage
+}
+
+private fun cannotBeAutoloaded(children: ChildrenDependencies?): Boolean =
+    children == null || children.topLevelChildren.isEmpty() || children.parentCannotBeAutoloaded
+
+private fun parentCannotBeAutoloaded(
+    childParameter: KSDeclaration,
+    childIsCommandDependency: Boolean,
+    childCannotBeDependency: Boolean,
+): Boolean {
+    if (childIsCommandDependency) return false
+
+    val isSupportedConstructorParamTypeForAutoloading =
+        when (childParameter) {
+            is KSClassDeclaration,
+            is KSTypeAlias -> true
+            else -> false
+        }
+
+    return childCannotBeDependency || !isSupportedConstructorParamTypeForAutoloading
+}
+
+private class MutableDependencies : Dependencies {
+    override val topLevelDependencies = mutableListOf<Dependency>()
+
+    override val allDependencies = mutableSetOf<DependencyWithChildren>()
+
+    fun add(dependencies: NewDependencyWithChildren) {
+        topLevelDependencies.add(dependencies.newDependency.metadata)
+        allDependencies.addAll(dependencies.getAll())
+    }
+}
+
+private data class NewDependencyWithChildren(
+    val newDependency: DependencyWithChildren,
+    val allChildren: Set<DependencyWithChildren>,
+    val parentOfNewDependencyCannotBeAutoloaded: Boolean,
+    val requireCommandDependencies: Boolean,
+) {
+    fun getAll(): Set<DependencyWithChildren> {
+        return setOf(newDependency) + allChildren
+    }
+}
+
+private data class ChildrenDependencies(
+    val topLevelChildren: List<Dependency>,
+    val allDependencies: Set<DependencyWithChildren>,
+    val parentCannotBeAutoloaded: Boolean,
+    val requireCommandDependencies: Boolean,
+)
