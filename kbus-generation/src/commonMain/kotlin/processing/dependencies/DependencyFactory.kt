@@ -90,14 +90,14 @@ class DependencyFactory(
                 getNewChildren(type, parameter, commandDependenciesProps)
             else null
 
-        val isRoot =
-            children == null || children.topLevelChildren.isEmpty() || children.parentIsRoot
+        val cannotBeAutoloaded =
+            children == null ||
+                children.topLevelChildren.isEmpty() ||
+                children.parentCannotBeAutoloaded
 
         val isCommandDependency = commandDependenciesProps.contains(type.declaration)
         val requiresCommandDependencies =
             isCommandDependency || children?.requireCommandDependencies == true
-
-        val parentIsRoot = parentMustBeRoot(isCommandDependency, cannotBeDependency, parameter)
 
         val metadata =
             if (isCommandDependency) {
@@ -117,28 +117,35 @@ class DependencyFactory(
             }
 
         val newDependency =
-            DependencyWithChildren(metadata, children?.topLevelChildren ?: emptyList(), isRoot)
+            DependencyWithChildren(
+                metadata,
+                children?.topLevelChildren ?: emptyList(),
+                cannotBeAutoloaded,
+            )
 
         return NewDependencyWithChildren(
             newDependency,
             children?.allDependencies ?: emptySet(),
-            parentIsRoot,
+            parentCannotBeAutoloaded(parameter, isCommandDependency, cannotBeDependency),
             requiresCommandDependencies,
         )
     }
 
-    // FIXME should mustBeRoot be here?
-    // TODO rename to canBeAutoloaded
-    private fun parentMustBeRoot(
-        isCommandDependency: Boolean,
-        cannotBeDependency: Boolean,
-        parameter: KSDeclaration,
+    private fun parentCannotBeAutoloaded(
+        childParameter: KSDeclaration,
+        childIsCommandDependency: Boolean,
+        childCannotBeDependency: Boolean,
     ): Boolean {
-        if (isCommandDependency) return false
+        if (childIsCommandDependency) return false
 
-        return (cannotBeDependency ||
-            (parameter !is KSClassDeclaration && parameter !is KSTypeAlias) ||
-            mustBeRoot(parameter))
+        val isSupportedConstructorParamTypeForAutoloading =
+            when (childParameter) {
+                is KSClassDeclaration,
+                is KSTypeAlias -> true
+                else -> false
+            }
+
+        return childCannotBeDependency || !isSupportedConstructorParamTypeForAutoloading
     }
 
     @OptIn(ExperimentalContracts::class)
@@ -161,20 +168,20 @@ class DependencyFactory(
 
         val topLevelDependencies = mutableListOf<Dependency>()
         val allDependencies = mutableSetOf<DependencyWithChildren>()
-        var parentIsRoot = false
+        var parentCannotBeAutoloaded = false
         var childrenRequireCommandDependencies = false
 
         for (childParameter in parentClass.primaryConstructor?.parameters.orEmpty()) {
             val childType = resolveConstructorParameterType(childParameter, parentType)
-            val childWithChildren = createNewDependency(commandDependenciesProps, childType)
+            val childWithGrandchildren = createNewDependency(commandDependenciesProps, childType)
 
-            topLevelDependencies.add(childWithChildren.newDependency.metadata)
-            allDependencies.addAll(childWithChildren.getAll())
+            topLevelDependencies.add(childWithGrandchildren.newDependency.metadata)
+            allDependencies.addAll(childWithGrandchildren.getAll())
 
-            if (childWithChildren.parentIsRoot) {
-                parentIsRoot = true
+            if (childWithGrandchildren.parentOfNewDependencyCannotBeAutoloaded) {
+                parentCannotBeAutoloaded = true
             }
-            if (childWithChildren.requireCommandDependencies) {
+            if (childWithGrandchildren.requireCommandDependencies) {
                 childrenRequireCommandDependencies = true
             }
         }
@@ -182,7 +189,7 @@ class DependencyFactory(
         return ChildrenDependencies(
             topLevelDependencies,
             allDependencies,
-            parentIsRoot,
+            parentCannotBeAutoloaded,
             childrenRequireCommandDependencies,
         )
     }
@@ -223,7 +230,7 @@ class DependencyFactory(
     private data class NewDependencyWithChildren(
         val newDependency: DependencyWithChildren,
         val allChildren: Set<DependencyWithChildren>,
-        val parentIsRoot: Boolean,
+        val parentOfNewDependencyCannotBeAutoloaded: Boolean,
         val requireCommandDependencies: Boolean,
     ) {
         fun getAll(): Set<DependencyWithChildren> {
@@ -234,7 +241,7 @@ class DependencyFactory(
     private data class ChildrenDependencies(
         val topLevelChildren: List<Dependency>,
         val allDependencies: Set<DependencyWithChildren>,
-        val parentIsRoot: Boolean,
+        val parentCannotBeAutoloaded: Boolean,
         val requireCommandDependencies: Boolean,
     )
 }

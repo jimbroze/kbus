@@ -36,7 +36,7 @@ class AutoLoaderGenerator(
                 .addSuperinterface(superClassName)
 
         for (dependency in dependencies) {
-            if (dependency.isRoot) continue
+            if (dependency.cannotBeAutoloaded) continue
 
             when (val metadata = dependency.metadata) {
                 is FunctionalDependency ->
