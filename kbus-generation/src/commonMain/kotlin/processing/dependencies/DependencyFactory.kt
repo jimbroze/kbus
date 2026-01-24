@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
 import kotlin.contracts.ExperimentalContracts
@@ -96,9 +97,7 @@ class DependencyFactory(
         val requiresCommandDependencies =
             isCommandDependency || children?.requireCommandDependencies == true
 
-        val parentIsRoot =
-            !isCommandDependency &&
-                (cannotBeDependency || parameter !is KSClassDeclaration || mustBeRoot(parameter))
+        val parentIsRoot = parentMustBeRoot(isCommandDependency, cannotBeDependency, parameter)
 
         val metadata =
             if (isCommandDependency) {
@@ -126,6 +125,20 @@ class DependencyFactory(
             parentIsRoot,
             requiresCommandDependencies,
         )
+    }
+
+    // FIXME should mustBeRoot be here?
+    // TODO rename to canBeAutoloaded
+    private fun parentMustBeRoot(
+        isCommandDependency: Boolean,
+        cannotBeDependency: Boolean,
+        parameter: KSDeclaration,
+    ): Boolean {
+        if (isCommandDependency) return false
+
+        return (cannotBeDependency ||
+            (parameter !is KSClassDeclaration && parameter !is KSTypeAlias) ||
+            mustBeRoot(parameter))
     }
 
     @OptIn(ExperimentalContracts::class)

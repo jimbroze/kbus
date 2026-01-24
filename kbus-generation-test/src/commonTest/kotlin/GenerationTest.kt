@@ -9,7 +9,6 @@ import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generation.test.ContainsFunctions
 import com.jimbroze.kbus.generation.test.ContainsString
-import com.jimbroze.kbus.generation.test.ContainsTypeAliases
 import com.jimbroze.kbus.generation.test.FixedClock
 import com.jimbroze.kbus.generation.test.GenericClass
 import com.jimbroze.kbus.generation.test.OtherClassesCommandCommand
@@ -25,6 +24,10 @@ import kotlinx.datetime.Instant
 
 // TODO don't add any dependencies not in module???
 // TODO pass source files to generator
+// TODO example with object rather than class
+// TODO containsInterface
+// TODO containsFunction - remove typealias
+// TODO 2nd TypeAlias with same resolved type
 class Dependencies(instant: Instant) : AutoLoader() {
     override val clock: Clock by lazy { FixedClock(instant) }
 
@@ -54,10 +57,6 @@ class Dependencies(instant: Instant) : AutoLoader() {
         ContainsFunctions(typeAliasStringCombiner, { a, b -> a + b })
     }
     override val typeAliasStringCombiner: TypeAliasStringCombiner = { a, b -> a + b }
-
-    // FIXME should this autoload?
-    override val containsTypeAliases: ContainsTypeAliases
-        get() = ContainsTypeAliases(typeAliasString, typeAliasStringCombiner)
 }
 
 class GenerationTest {
