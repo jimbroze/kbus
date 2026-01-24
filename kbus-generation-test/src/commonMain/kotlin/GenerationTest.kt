@@ -17,10 +17,6 @@ import kotlinx.datetime.Instant
 
 class FixedClock(private var fixedInstant: Instant) : Clock {
     override fun now(): Instant = fixedInstant
-
-    fun travelTo(instant: Instant) {
-        fixedInstant = instant
-    }
 }
 
 @Suppress("unused")
@@ -34,13 +30,14 @@ class RequiresCommandDepsContainsClock(
 }
 
 class RequiresCommandDepsContainsInstant(
-    val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
-    private val now: Instant? = null,
+    val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock
 )
 
 @Suppress("unused") class ContainsString(private val aString: String)
 
-typealias TypeAliasString = String
+typealias TypeAliasStringOne = String
+
+typealias TypeAliasStringTwo = String
 
 typealias TypeAliasStringCombiner = (String, String) -> String
 
@@ -52,7 +49,8 @@ class ContainsFunctions(
 
 @Suppress("unused")
 class ContainsTypeAliases(
-    private val aliasString: TypeAliasString,
+    private val aliasString: TypeAliasStringOne,
+    private val aliasStringTwo: TypeAliasStringTwo,
     private val aliasFunction: TypeAliasStringCombiner,
 )
 
@@ -89,32 +87,28 @@ class GenericClassCommandHandler(
     CommandHandler<GenericClassCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<GenericClassCommand, BusResult<Any, MessageFailure>> {
     override suspend fun handle(message: GenericClassCommand): BusResult<Any, MessageFailure> {
-        return BusResult.success(message.messageData)
-    }
-}
-
-class OtherClassesCommandCommand(val messageData: String?) :
-    Command<BusResult<Any, MessageFailure>>()
-
-@Suppress("unused")
-@LoadMessageHandler
-class OtherClassesCommandHandler(private val locker: BusLocker, private val bus: MessageBus) :
-    CommandHandler<OtherClassesCommandCommand, BusResult<Any, MessageFailure>>() {
-    override suspend fun handle(
-        message: OtherClassesCommandCommand
-    ): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
 }
 
-class InterfacesCommandCommand(val messageData: String?) :
-    Command<BusResult<Any, MessageFailure>>()
+class OtherClassesCommand(val messageData: String?) : Command<BusResult<Any, MessageFailure>>()
+
+@Suppress("unused")
+@LoadMessageHandler
+class OtherClassesCommandHandler(private val locker: BusLocker, private val bus: MessageBus) :
+    CommandHandler<OtherClassesCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: OtherClassesCommand): BusResult<Any, MessageFailure> {
+        return BusResult.success("success")
+    }
+}
+
+class InterfacesCommand(val messageData: String?) : Command<BusResult<Any, MessageFailure>>()
 
 @Suppress("unused")
 @LoadMessageHandler
 class InterfacesCommandHandler(private val bus: BaseMessageBus, private val clock: Clock) :
-    CommandHandler<InterfacesCommandCommand, BusResult<Any, MessageFailure>>() {
-    override suspend fun handle(message: InterfacesCommandCommand): BusResult<Any, MessageFailure> {
+    CommandHandler<InterfacesCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: InterfacesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
 }
@@ -124,7 +118,7 @@ class NonClassTypesCommand(val messageData: String?) : Command<BusResult<Any, Me
 @Suppress("unused")
 @LoadMessageHandler
 class NonClassTypesCommandHandler(
-    private val stringTypeAlias: TypeAliasString,
+    private val stringTypeAlias: TypeAliasStringOne,
     private val stringCombiner: TypeAliasStringCombiner,
 ) : CommandHandler<NonClassTypesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: NonClassTypesCommand): BusResult<Any, MessageFailure> {

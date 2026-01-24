@@ -2,6 +2,7 @@ package com.jimbroze.kbus.generation.processing.dependencies
 
 import com.google.devtools.ksp.symbol.KSType
 import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.reflect.KClass
 
 // TODO throw error if override but not creating dependency
@@ -10,17 +11,27 @@ enum class DependencyType {
     FUNCTIONAL,
 }
 
+class SafeType(val original: KSType) {
+    private val identity = original.toTypeName()
+
+    override fun equals(other: Any?) = (other is SafeType) && identity == other.identity
+
+    override fun hashCode() = identity.hashCode()
+
+    override fun toString() = identity.toString()
+}
+
 sealed interface Dependency {
     companion object {
         fun fromDependencyType(
             dependencyType: DependencyType,
-            typeRef: KSType,
+            safeType: SafeType,
             requiresCommandDependencies: Boolean,
         ): Dependency {
             return when (dependencyType) {
-                DependencyType.PROPERTY -> PropertyDependency(typeRef)
+                DependencyType.PROPERTY -> PropertyDependency(safeType)
                 DependencyType.FUNCTIONAL ->
-                    FunctionalDependency(typeRef, requiresCommandDependencies)
+                    FunctionalDependency(safeType, requiresCommandDependencies)
             }
         }
     }
@@ -30,6 +41,16 @@ sealed interface Dependency {
     // TODO combine with dep factory naming function. Combine interfaces??
     val name: String
         get() = getNameForType(typeRef)
+
+    val safeType: SafeType
+    val typeRef: KSType
+        get() = safeType.original
+
+    val prefix: String
+        get() = ""
+
+    val accessReference: String
+        get() = "$prefix$name"
 
     fun hasConflictingNameWith(other: Dependency): Boolean {
         return this.name == other.name && this != other
@@ -49,21 +70,14 @@ sealed interface Dependency {
             if (isNested) it.uppercase() else it.lowercase()
         } + typeArgumentsString
     }
-
-    val typeRef: KSType
-    val prefix: String
-        get() = ""
-
-    val accessReference: String
-        get() = "$prefix$name"
 }
 
-data class PropertyDependency(override val typeRef: KSType) : Dependency {
+data class PropertyDependency(override val safeType: SafeType) : Dependency {
     override val requiresCommandDependencies = false
 }
 
 data class FunctionalDependency(
-    override val typeRef: KSType,
+    override val safeType: SafeType,
     override val requiresCommandDependencies: Boolean,
 ) : Dependency {
     data class DependencyConstructorParameters(val name: String, val typeRef: KClass<*>)
@@ -86,12 +100,12 @@ data class FunctionalDependency(
         }
 }
 
-data class CommandDependency(override val typeRef: KSType) : Dependency {
+data class CommandDependency(override val safeType: SafeType) : Dependency {
     override val prefix = "commandDependencies."
     override val requiresCommandDependencies = false
 }
 
-data class NonDependency(override val typeRef: KSType) : Dependency {
+data class NonDependency(override val safeType: SafeType) : Dependency {
     override val prefix
         get() = error("This dependency should not be used: $typeRef")
 

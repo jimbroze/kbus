@@ -172,15 +172,19 @@ private fun createDependencyMetadata(
     dependencyTypeOverride: DependencyType?,
 ): Dependency {
     return if (isCommandDependency) {
-        CommandDependency(type)
+        CommandDependency(SafeType(type))
     } else if (cannotBeDependency) {
-        NonDependency(type)
+        NonDependency(SafeType(type))
     } else if (dependencyTypeOverride != null) {
-        Dependency.fromDependencyType(dependencyTypeOverride, type, requiresCommandDependencies)
+        Dependency.fromDependencyType(
+            dependencyTypeOverride,
+            SafeType(type),
+            requiresCommandDependencies,
+        )
     } else if (requiresCommandDependencies) {
-        FunctionalDependency(type, true)
+        FunctionalDependency(SafeType(type), true)
     } else {
-        PropertyDependency(type)
+        PropertyDependency(SafeType(type))
     }
 }
 

@@ -11,7 +11,10 @@ import com.jimbroze.kbus.generation.test.ContainsFunctions
 import com.jimbroze.kbus.generation.test.ContainsString
 import com.jimbroze.kbus.generation.test.FixedClock
 import com.jimbroze.kbus.generation.test.GenericClass
-import com.jimbroze.kbus.generation.test.OtherClassesCommandCommand
+import com.jimbroze.kbus.generation.test.GenericClassCommand
+import com.jimbroze.kbus.generation.test.InterfacesCommand
+import com.jimbroze.kbus.generation.test.NonClassTypesCommand
+import com.jimbroze.kbus.generation.test.OtherClassesCommand
 import com.jimbroze.kbus.generation.test.RequiresCommandDepsContainsInstant
 import com.jimbroze.kbus.generation.test.TestGeneratorCommand
 import com.jimbroze.kbus.generation.test.TestGeneratorQuery
@@ -27,7 +30,6 @@ import kotlinx.datetime.Instant
 // TODO example with object rather than class
 // TODO containsInterface
 // TODO containsFunction - remove typealias
-// TODO 2nd TypeAlias with same resolved type
 class Dependencies(instant: Instant) : AutoLoader() {
     override val clock: Clock by lazy { FixedClock(instant) }
 
@@ -35,8 +37,7 @@ class Dependencies(instant: Instant) : AutoLoader() {
 
     override fun requiresCommandDepsContainsInstant(commandDependencies: CommandDependencies) =
         RequiresCommandDepsContainsInstant(
-            this.requiresCommandDepsContainsClock(commandDependencies),
-            clock.now(),
+            this.requiresCommandDepsContainsClock(commandDependencies)
         )
 
     override val containsString by lazy { ContainsString("a string") }
@@ -51,7 +52,8 @@ class Dependencies(instant: Instant) : AutoLoader() {
     override val messageBus by lazy { MessageBus() }
     override val baseMessageBus: BaseMessageBus = messageBus
 
-    override val typeAliasString = "hello, "
+    override val typeAliasStringOne = "hello, "
+    override val typeAliasStringTwo = "hello again"
 
     override val containsFunctions by lazy {
         ContainsFunctions(typeAliasStringCombiner, { a, b -> a + b })
@@ -61,7 +63,7 @@ class Dependencies(instant: Instant) : AutoLoader() {
 
 class GenerationTest {
     @Test
-    fun test_execute_executes_a_command() = runTest {
+    fun test_it_executes_commands() = runTest {
         val bus =
             CompileTimeLoadedMessageBus(
                 Dependencies(Instant.parse("2024-02-23T19:01:09Z")),
@@ -69,27 +71,15 @@ class GenerationTest {
                 emptyList(),
             )
 
-        val result = bus.execute(TestGeneratorCommand("The time is "))
-
-        assertEquals("success", result.getOrNull())
+        assertEquals("success", bus.execute(TestGeneratorCommand("")).getOrNull())
+        assertEquals("success", bus.execute(OtherClassesCommand("")).getOrNull())
+        assertEquals("success", bus.execute(GenericClassCommand("")).getOrNull())
+        assertEquals("success", bus.execute(InterfacesCommand("")).getOrNull())
+        assertEquals("success", bus.execute(NonClassTypesCommand("")).getOrNull())
     }
 
     @Test
-    fun test_execute_executes_a_command_two() = runTest {
-        val bus =
-            CompileTimeLoadedMessageBus(
-                Dependencies(Instant.parse("2024-02-23T19:01:09Z")),
-                EmptyTransactionManager(),
-                emptyList(),
-            )
-
-        val result = bus.execute(OtherClassesCommandCommand(null))
-
-        assertEquals("success", result.getOrNull())
-    }
-
-    @Test
-    fun test_execute_executes_a_query() = runTest {
+    fun test_it_fetches_queries() = runTest {
         val instant = Instant.parse("2024-02-23T19:01:09Z")
 
         val bus =
