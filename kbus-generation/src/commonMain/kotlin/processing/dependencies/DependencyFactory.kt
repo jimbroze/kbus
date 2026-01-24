@@ -17,11 +17,11 @@ interface Dependencies {
     val allDependencies: Set<DependencyWithChildren>
 }
 
+@Suppress("TooManyFunctions")
 class DependencyFactory(
     private val kbusBusPackageName: String,
     @Suppress("unused") private val logger: KSPLogger,
 ) {
-
     fun generateChildDependencies(
         classType: KSType,
         classDeclaration: KSClassDeclaration,
@@ -57,25 +57,6 @@ class DependencyFactory(
         return declaration.simpleName.asString().replaceFirstChar { it.lowercase() }
     }
 
-    private fun mustBeRoot(parameter: KSDeclaration): Boolean {
-        return parameter.packageName.asString() == kbusBusPackageName
-    }
-
-    private fun cannotBeDependency(
-        parameter: KSDeclaration,
-        commandDependencyProperties: CommandDependencyProperties,
-    ): Boolean {
-        val nonDependencyPrefixes = setOf("kotlin", "kotlinx")
-        val canBeDependency = setOf<KClass<out Any>>(Clock::class)
-
-        val disallowedByPackage =
-            nonDependencyPrefixes.any { prefix ->
-                parameter.packageName.asString().startsWith(prefix)
-            } && canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
-
-        return commandDependencyProperties.contains(parameter) || disallowedByPackage
-    }
-
     private fun createNewDependency(
         commandDependenciesProps: CommandDependencyProperties,
         type: KSType,
@@ -90,72 +71,29 @@ class DependencyFactory(
                 getNewChildren(type, parameter, commandDependenciesProps)
             else null
 
-        val cannotBeAutoloaded =
-            children == null ||
-                children.topLevelChildren.isEmpty() ||
-                children.parentCannotBeAutoloaded
-
         val isCommandDependency = commandDependenciesProps.contains(type.declaration)
         val requiresCommandDependencies =
             isCommandDependency || children?.requireCommandDependencies == true
 
         val metadata =
-            if (isCommandDependency) {
-                CommandDependency(type)
-            } else if (cannotBeDependency) {
-                NonDependency(type)
-            } else if (dependencyTypeOverride != null) {
-                Dependency.fromDependencyType(
-                    dependencyTypeOverride,
-                    type,
-                    requiresCommandDependencies,
-                )
-            } else if (requiresCommandDependencies) {
-                FunctionalDependency(type, true)
-            } else {
-                PropertyDependency(type)
-            }
-
-        val newDependency =
-            DependencyWithChildren(
-                metadata,
-                children?.topLevelChildren ?: emptyList(),
-                cannotBeAutoloaded,
+            createDependencyMetadata(
+                type,
+                isCommandDependency,
+                cannotBeDependency,
+                requiresCommandDependencies,
+                dependencyTypeOverride,
             )
 
         return NewDependencyWithChildren(
-            newDependency,
+            DependencyWithChildren(
+                metadata,
+                children?.topLevelChildren ?: emptyList(),
+                cannotBeAutoloaded(children),
+            ),
             children?.allDependencies ?: emptySet(),
             parentCannotBeAutoloaded(parameter, isCommandDependency, cannotBeDependency),
             requiresCommandDependencies,
         )
-    }
-
-    private fun parentCannotBeAutoloaded(
-        childParameter: KSDeclaration,
-        childIsCommandDependency: Boolean,
-        childCannotBeDependency: Boolean,
-    ): Boolean {
-        if (childIsCommandDependency) return false
-
-        val isSupportedConstructorParamTypeForAutoloading =
-            when (childParameter) {
-                is KSClassDeclaration,
-                is KSTypeAlias -> true
-                else -> false
-            }
-
-        return childCannotBeDependency || !isSupportedConstructorParamTypeForAutoloading
-    }
-
-    @OptIn(ExperimentalContracts::class)
-    private fun shouldFindChildren(
-        isPossibleDependency: Boolean,
-        parameter: KSDeclaration,
-    ): Boolean {
-        contract { returns(true) implies (parameter is KSClassDeclaration) }
-
-        return parameter is KSClassDeclaration && isPossibleDependency && !mustBeRoot(parameter)
     }
 
     private fun getNewChildren(
@@ -192,6 +130,75 @@ class DependencyFactory(
             parentCannotBeAutoloaded,
             childrenRequireCommandDependencies,
         )
+    }
+
+    private fun createDependencyMetadata(
+        type: KSType,
+        isCommandDependency: Boolean,
+        cannotBeDependency: Boolean,
+        requiresCommandDependencies: Boolean,
+        dependencyTypeOverride: DependencyType?,
+    ): Dependency {
+        return if (isCommandDependency) {
+            CommandDependency(type)
+        } else if (cannotBeDependency) {
+            NonDependency(type)
+        } else if (dependencyTypeOverride != null) {
+            Dependency.fromDependencyType(dependencyTypeOverride, type, requiresCommandDependencies)
+        } else if (requiresCommandDependencies) {
+            FunctionalDependency(type, true)
+        } else {
+            PropertyDependency(type)
+        }
+    }
+
+    private fun mustBeRoot(parameter: KSDeclaration): Boolean {
+        return parameter.packageName.asString() == kbusBusPackageName
+    }
+
+    private fun cannotBeDependency(
+        parameter: KSDeclaration,
+        commandDependencyProperties: CommandDependencyProperties,
+    ): Boolean {
+        val nonDependencyPrefixes = setOf("kotlin", "kotlinx")
+        val canBeDependency = setOf<KClass<out Any>>(Clock::class)
+
+        val disallowedByPackage =
+            nonDependencyPrefixes.any { prefix ->
+                parameter.packageName.asString().startsWith(prefix)
+            } && canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
+
+        return commandDependencyProperties.contains(parameter) || disallowedByPackage
+    }
+
+    private fun cannotBeAutoloaded(children: ChildrenDependencies?): Boolean =
+        children == null || children.topLevelChildren.isEmpty() || children.parentCannotBeAutoloaded
+
+    private fun parentCannotBeAutoloaded(
+        childParameter: KSDeclaration,
+        childIsCommandDependency: Boolean,
+        childCannotBeDependency: Boolean,
+    ): Boolean {
+        if (childIsCommandDependency) return false
+
+        val isSupportedConstructorParamTypeForAutoloading =
+            when (childParameter) {
+                is KSClassDeclaration,
+                is KSTypeAlias -> true
+                else -> false
+            }
+
+        return childCannotBeDependency || !isSupportedConstructorParamTypeForAutoloading
+    }
+
+    @OptIn(ExperimentalContracts::class)
+    private fun shouldFindChildren(
+        isPossibleDependency: Boolean,
+        parameter: KSDeclaration,
+    ): Boolean {
+        contract { returns(true) implies (parameter is KSClassDeclaration) }
+
+        return parameter is KSClassDeclaration && isPossibleDependency && !mustBeRoot(parameter)
     }
 
     fun resolveConstructorParameterType(parameter: KSValueParameter, parentType: KSType): KSType {
