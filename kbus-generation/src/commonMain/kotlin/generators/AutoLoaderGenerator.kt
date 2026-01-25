@@ -93,7 +93,11 @@ class AutoLoaderGenerator(
         val propertyBuilder =
             PropertySpec.builder(dependency.name, propertyType)
                 .addModifiers(KModifier.OVERRIDE)
-                .delegate("lazy { %T(%L) }", propertyType, arguments)
+                .getter(
+                    FunSpec.getterBuilder()
+                        .addStatement("return %T(%L)", propertyType, arguments)
+                        .build()
+                )
 
         return propertyBuilder.build()
     }
