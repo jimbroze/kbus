@@ -12,6 +12,7 @@ import com.jimbroze.kbus.core.middleware.middleware.BusLocker
 import com.jimbroze.kbus.core.result.BusResult
 import com.jimbroze.kbus.core.result.MessageFailure
 import com.jimbroze.kbus.core.uow.ExecuteInTransaction
+import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
@@ -47,6 +48,12 @@ typealias TypeAliasStringCombiner = (String, String) -> String
 class GenericClass<T>(val data: T)
 
 object AnObject
+
+typealias TransientExample = Clock
+
+typealias LazySingletonExample = Clock
+
+typealias EagerSingletonExample = Clock
 
 @Suppress("unused")
 class ContainsFunction(private val stringCombinerOne: (String, String) -> String)
@@ -127,6 +134,38 @@ class NonClassTypesCommandHandler(
 ) : CommandHandler<NonClassTypesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: NonClassTypesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
+    }
+}
+
+data class LifeCycleResult(
+    val transientTime: Instant,
+    val lazySingletonTime: Instant,
+    val eagerSingletonTime: Instant,
+)
+
+class LifeCycleTestCommand(val waitTime: Long) :
+    Command<BusResult<LifeCycleResult, MessageFailure>>()
+
+@Suppress("unused")
+@LoadMessageHandler
+class LifeCycleTestCommandHandler(
+    private val transientClock: TransientExample,
+    private val lazySingletonClock: LazySingletonExample,
+    private val eagerSingletonClock: EagerSingletonExample,
+) : CommandHandler<LifeCycleTestCommand, BusResult<LifeCycleResult, MessageFailure>>() {
+    override suspend fun handle(
+        message: LifeCycleTestCommand
+    ): BusResult<LifeCycleResult, MessageFailure> {
+        val transientTime = transientClock.now()
+        delay(message.waitTime)
+        val lazySingletonTime = lazySingletonClock.now()
+        delay(message.waitTime)
+        val eagerSingletonTime = eagerSingletonClock.now()
+        delay(message.waitTime)
+
+        return BusResult.success(
+            LifeCycleResult(transientTime, lazySingletonTime, eagerSingletonTime)
+        )
     }
 }
 

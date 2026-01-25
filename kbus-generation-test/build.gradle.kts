@@ -15,6 +15,7 @@ kotlin {
             implementation(projects.kbusCore)
 
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.coroutines.core)
         }
 
         commonTest.dependencies {
