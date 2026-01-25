@@ -20,7 +20,7 @@ class FixedClock(private var fixedInstant: Instant) : Clock {
 }
 
 @Suppress("unused")
-class RequiresCommandDepsContainsClock(
+class RequiresCommandDepsContainsInterface(
     private val clock: Clock,
     private val domainEventPublisher: DomainEventPublisher,
 ) {
@@ -29,9 +29,12 @@ class RequiresCommandDepsContainsClock(
     }
 }
 
-class RequiresCommandDepsContainsInstant(
-    val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock
+class RequiresCommandDepsContainsPrimitive(
+    val requiresCommandDepsContainsInterface: RequiresCommandDepsContainsInterface,
+    val instant: Instant,
 )
+
+class ContainsInterface(val clock: Clock)
 
 @Suppress("unused") class ContainsString(private val aString: String)
 
@@ -41,11 +44,12 @@ typealias TypeAliasStringTwo = String
 
 typealias TypeAliasStringCombiner = (String, String) -> String
 
+class GenericClass<T>(val data: T)
+
+object AnObject
+
 @Suppress("unused")
-class ContainsFunctions(
-    private val stringCombinerOne: (String, String) -> String,
-    private val stringCombinerTwo: TypeAliasStringCombiner,
-)
+class ContainsFunction(private val stringCombinerOne: (String, String) -> String)
 
 @Suppress("unused")
 class ContainsTypeAliases(
@@ -54,23 +58,22 @@ class ContainsTypeAliases(
     private val aliasFunction: TypeAliasStringCombiner,
 )
 
-class TestGeneratorCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
-
-class GenericClass<T>(val data: T)
+class NestedClassesCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
 // TODO organise deps into handlers
 @LoadMessageHandler
 @Suppress("unused")
 class NestedClassesCommandHandler(
-    private val functionalContainsInstant: RequiresCommandDepsContainsInstant,
+    private val functionalContainsPrimitive: RequiresCommandDepsContainsPrimitive,
     private val containsString: ContainsString,
-    private val containsFunctions: ContainsFunctions,
+    private val containsFunction: ContainsFunction,
     private val containsTypeAliases: ContainsTypeAliases,
-    private val requiresCommandDepsContainsClock: RequiresCommandDepsContainsClock,
+    private val containsInterface: ContainsInterface,
+    private val requiresCommandDepsContainsInterface: RequiresCommandDepsContainsInterface,
 ) :
-    CommandHandler<TestGeneratorCommand, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<TestGeneratorCommand, BusResult<Any, MessageFailure>> {
-    override suspend fun handle(message: TestGeneratorCommand): BusResult<Any, MessageFailure> {
+    CommandHandler<NestedClassesCommand, BusResult<Any, MessageFailure>>(),
+    ExecuteInTransaction<NestedClassesCommand, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(message: NestedClassesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
 }
@@ -120,6 +123,7 @@ class NonClassTypesCommand(val messageData: String?) : Command<BusResult<Any, Me
 class NonClassTypesCommandHandler(
     private val stringTypeAlias: TypeAliasStringOne,
     private val stringCombiner: TypeAliasStringCombiner,
+    private val anObject: AnObject,
 ) : CommandHandler<NonClassTypesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: NonClassTypesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
@@ -136,7 +140,7 @@ class TestGeneratorQueryHandler(
     private val clock: Clock,
     private val genericClassString: GenericClass<String>,
     private val stringCombiner: TypeAliasStringCombiner,
-    private val containsFunctions: ContainsFunctions,
+    private val containsFunction: ContainsFunction,
 ) : QueryHandler<TestGeneratorQuery, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: TestGeneratorQuery): BusResult<Any, MessageFailure> {
         locker.toString()
