@@ -35,23 +35,23 @@ import kotlinx.datetime.Instant
 // TODO don't add any dependencies not in module???
 // TODO pass source files to generator
 class Dependencies(private val instant: Instant) : AutoLoader() {
-    override val clock: Clock by lazy { FixedClock(instant) }
-
     override val busLocker by lazy { BusLocker(clock) }
+    override val messageBus = MessageBus()
 
-    override val containsString by lazy { ContainsString("a string") }
+    override val anObject: AnObject = AnObject
+
     override val genericClassOfString: GenericClass<String> = GenericClass("a string")
     override val genericClassOfListOfString: GenericClass<List<String>> =
         GenericClass(listOf("a string in a list"))
 
-    override val messageBus by lazy { MessageBus() }
-    override val baseMessageBus: BaseMessageBus = messageBus
-    override val anObject: AnObject = AnObject
-
     override val typeAliasStringOne = "hello, "
     override val typeAliasStringTwo = "hello again"
 
-    override val containsFunction by lazy { ContainsFunction { a, b -> a + b } }
+    override val clock: Clock = FixedClock(instant)
+    override val baseMessageBus: BaseMessageBus = messageBus
+
+    override val containsString = ContainsString("a string")
+    override val containsFunction = ContainsFunction { a, b -> a + b }
     override val typeAliasStringCombiner: TypeAliasStringCombiner = { a, b -> a + b }
 
     override val transientExample: TransientExample
