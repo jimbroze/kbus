@@ -12,6 +12,10 @@ import com.jimbroze.kbus.core.middleware.middleware.BusLocker
 import com.jimbroze.kbus.core.result.BusResult
 import com.jimbroze.kbus.core.result.MessageFailure
 import com.jimbroze.kbus.core.uow.ExecuteInTransaction
+import com.test.external.ExternalEmpty
+import com.test.external.ExternalInterface
+import com.test.external.ExternalNestedWithExternal
+import com.test.external.ExternalNestedWithPrimitive
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -37,7 +41,13 @@ class RequiresCommandDepsContainsPrimitive(
 
 class ContainsInterface(val clock: Clock)
 
-@Suppress("unused") class ContainsString(private val aString: String)
+class ContainsString(val aString: String)
+
+class ContainsExternalEmpty(val externalDependency: ExternalEmpty)
+
+class ContainsExternalNestedExternal(val externalDependency: ExternalNestedWithExternal)
+
+class ContainsExternalNestedPrimitive(val externalDependency: ExternalNestedWithPrimitive)
 
 typealias TypeAliasStringOne = String
 
@@ -67,7 +77,6 @@ class ContainsTypeAliases(
 
 class NestedClassesCommand(val messageData: String) : Command<BusResult<Any, MessageFailure>>()
 
-// TODO organise deps into handlers
 @LoadMessageHandler
 @Suppress("unused")
 class NestedClassesCommandHandler(
@@ -81,6 +90,26 @@ class NestedClassesCommandHandler(
     CommandHandler<NestedClassesCommand, BusResult<Any, MessageFailure>>(),
     ExecuteInTransaction<NestedClassesCommand, BusResult<Any, MessageFailure>> {
     override suspend fun handle(message: NestedClassesCommand): BusResult<Any, MessageFailure> {
+        return BusResult.success("success")
+    }
+}
+
+class ExternalDependenciesCommand(val messageData: String) :
+    Command<BusResult<Any, MessageFailure>>()
+
+@LoadMessageHandler
+@Suppress("unused")
+class ExternalDependenciesCommandHandler(
+    private val externalInterface: ExternalInterface,
+    private val containsExternalEmpty: ContainsExternalEmpty,
+    private val containsExternalNestedPrimitive: ContainsExternalNestedPrimitive,
+    private val containsExternalNestedExternal: ContainsExternalNestedExternal,
+) :
+    CommandHandler<ExternalDependenciesCommand, BusResult<Any, MessageFailure>>(),
+    ExecuteInTransaction<ExternalDependenciesCommand, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(
+        message: ExternalDependenciesCommand
+    ): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
 }

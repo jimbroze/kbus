@@ -13,6 +13,7 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.kbusAnnotations)
             implementation(projects.kbusCore)
+            implementation(projects.testDoubles)
 
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.coroutines.core)

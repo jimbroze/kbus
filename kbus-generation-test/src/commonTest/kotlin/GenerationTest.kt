@@ -11,6 +11,7 @@ import com.jimbroze.kbus.generation.test.AnObject
 import com.jimbroze.kbus.generation.test.ContainsFunction
 import com.jimbroze.kbus.generation.test.ContainsString
 import com.jimbroze.kbus.generation.test.EagerSingletonExample
+import com.jimbroze.kbus.generation.test.ExternalDependenciesCommand
 import com.jimbroze.kbus.generation.test.FixedClock
 import com.jimbroze.kbus.generation.test.GenericClass
 import com.jimbroze.kbus.generation.test.GenericClassCommand
@@ -24,6 +25,9 @@ import com.jimbroze.kbus.generation.test.RequiresCommandDepsContainsPrimitive
 import com.jimbroze.kbus.generation.test.TestGeneratorQuery
 import com.jimbroze.kbus.generation.test.TransientExample
 import com.jimbroze.kbus.generation.test.TypeAliasStringCombiner
+import com.test.external.ExternalEmpty
+import com.test.external.ExternalNestedWithExternal
+import com.test.external.ExternalNestedWithPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -53,6 +57,10 @@ class Dependencies(private val instant: Instant) : AutoLoader() {
     override val containsString = ContainsString("a string")
     override val containsFunction = ContainsFunction { a, b -> a + b }
     override val typeAliasStringCombiner: TypeAliasStringCombiner = { a, b -> a + b }
+    override val externalEmpty = ExternalEmpty()
+    override val externalInterface = externalEmpty
+    override val externalNestedWithPrimitive = ExternalNestedWithPrimitive("A string")
+    override val externalNestedWithExternal = ExternalNestedWithExternal(externalEmpty)
 
     override val transientExample: TransientExample
         get() = FixedClock(Clock.System.now())
@@ -85,6 +93,7 @@ class GenerationTest {
         assertEquals("success", bus.execute(GenericClassCommand("")).getOrNull())
         assertEquals("success", bus.execute(InterfacesCommand("")).getOrNull())
         assertEquals("success", bus.execute(NonClassTypesCommand("")).getOrNull())
+        assertEquals("success", bus.execute(ExternalDependenciesCommand("")).getOrNull())
     }
 
     @Test

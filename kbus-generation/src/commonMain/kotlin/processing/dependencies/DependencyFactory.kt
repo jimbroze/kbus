@@ -83,7 +83,7 @@ class DependencyFactory(
             DependencyWithChildren(
                 metadata,
                 children?.topLevelChildren ?: emptyList(),
-                cannotBeAutoloaded(children),
+                cannotBeAutoloaded(parameter, children),
             ),
             children?.allDependencies ?: emptySet(),
             parentCannotBeAutoloaded(parameter, isCommandDependency, cannotBeDependency),
@@ -203,8 +203,12 @@ private fun cannotBeDependency(
     return commandDependencyProperties.contains(parameter) || disallowedByPackage
 }
 
-private fun cannotBeAutoloaded(children: ChildrenDependencies?): Boolean =
-    children == null || children.topLevelChildren.isEmpty() || children.parentCannotBeAutoloaded
+private fun cannotBeAutoloaded(parameter: KSDeclaration, children: ChildrenDependencies?): Boolean {
+    return children == null ||
+        children.topLevelChildren.isEmpty() ||
+        children.parentCannotBeAutoloaded ||
+        isExternalDependency(parameter)
+}
 
 private fun parentCannotBeAutoloaded(
     childParameter: KSDeclaration,
@@ -221,6 +225,15 @@ private fun parentCannotBeAutoloaded(
         }
 
     return childCannotBeDependency || !isSupportedConstructorParamTypeForAutoloading
+}
+
+private fun isExternalDependency(declaration: KSDeclaration): Boolean {
+    val isLibrary = declaration.containingFile == null
+    val pkg = declaration.packageName.asString()
+
+    val isBuiltInLibrary = pkg.startsWith("kotlin") || pkg.startsWith("java")
+
+    return isLibrary && !isBuiltInLibrary
 }
 
 private class MutableDependencies : Dependencies {
