@@ -11,6 +11,7 @@ import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.LoadMessageHandler
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -21,6 +22,7 @@ class MessageProcessor(
     private val handlerFactory: HandlerFactory,
     private val containerInterfaceGenerator: ContainerInterfaceGenerator,
     private val handlersInterfaceGenerator: HandlersInterfaceGenerator,
+    private val dependencyIndexGenerator: DependencyIndexGenerator,
 ) : SymbolProcessor {
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val messagesToLoad =
@@ -48,6 +50,7 @@ class MessageProcessor(
             handlers.allDependencies,
         )
         handlersInterfaceGenerator.generateInterface(generatedPackagePath, handlers.handlers)
+        dependencyIndexGenerator.generateIndexClass(generatedPackagePath, handlers.allDependencies)
     }
 
     inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :

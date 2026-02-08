@@ -12,6 +12,7 @@ import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusConfig
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
@@ -33,6 +34,8 @@ const val LOADER_CLASS_NAME = "AutoLoader"
 const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
 
 const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
+
+const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
 
 private fun dependencyFactory(environment: SymbolProcessorEnvironment) =
     DependencyFactory(KBUS_BUS_PACKAGE_NAME, environment.logger)
@@ -57,6 +60,9 @@ private fun handlersInterfaceGenerator(environment: SymbolProcessorEnvironment) 
         HANDLERS_INTERFACE_NAME,
         COMBINED_HANDLERS_INTERFACE_NAME,
     )
+
+private fun dependencyIndexGenerator(environment: SymbolProcessorEnvironment) =
+    DependencyIndexGenerator(environment.codeGenerator, environment.logger, DEPENDENCIES_INDEX_NAME)
 
 private fun handlersFactoryGenerator(environment: SymbolProcessorEnvironment) =
     HandlersFactoryGenerator(
@@ -98,6 +104,7 @@ class MessageProcessorProvider : SymbolProcessorProvider {
             handlerFactory(environment, dependencyFactory),
             containerInterfaceGenerator(environment),
             handlersInterfaceGenerator(environment),
+            dependencyIndexGenerator(environment),
         )
     }
 }

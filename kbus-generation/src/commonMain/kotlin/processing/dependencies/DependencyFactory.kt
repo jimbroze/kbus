@@ -79,6 +79,7 @@ class DependencyFactory(
                 dependencyTypeOverride,
             )
 
+        // FIXME need to know if override dependencies were external and can be autoloaded
         return NewDependencyWithChildren(
             DependencyWithChildren(
                 metadata,
