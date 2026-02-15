@@ -1,11 +1,14 @@
 package com.jimbroze.kbus.generation.processors.visitors
 
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyType
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyOverrideType
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -48,7 +51,7 @@ class HandlersAndDependencies {
         commandDependenciesProps: CommandDependencyProperties,
         handlerFactory: HandlerFactory,
         logger: KSPLogger,
-        dependencyTypeOverride: DependencyType? = null,
+        dependencyTypeOverride: DependencyOverrideType? = null,
     ) {
         val dependencies =
             handlerFactory.dependencyFactory.generateDependencyWithChildren(
@@ -56,6 +59,19 @@ class HandlersAndDependencies {
                 commandDependenciesProps,
                 dependencyTypeOverride,
             )
+        validateNoDuplicateDependencies(dependencies, logger)
+
+        _allDependencies.addAll(dependencies.allDependencies)
+    }
+
+    fun addIndexedDependencies(
+        dependencyInfoAnnotations: List<KSAnnotation>,
+        dependencyIndexFactory: DependencyIndexFactory,
+        logger: KSPLogger,
+        resolver: Resolver,
+    ) {
+        val dependencies =
+            dependencyIndexFactory.createDependencies(dependencyInfoAnnotations, resolver)
         validateNoDuplicateDependencies(dependencies, logger)
 
         _allDependencies.addAll(dependencies.allDependencies)

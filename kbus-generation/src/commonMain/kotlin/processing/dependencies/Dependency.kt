@@ -1,12 +1,13 @@
 package com.jimbroze.kbus.generation.processing.dependencies
 
 import com.google.devtools.ksp.symbol.KSType
+import com.jimbroze.kbus.annotations.DependencyType
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.reflect.KClass
 
 // TODO throw error if override but not creating dependency
-enum class DependencyType {
+enum class DependencyOverrideType {
     PROPERTY,
     FUNCTIONAL,
 }
@@ -23,6 +24,20 @@ class SafeType(val original: KSType) {
 
 sealed interface Dependency {
     companion object {
+        fun fromDependencyOverrideType(
+            dependencyOverrideType: DependencyOverrideType,
+            safeType: SafeType,
+            requiresCommandDependencies: Boolean,
+        ): Dependency {
+            val dependencyType =
+                when (dependencyOverrideType) {
+                    DependencyOverrideType.PROPERTY -> DependencyType.PROPERTY
+                    DependencyOverrideType.FUNCTIONAL -> DependencyType.FUNCTIONAL
+                }
+
+            return fromDependencyType(dependencyType, safeType, requiresCommandDependencies)
+        }
+
         fun fromDependencyType(
             dependencyType: DependencyType,
             safeType: SafeType,
@@ -32,6 +47,8 @@ sealed interface Dependency {
                 DependencyType.PROPERTY -> PropertyDependency(safeType)
                 DependencyType.FUNCTIONAL ->
                     FunctionalDependency(safeType, requiresCommandDependencies)
+                DependencyType.COMMAND -> CommandDependency(safeType)
+                DependencyType.NON_DEPENDENCY -> NonDependency(safeType)
             }
         }
     }
@@ -41,6 +58,9 @@ sealed interface Dependency {
     // TODO combine with dep factory naming function. Combine interfaces??
     val name: String
         get() = getNameForType(typeRef)
+
+    val signature: String
+        get() = typeRef.toTypeName().toString()
 
     val safeType: SafeType
     val typeRef: KSType

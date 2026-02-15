@@ -16,9 +16,10 @@ import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.ContainerGenerators
-import com.jimbroze.kbus.generation.processors.ContainerInterfaceProcessor
+import com.jimbroze.kbus.generation.processors.DependencyProcessor
 import com.jimbroze.kbus.generation.processors.MessageProcessor
 
 val KBUS_BUS_PACKAGE_NAME =
@@ -44,6 +45,9 @@ private fun handlerFactory(
     environment: SymbolProcessorEnvironment,
     dependencyFactory: DependencyFactory,
 ) = HandlerFactory(environment.logger, dependencyFactory)
+
+private fun dependencyIndexFactory(environment: SymbolProcessorEnvironment) =
+    DependencyIndexFactory(environment.logger)
 
 private fun containerInterfaceGenerator(environment: SymbolProcessorEnvironment) =
     ContainerInterfaceGenerator(
@@ -112,9 +116,10 @@ class MessageProcessorProvider : SymbolProcessorProvider {
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val dependencyFactory = dependencyFactory(environment)
-        return ContainerInterfaceProcessor(
+        return DependencyProcessor(
             environment.logger,
             handlerFactory(environment, dependencyFactory),
+            dependencyIndexFactory(environment),
             ContainerGenerators(
                 containerInterfaceGenerator(environment),
                 handlersInterfaceGenerator(environment),

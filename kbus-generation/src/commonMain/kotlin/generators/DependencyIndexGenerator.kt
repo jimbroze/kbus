@@ -57,7 +57,7 @@ class DependencyIndexGenerator(
                     dependencyAnnotationClass(dependency.metadata).toString(),
                 ),
             )
-            .addMember("type = %S", dependency.metadata.typeRef.toTypeName().toString())
+            .addMember("type = %S", dependency.metadata.signature)
             .addMember("name = %S", dependency.metadata.name)
             .addMember("accessReference = %S", accessReference(dependency.metadata) ?: "")
             .addMember("cannotBeAutoloaded = %L", dependency.cannotBeAutoloaded)

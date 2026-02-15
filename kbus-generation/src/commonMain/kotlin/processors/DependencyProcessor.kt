@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSNode
@@ -13,6 +14,7 @@ import com.google.devtools.ksp.symbol.Origin
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.ContainerInterface
+import com.jimbroze.kbus.annotations.DependencyIndex
 import com.jimbroze.kbus.annotations.HandlersInterface
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
@@ -20,7 +22,8 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyType
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyOverrideType
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
 
@@ -32,9 +35,10 @@ class ContainerGenerators(
     val bus: BusGenerator,
 )
 
-class ContainerInterfaceProcessor(
+class DependencyProcessor(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
+    private val dependencyIndexFactory: DependencyIndexFactory,
     private val generators: ContainerGenerators,
 ) : SymbolProcessor {
     private val dependencies = HandlersAndDependencies()
@@ -43,6 +47,11 @@ class ContainerInterfaceProcessor(
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val commandDependenciesProps = CommandDependencyProperties.fromResolver(resolver)
+
+        val dependencyIndexes =
+            resolver.getSymbolsWithAnnotation(DependencyIndex::class.qualifiedName.toString())
+        val (validIndexSymbols, invalidIndexSymbols) = dependencyIndexes.partition { it.validate() }
+        validIndexSymbols.forEach { it.accept(IndexVisitor(resolver), dependencies) }
 
         val containerInterfaces =
             resolver.getSymbolsWithAnnotation(ContainerInterface::class.qualifiedName.toString())
@@ -60,7 +69,7 @@ class ContainerInterfaceProcessor(
             it.accept(HandlersInterfaceVisitor(commandDependenciesProps), dependencies)
         }
 
-        return invalidContainerSymbols + invalidHandlerSymbols
+        return invalidIndexSymbols + invalidContainerSymbols + invalidHandlerSymbols
     }
 
     /**
@@ -152,7 +161,7 @@ class ContainerInterfaceProcessor(
                     commandDependenciesProps,
                     handlerFactory,
                     logger,
-                    DependencyType.FUNCTIONAL,
+                    DependencyOverrideType.FUNCTIONAL,
                 )
             }
 
@@ -163,11 +172,45 @@ class ContainerInterfaceProcessor(
                     commandDependenciesProps,
                     handlerFactory,
                     logger,
-                    DependencyType.PROPERTY,
+                    DependencyOverrideType.PROPERTY,
                 )
             }
 
             containerInterfaces.add(classDeclaration)
+        }
+    }
+
+    inner class IndexVisitor(private val resolver: Resolver) :
+        KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
+            error("@${DependencyIndex::class.simpleName} must be a class")
+        }
+
+        override fun visitClassDeclaration(
+            classDeclaration: KSClassDeclaration,
+            data: HandlersAndDependencies,
+        ) {
+            if (classDeclaration.classKind != ClassKind.CLASS) {
+                error(
+                    "Only classes can be annotated with @${ContainerInterface::class.simpleName}. " +
+                        "$classDeclaration is a ${classDeclaration.classKind}"
+                )
+            }
+
+            val indexAnnotation =
+                classDeclaration.annotations.find {
+                    it.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                        DependencyIndex::class.qualifiedName
+                } ?: return
+
+            val dependenciesArg =
+                indexAnnotation.arguments.find {
+                    it.name?.asString() == DependencyIndex::dependencies.name
+                }
+
+            val dependencyInfos = dependenciesArg?.value as? List<KSAnnotation> ?: emptyList()
+
+            data.addIndexedDependencies(dependencyInfos, dependencyIndexFactory, logger, resolver)
         }
     }
 }
