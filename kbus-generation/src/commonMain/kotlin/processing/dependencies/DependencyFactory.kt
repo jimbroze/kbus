@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
+import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.reflect.KClass
@@ -173,19 +174,19 @@ private fun createDependencyMetadata(
     dependencyTypeOverride: DependencyOverrideType?,
 ): Dependency {
     return if (isCommandDependency) {
-        CommandDependency(SafeType(type))
+        CommandDependency(type.toTypeName())
     } else if (cannotBeDependency) {
-        NonDependency(SafeType(type))
+        NonDependency(type.toTypeName())
     } else if (dependencyTypeOverride != null) {
         Dependency.fromDependencyOverrideType(
             dependencyTypeOverride,
-            SafeType(type),
+            type.toTypeName(),
             requiresCommandDependencies,
         )
     } else if (requiresCommandDependencies) {
-        FunctionalDependency(SafeType(type), true)
+        FunctionalDependency(type.toTypeName(), true)
     } else {
-        PropertyDependency(SafeType(type))
+        PropertyDependency(type.toTypeName())
     }
 }
 

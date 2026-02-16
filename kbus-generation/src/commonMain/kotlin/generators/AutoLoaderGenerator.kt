@@ -18,7 +18,6 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.joinToCode
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 
 class AutoLoaderGenerator(
@@ -61,7 +60,7 @@ class AutoLoaderGenerator(
         dependency: FunctionalDependency,
         topLevelDependencies: List<Dependency>,
     ): FunSpec {
-        val returnType = dependency.typeRef.toTypeName()
+        val returnType = dependency.typeName
 
         val arguments =
             topLevelDependencies.joinToCode(", ") { CodeBlock.of("%L", it.accessReference) }
@@ -85,7 +84,7 @@ class AutoLoaderGenerator(
         dependency: PropertyDependency,
         topLevelDependencies: List<Dependency>,
     ): PropertySpec {
-        val propertyType = dependency.typeRef.toTypeName()
+        val propertyType = dependency.typeName
 
         val arguments =
             topLevelDependencies.joinToCode(", ") { CodeBlock.of("%L", it.accessReference) }

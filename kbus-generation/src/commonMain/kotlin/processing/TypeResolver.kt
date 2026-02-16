@@ -1,80 +1,54 @@
 package com.jimbroze.kbus.generation.processing
 
-import com.google.devtools.ksp.getClassDeclarationByName
-import com.google.devtools.ksp.processing.Resolver
-import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.Variance
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.ParameterizedTypeName
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.TypeName
 
-// TODO change dependencies to store KotlinPoet TypeName to simplify parsing
 object TypeResolver {
-    fun resolve(typeName: String, resolver: Resolver): KSType {
-        // 1. Handle Nullability (Suffix '?')
-        val isNullable = typeName.endsWith("?")
-        val cleanName = if (isNullable) typeName.dropLast(1) else typeName
+    fun resolve(signature: String): TypeName {
+        val type = signature.replace("`", "").trim()
 
-        // 2. Check for Generics (Contains '<')
-        val angleIndex = cleanName.indexOf('<')
-
-        // CASE A: Simple Class (No Generics)
-        if (angleIndex == -1) {
-            val declaration =
-                resolver.getClassDeclarationByName(cleanName)
-                    ?: error("Could not find class: $cleanName")
-
-            val type = declaration.asStarProjectedType()
-            return if (isNullable) type.makeNullable() else type
+        return if (type.endsWith("?")) {
+            resolveNullable(type)
+        } else if (type.contains('<')) {
+            resolveGeneric(type)
+        } else {
+            ClassName.bestGuess(type)
         }
-
-        // CASE B: Generic Class
-        // Split "List<String>" into "List" and "String"
-        val baseClassName = cleanName.substring(0, angleIndex)
-        val argsContent = cleanName.substring(angleIndex + 1, cleanName.lastIndexOf('>'))
-
-        val baseDeclaration =
-            resolver.getClassDeclarationByName(baseClassName)
-                ?: error("Could not find generic base class: $baseClassName")
-
-        // 3. Parse the Arguments (Recursively)
-        // We need to split "String, List<Int>" carefully (respecting nested brackets)
-        val argTypeRefs =
-            splitTypeArgs(argsContent).map { argString ->
-                if (argString == "*") {
-                    // Handle Star Projection <*>
-                    resolver.getTypeArgument(
-                        resolver.createKSTypeReferenceFromKSType(resolver.builtIns.anyType),
-                        Variance.STAR,
-                    )
-                } else {
-                    // Recursive Call
-                    val argType = resolve(argString, resolver)
-                    val argRef = resolver.createKSTypeReferenceFromKSType(argType)
-                    resolver.getTypeArgument(argRef, Variance.INVARIANT)
-                }
-            }
-
-        // 4. Reconstruct the KSType
-        val type = baseDeclaration.asType(argTypeRefs)
-        return if (isNullable) type.makeNullable() else type
     }
 
-    // Helper to split "A, B<C, D>, E" by top-level commas only
+    private fun resolveNullable(type: String): TypeName =
+        resolve(type.dropLast(1)).copy(nullable = true)
+
+    private fun resolveGeneric(type: String): ParameterizedTypeName {
+        val angleIndex = type.indexOf('<')
+
+        val baseName = type.substring(0, angleIndex)
+        val argsString = type.substring(angleIndex + 1, type.lastIndexOf('>'))
+
+        val argsList = splitTypeArgs(argsString)
+        val typeArgs = argsList.map { resolve(it) }
+
+        return ClassName.bestGuess(baseName).parameterizedBy(typeArgs)
+    }
+
     private fun splitTypeArgs(args: String): List<String> {
         val result = mutableListOf<String>()
-        var bracketCount = 0
+        var openBrackets = 0
         var currentStart = 0
 
         for (i in args.indices) {
             val char = args[i]
-            if (char == '<') bracketCount++
-            if (char == '>') bracketCount--
+            if (char == '<') openBrackets++
+            if (char == '>') openBrackets--
 
-            if (char == ',' && bracketCount == 0) {
-                result.add(args.substring(currentStart, i).trim())
+            if (char == ',' && openBrackets == 0) {
+                result.add(args.substring(currentStart, i))
                 currentStart = i + 1
             }
         }
-        // Add the last segment
-        result.add(args.substring(currentStart).trim())
+        result.add(args.substring(currentStart))
         return result
     }
 }

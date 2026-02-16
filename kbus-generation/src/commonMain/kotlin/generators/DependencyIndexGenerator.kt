@@ -19,7 +19,6 @@ import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.joinToCode
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 
 class DependencyIndexGenerator(
@@ -51,22 +50,24 @@ class DependencyIndexGenerator(
     private fun addDependency(dependency: DependencyWithChildren): AnnotationSpec {
         return AnnotationSpec.builder(DependencyInfo::class)
             .addMember(
-                "dependencyType = %M",
+                "${DependencyInfo::dependencyType.name} = %M",
                 MemberName(
                     DependencyType::class.asClassName(),
                     dependencyAnnotationClass(dependency.metadata).toString(),
                 ),
             )
-            .addMember("type = %S", dependency.metadata.signature)
-            .addMember("name = %S", dependency.metadata.name)
-            .addMember("accessReference = %S", accessReference(dependency.metadata) ?: "")
-            .addMember("cannotBeAutoloaded = %L", dependency.cannotBeAutoloaded)
+            .addMember("${DependencyInfo::signature.name} = %S", dependency.metadata.signature)
+            .addMember("${DependencyInfo::name.name} = %S", dependency.metadata.name)
             .addMember(
-                "requiresCommandDependencies = %L",
+                "${DependencyInfo::cannotBeAutoloaded.name} = %L",
+                dependency.cannotBeAutoloaded,
+            )
+            .addMember(
+                "${DependencyInfo::requiresCommandDependencies.name} = %L",
                 dependency.metadata.requiresCommandDependencies,
             )
             .addMember(
-                "topLevelDependencies = [%L]",
+                "${DependencyInfo::topLevelDependencies.name} = [%L]",
                 topLevelDependencies(dependency.topLevelDependencies),
             )
             .build()
@@ -74,7 +75,7 @@ class DependencyIndexGenerator(
 
     private fun topLevelDependencies(dependencies: List<Dependency>): CodeBlock {
         return dependencies
-            .map { it.typeRef.toTypeName().toString() }
+            .map { it.typeName.toString() }
             .toTypedArray()
             .map { CodeBlock.of("%S", it) }
             .joinToCode(", ")
@@ -86,13 +87,6 @@ class DependencyIndexGenerator(
             is PropertyDependency -> DependencyType.PROPERTY
             is CommandDependency -> DependencyType.COMMAND
             is NonDependency -> DependencyType.NON_DEPENDENCY
-        }
-    }
-
-    private fun accessReference(dependency: Dependency): String? {
-        return when (dependency) {
-            is NonDependency -> null
-            else -> dependency.accessReference
         }
     }
 }

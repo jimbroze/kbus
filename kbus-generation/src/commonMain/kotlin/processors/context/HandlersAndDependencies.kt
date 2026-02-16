@@ -1,7 +1,6 @@
 package com.jimbroze.kbus.generation.processors.visitors
 
 import com.google.devtools.ksp.processing.KSPLogger
-import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeReference
@@ -68,10 +67,8 @@ class HandlersAndDependencies {
         dependencyInfoAnnotations: List<KSAnnotation>,
         dependencyIndexFactory: DependencyIndexFactory,
         logger: KSPLogger,
-        resolver: Resolver,
     ) {
-        val dependencies =
-            dependencyIndexFactory.createDependencies(dependencyInfoAnnotations, resolver)
+        val dependencies = dependencyIndexFactory.createDependencies(dependencyInfoAnnotations)
         validateNoDuplicateDependencies(dependencies, logger)
 
         _allDependencies.addAll(dependencies.allDependencies)
@@ -88,10 +85,7 @@ class HandlersAndDependencies {
 
             if (isDuplicate) {
                 val dependencyName = dependency.metadata.name
-                logger.error(
-                    "Tried to generate multiple dependencies for $dependencyName",
-                    dependency.metadata.typeRef.declaration,
-                )
+                logger.error("Tried to generate multiple dependencies for $dependencyName")
             }
         }
     }

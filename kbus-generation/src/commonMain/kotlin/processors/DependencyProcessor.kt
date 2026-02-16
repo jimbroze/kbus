@@ -51,7 +51,7 @@ class DependencyProcessor(
         val dependencyIndexes =
             resolver.getSymbolsWithAnnotation(DependencyIndex::class.qualifiedName.toString())
         val (validIndexSymbols, invalidIndexSymbols) = dependencyIndexes.partition { it.validate() }
-        validIndexSymbols.forEach { it.accept(IndexVisitor(resolver), dependencies) }
+        validIndexSymbols.forEach { it.accept(IndexVisitor(), dependencies) }
 
         val containerInterfaces =
             resolver.getSymbolsWithAnnotation(ContainerInterface::class.qualifiedName.toString())
@@ -180,8 +180,7 @@ class DependencyProcessor(
         }
     }
 
-    inner class IndexVisitor(private val resolver: Resolver) :
-        KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+    inner class IndexVisitor : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
         override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
             error("@${DependencyIndex::class.simpleName} must be a class")
         }
@@ -208,9 +207,10 @@ class DependencyProcessor(
                     it.name?.asString() == DependencyIndex::dependencies.name
                 }
 
+            @Suppress("UNCHECKED_CAST")
             val dependencyInfos = dependenciesArg?.value as? List<KSAnnotation> ?: emptyList()
 
-            data.addIndexedDependencies(dependencyInfos, dependencyIndexFactory, logger, resolver)
+            data.addIndexedDependencies(dependencyInfos, dependencyIndexFactory, logger)
         }
     }
 }

@@ -15,9 +15,8 @@ annotation class DependencyIndex(val dependencies: Array<DependencyInfo>)
 @Retention(AnnotationRetention.BINARY)
 annotation class DependencyInfo(
     val dependencyType: DependencyType,
-    val type: String,
+    val signature: String,
     val name: String,
-    val accessReference: String,
     val cannotBeAutoloaded: Boolean,
     val requiresCommandDependencies: Boolean,
     val topLevelDependencies: Array<String>,

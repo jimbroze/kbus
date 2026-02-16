@@ -61,7 +61,7 @@ class ContainerInterfaceGenerator(
         val functionBuilder =
             FunSpec.builder(dependency.name)
                 .addModifiers(KModifier.ABSTRACT)
-                .returns(dependency.typeRef.toTypeName())
+                .returns(dependency.typeName)
 
         for (constructorArg in dependency.functionParameters) {
             functionBuilder.addParameter(constructorArg.name, constructorArg.typeRef)
@@ -75,7 +75,7 @@ class ContainerInterfaceGenerator(
         dependency: PropertyDependency,
     ) {
         interfaceBuilder.addProperty(
-            PropertySpec.builder(dependency.name, dependency.typeRef.toTypeName()).build()
+            PropertySpec.builder(dependency.name, dependency.typeName).build()
         )
     }
 }
