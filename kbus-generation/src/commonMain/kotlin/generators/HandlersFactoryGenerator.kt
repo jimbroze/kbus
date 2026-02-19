@@ -32,8 +32,9 @@ class HandlersFactoryGenerator(
     private val factoryClassName: String,
     private val combinedDependenciesInterfaceName: String,
     private val combinedHandlersInterfaceName: String,
+    private val packagePath: String,
 ) {
-    fun generateClass(packagePath: String, handlers: Set<HandlerDefinition>) {
+    fun generateClass(handlers: Set<HandlerDefinition>) {
         val superClassName = ClassName(packagePath, combinedHandlersInterfaceName)
         val dependenciesClassName = ClassName(packagePath, combinedDependenciesInterfaceName)
 

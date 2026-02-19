@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.generation.processors
 
+import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
@@ -45,11 +46,23 @@ class DependencyProcessor(
     private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
     private val containerInterfaces = mutableSetOf<KSClassDeclaration>()
 
+    @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val commandDependenciesProps = CommandDependencyProperties.fromResolver(resolver)
 
-        val dependencyIndexes =
+        val localIndexes =
             resolver.getSymbolsWithAnnotation(DependencyIndex::class.qualifiedName.toString())
+        val libraryIndexes =
+            resolver
+                .getDeclarationsFromPackage("com.jimbroze.kbus.generated.indexes")
+                .filterIsInstance<KSClassDeclaration>()
+                .filter { classDecl ->
+                    classDecl.annotations.any {
+                        it.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                            DependencyIndex::class.qualifiedName
+                    }
+                }
+        val dependencyIndexes = localIndexes + libraryIndexes
         val (validIndexSymbols, invalidIndexSymbols) = dependencyIndexes.partition { it.validate() }
         validIndexSymbols.forEach { it.accept(IndexVisitor(), dependencies) }
 
@@ -79,19 +92,11 @@ class DependencyProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        val generatedPackagePath = "com.jimbroze.kbus.generated"
-
-        generators.containerInterface.generateCombinedInterface(
-            generatedPackagePath,
-            this.containerInterfaces,
-        )
-        generators.handlersInterface.generateCombinedInterface(
-            generatedPackagePath,
-            this.handlersInterfaces,
-        )
-        generators.autoLoader.generateAutoloader(generatedPackagePath, dependencies.allDependencies)
-        generators.handlersFactory.generateClass(generatedPackagePath, dependencies.handlers)
-        generators.bus.generateClass(generatedPackagePath, dependencies.handlers)
+        generators.containerInterface.generateCombinedInterface(this.containerInterfaces)
+        generators.handlersInterface.generateCombinedInterface(this.handlersInterfaces)
+        generators.autoLoader.generateAutoloader(dependencies.allDependencies)
+        generators.handlersFactory.generateClass(dependencies.handlers)
+        generators.bus.generateClass(dependencies.handlers)
     }
 
     inner class HandlersInterfaceVisitor(

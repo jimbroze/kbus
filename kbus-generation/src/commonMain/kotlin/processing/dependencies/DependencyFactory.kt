@@ -81,6 +81,9 @@ class DependencyFactory(
             )
 
         // FIXME need to know if override dependencies were external and can be autoloaded
+        // Need multiple modules to test
+        // May need to check all versions of dependency and allow autoloading if any are
+        // autoloadable
         return NewDependencyWithChildren(
             DependencyWithChildren(
                 metadata,

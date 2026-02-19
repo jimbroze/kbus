@@ -32,8 +32,9 @@ class BusGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
     private val config: BusConfig,
+    private val packagePath: String,
 ) {
-    fun generateClass(packagePath: String, handlers: Set<HandlerDefinition>) {
+    fun generateClass(handlers: Set<HandlerDefinition>) {
         val dependenciesClassName = ClassName(packagePath, config.combinedDependenciesInterfaceName)
         val handlerFactoryClassName = ClassName(packagePath, config.handlerFactoryName)
 

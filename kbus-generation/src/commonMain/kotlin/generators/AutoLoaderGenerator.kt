@@ -25,8 +25,9 @@ class AutoLoaderGenerator(
     @Suppress("unused") private val logger: KSPLogger,
     private val loaderInterfaceName: String,
     private val loaderClassName: String,
+    private val packagePath: String,
 ) {
-    fun generateAutoloader(packagePath: String, dependencies: Set<DependencyWithChildren>) {
+    fun generateAutoloader(dependencies: Set<DependencyWithChildren>) {
         val superClassName = ClassName(packagePath, loaderInterfaceName)
 
         val classBuilder =

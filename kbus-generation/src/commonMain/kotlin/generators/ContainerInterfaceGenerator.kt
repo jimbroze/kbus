@@ -22,8 +22,9 @@ class ContainerInterfaceGenerator(
     @Suppress("unused") private val logger: KSPLogger,
     private val loaderInterfaceName: String,
     private val combinedInterfaceName: String,
+    private val packagePath: String,
 ) {
-    fun generateCombinedInterface(packagePath: String, parents: Set<KSClassDeclaration>) {
+    fun generateCombinedInterface(parents: Set<KSClassDeclaration>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(combinedInterfaceName)
 
         for (parent in parents) {
@@ -36,7 +37,7 @@ class ContainerInterfaceGenerator(
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
 
-    fun generateInterface(packagePath: String, dependencies: Set<DependencyWithChildren>) {
+    fun generateInterface(dependencies: Set<DependencyWithChildren>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(loaderInterfaceName)
 
         for (dependency in dependencies) {

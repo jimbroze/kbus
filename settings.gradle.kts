@@ -31,9 +31,6 @@ include("kbus-koin")
 
 include("kbus-generation")
 
-include(
-    "kbus-generation-test"
-)
+include("kbus-generation-test")
 
-// includeBuild("core")
-// includeBuild("koin")
+include("kbus-generation-test-sub")

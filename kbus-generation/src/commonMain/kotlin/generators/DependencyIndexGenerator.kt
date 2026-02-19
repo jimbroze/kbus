@@ -25,8 +25,9 @@ class DependencyIndexGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
     private val indexClassName: String,
+    private val packagePath: String,
 ) {
-    fun generateIndexClass(packagePath: String, dependencies: Set<DependencyWithChildren>) {
+    fun generateIndexClass(dependencies: Set<DependencyWithChildren>) {
         val classBuilder = TypeSpec.classBuilder(indexClassName)
 
         val infoSpecsBlock =

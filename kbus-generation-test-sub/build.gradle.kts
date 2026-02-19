@@ -14,20 +14,13 @@ kotlin {
             implementation(projects.kbusAnnotations)
             implementation(projects.kbusCore)
             implementation(projects.testDoubles)
-            implementation(projects.kbusGenerationTestSub)
-
-            implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.coroutines.core)
-        }
-
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
 
 dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
+
+ksp { arg("kbus.moduleName", project.name) }
 
 tasks.withType(KotlinCompilationTask::class).all {
     if (name != "kspCommonMainKotlinMetadata") {

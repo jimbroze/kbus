@@ -55,6 +55,7 @@ private fun containerInterfaceGenerator(environment: SymbolProcessorEnvironment)
         environment.logger,
         DEPENDENCIES_INTERFACE_NAME,
         COMBINED_DEPENDENCIES_INTERFACE_NAME,
+        packagePath(environment),
     )
 
 private fun handlersInterfaceGenerator(environment: SymbolProcessorEnvironment) =
@@ -63,10 +64,27 @@ private fun handlersInterfaceGenerator(environment: SymbolProcessorEnvironment) 
         environment.logger,
         HANDLERS_INTERFACE_NAME,
         COMBINED_HANDLERS_INTERFACE_NAME,
+        packagePath(environment),
     )
 
-private fun dependencyIndexGenerator(environment: SymbolProcessorEnvironment) =
-    DependencyIndexGenerator(environment.codeGenerator, environment.logger, DEPENDENCIES_INDEX_NAME)
+private fun dependencyIndexGenerator(
+    environment: SymbolProcessorEnvironment
+): DependencyIndexGenerator {
+    val classNameSuffix =
+        environment.options["kbus.moduleName"]?.split('-', '_')?.joinToString("") { segment ->
+            segment.replaceFirstChar { it.uppercase() }
+        }
+    val className =
+        classNameSuffix?.takeIf { it.isNotBlank() }?.let { "${DEPENDENCIES_INDEX_NAME}$it" }
+            ?: DEPENDENCIES_INDEX_NAME
+
+    return DependencyIndexGenerator(
+        environment.codeGenerator,
+        environment.logger,
+        className,
+        "com.jimbroze.kbus.generated.indexes",
+    )
+}
 
 private fun handlersFactoryGenerator(environment: SymbolProcessorEnvironment) =
     HandlersFactoryGenerator(
@@ -75,6 +93,7 @@ private fun handlersFactoryGenerator(environment: SymbolProcessorEnvironment) =
         HANDLER_FACTORY_CLASS_NAME,
         COMBINED_DEPENDENCIES_INTERFACE_NAME,
         COMBINED_HANDLERS_INTERFACE_NAME,
+        packagePath(environment),
     )
 
 private fun autoLoaderGenerator(environment: SymbolProcessorEnvironment) =
@@ -83,6 +102,7 @@ private fun autoLoaderGenerator(environment: SymbolProcessorEnvironment) =
         environment.logger,
         COMBINED_DEPENDENCIES_INTERFACE_NAME,
         LOADER_CLASS_NAME,
+        packagePath(environment),
     )
 
 private fun busGenerator(environment: SymbolProcessorEnvironment) =
@@ -98,7 +118,17 @@ private fun busGenerator(environment: SymbolProcessorEnvironment) =
             TransactionManager::class,
             GenerationHandlerLocator::class,
         ),
+        packagePath(environment),
     )
+
+private fun packagePath(environment: SymbolProcessorEnvironment): String {
+    val packagePath = "com.jimbroze.kbus.generated"
+
+    val sanitizedPathSuffix = environment.options["kbus.moduleName"]?.replace("-", "_")
+
+    return sanitizedPathSuffix?.takeIf { it.isNotBlank() }?.let { "$packagePath.$it" }
+        ?: packagePath
+}
 
 class MessageProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {

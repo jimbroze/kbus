@@ -43,14 +43,9 @@ class MessageProcessor(
 
         if (handlers.isEmpty()) return
 
-        val generatedPackagePath = "com.jimbroze.kbus.generated"
-
-        containerInterfaceGenerator.generateInterface(
-            generatedPackagePath,
-            handlers.allDependencies,
-        )
-        handlersInterfaceGenerator.generateInterface(generatedPackagePath, handlers.handlers)
-        dependencyIndexGenerator.generateIndexClass(generatedPackagePath, handlers.allDependencies)
+        containerInterfaceGenerator.generateInterface(handlers.allDependencies)
+        handlersInterfaceGenerator.generateInterface(handlers.handlers)
+        dependencyIndexGenerator.generateIndexClass(handlers.allDependencies)
     }
 
     inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :

@@ -17,8 +17,9 @@ class HandlersInterfaceGenerator(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerInterfaceName: String,
     private val combinedInterfaceName: String,
+    private val packagePath: String,
 ) {
-    fun generateCombinedInterface(packagePath: String, parents: Set<KSClassDeclaration>) {
+    fun generateCombinedInterface(parents: Set<KSClassDeclaration>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(combinedInterfaceName)
 
         for (parent in parents) {
@@ -31,7 +32,7 @@ class HandlersInterfaceGenerator(
         file.build().writeTo(codeGenerator, Dependencies(true))
     }
 
-    fun generateInterface(packagePath: String, handlers: Set<HandlerDefinition>) {
+    fun generateInterface(handlers: Set<HandlerDefinition>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(handlerInterfaceName)
 
         handlers.forEach { addHandlerDefinition(interfaceBuilder, it) }
