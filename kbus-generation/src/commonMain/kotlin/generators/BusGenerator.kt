@@ -99,7 +99,7 @@ class BusGenerator(
                 ?: error(
                     "Message base class simple name is missing for: ${handler.messageBaseClass.qualifiedName}"
                 )
-        val messageClass = handler.handlerData.messageClass.asStarProjectedType().toTypeName()
+        val messageClass = handler.handlerData.messageClass
         val messageProcessor = handler.messageProcessorName
         val processMethod = handler.processorMethodName
 

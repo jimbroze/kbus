@@ -22,8 +22,6 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.asClassName
-import com.squareup.kotlinpoet.ksp.toClassName
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 
 class HandlersFactoryGenerator(
@@ -89,10 +87,7 @@ class HandlersFactoryGenerator(
         for (handler in handlers) {
             val handlerName = handler.handlerData.nameAsDependency
             val commandClass = handler.handlerData.messageClass
-            codeBlock.addStatement(
-                "is %T -> this.$handlerName(commandDependencies)",
-                commandClass.toClassName(),
-            )
+            codeBlock.addStatement("is %T -> this.$handlerName(commandDependencies)", commandClass)
         }
 
         codeBlock.addStatement("else -> null").unindent().add("} as %T", returnType)
@@ -125,7 +120,7 @@ class HandlersFactoryGenerator(
         for (handler in handlers) {
             val handlerName = handler.handlerData.nameAsDependency
             val queryClass = handler.handlerData.messageClass
-            codeBlock.addStatement("is %T -> this.$handlerName()", queryClass.toClassName())
+            codeBlock.addStatement("is %T -> this.$handlerName()", queryClass)
         }
 
         codeBlock.addStatement("else -> null").unindent().add("} as %T", returnType)
@@ -142,7 +137,7 @@ class HandlersFactoryGenerator(
     }
 
     private fun addHandlerDefinition(classBuilder: TypeSpec.Builder, handler: HandlerDefinition) {
-        val returnType = handler.handlerData.handlerClass.asStarProjectedType().toTypeName()
+        val returnType = handler.handlerData.handlerClass
 
         val subDependencyArgs =
             handler.handlerData.topLevelDependencies.joinToString(", ") {

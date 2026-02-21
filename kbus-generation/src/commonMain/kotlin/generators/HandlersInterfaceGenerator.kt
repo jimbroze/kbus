@@ -49,7 +49,7 @@ class HandlersInterfaceGenerator(
         val functionBuilder =
             FunSpec.builder(handler.handlerData.nameAsDependency)
                 .addModifiers(KModifier.ABSTRACT)
-                .returns(handler.handlerData.handlerClass.asStarProjectedType().toTypeName())
+                .returns(handler.handlerData.handlerClass)
 
         for (functionParameter in handler.functionParameters) {
             functionBuilder.addParameter(functionParameter.name, functionParameter.typeRef)

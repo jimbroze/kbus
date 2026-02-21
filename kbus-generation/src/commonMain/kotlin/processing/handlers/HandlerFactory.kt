@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
+import com.squareup.kotlinpoet.ksp.toClassName
 
 class HandlerFactory(
     @Suppress("unused") private val logger: KSPLogger,
@@ -40,7 +41,12 @@ class HandlerFactory(
 
         return HandlerDefinition.create(
             handlerBaseClassReference.resolve().declaration as KSClassDeclaration,
-            HandlerData(handlerClass, messageClass, returnType, constructorDependencies),
+            HandlerData(
+                handlerClass.toClassName(),
+                messageClass.toClassName(),
+                returnType,
+                constructorDependencies,
+            ),
         )
     }
 

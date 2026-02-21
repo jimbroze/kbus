@@ -93,17 +93,15 @@ class HandlersAndDependencies {
     private fun validateCanAddHandler(newHandler: HandlerDefinition, logger: KSPLogger) {
         val handlerUsingSameMessageOrNull =
             handlers.firstOrNull { other ->
-                newHandler.handlerData.messageClass.simpleName == other.handlerData.messageClass
+                newHandler.handlerData.messageClass == other.handlerData.messageClass
             }
 
         handlerUsingSameMessageOrNull?.let {
-            val messageClassName = newHandler.handlerData.messageClass.simpleName.asString()
-            val oldHandlerName =
-                handlerUsingSameMessageOrNull.handlerData.handlerClass.simpleName.asString()
-            val newHandlerName = newHandler.handlerData.handlerClass.simpleName.asString()
+            val messageClassName = newHandler.handlerData.messageClass.simpleName
+            val oldHandlerName = handlerUsingSameMessageOrNull.handlerData.handlerClass.simpleName
+            val newHandlerName = newHandler.handlerData.handlerClass.simpleName
             logger.error(
-                "Message class $messageClassName is used by multiple handlers: '$oldHandlerName' & '$newHandlerName'",
-                newHandler.handlerData.messageClass,
+                "Message class $messageClassName is used by multiple handlers: '$oldHandlerName' & '$newHandlerName'"
             )
         }
     }
