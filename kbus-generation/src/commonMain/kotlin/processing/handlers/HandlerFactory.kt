@@ -8,6 +8,7 @@ import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.squareup.kotlinpoet.ksp.toClassName
+import com.squareup.kotlinpoet.ksp.toTypeName
 
 class HandlerFactory(
     @Suppress("unused") private val logger: KSPLogger,
@@ -44,7 +45,7 @@ class HandlerFactory(
             HandlerData(
                 handlerClass.toClassName(),
                 messageClass.toClassName(),
-                returnType,
+                returnType.toTypeName(),
                 constructorDependencies,
             ),
         )

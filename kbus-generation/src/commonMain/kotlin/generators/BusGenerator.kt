@@ -14,7 +14,6 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.joinToCode
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 import kotlin.reflect.KClass
 
@@ -92,7 +91,7 @@ class BusGenerator(
     }
 
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
-        val returnTypeName = handler.handlerData.returnType.toTypeName()
+        val returnTypeName = handler.handlerData.returnType
 
         val messageType = handler.messageBaseClass.simpleName.replaceFirstChar { it.lowercase() }
         val messageClass = handler.handlerData.messageClass
