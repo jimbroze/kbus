@@ -1,22 +1,21 @@
 package com.jimbroze.kbus.generation.processing.handlers
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.jimbroze.kbus.core.common.Message
-import com.jimbroze.kbus.core.common.MessageHandler
 import com.jimbroze.kbus.core.messages.command.Command
 import com.jimbroze.kbus.core.messages.command.CommandHandler
 import com.jimbroze.kbus.core.messages.query.Query
 import com.jimbroze.kbus.core.messages.query.QueryHandler
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
-import kotlin.reflect.KClass
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.asClassName
 
 sealed interface HandlerDefinition {
     val processorMethodName: String
     val messageProcessorName: String
     val handlerData: HandlerData
-    val handlerBaseClass: KClass<out MessageHandler<*>>
-    val messageBaseClass: KClass<out Message>
+    val handlerBaseClass: ClassName
+    val messageBaseClass: ClassName
 
     companion object {
         fun create(
@@ -36,10 +35,10 @@ sealed interface HandlerDefinition {
 
 data class CommandHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
     override val handlerBaseClass
-        get() = CommandHandler::class
+        get() = CommandHandler::class.asClassName()
 
     override val messageBaseClass
-        get() = Command::class
+        get() = Command::class.asClassName()
 
     override val processorMethodName: String
         get() = "execute"
@@ -69,10 +68,10 @@ data class QueryHandlerDefinition(override val handlerData: HandlerData) : Handl
     }
 
     override val handlerBaseClass
-        get() = QueryHandler::class
+        get() = QueryHandler::class.asClassName()
 
-    override val messageBaseClass: KClass<out Message>
-        get() = Query::class
+    override val messageBaseClass
+        get() = Query::class.asClassName()
 
     override val processorMethodName: String
         get() = "fetch"

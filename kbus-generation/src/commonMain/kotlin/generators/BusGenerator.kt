@@ -94,11 +94,7 @@ class BusGenerator(
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
         val returnTypeName = handler.handlerData.returnType.toTypeName()
 
-        val messageType =
-            handler.messageBaseClass.simpleName?.replaceFirstChar { it.lowercase() }
-                ?: error(
-                    "Message base class simple name is missing for: ${handler.messageBaseClass.qualifiedName}"
-                )
+        val messageType = handler.messageBaseClass.simpleName.replaceFirstChar { it.lowercase() }
         val messageClass = handler.handlerData.messageClass
         val messageProcessor = handler.messageProcessorName
         val processMethod = handler.processorMethodName

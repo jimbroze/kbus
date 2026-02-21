@@ -104,6 +104,7 @@ class HandlersFactoryGenerator(
         return functionBuilder.build()
     }
 
+    // TODO make more polymorphic?
     private fun buildQueriesHandlersFor(handlers: Set<QueryHandlerDefinition>): FunSpec {
         val tResult =
             TypeVariableName("TResult", ClassName("com.jimbroze.kbus.core.result", "KBusResult"))
