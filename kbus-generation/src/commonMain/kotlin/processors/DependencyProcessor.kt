@@ -45,6 +45,7 @@ class DependencyProcessor(
     private val handlerFactory: HandlerFactory,
     private val dependencyIndexFactory: DependencyIndexFactory,
     private val generators: ContainerGenerators,
+    private val generateBus: Boolean,
 ) : SymbolProcessor {
     private val dependencies = HandlersAndDependencies()
     private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
@@ -112,17 +113,21 @@ class DependencyProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        // FIXME need to combine processors into one
-        // Probably don't want library deps in index
-        generators.dependencyIndexGenerator.generateIndexClass(
-            dependencies.allDependencies,
-            dependencies.handlers,
-        )
+        // FIXME Probably don't want library deps in index
+        // TODO what about external libraries using KBus??s
+
         generators.containerInterface.generateInterface(dependencies.allDependencies)
         generators.handlersInterface.generateInterface(dependencies.handlers)
-        generators.autoLoader.generateAutoloader(dependencies.allDependencies)
-        generators.handlersFactory.generateClass(dependencies.handlers)
-        generators.bus.generateClass(dependencies.handlers)
+        if (generateBus) {
+            generators.autoLoader.generateAutoloader(dependencies.allDependencies)
+            generators.handlersFactory.generateClass(dependencies.handlers)
+            generators.bus.generateClass(dependencies.handlers)
+        } else {
+            generators.dependencyIndexGenerator.generateIndexClass(
+                dependencies.allDependencies,
+                dependencies.handlers,
+            )
+        }
     }
 
     inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :
