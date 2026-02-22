@@ -20,13 +20,12 @@ import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFacto
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.ContainerGenerators
 import com.jimbroze.kbus.generation.processors.DependencyProcessor
-import com.jimbroze.kbus.generation.processors.MessageProcessor
 
 val KBUS_BUS_PACKAGE_NAME =
     MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
 
-const val DEPENDENCIES_INTERFACE_NAME = "DependenciesInterface"
-const val HANDLERS_INTERFACE_NAME = "HandlerInterface"
+const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
+const val HANDLERS_INTERFACE_NAME = "AllHandlers"
 
 const val COMBINED_DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
 const val COMBINED_HANDLERS_INTERFACE_NAME = "AllHandlers"
@@ -130,19 +129,6 @@ private fun packagePath(environment: SymbolProcessorEnvironment): String {
         ?: packagePath
 }
 
-class MessageProcessorProvider : SymbolProcessorProvider {
-    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
-        val dependencyFactory = dependencyFactory(environment)
-        return MessageProcessor(
-            environment.logger,
-            handlerFactory(environment, dependencyFactory),
-            containerInterfaceGenerator(environment),
-            handlersInterfaceGenerator(environment),
-            dependencyIndexGenerator(environment),
-        )
-    }
-}
-
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val dependencyFactory = dependencyFactory(environment)
@@ -155,6 +141,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 handlersInterfaceGenerator(environment),
                 autoLoaderGenerator(environment),
                 handlersFactoryGenerator(environment),
+                dependencyIndexGenerator(environment),
                 busGenerator(environment),
             ),
         )

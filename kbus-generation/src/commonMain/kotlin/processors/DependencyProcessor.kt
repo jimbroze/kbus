@@ -17,9 +17,11 @@ import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.ContainerInterface
 import com.jimbroze.kbus.annotations.HandlersInterface
 import com.jimbroze.kbus.annotations.KbusIndex
+import com.jimbroze.kbus.annotations.LoadMessageHandler
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
@@ -27,12 +29,14 @@ import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFacto
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyOverrideType
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
+import kotlin.sequences.forEach
 
 class ContainerGenerators(
     val containerInterface: ContainerInterfaceGenerator,
     val handlersInterface: HandlersInterfaceGenerator,
     val autoLoader: AutoLoaderGenerator,
     val handlersFactory: HandlersFactoryGenerator,
+    val dependencyIndexGenerator: DependencyIndexGenerator,
     val bus: BusGenerator,
 )
 
@@ -82,7 +86,23 @@ class DependencyProcessor(
             it.accept(HandlersInterfaceVisitor(commandDependenciesProps), dependencies)
         }
 
-        return invalidIndexSymbols + invalidContainerSymbols + invalidHandlerSymbols
+        val invalidMessageSymbols = processMessages(resolver)
+
+        return invalidIndexSymbols +
+            invalidContainerSymbols +
+            invalidHandlerSymbols +
+            invalidMessageSymbols
+    }
+
+    private fun processMessages(resolver: Resolver): List<KSAnnotated> {
+        val messagesToLoad =
+            resolver.getSymbolsWithAnnotation(LoadMessageHandler::class.qualifiedName.toString())
+
+        messagesToLoad.forEach {
+            it.accept(LoadVisitor(CommandDependencyProperties.fromResolver(resolver)), dependencies)
+        }
+
+        return messagesToLoad.filterNot { it.validate() }.toList()
     }
 
     /**
@@ -92,11 +112,42 @@ class DependencyProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        generators.containerInterface.generateCombinedInterface(this.containerInterfaces)
-        generators.handlersInterface.generateCombinedInterface(this.handlersInterfaces)
+        // FIXME need to combine processors into one
+        // Probably don't want library deps in index
+        generators.dependencyIndexGenerator.generateIndexClass(
+            dependencies.allDependencies,
+            dependencies.handlers,
+        )
+        generators.containerInterface.generateInterface(dependencies.allDependencies)
+        generators.handlersInterface.generateInterface(dependencies.handlers)
         generators.autoLoader.generateAutoloader(dependencies.allDependencies)
         generators.handlersFactory.generateClass(dependencies.handlers)
         generators.bus.generateClass(dependencies.handlers)
+    }
+
+    inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :
+        KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+
+        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
+            error(
+                "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
+                    "$node is not a class"
+            )
+        }
+
+        override fun visitClassDeclaration(
+            classDeclaration: KSClassDeclaration,
+            data: HandlersAndDependencies,
+        ) {
+            if (classDeclaration.classKind != ClassKind.CLASS) {
+                error(
+                    "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
+                        "$classDeclaration is a ${classDeclaration.classKind}"
+                )
+            }
+
+            data.addHandler(classDeclaration, commandDependenciesProps, handlerFactory, logger)
+        }
     }
 
     inner class HandlersInterfaceVisitor(
