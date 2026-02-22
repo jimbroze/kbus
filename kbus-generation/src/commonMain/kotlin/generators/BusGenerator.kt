@@ -19,7 +19,7 @@ import kotlin.reflect.KClass
 
 data class BusConfig(
     val busClassName: String,
-    val combinedDependenciesInterfaceName: String,
+    val dependenciesInterfaceName: String,
     val handlerFactoryName: String,
     val busSuperClass: KClass<*>,
     val middlewareClass: KClass<*>,
@@ -34,7 +34,7 @@ class BusGenerator(
     private val packagePath: String,
 ) {
     fun generateClass(handlers: Set<HandlerDefinition>) {
-        val dependenciesClassName = ClassName(packagePath, config.combinedDependenciesInterfaceName)
+        val dependenciesClassName = ClassName(packagePath, config.dependenciesInterfaceName)
         val handlerFactoryClassName = ClassName(packagePath, config.handlerFactoryName)
 
         val classBuilder =

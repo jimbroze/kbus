@@ -28,13 +28,13 @@ class HandlersFactoryGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
     private val factoryClassName: String,
-    private val combinedDependenciesInterfaceName: String,
-    private val combinedHandlersInterfaceName: String,
+    private val dependenciesInterfaceName: String,
+    private val handlersInterfaceName: String,
     private val packagePath: String,
 ) {
     fun generateClass(handlers: Set<HandlerDefinition>) {
-        val superClassName = ClassName(packagePath, combinedHandlersInterfaceName)
-        val dependenciesClassName = ClassName(packagePath, combinedDependenciesInterfaceName)
+        val superClassName = ClassName(packagePath, handlersInterfaceName)
+        val dependenciesClassName = ClassName(packagePath, dependenciesInterfaceName)
 
         val classBuilder =
             TypeSpec.classBuilder(factoryClassName)

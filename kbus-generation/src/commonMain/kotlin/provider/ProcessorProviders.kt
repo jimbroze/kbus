@@ -27,9 +27,6 @@ val KBUS_BUS_PACKAGE_NAME =
 const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
 const val HANDLERS_INTERFACE_NAME = "AllHandlers"
 
-const val COMBINED_DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
-const val COMBINED_HANDLERS_INTERFACE_NAME = "AllHandlers"
-
 const val LOADER_CLASS_NAME = "AutoLoader"
 const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
 
@@ -53,7 +50,6 @@ private fun containerInterfaceGenerator(environment: SymbolProcessorEnvironment)
         environment.codeGenerator,
         environment.logger,
         DEPENDENCIES_INTERFACE_NAME,
-        COMBINED_DEPENDENCIES_INTERFACE_NAME,
         packagePath(environment),
     )
 
@@ -62,7 +58,6 @@ private fun handlersInterfaceGenerator(environment: SymbolProcessorEnvironment) 
         environment.codeGenerator,
         environment.logger,
         HANDLERS_INTERFACE_NAME,
-        COMBINED_HANDLERS_INTERFACE_NAME,
         packagePath(environment),
     )
 
@@ -90,8 +85,8 @@ private fun handlersFactoryGenerator(environment: SymbolProcessorEnvironment) =
         environment.codeGenerator,
         environment.logger,
         HANDLER_FACTORY_CLASS_NAME,
-        COMBINED_DEPENDENCIES_INTERFACE_NAME,
-        COMBINED_HANDLERS_INTERFACE_NAME,
+        DEPENDENCIES_INTERFACE_NAME,
+        HANDLERS_INTERFACE_NAME,
         packagePath(environment),
     )
 
@@ -99,7 +94,7 @@ private fun autoLoaderGenerator(environment: SymbolProcessorEnvironment) =
     AutoLoaderGenerator(
         environment.codeGenerator,
         environment.logger,
-        COMBINED_DEPENDENCIES_INTERFACE_NAME,
+        DEPENDENCIES_INTERFACE_NAME,
         LOADER_CLASS_NAME,
         packagePath(environment),
     )
@@ -110,7 +105,7 @@ private fun busGenerator(environment: SymbolProcessorEnvironment) =
         environment.logger,
         BusConfig(
             BUS_CLASS_NAME,
-            COMBINED_DEPENDENCIES_INTERFACE_NAME,
+            DEPENDENCIES_INTERFACE_NAME,
             HANDLER_FACTORY_CLASS_NAME,
             BaseMessageBus::class,
             Middleware::class,

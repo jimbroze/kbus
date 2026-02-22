@@ -3,7 +3,6 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
-import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
@@ -14,29 +13,14 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 
 class ContainerInterfaceGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
     private val loaderInterfaceName: String,
-    private val combinedInterfaceName: String,
     private val packagePath: String,
 ) {
-    fun generateCombinedInterface(parents: Set<KSClassDeclaration>) {
-        val interfaceBuilder = TypeSpec.interfaceBuilder(combinedInterfaceName)
-
-        for (parent in parents) {
-            interfaceBuilder.addSuperinterface(parent.asStarProjectedType().toTypeName())
-        }
-
-        val file = FileSpec.builder(packagePath, combinedInterfaceName)
-        file.addType(interfaceBuilder.build())
-
-        file.build().writeTo(codeGenerator, Dependencies(true))
-    }
-
     fun generateInterface(dependencies: Set<DependencyWithChildren>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(loaderInterfaceName)
 
