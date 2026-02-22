@@ -7,9 +7,17 @@ enum class DependencyType {
     NON_DEPENDENCY,
 }
 
+enum class HandlerType {
+    COMMAND,
+    QUERY,
+}
+
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.BINARY)
-annotation class DependencyIndex(val dependencies: Array<DependencyInfo>)
+annotation class KbusIndex(
+    val dependencies: Array<DependencyInfo>,
+    val handlers: Array<HandlerInfo>,
+)
 
 @Target()
 @Retention(AnnotationRetention.BINARY)
@@ -19,5 +27,15 @@ annotation class DependencyInfo(
     val name: String,
     val cannotBeAutoloaded: Boolean,
     val requiresCommandDependencies: Boolean,
+    val topLevelDependencies: Array<String>,
+)
+
+@Target()
+@Retention(AnnotationRetention.BINARY)
+annotation class HandlerInfo(
+    val handlerType: HandlerType,
+    val handlerClass: String,
+    val messageClass: String,
+    val returnType: String,
     val topLevelDependencies: Array<String>,
 )

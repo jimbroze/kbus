@@ -15,8 +15,8 @@ import com.google.devtools.ksp.symbol.Origin
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.ContainerInterface
-import com.jimbroze.kbus.annotations.DependencyIndex
 import com.jimbroze.kbus.annotations.HandlersInterface
+import com.jimbroze.kbus.annotations.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
@@ -51,7 +51,7 @@ class DependencyProcessor(
         val commandDependenciesProps = CommandDependencyProperties.fromResolver(resolver)
 
         val localIndexes =
-            resolver.getSymbolsWithAnnotation(DependencyIndex::class.qualifiedName.toString())
+            resolver.getSymbolsWithAnnotation(KbusIndex::class.qualifiedName.toString())
         val libraryIndexes =
             resolver
                 .getDeclarationsFromPackage("com.jimbroze.kbus.generated.indexes")
@@ -59,12 +59,12 @@ class DependencyProcessor(
                 .filter { classDecl ->
                     classDecl.annotations.any {
                         it.annotationType.resolve().declaration.qualifiedName?.asString() ==
-                            DependencyIndex::class.qualifiedName
+                            KbusIndex::class.qualifiedName
                     }
                 }
         val dependencyIndexes = localIndexes + libraryIndexes
         val (validIndexSymbols, invalidIndexSymbols) = dependencyIndexes.partition { it.validate() }
-        validIndexSymbols.forEach { it.accept(IndexVisitor(), dependencies) }
+        validIndexSymbols.forEach { it.accept(DependencyIndexVisitor(), dependencies) }
 
         val containerInterfaces =
             resolver.getSymbolsWithAnnotation(ContainerInterface::class.qualifiedName.toString())
@@ -185,9 +185,9 @@ class DependencyProcessor(
         }
     }
 
-    inner class IndexVisitor : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+    inner class DependencyIndexVisitor : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
         override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
-            error("@${DependencyIndex::class.simpleName} must be a class")
+            error("Only classes can be annotated with @${KbusIndex::class.simpleName}")
         }
 
         override fun visitClassDeclaration(
@@ -196,26 +196,47 @@ class DependencyProcessor(
         ) {
             if (classDeclaration.classKind != ClassKind.CLASS) {
                 error(
-                    "Only classes can be annotated with @${ContainerInterface::class.simpleName}. " +
+                    "Only classes can be annotated with @${KbusIndex::class.simpleName}. " +
                         "$classDeclaration is a ${classDeclaration.classKind}"
                 )
             }
 
-            val indexAnnotation =
+            val kbusIndexAnnotation =
                 classDeclaration.annotations.find {
                     it.annotationType.resolve().declaration.qualifiedName?.asString() ==
-                        DependencyIndex::class.qualifiedName
-                } ?: return
+                        KbusIndex::class.qualifiedName
+                } ?: error("Missing @${KbusIndex::class.simpleName} annotation")
 
+            // TODO don't pass factory to data
+            addDependencies(kbusIndexAnnotation, data)
+            addHandlers(kbusIndexAnnotation, data)
+        }
+
+        private fun addDependencies(
+            kbusIndexAnnotation: KSAnnotation,
+            data: HandlersAndDependencies,
+        ) {
             val dependenciesArg =
-                indexAnnotation.arguments.find {
-                    it.name?.asString() == DependencyIndex::dependencies.name
+                kbusIndexAnnotation.arguments.find {
+                    it.name?.asString() == KbusIndex::dependencies.name
                 }
 
             @Suppress("UNCHECKED_CAST")
             val dependencyInfos = dependenciesArg?.value as? List<KSAnnotation> ?: emptyList()
 
             data.addIndexedDependencies(dependencyInfos, dependencyIndexFactory, logger)
+        }
+
+        private fun addHandlers(kbusIndexAnnotation: KSAnnotation, data: HandlersAndDependencies) {
+            val handlersArg =
+                kbusIndexAnnotation.arguments.find {
+                    it.name?.asString() == KbusIndex::handlers.name
+                }
+
+            @Suppress("UNCHECKED_CAST")
+            val handlerInfos = handlersArg?.value as? List<KSAnnotation> ?: emptyList()
+
+            data.addIndexedHandlers(handlerInfos, dependencyIndexFactory, logger)
         }
     }
 }

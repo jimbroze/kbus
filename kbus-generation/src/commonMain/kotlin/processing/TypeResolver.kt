@@ -6,6 +6,16 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.TypeName
 
 object TypeResolver {
+    fun resolveClassName(signature: String): ClassName {
+        val typeName = resolve(signature)
+
+        require(typeName is ClassName) {
+            "Expected a class name, but got '$signature' (resolved to KotlinPoet type: ${typeName::class.simpleName})"
+        }
+
+        return typeName
+    }
+
     fun resolve(signature: String): TypeName {
         val type = signature.replace("`", "").trim()
 

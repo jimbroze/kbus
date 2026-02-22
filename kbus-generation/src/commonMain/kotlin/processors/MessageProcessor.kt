@@ -45,7 +45,7 @@ class MessageProcessor(
 
         containerInterfaceGenerator.generateInterface(handlers.allDependencies)
         handlersInterfaceGenerator.generateInterface(handlers.handlers)
-        dependencyIndexGenerator.generateIndexClass(handlers.allDependencies)
+        dependencyIndexGenerator.generateIndexClass(handlers.allDependencies, handlers.handlers)
     }
 
     inner class LoadVisitor(val commandDependenciesProps: CommandDependencyProperties) :

@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.generation.processing.handlers
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.jimbroze.kbus.annotations.HandlerType
 import com.jimbroze.kbus.core.messages.command.Command
 import com.jimbroze.kbus.core.messages.command.CommandHandler
 import com.jimbroze.kbus.core.messages.query.Query
@@ -26,6 +27,16 @@ sealed interface HandlerDefinition {
                 CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
                 QueryHandler::class.qualifiedName -> QueryHandlerDefinition(handlerData)
                 else -> null
+            }
+        }
+
+        fun createFromType(
+            typeOfHandler: HandlerType,
+            handlerData: HandlerData,
+        ): HandlerDefinition {
+            return when (typeOfHandler) {
+                HandlerType.COMMAND -> CommandHandlerDefinition(handlerData)
+                HandlerType.QUERY -> QueryHandlerDefinition(handlerData)
             }
         }
     }

@@ -4,7 +4,10 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSType
 import com.jimbroze.kbus.annotations.DependencyInfo
+import com.jimbroze.kbus.annotations.HandlerInfo
 import com.jimbroze.kbus.generation.processing.TypeResolver
+import com.jimbroze.kbus.generation.processing.handlers.HandlerData
+import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import kotlin.reflect.KProperty1
 
 class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) {
@@ -16,6 +19,15 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
         }
 
         return IndexDependencies(dependenciesWithDehydratedChildren)
+    }
+
+    fun createHandlers(
+        handlerInfoAnnotations: Collection<KSAnnotation>,
+        allDependencies: Set<Dependency>,
+    ): Set<HandlerDefinition> {
+        val allDependenciesBySignature =
+            allDependencies.associateBy { dependency -> dependency.signature }
+        return handlerInfoAnnotations.map { createHandler(it, allDependenciesBySignature) }.toSet()
     }
 
     private fun createDependency(
@@ -55,6 +67,44 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
             )
 
         return DependencyWithDehydratedChildren(metadata, topLevelDependencies, cannotBeAutoloaded)
+    }
+
+    private fun createHandler(
+        handlerInfoAnnotation: KSAnnotation,
+        allDependenciesBySignature: Map<String, Dependency>,
+    ): HandlerDefinition {
+        if (
+            handlerInfoAnnotation.annotationType.resolve().declaration.qualifiedName?.asString() !=
+                HandlerInfo::class.qualifiedName
+        )
+            error("Only HandlerInfo annotations can be processed here")
+
+        val messageClassSignature: String =
+            handlerInfoAnnotation.findArgument(HandlerInfo::messageClass)
+        val handlerClassSignature: String =
+            handlerInfoAnnotation.findArgument(HandlerInfo::handlerClass)
+        val returnTypeSignature: String =
+            handlerInfoAnnotation.findArgument(HandlerInfo::returnType)
+        val topLevelDependenciesSignatures: List<String> =
+            handlerInfoAnnotation.findArgument(HandlerInfo::topLevelDependencies)
+        val typeOfHandlerSymbol: KSType =
+            handlerInfoAnnotation.findArgument(HandlerInfo::handlerType)
+
+        val messageClass = TypeResolver.resolveClassName(messageClassSignature)
+        val handlerClass = TypeResolver.resolveClassName(handlerClassSignature)
+        val returnType = TypeResolver.resolve(returnTypeSignature)
+
+        val typeOfHandler =
+            com.jimbroze.kbus.annotations.HandlerType.valueOf(
+                typeOfHandlerSymbol.declaration.simpleName.asString()
+            )
+
+        val topLevelDependencies =
+            topLevelDependenciesSignatures.map { allDependenciesBySignature.getValue(it) }
+
+        val handlerData = HandlerData(handlerClass, messageClass, returnType, topLevelDependencies)
+
+        return HandlerDefinition.createFromType(typeOfHandler, handlerData)
     }
 }
 

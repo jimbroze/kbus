@@ -14,13 +14,13 @@ import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 
 class HandlersAndDependencies {
     private val _allDependencies = mutableSetOf<DependencyWithChildren>()
-    private val _handlers = mutableSetOf<HandlerDefinition>()
+    private val _handlers = mutableMapOf<String, HandlerDefinition>()
 
     val allDependencies: Set<DependencyWithChildren>
         get() = _allDependencies
 
     val handlers: Set<HandlerDefinition>
-        get() = _handlers
+        get() = _handlers.values.toSet()
 
     fun addHandler(
         classDeclaration: KSClassDeclaration,
@@ -35,14 +35,16 @@ class HandlersAndDependencies {
                 commandDependenciesProps,
             )
         validateNoDuplicateDependencies(dependencies, logger)
+        _allDependencies.addAll(dependencies.allDependencies)
 
+        // TODO do this before any handler generation?
+        if (_handlers.containsKey(classDeclaration.qualifiedName!!.asString())) return
         val handler =
             handlerFactory.createHandler(classDeclaration, dependencies.topLevelDependencies)
                 ?: return
         validateCanAddHandler(handler, logger)
 
-        _handlers.add(handler)
-        _allDependencies.addAll(dependencies.allDependencies)
+        _handlers[handler.handlerData.handlerClass.canonicalName] = handler
     }
 
     fun addDependency(
@@ -72,6 +74,22 @@ class HandlersAndDependencies {
         validateNoDuplicateDependencies(dependencies, logger)
 
         _allDependencies.addAll(dependencies.allDependencies)
+    }
+
+    fun addIndexedHandlers(
+        handlerInfoAnnotations: List<KSAnnotation>,
+        dependencyIndexFactory: DependencyIndexFactory,
+        logger: KSPLogger,
+    ) {
+        val handlers =
+            dependencyIndexFactory.createHandlers(
+                handlerInfoAnnotations,
+                allDependencies.map { it.metadata }.toSet(),
+            )
+
+        handlers.associateByTo(_handlers) { handler ->
+            handler.handlerData.handlerClass.canonicalName
+        }
     }
 
     fun isEmpty() = handlers.isEmpty() && allDependencies.isEmpty()
