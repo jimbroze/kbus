@@ -27,7 +27,9 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
     ): Set<HandlerDefinition> {
         val allDependenciesBySignature =
             allDependencies.associateBy { dependency -> dependency.signature }
-        return handlerInfoAnnotations.map { createHandler(it, allDependenciesBySignature) }.toSet()
+        return handlerInfoAnnotations
+            .mapNotNull { createHandler(it, allDependenciesBySignature) }
+            .toSet()
     }
 
     private fun createDependency(
@@ -73,7 +75,7 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
     private fun createHandler(
         handlerInfoAnnotation: KSAnnotation,
         allDependenciesBySignature: Map<String, Dependency>,
-    ): HandlerDefinition {
+    ): HandlerDefinition? {
         require(
             handlerInfoAnnotation.annotationType.resolve().declaration.qualifiedName?.asString() ==
                 HandlerInfo::class.qualifiedName

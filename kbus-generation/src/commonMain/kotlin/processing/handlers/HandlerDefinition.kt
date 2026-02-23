@@ -28,7 +28,7 @@ sealed interface HandlerDefinition {
             return when (handlerBaseClass.qualifiedName!!.asString()) {
                 CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
                 QueryHandler::class.qualifiedName ->
-                    createNonCommand(QueryHandlerDefinition(handlerData), logger, handlerBaseClass)
+                    createQueryHandler(handlerData, logger, handlerBaseClass)
                 else -> null
             }
         }
@@ -37,32 +37,30 @@ sealed interface HandlerDefinition {
             typeOfHandler: HandlerType,
             handlerData: HandlerData,
             logger: KSPLogger,
-        ): HandlerDefinition {
+        ): HandlerDefinition? {
             return when (typeOfHandler) {
                 HandlerType.COMMAND -> CommandHandlerDefinition(handlerData)
-                HandlerType.QUERY ->
-                    createNonCommand(QueryHandlerDefinition(handlerData), logger, null)
+                HandlerType.QUERY -> createQueryHandler(handlerData, logger, null)
             }
         }
 
-        fun createNonCommand(
-            handlerDefinition: HandlerDefinition,
+        fun createQueryHandler(
+            handlerData: HandlerData,
             logger: KSPLogger,
             handlerClass: KSClassDeclaration?,
-        ): HandlerDefinition {
+        ): HandlerDefinition? {
             val commandDependency =
-                handlerDefinition.handlerData.topLevelDependencies.firstOrNull {
-                    it.requiresCommandDependencies
-                }
+                handlerData.topLevelDependencies.firstOrNull { it.requiresCommandDependencies }
             if (commandDependency !== null) {
                 logger.error(
                     "Query handlers cannot have command dependencies. " +
-                        "${handlerDefinition.handlerData.handlerClass.simpleName} contains $commandDependency",
+                        "${handlerData.handlerClass.simpleName} contains $commandDependency",
                     handlerClass,
                 )
+                return null
             }
 
-            return handlerDefinition
+            return QueryHandlerDefinition(handlerData)
         }
     }
 
@@ -92,7 +90,6 @@ data class CommandHandlerDefinition(override val handlerData: HandlerData) : Han
             )
 }
 
-// FIXME use logger for user-related errors. Error/require otherwise
 data class QueryHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
     override val handlerBaseClass
         get() = QueryHandler::class.asClassName()
