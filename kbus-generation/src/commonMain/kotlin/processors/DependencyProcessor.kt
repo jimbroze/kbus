@@ -60,8 +60,9 @@ class DependencyProcessor(
                 .filterIsInstance<KSClassDeclaration>()
                 .filter { classDecl ->
                     classDecl.annotations.any {
-                        it.annotationType.resolve().declaration.qualifiedName?.asString() ==
-                            KbusIndex::class.qualifiedName
+                        it.shortName.asString() == KbusIndex::class.simpleName &&
+                            it.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                                KbusIndex::class.qualifiedName
                     }
                 }
         val dependencyIndexes = localIndexes + libraryIndexes
