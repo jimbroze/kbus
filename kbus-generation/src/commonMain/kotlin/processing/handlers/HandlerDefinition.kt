@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.generation.processing.handlers
 
+import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.jimbroze.kbus.annotations.HandlerType
 import com.jimbroze.kbus.core.messages.command.Command
@@ -22,10 +23,12 @@ sealed interface HandlerDefinition {
         fun create(
             handlerBaseClass: KSClassDeclaration,
             handlerData: HandlerData,
+            logger: KSPLogger,
         ): HandlerDefinition? {
             return when (handlerBaseClass.qualifiedName!!.asString()) {
                 CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
-                QueryHandler::class.qualifiedName -> QueryHandlerDefinition(handlerData)
+                QueryHandler::class.qualifiedName ->
+                    createNonCommand(QueryHandlerDefinition(handlerData), logger, handlerBaseClass)
                 else -> null
             }
         }
@@ -33,11 +36,33 @@ sealed interface HandlerDefinition {
         fun createFromType(
             typeOfHandler: HandlerType,
             handlerData: HandlerData,
+            logger: KSPLogger,
         ): HandlerDefinition {
             return when (typeOfHandler) {
                 HandlerType.COMMAND -> CommandHandlerDefinition(handlerData)
-                HandlerType.QUERY -> QueryHandlerDefinition(handlerData)
+                HandlerType.QUERY ->
+                    createNonCommand(QueryHandlerDefinition(handlerData), logger, null)
             }
+        }
+
+        fun createNonCommand(
+            handlerDefinition: HandlerDefinition,
+            logger: KSPLogger,
+            handlerClass: KSClassDeclaration?,
+        ): HandlerDefinition {
+            val commandDependency =
+                handlerDefinition.handlerData.topLevelDependencies.firstOrNull {
+                    it.requiresCommandDependencies
+                }
+            if (commandDependency !== null) {
+                logger.error(
+                    "Query handlers cannot have command dependencies. " +
+                        "${handlerDefinition.handlerData.handlerClass.simpleName} contains $commandDependency",
+                    handlerClass,
+                )
+            }
+
+            return handlerDefinition
         }
     }
 
@@ -67,17 +92,8 @@ data class CommandHandlerDefinition(override val handlerData: HandlerData) : Han
             )
 }
 
-// TODO is error() and require() ok or better UX for errors? Use Logger?
+// FIXME use logger for user-related errors. Error/require otherwise
 data class QueryHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
-    init {
-        val commandDependencyOrNull =
-            handlerData.topLevelDependencies.firstOrNull { it.requiresCommandDependencies }
-        require(commandDependencyOrNull == null) {
-            "Query handlers cannot have command dependencies. " +
-                "${handlerData.handlerClass.simpleName} contains $commandDependencyOrNull"
-        }
-    }
-
     override val handlerBaseClass
         get() = QueryHandler::class.asClassName()
 

@@ -14,7 +14,7 @@ class DependencyIndexVisitor(
     private val logger: KSPLogger,
 ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
     override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
-        error("Only classes can be annotated with @${KbusIndex::class.simpleName}")
+        logger.error("Only classes can be annotated with @${KbusIndex::class.simpleName}", node)
     }
 
     override fun visitClassDeclaration(
@@ -22,9 +22,10 @@ class DependencyIndexVisitor(
         data: HandlersAndDependencies,
     ) {
         if (classDeclaration.classKind != ClassKind.CLASS) {
-            error(
+            logger.error(
                 "Only classes can be annotated with @${KbusIndex::class.simpleName}. " +
-                    "$classDeclaration is a ${classDeclaration.classKind}"
+                    "$classDeclaration is a ${classDeclaration.classKind}",
+                classDeclaration,
             )
         }
 

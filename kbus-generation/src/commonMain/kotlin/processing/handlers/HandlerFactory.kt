@@ -48,6 +48,7 @@ class HandlerFactory(
                 returnType.toTypeName(),
                 constructorDependencies,
             ),
+            logger,
         )
     }
 

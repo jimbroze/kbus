@@ -33,14 +33,15 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
     private fun createDependency(
         dependencyInfoAnnotation: KSAnnotation
     ): DependencyWithDehydratedChildren {
-        if (
+        require(
             dependencyInfoAnnotation.annotationType
                 .resolve()
                 .declaration
                 .qualifiedName
-                ?.asString() != DependencyInfo::class.qualifiedName
-        )
-            error("Only DependencyInfo annotations can be processed here")
+                ?.asString() == DependencyInfo::class.qualifiedName
+        ) {
+            "Only DependencyInfo annotations can be processed here"
+        }
 
         val signature: String = dependencyInfoAnnotation.findArgument(DependencyInfo::signature)
         val requiresCommandDependencies: Boolean =
@@ -73,11 +74,12 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
         handlerInfoAnnotation: KSAnnotation,
         allDependenciesBySignature: Map<String, Dependency>,
     ): HandlerDefinition {
-        if (
-            handlerInfoAnnotation.annotationType.resolve().declaration.qualifiedName?.asString() !=
+        require(
+            handlerInfoAnnotation.annotationType.resolve().declaration.qualifiedName?.asString() ==
                 HandlerInfo::class.qualifiedName
-        )
-            error("Only HandlerInfo annotations can be processed here")
+        ) {
+            "Only HandlerInfo annotations can be processed here"
+        }
 
         val messageClassSignature: String =
             handlerInfoAnnotation.findArgument(HandlerInfo::messageClass)
@@ -104,7 +106,7 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
 
         val handlerData = HandlerData(handlerClass, messageClass, returnType, topLevelDependencies)
 
-        return HandlerDefinition.createFromType(typeOfHandler, handlerData)
+        return HandlerDefinition.createFromType(typeOfHandler, handlerData, logger)
     }
 }
 
@@ -121,12 +123,6 @@ inline fun <reified T> KSAnnotation.findArgument(property: KProperty1<*, *>): T 
                 "but KSP returned '${value::class.simpleName}'"
         )
 }
-
-// private fun KSAnnotation.findArgument(property: kotlin.reflect.KProperty1<*, *>) =
-//    arguments.find { it.name?.asString() == property.name }?.value
-//
-// private fun KSAnnotation.findStringArgument(property: kotlin.reflect.KProperty1<*, *>) =
-//    this.findArgument(property) as? String ?: error("Missing ${property.name} argument")
 
 private data class DependencyWithDehydratedChildren(
     val metadata: Dependency,

@@ -3,11 +3,9 @@ package com.jimbroze.kbus.generation.processors.visitors
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyOverrideType
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -45,24 +43,6 @@ class HandlersAndDependencies {
         validateCanAddHandler(handler, logger)
 
         _handlers[handler.handlerData.handlerClass.canonicalName] = handler
-    }
-
-    fun addDependency(
-        dependencyTypeRef: KSTypeReference,
-        commandDependenciesProps: CommandDependencyProperties,
-        handlerFactory: HandlerFactory,
-        logger: KSPLogger,
-        dependencyTypeOverride: DependencyOverrideType? = null,
-    ) {
-        val dependencies =
-            handlerFactory.dependencyFactory.generateDependencyWithChildren(
-                dependencyTypeRef.resolve(),
-                commandDependenciesProps,
-                dependencyTypeOverride,
-            )
-        validateNoDuplicateDependencies(dependencies, logger)
-
-        _allDependencies.addAll(dependencies.allDependencies)
     }
 
     fun addIndexedDependencies(

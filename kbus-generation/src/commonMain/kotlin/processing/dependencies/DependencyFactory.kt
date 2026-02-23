@@ -27,8 +27,9 @@ class DependencyFactory(
         classDeclaration: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
     ): Dependencies {
-        if (classType.declaration != classDeclaration)
-            error("Provided class type and declaration do not match")
+        require(classType.declaration == classDeclaration) {
+            "Provided class type and declaration do not match"
+        }
 
         val dependencies = MutableDependencies()
 
@@ -36,19 +37,6 @@ class DependencyFactory(
             val childType = childParameter.resolveTypeUsingParent(classType)
             dependencies.add(createNewDependency(commandDependenciesProps, childType))
         }
-
-        return dependencies
-    }
-
-    fun generateDependencyWithChildren(
-        type: KSType,
-        commandDependenciesProps: CommandDependencyProperties,
-        dependencyTypeOverride: DependencyOverrideType? = null,
-    ): Dependencies {
-        val dependencies = MutableDependencies()
-        dependencies.add(
-            createNewDependency(commandDependenciesProps, type, dependencyTypeOverride)
-        )
 
         return dependencies
     }
@@ -97,8 +85,9 @@ class DependencyFactory(
         parentClass: KSClassDeclaration,
         commandDependenciesProps: CommandDependencyProperties,
     ): ChildrenDependencies {
-        if (parentType.declaration != parentClass)
-            error("Provided parent type and declaration do not match")
+        require(parentType.declaration == parentClass) {
+            "Provided parent type and declaration do not match"
+        }
 
         val topLevelDependencies = mutableListOf<Dependency>()
         val allDependencies = mutableSetOf<DependencyWithChildren>()

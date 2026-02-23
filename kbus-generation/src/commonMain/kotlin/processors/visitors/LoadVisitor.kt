@@ -16,9 +16,10 @@ class LoadVisitor(
 ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
 
     override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
-        error(
+        logger.error(
             "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
-                "$node is not a class"
+                "$node is not a class",
+            node,
         )
     }
 
@@ -27,9 +28,10 @@ class LoadVisitor(
         data: HandlersAndDependencies,
     ) {
         if (classDeclaration.classKind != ClassKind.CLASS) {
-            error(
+            logger.error(
                 "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
-                    "$classDeclaration is a ${classDeclaration.classKind}"
+                    "$classDeclaration is a ${classDeclaration.classKind}",
+                classDeclaration,
             )
         }
 
