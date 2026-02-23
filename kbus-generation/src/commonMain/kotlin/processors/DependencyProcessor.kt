@@ -14,8 +14,6 @@ import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.symbol.Origin
 import com.google.devtools.ksp.validate
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.annotations.ContainerInterface
-import com.jimbroze.kbus.annotations.HandlersInterface
 import com.jimbroze.kbus.annotations.KbusIndex
 import com.jimbroze.kbus.annotations.LoadMessageHandler
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
@@ -26,7 +24,6 @@ import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyOverrideType
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.visitors.HandlersAndDependencies
 import kotlin.sequences.forEach
@@ -49,8 +46,6 @@ class DependencyProcessor(
     private val indexPackagePath: String,
 ) : SymbolProcessor {
     private val dependencies = HandlersAndDependencies()
-    private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
-    private val containerInterfaces = mutableSetOf<KSClassDeclaration>()
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
@@ -72,28 +67,9 @@ class DependencyProcessor(
         val (validIndexSymbols, invalidIndexSymbols) = dependencyIndexes.partition { it.validate() }
         validIndexSymbols.forEach { it.accept(DependencyIndexVisitor(), dependencies) }
 
-        val containerInterfaces =
-            resolver.getSymbolsWithAnnotation(ContainerInterface::class.qualifiedName.toString())
-        val (validContainerSymbols, invalidContainerSymbols) =
-            containerInterfaces.partition { it.validate() }
-        validContainerSymbols.forEach {
-            it.accept(ContainerInterfaceVisitor(commandDependenciesProps), dependencies)
-        }
-
-        val handlerInterfaces =
-            resolver.getSymbolsWithAnnotation(HandlersInterface::class.qualifiedName.toString())
-        val (validHandlerSymbols, invalidHandlerSymbols) =
-            handlerInterfaces.partition { it.validate() }
-        validHandlerSymbols.forEach {
-            it.accept(HandlersInterfaceVisitor(commandDependenciesProps), dependencies)
-        }
-
         val invalidMessageSymbols = processMessages(resolver)
 
-        return invalidIndexSymbols +
-            invalidContainerSymbols +
-            invalidHandlerSymbols +
-            invalidMessageSymbols
+        return invalidIndexSymbols + invalidMessageSymbols
     }
 
     private fun processMessages(resolver: Resolver): List<KSAnnotated> {
@@ -151,92 +127,6 @@ class DependencyProcessor(
             }
 
             data.addHandler(classDeclaration, commandDependenciesProps, handlerFactory, logger)
-        }
-    }
-
-    inner class HandlersInterfaceVisitor(
-        val commandDependenciesProps: CommandDependencyProperties
-    ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
-
-        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
-            error(
-                "Only interfaces can be annotated with @${HandlersInterface::class.simpleName}. " +
-                    "$node is not a class"
-            )
-        }
-
-        override fun visitClassDeclaration(
-            classDeclaration: KSClassDeclaration,
-            data: HandlersAndDependencies,
-        ) {
-            if (classDeclaration.classKind != ClassKind.INTERFACE) {
-                error(
-                    "Only interfaces can be annotated with @${HandlersInterface::class.simpleName}. " +
-                        "$classDeclaration is a ${classDeclaration.classKind}"
-                )
-            }
-
-            val handlerFunctions = classDeclaration.getAllUserFunctions()
-            for (handlerFunction in handlerFunctions) {
-                val handlerDeclaration =
-                    handlerFunction.returnType?.resolve()?.declaration as? KSClassDeclaration
-                if (handlerDeclaration != null) {
-                    data.addHandler(
-                        handlerDeclaration,
-                        commandDependenciesProps,
-                        handlerFactory,
-                        logger,
-                    )
-                }
-            }
-
-            handlersInterfaces.add(classDeclaration)
-        }
-    }
-
-    inner class ContainerInterfaceVisitor(
-        val commandDependenciesProps: CommandDependencyProperties
-    ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
-        override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
-            error("Only interfaces can be annotated with @${ContainerInterface::class.simpleName}")
-        }
-
-        override fun visitClassDeclaration(
-            classDeclaration: KSClassDeclaration,
-            data: HandlersAndDependencies,
-        ) {
-            if (classDeclaration.classKind != ClassKind.INTERFACE) {
-                error(
-                    "Only interfaces can be annotated with @${ContainerInterface::class.simpleName}. " +
-                        "$classDeclaration is a ${classDeclaration.classKind}"
-                )
-            }
-
-            val functionDependencies = classDeclaration.getAllUserFunctions()
-            // TODO can we get generics here?
-            for (functionDependency in functionDependencies) {
-                val dependencyTypeRef = functionDependency.returnType ?: continue
-                data.addDependency(
-                    dependencyTypeRef,
-                    commandDependenciesProps,
-                    handlerFactory,
-                    logger,
-                    DependencyOverrideType.FUNCTIONAL,
-                )
-            }
-
-            val propertyDependencies = classDeclaration.getAllProperties()
-            for (propertyDependency in propertyDependencies) {
-                data.addDependency(
-                    propertyDependency.type,
-                    commandDependenciesProps,
-                    handlerFactory,
-                    logger,
-                    DependencyOverrideType.PROPERTY,
-                )
-            }
-
-            containerInterfaces.add(classDeclaration)
         }
     }
 
