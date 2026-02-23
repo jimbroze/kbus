@@ -24,19 +24,45 @@ import com.jimbroze.kbus.generation.processors.DependencyProcessor
 val KBUS_BUS_PACKAGE_NAME =
     MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
 
-const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
-const val HANDLERS_INTERFACE_NAME = "AllHandlers"
+private const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
+private const val HANDLERS_INTERFACE_NAME = "AllHandlers"
 
-const val LOADER_CLASS_NAME = "AutoLoader"
-const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
+private const val LOADER_CLASS_NAME = "AutoLoader"
+private const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
 
-const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
+private const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
 
-const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
+private const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
 
-const val MODULE_NAME_KEY = "kbus.moduleName"
+private const val MODULE_NAME_KEY = "kbus.subModuleName"
+private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
 
 private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
+
+class ContainerProcessorProvider : SymbolProcessorProvider {
+    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
+        val dependencyFactory = dependencyFactory(environment)
+        return DependencyProcessor(
+            environment.logger,
+            handlerFactory(environment, dependencyFactory),
+            dependencyIndexFactory(environment),
+            ContainerGenerators(
+                containerInterfaceGenerator(environment),
+                handlersInterfaceGenerator(environment),
+                autoLoaderGenerator(environment),
+                handlersFactoryGenerator(environment),
+                dependencyIndexGenerator(environment),
+                busGenerator(environment),
+            ),
+            shouldGenerateBus(environment),
+            indexPackagePath(environment),
+        )
+    }
+
+    private fun shouldGenerateBus(environment: SymbolProcessorEnvironment): Boolean {
+        return environment.options[MODULE_NAME_KEY].isNullOrEmpty()
+    }
+}
 
 private fun dependencyFactory(environment: SymbolProcessorEnvironment) =
     DependencyFactory(KBUS_BUS_PACKAGE_NAME, environment.logger)
@@ -72,17 +98,8 @@ private fun dependencyIndexGenerator(
         environment.codeGenerator,
         environment.logger,
         moduleClassName(environment, DEPENDENCIES_INDEX_NAME),
-        "com.jimbroze.kbus.generated.indexes",
+        indexPackagePath(environment),
     )
-}
-
-private fun moduleClassName(environment: SymbolProcessorEnvironment, name: String): String {
-    val classNameSuffix =
-        environment.options[MODULE_NAME_KEY]?.split('-', '_')?.joinToString("") { segment ->
-            segment.replaceFirstChar { it.uppercase() }
-        }
-
-    return classNameSuffix?.takeIf { it.isNotBlank() }?.let { "$name$it" } ?: name
 }
 
 private fun handlersFactoryGenerator(environment: SymbolProcessorEnvironment) =
@@ -120,26 +137,21 @@ private fun busGenerator(environment: SymbolProcessorEnvironment) =
         PACKAGE_PATH,
     )
 
-class ContainerProcessorProvider : SymbolProcessorProvider {
-    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
-        val dependencyFactory = dependencyFactory(environment)
-        return DependencyProcessor(
-            environment.logger,
-            handlerFactory(environment, dependencyFactory),
-            dependencyIndexFactory(environment),
-            ContainerGenerators(
-                containerInterfaceGenerator(environment),
-                handlersInterfaceGenerator(environment),
-                autoLoaderGenerator(environment),
-                handlersFactoryGenerator(environment),
-                dependencyIndexGenerator(environment),
-                busGenerator(environment),
-            ),
-            shouldGenerateBus(environment),
-        )
+private fun moduleClassName(environment: SymbolProcessorEnvironment, name: String): String {
+    val classNameSuffix =
+        environment.options[MODULE_NAME_KEY]?.split('-', '_')?.joinToString("") { segment ->
+            segment.replaceFirstChar { it.uppercase() }
+        }
+
+    return classNameSuffix?.takeIf { it.isNotBlank() }?.let { "$name$it" } ?: name
+}
+
+private fun indexPackagePath(environment: SymbolProcessorEnvironment): String {
+    val path = environment.options[INDEX_PACKAGE_KEY]
+
+    require(!path.isNullOrBlank()) {
+        "Index package path must be provided via $INDEX_PACKAGE_KEY environment option"
     }
 
-    private fun shouldGenerateBus(environment: SymbolProcessorEnvironment): Boolean {
-        return environment.options[MODULE_NAME_KEY].isNullOrEmpty()
-    }
+    return path
 }

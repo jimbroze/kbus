@@ -45,7 +45,8 @@ class DependencyProcessor(
     private val handlerFactory: HandlerFactory,
     private val dependencyIndexFactory: DependencyIndexFactory,
     private val generators: ContainerGenerators,
-    private val generateBus: Boolean,
+    private val shouldGenerateBus: Boolean,
+    private val indexPackagePath: String,
 ) : SymbolProcessor {
     private val dependencies = HandlersAndDependencies()
     private val handlersInterfaces = mutableSetOf<KSClassDeclaration>()
@@ -59,7 +60,7 @@ class DependencyProcessor(
             resolver.getSymbolsWithAnnotation(KbusIndex::class.qualifiedName.toString())
         val libraryIndexes =
             resolver
-                .getDeclarationsFromPackage("com.jimbroze.kbus.generated.indexes")
+                .getDeclarationsFromPackage(indexPackagePath)
                 .filterIsInstance<KSClassDeclaration>()
                 .filter { classDecl ->
                     classDecl.annotations.any {
@@ -113,12 +114,10 @@ class DependencyProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        // FIXME Probably don't want library deps in index
-        // TODO what about external libraries using KBus??s
-
+        // TODO only put local deps in index?
         generators.containerInterface.generateInterface(dependencies.allDependencies)
         generators.handlersInterface.generateInterface(dependencies.handlers)
-        if (generateBus) {
+        if (shouldGenerateBus) {
             generators.autoLoader.generateAutoloader(dependencies.allDependencies)
             generators.handlersFactory.generateClass(dependencies.handlers)
             generators.bus.generateClass(dependencies.handlers)

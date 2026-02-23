@@ -29,6 +29,8 @@ kotlin {
 
 dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
 
+ksp { arg("kbus.indexPackage", "com.jimbroze.kbus.testing.indexes") }
+
 tasks.withType(KotlinCompilationTask::class).all {
     if (name != "kspCommonMainKotlinMetadata") {
         dependsOn("kspCommonMainKotlinMetadata")
