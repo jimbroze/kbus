@@ -10,7 +10,7 @@ import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import kotlin.reflect.KProperty1
 
-class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) {
+class DependencyIndexParser(@Suppress("unused") private val logger: KSPLogger) {
     fun createDependencies(dependencyInfoAnnotations: List<KSAnnotation>): Dependencies {
         val dependenciesWithDehydratedChildren = mutableSetOf<DependencyWithDehydratedChildren>()
         for (dependencyInfoAnnotation in dependencyInfoAnnotations) {
@@ -21,15 +21,14 @@ class DependencyIndexFactory(@Suppress("unused") private val logger: KSPLogger) 
         return IndexDependencies(dependenciesWithDehydratedChildren)
     }
 
-    fun createHandlers(
-        handlerInfoAnnotations: Collection<KSAnnotation>,
+    fun createHandlerFromAnnotation(
+        handlerInfoAnnotation: KSAnnotation,
         allDependencies: Set<Dependency>,
-    ): Set<HandlerDefinition> {
+    ): HandlerDefinition {
         val allDependenciesBySignature =
             allDependencies.associateBy { dependency -> dependency.signature }
-        return handlerInfoAnnotations
-            .mapNotNull { createHandler(it, allDependenciesBySignature) }
-            .toSet()
+        return createHandler(handlerInfoAnnotation, allDependenciesBySignature)
+            ?: error("Could not create a valid handler definition from the provided annotation")
     }
 
     private fun createDependency(

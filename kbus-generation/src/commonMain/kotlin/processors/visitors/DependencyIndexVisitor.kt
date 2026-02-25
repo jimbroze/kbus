@@ -7,10 +7,12 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.KbusIndex
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexParser
+import com.jimbroze.kbus.generation.processors.context.ConflictPolicy
+import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
 
 class DependencyIndexVisitor(
-    private val dependencyIndexFactory: DependencyIndexFactory,
+    private val dependencyIndexParser: DependencyIndexParser,
     private val logger: KSPLogger,
 ) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
     override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
@@ -35,7 +37,6 @@ class DependencyIndexVisitor(
                     KbusIndex::class.qualifiedName
             } ?: error("Missing @${KbusIndex::class.simpleName} annotation")
 
-        // TODO don't pass factory to data
         addDependencies(kbusIndexAnnotation, data)
         addHandlers(kbusIndexAnnotation, data)
     }
@@ -47,9 +48,22 @@ class DependencyIndexVisitor(
             }
 
         @Suppress("UNCHECKED_CAST")
-        val dependencyInfos = dependenciesArg?.value as? List<KSAnnotation> ?: emptyList()
+        val dependencyInfoAnnotations = dependenciesArg?.value as? List<KSAnnotation> ?: emptyList()
 
-        data.addIndexedDependencies(dependencyInfos, dependencyIndexFactory, logger)
+        val dependencies = dependencyIndexParser.createDependencies(dependencyInfoAnnotations)
+        for (dependency in dependencies.allDependencies) {
+            when (val result = data.tryAddDependency(dependency)) {
+                is ConflictPolicy.Result.Accept -> {
+                    // Successfully added
+                }
+                is ConflictPolicy.Result.ExactDuplicate -> {
+                    // Duplicate dependency is fine
+                }
+                is ConflictPolicy.Result.InvalidConflict -> {
+                    logger.error(result.reason, dependenciesArg)
+                }
+            }
+        }
     }
 
     private fun addHandlers(kbusIndexAnnotation: KSAnnotation, data: HandlersAndDependencies) {
@@ -57,8 +71,27 @@ class DependencyIndexVisitor(
             kbusIndexAnnotation.arguments.find { it.name?.asString() == KbusIndex::handlers.name }
 
         @Suppress("UNCHECKED_CAST")
-        val handlerInfos = handlersArg?.value as? List<KSAnnotation> ?: emptyList()
+        val handlerInfoAnnotations = handlersArg?.value as? List<KSAnnotation> ?: emptyList()
 
-        data.addIndexedHandlers(handlerInfos, dependencyIndexFactory, logger)
+        for (handlerInfoAnnotation in handlerInfoAnnotations) {
+            val result =
+                data.tryAddHandler(
+                    dependencyIndexParser.createHandlerFromAnnotation(
+                        handlerInfoAnnotation,
+                        data.allDependencies.map { it.metadata }.toSet(),
+                    )
+                )
+            when (result) {
+                is ConflictPolicy.Result.Accept -> {
+                    // Successfully added
+                }
+                is ConflictPolicy.Result.ExactDuplicate -> {
+                    // Duplicate handler is fine
+                }
+                is ConflictPolicy.Result.InvalidConflict -> {
+                    logger.error(result.reason, handlerInfoAnnotation)
+                }
+            }
+        }
     }
 }

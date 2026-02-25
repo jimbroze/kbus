@@ -16,7 +16,7 @@ import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexFactory
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexParser
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.ContainerGenerators
 import com.jimbroze.kbus.generation.processors.DependencyProcessor
@@ -73,7 +73,7 @@ private fun handlerFactory(
 ) = HandlerFactory(environment.logger, dependencyFactory)
 
 private fun dependencyIndexFactory(environment: SymbolProcessorEnvironment) =
-    DependencyIndexFactory(environment.logger)
+    DependencyIndexParser(environment.logger)
 
 private fun containerInterfaceGenerator(environment: SymbolProcessorEnvironment) =
     ContainerInterfaceGenerator(
