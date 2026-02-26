@@ -20,8 +20,6 @@ import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.ContainerGenerators
 import com.jimbroze.kbus.generation.processors.DependencyProcessor
 
-// TODO don't need this package name anymore now that we know what is external?
-private const val KBUS_CORE_PACKAGE_NAME = "com.jimbroze.kbus.core"
 private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
 
 private const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
@@ -37,7 +35,7 @@ private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val config = KBusProcessorConfig(environment)
-        val dependencyFactory = DependencyFactory(KBUS_CORE_PACKAGE_NAME, environment.logger)
+        val dependencyFactory = DependencyFactory(environment.logger)
 
         return DependencyProcessor(
             environment.logger,

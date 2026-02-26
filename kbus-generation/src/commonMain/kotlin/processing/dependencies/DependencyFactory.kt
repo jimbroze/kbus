@@ -18,10 +18,7 @@ interface Dependencies {
     val allDependencies: Set<DependencyWithChildren>
 }
 
-class DependencyFactory(
-    private val kbusCorePackageName: String,
-    @Suppress("unused") private val logger: KSPLogger,
-) {
+class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
     fun generateChildDependencies(
         classType: KSType,
         classDeclaration: KSClassDeclaration,
@@ -49,9 +46,10 @@ class DependencyFactory(
         val parameter = type.declaration
 
         val cannotBeDependency = cannotBeDependency(parameter, commandDependenciesProps)
+        val isExternalDependency = isExternalDependency(parameter)
 
         val children =
-            if (shouldFindChildren(!cannotBeDependency, parameter))
+            if (shouldFindChildren(!cannotBeDependency, isExternalDependency, parameter))
                 getNewChildren(type, parameter, commandDependenciesProps)
             else null
 
@@ -72,7 +70,7 @@ class DependencyFactory(
             DependencyWithChildren(
                 metadata,
                 children?.topLevelChildren ?: emptyList(),
-                cannotBeAutoloaded(parameter, children),
+                cannotBeAutoloaded(children, isExternalDependency),
             ),
             children?.allDependencies ?: emptySet(),
             parentCannotBeAutoloaded(parameter, isCommandDependency, cannotBeDependency),
@@ -120,15 +118,12 @@ class DependencyFactory(
     @OptIn(ExperimentalContracts::class)
     private fun shouldFindChildren(
         isPossibleDependency: Boolean,
+        isExternalDependency: Boolean,
         parameter: KSDeclaration,
     ): Boolean {
         contract { returns(true) implies (parameter is KSClassDeclaration) }
 
-        return parameter is KSClassDeclaration && isPossibleDependency && !mustBeRoot(parameter)
-    }
-
-    private fun mustBeRoot(parameter: KSDeclaration): Boolean {
-        return parameter.packageName.asString().startsWith(kbusCorePackageName)
+        return isPossibleDependency && !isExternalDependency && parameter is KSClassDeclaration
     }
 }
 
@@ -193,11 +188,14 @@ private fun cannotBeDependency(
     return commandDependencyProperties.contains(parameter) || disallowedByPackage
 }
 
-private fun cannotBeAutoloaded(parameter: KSDeclaration, children: ChildrenDependencies?): Boolean {
-    return children == null ||
-        children.topLevelChildren.isEmpty() ||
-        children.parentCannotBeAutoloaded ||
-        isExternalDependency(parameter)
+private fun cannotBeAutoloaded(
+    childrenOfDependency: ChildrenDependencies?,
+    dependencyIsExternal: Boolean,
+): Boolean {
+    return dependencyIsExternal ||
+        childrenOfDependency == null ||
+        childrenOfDependency.parentCannotBeAutoloaded ||
+        childrenOfDependency.topLevelChildren.isEmpty()
 }
 
 private fun parentCannotBeAutoloaded(
