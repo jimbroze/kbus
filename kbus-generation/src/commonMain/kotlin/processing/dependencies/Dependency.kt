@@ -44,9 +44,8 @@ sealed interface Dependency {
 
     val requiresCommandDependencies: Boolean
 
-    // TODO combine with dep factory naming function. Combine interfaces??
     val name: String
-        get() = getNameForType(typeName)
+        get() = NameGenerator.getNameForType(typeName)
 
     val signature: String
         get() = typeName.toString()
@@ -62,9 +61,6 @@ sealed interface Dependency {
     fun hasConflictingNameWith(other: Dependency): Boolean {
         return this.name == other.name && this != other
     }
-
-    private fun getNameForType(type: TypeName, isNested: Boolean = false): String =
-        NameGenerator.getNameForType(type, isNested)
 }
 
 data class PropertyDependency(override val typeName: TypeName) : Dependency {
