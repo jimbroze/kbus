@@ -1,6 +1,9 @@
 package com.jimbroze.kbus.generation.processors.context
 
+import com.jimbroze.kbus.generation.processing.ConflictPolicy
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyConflictPolicy
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
+import com.jimbroze.kbus.generation.processing.handlers.HandlerConflictPolicy
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.ClassName
 

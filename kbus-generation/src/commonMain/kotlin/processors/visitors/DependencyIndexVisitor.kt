@@ -7,14 +7,12 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.KbusIndex
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexParser
-import com.jimbroze.kbus.generation.processors.context.ConflictPolicy
+import com.jimbroze.kbus.generation.processing.ConflictPolicy
+import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
 
-class DependencyIndexVisitor(
-    private val dependencyIndexParser: DependencyIndexParser,
-    private val logger: KSPLogger,
-) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+class DependencyIndexVisitor(private val indexParser: IndexParser, private val logger: KSPLogger) :
+    KSDefaultVisitor<HandlersAndDependencies, Unit>() {
     override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
         logger.error("Only classes can be annotated with @${KbusIndex::class.simpleName}", node)
     }
@@ -50,7 +48,7 @@ class DependencyIndexVisitor(
         @Suppress("UNCHECKED_CAST")
         val dependencyInfoAnnotations = dependenciesArg?.value as? List<KSAnnotation> ?: emptyList()
 
-        val dependencies = dependencyIndexParser.createDependencies(dependencyInfoAnnotations)
+        val dependencies = indexParser.createDependencies(dependencyInfoAnnotations)
         for (dependency in dependencies.allDependencies) {
             when (val result = data.tryAddDependency(dependency)) {
                 is ConflictPolicy.Result.Accept -> {
@@ -76,7 +74,7 @@ class DependencyIndexVisitor(
         for (handlerInfoAnnotation in handlerInfoAnnotations) {
             val result =
                 data.tryAddHandler(
-                    dependencyIndexParser.createHandlerFromAnnotation(
+                    indexParser.createHandlerFromAnnotation(
                         handlerInfoAnnotation,
                         data.allDependencies.map { it.metadata }.toSet(),
                     )

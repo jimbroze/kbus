@@ -1,16 +1,20 @@
-package com.jimbroze.kbus.generation.processing.dependencies
+package com.jimbroze.kbus.generation.processing
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSType
 import com.jimbroze.kbus.annotations.DependencyInfo
+import com.jimbroze.kbus.annotations.DependencyType
 import com.jimbroze.kbus.annotations.HandlerInfo
-import com.jimbroze.kbus.generation.processing.TypeResolver
+import com.jimbroze.kbus.annotations.HandlerType
+import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
+import com.jimbroze.kbus.generation.processing.dependencies.Dependency
+import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import kotlin.reflect.KProperty1
 
-class DependencyIndexParser(@Suppress("unused") private val logger: KSPLogger) {
+class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
     fun createDependencies(dependencyInfoAnnotations: List<KSAnnotation>): Dependencies {
         val dependenciesWithDehydratedChildren = mutableSetOf<DependencyWithDehydratedChildren>()
         for (dependencyInfoAnnotation in dependencyInfoAnnotations) {
@@ -57,9 +61,7 @@ class DependencyIndexParser(@Suppress("unused") private val logger: KSPLogger) {
         val dependencyTypeName = TypeResolver.resolve(signature)
 
         val typeOfDependency =
-            com.jimbroze.kbus.annotations.DependencyType.valueOf(
-                typeOfDependencySymbol.declaration.simpleName.asString()
-            )
+            DependencyType.valueOf(typeOfDependencySymbol.declaration.simpleName.asString())
 
         val metadata =
             Dependency.fromDependencyType(
@@ -98,9 +100,7 @@ class DependencyIndexParser(@Suppress("unused") private val logger: KSPLogger) {
         val returnType = TypeResolver.resolve(returnTypeSignature)
 
         val typeOfHandler =
-            com.jimbroze.kbus.annotations.HandlerType.valueOf(
-                typeOfHandlerSymbol.declaration.simpleName.asString()
-            )
+            HandlerType.valueOf(typeOfHandlerSymbol.declaration.simpleName.asString())
 
         val topLevelDependencies =
             topLevelDependenciesSignatures.map { allDependenciesBySignature.getValue(it) }

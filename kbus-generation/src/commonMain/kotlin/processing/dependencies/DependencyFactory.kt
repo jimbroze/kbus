@@ -19,7 +19,7 @@ interface Dependencies {
 }
 
 class DependencyFactory(
-    private val kbusBusPackageName: String,
+    private val kbusCorePackageName: String,
     @Suppress("unused") private val logger: KSPLogger,
 ) {
     fun generateChildDependencies(
@@ -128,7 +128,7 @@ class DependencyFactory(
     }
 
     private fun mustBeRoot(parameter: KSDeclaration): Boolean {
-        return parameter.packageName.asString() == kbusBusPackageName
+        return parameter.packageName.asString().startsWith(kbusCorePackageName)
     }
 }
 

@@ -4,7 +4,6 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.jimbroze.kbus.core.bus.BaseMessageBus
-import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.GenerationHandlerLocator
 import com.jimbroze.kbus.core.uow.TransactionManager
@@ -15,14 +14,15 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexParser
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.ContainerGenerators
 import com.jimbroze.kbus.generation.processors.DependencyProcessor
 
-val KBUS_BUS_PACKAGE_NAME =
-    MessageBus::class.qualifiedName!!.split(".").dropLast(1).joinToString(".")
+// TODO don't need this package name anymore now that we know what is external?
+private const val KBUS_BUS_PACKAGE_NAME = "com.jimbroze.kbus.core"
+private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
 
 private const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
 private const val HANDLERS_INTERFACE_NAME = "AllHandlers"
@@ -37,15 +37,13 @@ private const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
 private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
 
-private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
-
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val dependencyFactory = dependencyFactory(environment)
         return DependencyProcessor(
             environment.logger,
             handlerFactory(environment, dependencyFactory),
-            dependencyIndexFactory(environment),
+            indexParser(environment),
             ContainerGenerators(
                 containerInterfaceGenerator(environment),
                 handlersInterfaceGenerator(environment),
@@ -72,8 +70,7 @@ private fun handlerFactory(
     dependencyFactory: DependencyFactory,
 ) = HandlerFactory(environment.logger, dependencyFactory)
 
-private fun dependencyIndexFactory(environment: SymbolProcessorEnvironment) =
-    DependencyIndexParser(environment.logger)
+private fun indexParser(environment: SymbolProcessorEnvironment) = IndexParser(environment.logger)
 
 private fun containerInterfaceGenerator(environment: SymbolProcessorEnvironment) =
     ContainerInterfaceGenerator(

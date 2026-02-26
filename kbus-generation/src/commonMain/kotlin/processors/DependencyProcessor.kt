@@ -15,8 +15,8 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyIndexParser
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
@@ -34,7 +34,7 @@ class ContainerGenerators(
 class DependencyProcessor(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
-    private val dependencyIndexParser: DependencyIndexParser,
+    private val indexParser: IndexParser,
     private val generators: ContainerGenerators,
     private val shouldGenerateBus: Boolean,
     private val indexPackagePath: String,
@@ -68,7 +68,7 @@ class DependencyProcessor(
         val dependencyIndexes = localIndexes + libraryIndexes
         val (validIndexSymbols, invalidIndexSymbols) = dependencyIndexes.partition { it.validate() }
         validIndexSymbols.forEach {
-            it.accept(DependencyIndexVisitor(dependencyIndexParser, logger), dependencies)
+            it.accept(DependencyIndexVisitor(indexParser, logger), dependencies)
         }
 
         return invalidIndexSymbols

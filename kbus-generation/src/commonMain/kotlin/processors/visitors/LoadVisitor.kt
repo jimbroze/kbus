@@ -6,11 +6,11 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.annotations.LoadMessageHandler
+import com.jimbroze.kbus.generation.processing.ConflictPolicy
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
-import com.jimbroze.kbus.generation.processors.context.ConflictPolicy
 import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
 import com.squareup.kotlinpoet.ksp.toClassName
 
