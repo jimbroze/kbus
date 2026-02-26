@@ -18,7 +18,7 @@ import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.CodeGenerators
-import com.jimbroze.kbus.generation.processors.DependencyProcessor
+import com.jimbroze.kbus.generation.processors.KbusProcessor
 
 private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
 
@@ -37,7 +37,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
         val config = KBusProcessorConfig(environment)
         val dependencyFactory = DependencyFactory(environment.logger)
 
-        return DependencyProcessor(
+        return KbusProcessor(
             environment.logger,
             HandlerFactory(environment.logger, dependencyFactory),
             IndexParser(environment.logger),

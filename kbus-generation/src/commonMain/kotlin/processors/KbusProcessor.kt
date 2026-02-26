@@ -31,7 +31,7 @@ class CodeGenerators(
     val bus: BusGenerator,
 )
 
-class DependencyProcessor(
+class KbusProcessor(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
     private val indexParser: IndexParser,
