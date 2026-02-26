@@ -1,19 +1,6 @@
-package com.jimbroze.kbus.generation.processors.context
+package com.jimbroze.kbus.generation.processing.handlers
 
-import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
-import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
-
-interface ConflictPolicy<T> {
-    sealed class Result {
-        object Accept : Result()
-
-        object ExactDuplicate : Result()
-
-        data class InvalidConflict(val reason: String) : Result()
-    }
-
-    fun evaluate(newItem: T, existingItems: Collection<T>): Result
-}
+import com.jimbroze.kbus.generation.processing.ConflictPolicy
 
 object HandlerConflictPolicy : ConflictPolicy<HandlerDefinition> {
     override fun evaluate(
@@ -43,25 +30,5 @@ object HandlerConflictPolicy : ConflictPolicy<HandlerDefinition> {
         } else {
             ConflictPolicy.Result.ExactDuplicate
         }
-    }
-}
-
-object DependencyConflictPolicy : ConflictPolicy<DependencyWithChildren> {
-    override fun evaluate(
-        newItem: DependencyWithChildren,
-        existingItems: Collection<DependencyWithChildren>,
-    ): ConflictPolicy.Result {
-        return existingItems.firstNotNullOfOrNull { existing ->
-            when {
-                newItem == existing -> ConflictPolicy.Result.ExactDuplicate
-
-                newItem.metadata.hasConflictingNameWith(existing.metadata) ->
-                    ConflictPolicy.Result.InvalidConflict(
-                        "Tried to generate multiple dependencies for ${newItem.metadata.name}"
-                    )
-
-                else -> null
-            }
-        } ?: ConflictPolicy.Result.Accept
     }
 }
