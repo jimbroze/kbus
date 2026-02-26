@@ -22,7 +22,7 @@ import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
 
-class ContainerGenerators(
+class CodeGenerators(
     val containerInterface: ContainerInterfaceGenerator,
     val handlersInterface: HandlersInterfaceGenerator,
     val autoLoader: AutoLoaderGenerator,
@@ -35,23 +35,29 @@ class DependencyProcessor(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
     private val indexParser: IndexParser,
-    private val generators: ContainerGenerators,
-    private val shouldGenerateBus: Boolean,
+    private val generators: CodeGenerators,
+    private val isSubModule: Boolean,
     private val indexPackagePath: String,
 ) : SymbolProcessor {
     private val dependencies = HandlersAndDependencies()
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val invalidIndexSymbols = processDependencies(resolver)
-        val invalidMessageSymbols =
-            processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
+        val invalidSymbols = mutableListOf<KSAnnotated>()
 
-        return invalidIndexSymbols + invalidMessageSymbols
+        if (!isSubModule) {
+            invalidSymbols.addAll(processIndexes(resolver))
+        }
+
+        invalidSymbols.addAll(
+            processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
+        )
+
+        return invalidSymbols
     }
 
     @OptIn(KspExperimental::class)
-    private fun processDependencies(resolver: Resolver): List<KSAnnotated> {
+    private fun processIndexes(resolver: Resolver): List<KSAnnotated> {
         val localIndexes =
             resolver.getSymbolsWithAnnotation(KbusIndex::class.qualifiedName.toString())
         val libraryIndexes =
@@ -92,18 +98,18 @@ class DependencyProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        // TODO only put local deps in index?
+        // TODO Split into two processors again?
         generators.containerInterface.generateInterface(dependencies.allDependencies)
         generators.handlersInterface.generateInterface(dependencies.handlers)
-        if (shouldGenerateBus) {
-            generators.autoLoader.generateAutoloader(dependencies.allDependencies)
-            generators.handlersFactory.generateClass(dependencies.handlers)
-            generators.bus.generateClass(dependencies.handlers)
-        } else {
+        if (isSubModule) {
             generators.dependencyIndexGenerator.generateIndexClass(
                 dependencies.allDependencies,
                 dependencies.handlers,
             )
+        } else {
+            generators.autoLoader.generateAutoloader(dependencies.allDependencies)
+            generators.handlersFactory.generateClass(dependencies.handlers)
+            generators.bus.generateClass(dependencies.handlers)
         }
     }
 }

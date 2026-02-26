@@ -17,7 +17,7 @@ import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
-import com.jimbroze.kbus.generation.processors.ContainerGenerators
+import com.jimbroze.kbus.generation.processors.CodeGenerators
 import com.jimbroze.kbus.generation.processors.DependencyProcessor
 
 private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
@@ -42,13 +42,13 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             HandlerFactory(environment.logger, dependencyFactory),
             IndexParser(environment.logger),
             createGenerators(environment, config),
-            config.shouldGenerateBus,
+            config.isSubModule,
             config.indexPackagePath,
         )
     }
 
     private fun createGenerators(env: SymbolProcessorEnvironment, config: KBusProcessorConfig) =
-        ContainerGenerators(
+        CodeGenerators(
             ContainerInterfaceGenerator(
                 env.codeGenerator,
                 env.logger,
@@ -100,8 +100,8 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
 }
 
 private class KBusProcessorConfig(private val environment: SymbolProcessorEnvironment) {
-    val shouldGenerateBus: Boolean
-        get() = environment.options[MODULE_NAME_KEY].isNullOrEmpty()
+    val isSubModule: Boolean
+        get() = !(environment.options[MODULE_NAME_KEY].isNullOrEmpty())
 
     val indexPackagePath: String
         get() {
