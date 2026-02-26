@@ -98,7 +98,6 @@ class KbusProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        // TODO Split into two processors again?
         generators.containerInterface.generateInterface(dependencies.allDependencies)
         generators.handlersInterface.generateInterface(dependencies.handlers)
         if (isSubModule) {

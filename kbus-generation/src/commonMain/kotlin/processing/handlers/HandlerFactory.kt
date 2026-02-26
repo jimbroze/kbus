@@ -5,6 +5,8 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
+import com.jimbroze.kbus.core.messages.command.CommandHandler
+import com.jimbroze.kbus.core.messages.query.QueryHandler
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.squareup.kotlinpoet.ksp.toClassName
@@ -40,7 +42,7 @@ class HandlerFactory(
         val returnType =
             baseClassTypeArgs[1].type ?: error("Return type argument is missing or invalid")
 
-        return HandlerDefinition.create(
+        return createHandler(
             handlerBaseClassReference.resolve().declaration as KSClassDeclaration,
             HandlerData(
                 handlerClass.toClassName(),
@@ -56,5 +58,18 @@ class HandlerFactory(
         return classDeclaration.superTypes.firstOrNull {
             (it.resolve().declaration as? KSClassDeclaration)!!.classKind == ClassKind.CLASS
         }
+    }
+}
+
+fun createHandler(
+    handlerBaseClass: KSClassDeclaration,
+    handlerData: HandlerData,
+    logger: KSPLogger,
+): HandlerDefinition? {
+    return when (handlerBaseClass.qualifiedName!!.asString()) {
+        CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
+        QueryHandler::class.qualifiedName ->
+            QueryHandlerDefinition.create(handlerData, logger, handlerBaseClass)
+        else -> null
     }
 }

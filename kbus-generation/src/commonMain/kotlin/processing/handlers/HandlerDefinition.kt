@@ -2,7 +2,6 @@ package com.jimbroze.kbus.generation.processing.handlers
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.jimbroze.kbus.annotations.HandlerType
 import com.jimbroze.kbus.core.messages.command.Command
 import com.jimbroze.kbus.core.messages.command.CommandHandler
 import com.jimbroze.kbus.core.messages.query.Query
@@ -18,51 +17,6 @@ sealed interface HandlerDefinition {
     val handlerData: HandlerData
     val handlerBaseClass: ClassName
     val messageBaseClass: ClassName
-
-    companion object {
-        fun create(
-            handlerBaseClass: KSClassDeclaration,
-            handlerData: HandlerData,
-            logger: KSPLogger,
-        ): HandlerDefinition? {
-            return when (handlerBaseClass.qualifiedName!!.asString()) {
-                CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
-                QueryHandler::class.qualifiedName ->
-                    createQueryHandler(handlerData, logger, handlerBaseClass)
-                else -> null
-            }
-        }
-
-        fun createFromType(
-            typeOfHandler: HandlerType,
-            handlerData: HandlerData,
-            logger: KSPLogger,
-        ): HandlerDefinition? {
-            return when (typeOfHandler) {
-                HandlerType.COMMAND -> CommandHandlerDefinition(handlerData)
-                HandlerType.QUERY -> createQueryHandler(handlerData, logger, null)
-            }
-        }
-
-        fun createQueryHandler(
-            handlerData: HandlerData,
-            logger: KSPLogger,
-            handlerClass: KSClassDeclaration?,
-        ): HandlerDefinition? {
-            val commandDependency =
-                handlerData.topLevelDependencies.firstOrNull { it.requiresCommandDependencies }
-            if (commandDependency !== null) {
-                logger.error(
-                    "Query handlers cannot have command dependencies. " +
-                        "${handlerData.handlerClass.simpleName} contains $commandDependency",
-                    handlerClass,
-                )
-                return null
-            }
-
-            return QueryHandlerDefinition(handlerData)
-        }
-    }
 
     val functionParameters: List<FunctionalDependency.DependencyConstructorParameters>
 }
@@ -90,7 +44,29 @@ data class CommandHandlerDefinition(override val handlerData: HandlerData) : Han
             )
 }
 
-data class QueryHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
+class QueryHandlerDefinition private constructor(override val handlerData: HandlerData) :
+    HandlerDefinition {
+    companion object {
+        fun create(
+            handlerData: HandlerData,
+            logger: KSPLogger,
+            handlerClass: KSClassDeclaration?,
+        ): HandlerDefinition? {
+            val commandDependency =
+                handlerData.topLevelDependencies.firstOrNull { it.requiresCommandDependencies }
+            if (commandDependency !== null) {
+                logger.error(
+                    "Query handlers cannot have command dependencies. " +
+                        "${handlerData.handlerClass.simpleName} contains $commandDependency",
+                    handlerClass,
+                )
+                return null
+            }
+
+            return QueryHandlerDefinition(handlerData)
+        }
+    }
+
     override val handlerBaseClass
         get() = QueryHandler::class.asClassName()
 
@@ -105,4 +81,17 @@ data class QueryHandlerDefinition(override val handlerData: HandlerData) : Handl
 
     override val functionParameters: List<FunctionalDependency.DependencyConstructorParameters>
         get() = emptyList()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as QueryHandlerDefinition
+
+        return handlerData == other.handlerData
+    }
+
+    override fun hashCode(): Int {
+        return handlerData.hashCode()
+    }
 }

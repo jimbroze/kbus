@@ -1,47 +1,10 @@
 package com.jimbroze.kbus.generation.processing.dependencies
 
-import com.jimbroze.kbus.annotations.DependencyType
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.squareup.kotlinpoet.TypeName
 import kotlin.reflect.KClass
 
-// TODO throw error if override but not creating dependency
-enum class DependencyOverrideType {
-    PROPERTY,
-    FUNCTIONAL,
-}
-
 sealed interface Dependency {
-    companion object {
-        fun fromDependencyOverrideType(
-            dependencyOverrideType: DependencyOverrideType,
-            typeName: TypeName,
-            requiresCommandDependencies: Boolean,
-        ): Dependency {
-            val dependencyType =
-                when (dependencyOverrideType) {
-                    DependencyOverrideType.PROPERTY -> DependencyType.PROPERTY
-                    DependencyOverrideType.FUNCTIONAL -> DependencyType.FUNCTIONAL
-                }
-
-            return fromDependencyType(dependencyType, typeName, requiresCommandDependencies)
-        }
-
-        fun fromDependencyType(
-            dependencyType: DependencyType,
-            typeRef: TypeName,
-            requiresCommandDependencies: Boolean,
-        ): Dependency {
-            return when (dependencyType) {
-                DependencyType.PROPERTY -> PropertyDependency(typeRef)
-                DependencyType.FUNCTIONAL ->
-                    FunctionalDependency(typeRef, requiresCommandDependencies)
-                DependencyType.COMMAND -> CommandDependency(typeRef)
-                DependencyType.NON_DEPENDENCY -> NonDependency(typeRef)
-            }
-        }
-    }
-
     val requiresCommandDependencies: Boolean
 
     val name: String

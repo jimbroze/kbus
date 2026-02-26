@@ -7,11 +7,18 @@ import com.jimbroze.kbus.annotations.DependencyInfo
 import com.jimbroze.kbus.annotations.DependencyType
 import com.jimbroze.kbus.annotations.HandlerInfo
 import com.jimbroze.kbus.annotations.HandlerType
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
+import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
+import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
+import com.jimbroze.kbus.generation.processing.dependencies.PropertyDependency
+import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
+import com.squareup.kotlinpoet.TypeName
 import kotlin.reflect.KProperty1
 
 class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
@@ -64,11 +71,7 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
             DependencyType.valueOf(typeOfDependencySymbol.declaration.simpleName.asString())
 
         val metadata =
-            Dependency.fromDependencyType(
-                typeOfDependency,
-                dependencyTypeName,
-                requiresCommandDependencies,
-            )
+            createDependency(typeOfDependency, dependencyTypeName, requiresCommandDependencies)
 
         return DependencyWithDehydratedChildren(metadata, topLevelDependencies, cannotBeAutoloaded)
     }
@@ -107,7 +110,7 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
 
         val handlerData = HandlerData(handlerClass, messageClass, returnType, topLevelDependencies)
 
-        return HandlerDefinition.createFromType(typeOfHandler, handlerData, logger)
+        return createHandler(typeOfHandler, handlerData, logger)
     }
 }
 
@@ -151,4 +154,28 @@ private class IndexDependencies(dependencies: Set<DependencyWithDehydratedChildr
                 dependency.withHydratedChildren(topLevelDependencies)
             }
             .toSet()
+}
+
+private fun createDependency(
+    dependencyType: DependencyType,
+    typeRef: TypeName,
+    requiresCommandDependencies: Boolean,
+): Dependency {
+    return when (dependencyType) {
+        DependencyType.PROPERTY -> PropertyDependency(typeRef)
+        DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiresCommandDependencies)
+        DependencyType.COMMAND -> CommandDependency(typeRef)
+        DependencyType.NON_DEPENDENCY -> NonDependency(typeRef)
+    }
+}
+
+private fun createHandler(
+    typeOfHandler: HandlerType,
+    handlerData: HandlerData,
+    logger: KSPLogger,
+): HandlerDefinition? {
+    return when (typeOfHandler) {
+        HandlerType.COMMAND -> CommandHandlerDefinition(handlerData)
+        HandlerType.QUERY -> QueryHandlerDefinition.create(handlerData, logger, null)
+    }
 }

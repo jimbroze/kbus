@@ -41,7 +41,6 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
     private fun createNewDependency(
         commandDependenciesProps: CommandDependencyProperties,
         type: KSType,
-        dependencyTypeOverride: DependencyOverrideType? = null,
     ): NewDependencyWithChildren {
         val parameter = type.declaration
 
@@ -63,7 +62,6 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
                 isCommandDependency,
                 cannotBeDependency,
                 requiresCommandDependencies,
-                dependencyTypeOverride,
             )
 
         return NewDependencyWithChildren(
@@ -154,18 +152,11 @@ private fun createDependencyMetadata(
     isCommandDependency: Boolean,
     cannotBeDependency: Boolean,
     requiresCommandDependencies: Boolean,
-    dependencyTypeOverride: DependencyOverrideType?,
 ): Dependency {
     return if (isCommandDependency) {
         CommandDependency(type.toTypeName())
     } else if (cannotBeDependency) {
         NonDependency(type.toTypeName())
-    } else if (dependencyTypeOverride != null) {
-        Dependency.fromDependencyOverrideType(
-            dependencyTypeOverride,
-            type.toTypeName(),
-            requiresCommandDependencies,
-        )
     } else if (requiresCommandDependencies) {
         FunctionalDependency(type.toTypeName(), true)
     } else {
