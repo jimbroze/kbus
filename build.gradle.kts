@@ -1,7 +1,5 @@
-import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
 import io.gitlab.arturbosch.detekt.Detekt
 import java.util.*
-import kotlin.text.set
 
 description = "Kotlin message bus framework"
 
@@ -35,34 +33,6 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
     localProperties.forEach { (key, value) ->
         project.extensions.extraProperties[key.toString()] = value
-    }
-}
-
-val gitHooksDir = file(".git/hooks")
-
-tasks.register<Copy>("installGitHooks") {
-    onlyIf { gitHooksDir.exists() }
-    from(rootProject.rootDir.resolve("bin/pre-commit"))
-    into(rootProject.rootDir.resolve(".git/hooks"))
-    filePermissions {
-        user.read = true
-        user.write = true
-        user.execute = true
-        other.read = true
-        other.write = true
-        other.execute = true
-    }
-}
-
-tasks.register<KtfmtFormatTask>("ktfmtPrecommitFormat") {
-    group = "formatting"
-    description = "Runs ktfmt on kotlin files in the project"
-    source = project.fileTree(rootDir).apply { include("**/*.kt", "**/*.kts") }
-}
-
-tasks.whenTaskAdded {
-    if (name == "build") {
-        dependsOn("installGitHooks")
     }
 }
 
