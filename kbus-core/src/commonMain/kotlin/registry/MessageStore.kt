@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.registry
 
-import com.jimbroze.kbus.core.common.Message
-import com.jimbroze.kbus.core.common.MessageHandler
-import com.jimbroze.kbus.core.common.MissingHandlerException
+import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.contracts.common.MessageHandler
+import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import kotlin.reflect.KClass
 
 class MessageStore<TMessageType : Message> {

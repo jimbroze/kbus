@@ -1,16 +1,16 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.annotations.LoadMessageHandler
+import com.jimbroze.kbus.contracts.LoadMessageHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.domain.DomainEventPublisher
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.query.Query
-import com.jimbroze.kbus.core.messages.query.QueryHandler
 import com.jimbroze.kbus.core.middleware.middleware.BusLocker
-import com.jimbroze.kbus.core.result.BusResult
-import com.jimbroze.kbus.core.result.MessageFailure
 import com.jimbroze.kbus.core.uow.ExecuteInTransaction
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalInterface

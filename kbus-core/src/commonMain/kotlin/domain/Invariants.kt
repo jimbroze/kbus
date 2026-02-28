@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.domain
 
-import com.jimbroze.kbus.core.common.ResultReturningMessage
-import com.jimbroze.kbus.core.result.FailureReason
-import com.jimbroze.kbus.core.result.KBusResult
+import com.jimbroze.kbus.contracts.common.ResultReturningMessage
+import com.jimbroze.kbus.contracts.result.FailureReason
+import com.jimbroze.kbus.contracts.result.KBusResult
 
 // FIXME remove all this???
 

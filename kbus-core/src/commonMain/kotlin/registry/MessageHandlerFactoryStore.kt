@@ -1,15 +1,15 @@
 package com.jimbroze.kbus.core.registry
 
-import com.jimbroze.kbus.core.common.Message
-import com.jimbroze.kbus.core.common.MessageHandler
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.command.TooManyHandlersException
-import com.jimbroze.kbus.core.messages.event.Event
-import com.jimbroze.kbus.core.messages.event.EventHandler
-import com.jimbroze.kbus.core.messages.query.Query
-import com.jimbroze.kbus.core.messages.query.QueryHandler
-import com.jimbroze.kbus.core.result.KBusResult
+import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.contracts.common.MessageHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.command.TooManyHandlersException
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import kotlin.reflect.KClass
 

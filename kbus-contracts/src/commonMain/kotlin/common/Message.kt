@@ -1,6 +1,6 @@
-package com.jimbroze.kbus.core.common
+package com.jimbroze.kbus.contracts.common
 
-import com.jimbroze.kbus.core.result.KBusResult
+import com.jimbroze.kbus.contracts.result.KBusResult
 import kotlin.reflect.KClass
 
 interface Message {

@@ -3,10 +3,10 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.query.Query
-import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.registry.GenerationHandlerFactory
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
@@ -70,7 +70,10 @@ class HandlersFactoryGenerator(
 
     private fun buildCommandsHandlersFor(handlers: Set<CommandHandlerDefinition>): FunSpec {
         val tResult =
-            TypeVariableName("TResult", ClassName("com.jimbroze.kbus.core.result", "KBusResult"))
+            TypeVariableName(
+                "TResult",
+                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
+            )
         val tCommand =
             TypeVariableName("TCommand", Command::class.asClassName().parameterizedBy(tResult))
         val returnType =
@@ -107,7 +110,10 @@ class HandlersFactoryGenerator(
     // TODO make more polymorphic?
     private fun buildQueriesHandlersFor(handlers: Set<QueryHandlerDefinition>): FunSpec {
         val tResult =
-            TypeVariableName("TResult", ClassName("com.jimbroze.kbus.core.result", "KBusResult"))
+            TypeVariableName(
+                "TResult",
+                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
+            )
         val tQuery = TypeVariableName("TQuery", Query::class.asClassName().parameterizedBy(tResult))
         val returnType =
             QueryHandler::class.asClassName().parameterizedBy(tQuery, tResult).copy(nullable = true)

@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.domain
 
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.middleware.middleware.InvariantCatcherMiddleware
-import com.jimbroze.kbus.core.result.BusResult
-import com.jimbroze.kbus.core.result.MessageFailure
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

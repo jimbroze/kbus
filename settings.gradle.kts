@@ -23,7 +23,7 @@ include("kotlin-library")
 
 include("testDoubles")
 
-include("kbus-annotations")
+include("kbus-contracts")
 
 include("kbus-core")
 

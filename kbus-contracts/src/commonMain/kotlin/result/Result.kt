@@ -1,7 +1,7 @@
-package com.jimbroze.kbus.core.result
+package com.jimbroze.kbus.contracts.result
 
-import com.jimbroze.kbus.core.common.MessageHandler
-import com.jimbroze.kbus.core.common.ResultReturningMessage
+import com.jimbroze.kbus.contracts.common.MessageHandler
+import com.jimbroze.kbus.contracts.common.ResultReturningMessage
 
 typealias KBusResult = BusResult<*, *>
 

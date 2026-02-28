@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
-import com.jimbroze.kbus.core.common.Message
+import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 

@@ -1,14 +1,16 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.core.bus.BusAccess
+import com.jimbroze.kbus.contracts.bus.BusAccess
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.domain.DomainEvent
 import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.messages.event.Event
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
-import com.jimbroze.kbus.core.result.BusResult
-import com.jimbroze.kbus.core.result.MessageFailure
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.core.uow.ExecuteInTransaction
 import com.jimbroze.kbus.core.uow.TransactionManager

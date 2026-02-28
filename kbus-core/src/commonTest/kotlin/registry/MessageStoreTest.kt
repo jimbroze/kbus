@@ -1,14 +1,14 @@
 package com.jimbroze.kbus.core.registry
 
-import com.jimbroze.kbus.core.common.MissingHandlerException
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.event.Event
-import com.jimbroze.kbus.core.messages.event.EventHandler
-import com.jimbroze.kbus.core.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.result.BusResult
-import com.jimbroze.kbus.core.result.BusResult.Companion.success
-import com.jimbroze.kbus.core.result.MessageFailure
+import com.jimbroze.kbus.contracts.common.MissingHandlerException
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

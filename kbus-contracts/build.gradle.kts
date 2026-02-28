@@ -1,4 +1,4 @@
-description = "Annotations for use with Kbus code generation"
+description = "Contracts and annotations for KBUS message bus framework"
 
 plugins {
     id("kbus.multiplatform")

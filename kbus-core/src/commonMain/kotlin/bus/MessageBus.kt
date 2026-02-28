@@ -1,36 +1,20 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.core.common.MissingHandlerException
-import com.jimbroze.kbus.core.messages.command.Command
+import com.jimbroze.kbus.contracts.bus.BusAccess
+import com.jimbroze.kbus.contracts.common.MissingHandlerException
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
-import com.jimbroze.kbus.core.messages.event.Event
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
-import com.jimbroze.kbus.core.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.messages.query.Query
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.MessageHandlerLocator
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-import com.jimbroze.kbus.core.result.KBusResult
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.core.uow.TransactionManager
-
-abstract class CanDispatchIntegrationEvent {
-    private lateinit var bus: BusAccess
-
-    fun setBus(bus: BusAccess) {
-        this.bus = bus
-    }
-
-    suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) {
-        bus.dispatch(event)
-    }
-}
-
-interface BusAccess {
-    suspend fun <TEvent : Event> dispatch(event: TEvent)
-}
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(

@@ -5,8 +5,8 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.squareup.kotlinpoet.ksp.toClassName

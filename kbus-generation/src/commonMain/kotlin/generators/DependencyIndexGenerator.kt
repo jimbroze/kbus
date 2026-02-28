@@ -3,11 +3,11 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
-import com.jimbroze.kbus.annotations.DependencyInfo
-import com.jimbroze.kbus.annotations.DependencyType
-import com.jimbroze.kbus.annotations.HandlerInfo
-import com.jimbroze.kbus.annotations.HandlerType
-import com.jimbroze.kbus.annotations.KbusIndex
+import com.jimbroze.kbus.contracts.DependencyInfo
+import com.jimbroze.kbus.contracts.DependencyType
+import com.jimbroze.kbus.contracts.HandlerInfo
+import com.jimbroze.kbus.contracts.HandlerType
+import com.jimbroze.kbus.contracts.KbusIndex
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren

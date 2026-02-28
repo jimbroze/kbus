@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.messages.query
 
+import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.core.bus.StorageQuery
 import com.jimbroze.kbus.core.bus.StorageQueryHandler
-import com.jimbroze.kbus.core.result.BusResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest

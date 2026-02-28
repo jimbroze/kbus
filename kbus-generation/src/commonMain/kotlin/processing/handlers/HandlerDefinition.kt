@@ -2,10 +2,10 @@ package com.jimbroze.kbus.generation.processing.handlers
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.query.Query
-import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
 import com.squareup.kotlinpoet.ClassName

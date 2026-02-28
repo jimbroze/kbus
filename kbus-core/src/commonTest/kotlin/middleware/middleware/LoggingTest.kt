@@ -1,18 +1,18 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
-import com.jimbroze.kbus.core.messages.event.Event
-import com.jimbroze.kbus.core.messages.event.EventHandler
-import com.jimbroze.kbus.core.messages.query.Query
-import com.jimbroze.kbus.core.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.registry.PrintEventHandler
 import com.jimbroze.kbus.core.registry.StorageCommand
 import com.jimbroze.kbus.core.registry.StorageCommandHandler
 import com.jimbroze.kbus.core.registry.StorageEvent
-import com.jimbroze.kbus.core.result.BusResult
-import com.jimbroze.kbus.core.result.BusResult.Companion.success
-import com.jimbroze.kbus.core.result.MessageFailure
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

@@ -11,7 +11,7 @@ kotlin {
     js {}
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusAnnotations)
+            implementation(projects.kbusContracts)
             implementation(projects.kbusCore)
             implementation(projects.testDoubles)
             implementation(projects.kbusGenerationTestSub)

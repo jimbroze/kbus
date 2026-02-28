@@ -1,15 +1,15 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.BusResult.Companion.failure
+import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
+import com.jimbroze.kbus.contracts.result.FailureReason
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.TestClock
-import com.jimbroze.kbus.core.messages.command.Command
-import com.jimbroze.kbus.core.messages.command.CommandHandler
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
-import com.jimbroze.kbus.core.result.BusResult
-import com.jimbroze.kbus.core.result.BusResult.Companion.failure
-import com.jimbroze.kbus.core.result.BusResult.Companion.success
-import com.jimbroze.kbus.core.result.FailureReason
-import com.jimbroze.kbus.core.result.MessageFailure
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

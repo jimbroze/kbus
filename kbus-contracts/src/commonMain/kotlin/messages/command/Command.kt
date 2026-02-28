@@ -1,10 +1,10 @@
-package com.jimbroze.kbus.core.messages.command
+package com.jimbroze.kbus.contracts.messages.command
 
-import com.jimbroze.kbus.core.bus.CanDispatchIntegrationEvent
-import com.jimbroze.kbus.core.common.MessageHandler
-import com.jimbroze.kbus.core.common.ResultReturningMessage
-import com.jimbroze.kbus.core.result.KBusResult
-import com.jimbroze.kbus.core.result.ResultReturningMessageHandler
+import com.jimbroze.kbus.contracts.bus.CanDispatchIntegrationEvent
+import com.jimbroze.kbus.contracts.common.MessageHandler
+import com.jimbroze.kbus.contracts.common.ResultReturningMessage
+import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.contracts.result.ResultReturningMessageHandler
 import kotlin.reflect.KClass
 
 abstract class Command<TResult : KBusResult> : ResultReturningMessage<TResult> {
