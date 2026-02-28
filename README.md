@@ -10,7 +10,7 @@ A Kotlin Multiplatform CQRS message bus framework. Route Commands, Queries, and 
 - **KSP code generation** — Compile-time handler resolution with zero reflection
 - **Middleware pipeline** — Composable middleware chain wrapping handler execution
 - **Unit of Work** — Transaction-aware command execution with domain and integration events
-- **Domain modeling** — Built-in support for Entities, Aggregate Roots, Value Objects, and Invariants
+- **Domain modeling** — Built-in support for Entities, Aggregate Roots, and Value Objects
 - **Result types** — Type-safe `BusResult<TValue, TMessageFailure>` with `Success` and `Failure` variants
 
 ## Installation
@@ -223,7 +223,6 @@ val bus = MessageBus(
     middlewares = listOf(
         BusLocker(Clock.System),
         MessageLogger(logger, LogLevel.DEBUG, LogLevel.INFO, LogLevel.ERROR),
-        InvariantCatcherMiddleware(),
         TimingMiddleware(),
     )
 )
@@ -233,7 +232,6 @@ val bus = MessageBus(
 
 - **`MessageLogger`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`BusLocker`** — Prevents concurrent message handling with a configurable timeout
-- **`InvariantCatcherMiddleware`** — Catches `InvalidInvariantException` and converts it to a failure result
 
 ## Unit of Work
 
@@ -358,13 +356,8 @@ Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of fu
 KBUS includes base types for domain-driven design:
 
 ```kotlin
-// Value Object
-class Money(val amount: BigDecimal, val currency: String) : ValueObject<Money>() {
-    init {
-        assert(amount >= BigDecimal.ZERO, "Amount must be non-negative")
-    }
-    // equals() and hashCode() required
-}
+// Value Object — equals() and hashCode() required
+class Money(val amount: BigDecimal, val currency: String) : ValueObject<Money>()
 
 // Entity
 class Order(override val id: OrderId, val items: List<Item>) : Entity<Order>()
@@ -372,8 +365,6 @@ class Order(override val id: OrderId, val items: List<Item>) : Entity<Order>()
 // Aggregate Root
 class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 ```
-
-The `assert` function in `HasInvariants` throws `InvalidInvariantException` on failure, which is automatically caught by `InvariantCatcherMiddleware` and converted to a failure result.
 
 ## Supported Platforms
 

@@ -1,7 +1,6 @@
 package com.jimbroze.kbus.domain
 
 import kotlin.test.Test
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -24,12 +23,5 @@ class EntityTest {
         val identical = entity1.hasSameIdentityAs(entity2)
 
         assertFalse(identical)
-    }
-
-    @Test
-    fun test_false_assertion_throws_invalid_invariant_exception() {
-        assertFailsWith<InvalidInvariantException>("ID must be no greater than 5") {
-            TestEntityWithMaxIdOfFive(TestIdentifier(6))
-        }
     }
 }

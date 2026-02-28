@@ -6,7 +6,7 @@ interface Identifier {
     override fun hashCode(): Int
 }
 
-abstract class Entity<T : Entity<T>> : HasInvariants() {
+abstract class Entity<T : Entity<T>> {
     abstract val id: Identifier
 
     fun hasSameIdentityAs(other: T): Boolean {

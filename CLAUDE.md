@@ -64,8 +64,7 @@ Submodules (`isSubModule=true`) generate only a `DependencyIndex` with `@KbusInd
 
 ### Middleware Pipeline
 
-Composable middleware chain wrapping handler execution. Built-in: `MessageLogger`, `InvariantCatcherMiddleware`,
-`Locker`.
+Composable middleware chain wrapping handler execution. Built-in: `MessageLogger`, `Locker`.
 
 ### Unit of Work
 
