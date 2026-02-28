@@ -4,6 +4,8 @@ import com.jimbroze.kbus.core.common.ResultReturningMessage
 import com.jimbroze.kbus.core.result.FailureReason
 import com.jimbroze.kbus.core.result.KBusResult
 
+// FIXME remove all this???
+
 open class InvalidInvariantException(override val message: String) : Throwable(message)
 
 class MultipleInvalidInvariantsException(
