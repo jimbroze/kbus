@@ -3,10 +3,10 @@ package com.jimbroze.kbus.generation.processing
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSType
-import com.jimbroze.kbus.contracts.DependencyInfo
-import com.jimbroze.kbus.contracts.DependencyType
-import com.jimbroze.kbus.contracts.HandlerInfo
-import com.jimbroze.kbus.contracts.HandlerType
+import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
+import com.jimbroze.kbus.contracts.annotations.index.DependencyType
+import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
+import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency

@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.contracts
+package com.jimbroze.kbus.contracts.annotations.index
 
 enum class DependencyType {
     PROPERTY,

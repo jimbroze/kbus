@@ -7,8 +7,8 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
-import com.jimbroze.kbus.contracts.KbusIndex
-import com.jimbroze.kbus.contracts.LoadMessageHandler
+import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator

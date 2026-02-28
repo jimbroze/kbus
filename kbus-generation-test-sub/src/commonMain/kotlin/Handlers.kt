@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.contracts.LoadMessageHandler
+import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
