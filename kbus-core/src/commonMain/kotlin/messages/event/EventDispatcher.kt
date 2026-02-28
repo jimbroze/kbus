@@ -2,10 +2,10 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.core.domain.DomainEvent
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
+import com.jimbroze.kbus.domain.DomainEvent
 
 interface DomainEventDispatcher {
     suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>)

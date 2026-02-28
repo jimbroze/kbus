@@ -2,7 +2,7 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.bus.CanDispatchIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.core.domain.DomainEvent
+import com.jimbroze.kbus.domain.DomainEvent
 
 abstract class DomainEventHandler<TEvent : DomainEvent> :
     EventHandler<TEvent>, CanDispatchIntegrationEvent() {

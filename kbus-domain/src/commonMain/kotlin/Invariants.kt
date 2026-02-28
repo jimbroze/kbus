@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.domain
+package com.jimbroze.kbus.domain
 
 import com.jimbroze.kbus.contracts.common.ResultReturningMessage
 import com.jimbroze.kbus.contracts.result.FailureReason

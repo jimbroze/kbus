@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.uow
 
-import com.jimbroze.kbus.core.domain.DomainEvent
 import com.jimbroze.kbus.core.messages.command.NonExecutingTransactionManager
 import com.jimbroze.kbus.core.messages.command.TestDomainEventDispatcher
+import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals

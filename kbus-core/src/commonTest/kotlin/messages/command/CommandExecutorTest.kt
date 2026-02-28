@@ -6,8 +6,6 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.domain.DomainEvent
-import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
@@ -16,6 +14,8 @@ import com.jimbroze.kbus.core.uow.ExecuteInTransaction
 import com.jimbroze.kbus.core.uow.TransactionManager
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
+import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.DomainEventPublisher
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals

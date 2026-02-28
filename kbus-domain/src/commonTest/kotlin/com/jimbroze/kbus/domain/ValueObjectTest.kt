@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.domain
+package com.jimbroze.kbus.domain
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

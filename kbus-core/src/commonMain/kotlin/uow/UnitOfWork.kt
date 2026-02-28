@@ -3,9 +3,9 @@ package com.jimbroze.kbus.core.uow
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.result.ResultReturningMessageHandler
-import com.jimbroze.kbus.core.domain.DomainEvent
-import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
+import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.DomainEventPublisher
 
 interface UnitOfWork<TResult> {
     suspend fun execute(): TResult

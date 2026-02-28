@@ -9,9 +9,9 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.domain.DomainEventPublisher
 import com.jimbroze.kbus.core.middleware.middleware.BusLocker
 import com.jimbroze.kbus.core.uow.ExecuteInTransaction
+import com.jimbroze.kbus.domain.DomainEventPublisher
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalInterface
 import com.test.external.ExternalNestedWithExternal

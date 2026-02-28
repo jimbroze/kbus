@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.domain
+package com.jimbroze.kbus.domain
 
 class TestIdentifier(val intId: Int) : Identifier {
     override fun equals(other: Any?): Boolean {

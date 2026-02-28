@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.domain.InvalidInvariantException
-import com.jimbroze.kbus.core.domain.InvariantCatchingMessage
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.domain.InvalidInvariantException
+import com.jimbroze.kbus.domain.InvariantCatchingMessage
 
 class InvariantCatcherMiddleware : Middleware {
     override suspend fun <TMessage : Message, TResult> handle(

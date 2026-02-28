@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.domain
+package com.jimbroze.kbus.domain
 
 abstract class ValueObject<T : ValueObject<T>> : HasInvariants() {
     abstract override fun equals(other: Any?): Boolean

@@ -1,4 +1,4 @@
-description = "Kotlin message bus framework"
+description = "Domain-driven design abstractions for KBUS"
 
 plugins {
     id("kbus.multiplatform")
@@ -9,11 +9,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.kbusContracts)
-            api(projects.kbusDomain)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
         }
-
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)

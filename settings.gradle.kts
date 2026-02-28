@@ -25,6 +25,8 @@ include("testDoubles")
 
 include("kbus-contracts")
 
+include("kbus-domain")
+
 include("kbus-core")
 
 include("kbus-koin")

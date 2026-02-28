@@ -8,8 +8,8 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.core.domain.DomainEvent
 import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.jimbroze.kbus.domain.DomainEvent
 
 interface MessageHandlerLocator {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(

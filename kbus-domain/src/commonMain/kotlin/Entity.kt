@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.domain
+package com.jimbroze.kbus.domain
 
 interface Identifier {
     override fun equals(other: Any?): Boolean

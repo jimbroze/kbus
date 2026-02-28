@@ -1,11 +1,11 @@
 package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.core.domain.DomainEvent
 import com.jimbroze.kbus.core.messages.command.TestUnitOfWork
 import com.jimbroze.kbus.core.registry.OtherPrintEventHandler
 import com.jimbroze.kbus.core.registry.PrintEventHandler
 import com.jimbroze.kbus.core.registry.StorageEvent
+import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
