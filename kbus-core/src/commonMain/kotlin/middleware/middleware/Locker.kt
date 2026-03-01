@@ -11,11 +11,10 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.coroutineContext
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.datetime.Clock
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.plus
 
 private const val MILLISECONDS_IN_SECOND = 1000
 
@@ -139,13 +138,11 @@ class BusLocker(private val clock: Clock, private val defaultTimeout: Float = 5.
     private suspend fun waitForUnlock(message: Message) {
         val currentTimeout = (message as? LockAdjustMessage)?.lockTimeout ?: secsToTimeout
         val timeout =
-            clock
-                .now()
-                .plus((currentTimeout * MILLISECONDS_IN_SECOND).toInt(), DateTimeUnit.MILLISECOND)
+            clock.now().plus((currentTimeout * MILLISECONDS_IN_SECOND).toInt().milliseconds)
 
         while (busLocked && clock.now() <= timeout) {
             // FIXME why does yield() not work?
-            delay(1)
+            delay(1.milliseconds)
         }
     }
 

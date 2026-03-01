@@ -16,9 +16,8 @@ import com.test.external.ExternalEmpty
 import com.test.external.ExternalInterface
 import com.test.external.ExternalNestedWithExternal
 import com.test.external.ExternalNestedWithPrimitive
-import kotlinx.coroutines.delay
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 class FixedClock(private var fixedInstant: Instant) : Clock {
     override fun now(): Instant = fixedInstant
@@ -172,8 +171,7 @@ data class LifeCycleResult(
     val eagerSingletonTime: Instant,
 )
 
-class LifeCycleTestCommand(val waitTime: Long) :
-    Command<BusResult<LifeCycleResult, MessageFailure>>()
+class LifeCycleTestCommand : Command<BusResult<LifeCycleResult, MessageFailure>>()
 
 @Suppress("unused")
 @LoadMessageHandler
@@ -186,11 +184,8 @@ class LifeCycleTestCommandHandler(
         message: LifeCycleTestCommand
     ): BusResult<LifeCycleResult, MessageFailure> {
         val transientTime = transientClock.now()
-        delay(message.waitTime)
         val lazySingletonTime = lazySingletonClock.now()
-        delay(message.waitTime)
         val eagerSingletonTime = eagerSingletonClock.now()
-        delay(message.waitTime)
 
         return BusResult.success(
             LifeCycleResult(transientTime, lazySingletonTime, eagerSingletonTime)

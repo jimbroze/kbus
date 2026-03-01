@@ -4,6 +4,9 @@ import kotlin.concurrent.Volatile
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.TimeSource
 import kotlinx.coroutines.async
@@ -12,9 +15,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
-import kotlinx.datetime.Clock
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.plus
 
 class YieldTest {
     @Volatile var locked: Boolean = false
@@ -67,9 +67,9 @@ class YieldTest {
         }
 
         val job2 = async {
-            val timeout = clock.now().plus(5, DateTimeUnit.SECOND)
+            val timeout = clock.now().plus(5.seconds)
             while (locked && clock.now() <= timeout) {
-                delay(1)
+                delay(1.milliseconds)
             }
 
             timeSource.markNow()

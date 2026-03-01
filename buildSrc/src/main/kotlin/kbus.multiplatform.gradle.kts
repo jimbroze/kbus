@@ -15,7 +15,7 @@ kotlin {
         (this).languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.target.get()))
     }
 
-    js(IR) {
+    js {
         //        browser()
         nodejs()
     }
@@ -31,7 +31,7 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         //        browser()
-        //        nodejs()
+        nodejs()
         //        d8()
     }
     if (HostManager.hostIsMac) {

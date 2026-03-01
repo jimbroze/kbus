@@ -11,7 +11,7 @@ import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.reflect.KClass
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 
 interface Dependencies {
     val topLevelDependencies: List<Dependency>

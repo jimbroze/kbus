@@ -11,7 +11,6 @@ kotlin {
             api(projects.kbusContracts)
             api(projects.kbusDomain)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
         }
 
         commonTest.dependencies {

@@ -18,7 +18,6 @@ kotlin {
             implementation(libs.symbol.processing.api)
             implementation(libs.kotlin.poet)
             implementation(libs.kotlin.poet.ksp)
-            implementation(libs.kotlinx.datetime)
         }
     }
 }
