@@ -28,7 +28,7 @@ import kotlinx.coroutines.test.runTest
 
 open class TimeReturnCommand : Command<BusResult<ValueTimeMark, MessageFailure>>()
 
-class LockAwareTimeReturnCommand :
+class LockAwareTimeReturnCommand(override val lockChannelKey: String = "") :
     TimeReturnCommand(), LockingCommand<BusResult<ValueTimeMark, MessageFailure>> {
     override fun busLockedFailure(
         failure: BusLockedFailure
@@ -44,8 +44,10 @@ class TimeReturnCommandHandler :
 
 class TestFailure(override val reason: FailureReason) : MessageFailure
 
-class NestingLockCommand(val internalCommand: TimeReturnCommand) :
-    Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
+class NestingLockCommand(
+    val internalCommand: TimeReturnCommand,
+    override val lockChannelKey: String = "",
+) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
         failure(TestFailure(failure))
 }
@@ -72,6 +74,7 @@ class LockingSleepCommand(
     val sleepFor: Duration,
     val messageData: String,
     override val lockTimeout: Duration? = null,
+    override val lockChannelKey: String = "",
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
         failure(TestFailure(failure))
@@ -98,6 +101,7 @@ class LockAdjustLockingCommand(
     val messageData: String,
     override val lockTimeout: Duration? = null,
     override val shouldFailOnTimeout: Boolean? = null,
+    override val lockChannelKey: String = "",
 ) :
     Command<BusResult<Any, MessageFailure>>(),
     LockingCommand<BusResult<Any, MessageFailure>>,
@@ -192,7 +196,7 @@ class LockingTest {
         val job = async {
             locker.handle(LockingSleepCommand(2.seconds, "data")) {
                 // While the handler is running, the mutex should be held
-                assertTrue(locker.busLocked, "busLocked should be true while mutex is held")
+                assertTrue(locker.busIsLocked(""), "busLocked should be true while mutex is held")
                 LockingSleepCommandHandler().handle(it)
             }
         }
@@ -200,7 +204,7 @@ class LockingTest {
         job.await()
 
         // After the locking message completes, busLocked should be false
-        assertFalse(locker.busLocked, "busLocked should be false after lock is released")
+        assertFalse(locker.busIsLocked(""), "busLocked should be false after lock is released")
     }
 
     @Test
@@ -211,7 +215,7 @@ class LockingTest {
             // A non-locking message should not report the bus as locked,
             // even though a KeyedLock entry exists in the cache for waiting purposes
             assertFalse(
-                locker.busLocked,
+                locker.busIsLocked(""),
                 "busLocked should be false during non-locking message processing",
             )
             SleepCommandHandler().handle(it)
@@ -224,7 +228,7 @@ class LockingTest {
 
         locker.handle(SleepCommand(2.seconds)) { SleepCommandHandler().handle(it) }
 
-        assertFalse(locker.busLocked)
+        assertFalse(locker.busIsLocked(""))
     }
 
     @Test
@@ -416,5 +420,190 @@ class LockingTest {
 
         // Job 2 should succeed because it overrode shouldFailOnTimeout to false
         assertEquals("Job2", result2.getOrNull())
+    }
+
+    @Test
+    fun `messages with different lockChannelKeys do not block each other`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache(), 5.seconds)
+
+        val job1 = async {
+            locker.handle(LockingSleepCommand(3.seconds, "KeyA", lockChannelKey = "keyA")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
+            locker.handle(LockingSleepCommand(1.seconds, "KeyB", lockChannelKey = "keyB")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+
+        val timeJob1Finished = job1.await()
+        val timeJob2Finished = job2.await()
+
+        // Both should run concurrently since they use different keys
+        assertEquals(3000L, timeJob1Finished, "Job 1 should finish after its own 3s delay")
+        assertEquals(1000L, timeJob2Finished, "Job 2 should finish after its own 1s delay")
+    }
+
+    @Test
+    fun `messages with the same lockChannelKey block each other`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache(), 5.seconds)
+
+        val job1 = async {
+            locker.handle(LockingSleepCommand(1.seconds, "First", lockChannelKey = "shared")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
+            locker.handle(LockingSleepCommand(1.seconds, "Second", lockChannelKey = "shared")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+
+        val timeJob1Finished = job1.await()
+        val timeJob2Finished = job2.await()
+
+        // Job 2 must wait for Job 1 to release the lock before it can proceed
+        assertEquals(1000L, timeJob1Finished)
+        assertEquals(2000L, timeJob2Finished)
+    }
+
+    @Test
+    fun `busIsLocked is true only for the locked channel key`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache())
+
+        val job = async {
+            locker.handle(LockingSleepCommand(2.seconds, "data", lockChannelKey = "myKey")) {
+                assertTrue(locker.busIsLocked("myKey"), "myKey channel should be locked")
+                assertFalse(locker.busIsLocked("otherKey"), "otherKey channel should not be locked")
+                assertFalse(locker.busIsLocked(""), "default channel should not be locked")
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+
+        job.await()
+
+        assertFalse(
+            locker.busIsLocked("myKey"),
+            "myKey channel should be unlocked after completion",
+        )
+    }
+
+    @Test
+    fun `non-locking message only waits for lock on the default channel key`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache(), 5.seconds)
+
+        val job1 = async {
+            // Lock on a specific key
+            locker.handle(LockingSleepCommand(3.seconds, "KeyA", lockChannelKey = "keyA")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
+            // Non-locking message uses the default key (""), so should not be blocked
+            locker.handle(ReturnCommand("NoLock")) { ReturnCommandHandler().handle(it) }
+            currentTime
+        }
+
+        val timeJob1Finished = job1.await()
+        val timeJob2Finished = job2.await()
+
+        assertEquals(3000L, timeJob1Finished)
+        assertEquals(
+            0L,
+            timeJob2Finished,
+            "Non-locking message should not wait for a different key",
+        )
+    }
+
+    @Test
+    fun `nested locking message with a different key succeeds`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache())
+
+        val result =
+            locker.handle(
+                NestingLockCommand(
+                    LockAwareTimeReturnCommand(lockChannelKey = "inner"),
+                    lockChannelKey = "outer",
+                )
+            ) {
+                NestingLockCommandHandler(locker).handle(it)
+            }
+
+        val resultMap = assertIs<Map<String, Any?>>(result.getOrNull())
+
+        // The nested command uses a different key, so it should succeed
+        val nestResult = assertIs<BusResult<ValueTimeMark, MessageFailure>>(resultMap["nest"])
+        assertTrue(nestResult.isSuccess, "Nested command with different key should succeed")
+    }
+
+    @Test
+    fun `nested locking message with the same key fails`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache())
+
+        val result =
+            locker.handle(
+                NestingLockCommand(
+                    LockAwareTimeReturnCommand(lockChannelKey = "same"),
+                    lockChannelKey = "same",
+                )
+            ) {
+                NestingLockCommandHandler(locker).handle(it)
+            }
+
+        val resultMap = assertIs<Map<String, Any?>>(result.getOrNull())
+
+        val nestFailure =
+            assertIs<TestFailure>(
+                assertIs<BusResult<*, MessageFailure>>(resultMap["nest"]).failureOrNull()
+            )
+
+        assertIs<BusLockedFailure>(nestFailure.reason)
+        assertEquals(
+            "Cannot handle message as message bus is locked by the same coroutine",
+            nestFailure.reason.message,
+        )
+    }
+
+    @Test
+    fun `multiple different keys can be locked concurrently by different coroutines`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache(), 5.seconds)
+
+        val job1 = async {
+            locker.handle(LockingSleepCommand(2.seconds, "A", lockChannelKey = "key1")) {
+                // While handling key1, key2 and key3 can also be locked
+                assertTrue(locker.busIsLocked("key1"))
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+        val job2 = async {
+            locker.handle(LockingSleepCommand(2.seconds, "B", lockChannelKey = "key2")) {
+                assertTrue(locker.busIsLocked("key2"))
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+        val job3 = async {
+            locker.handle(LockingSleepCommand(2.seconds, "C", lockChannelKey = "key3")) {
+                assertTrue(locker.busIsLocked("key3"))
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+
+        val r1 = job1.await()
+        val r2 = job2.await()
+        val r3 = job3.await()
+
+        assertEquals("A", r1.getOrNull())
+        assertEquals("B", r2.getOrNull())
+        assertEquals("C", r3.getOrNull())
+
+        assertFalse(locker.busIsLocked("key1"))
+        assertFalse(locker.busIsLocked("key2"))
+        assertFalse(locker.busIsLocked("key3"))
     }
 }

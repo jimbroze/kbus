@@ -28,9 +28,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 // TODO change to lockaware and have boolean for locking
 // TODO fix for JS Browser
 // TODO allow providing key for locking per aggregate etc.
-// TODO create lock interface and mutex impl
 // TODO create queue?
 interface LockingMessage {
+    val lockChannelKey: String
+        get() = ""
+
     val lockTimeout: Duration?
         get() = null
 }
@@ -94,9 +96,12 @@ class BusLocker(
     private val defaultTimeout: Duration = 5.seconds,
     private val defaultShouldFailOnTimeout: Boolean = false,
 ) : Middleware {
+    companion object {
+        private const val KEY_PREFIX = "bus-lock-"
+    }
 
-    val busLocked: Boolean
-        get() = threadSafeCache.get("my-key")?.mutex?.isLocked == true
+    fun busIsLocked(channelKey: String): Boolean =
+        threadSafeCache.get(KEY_PREFIX + channelKey)?.mutex?.isLocked == true
 
     private sealed interface LockOutcome {
         data class Success(val activeLock: KeyedLock) : LockOutcome
@@ -108,7 +113,7 @@ class BusLocker(
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        val key = "my-key"
+        val key = KEY_PREFIX + ((message as? LockingMessage)?.lockChannelKey ?: "")
         if (currentCoroutineContext()[BusLockToken]?.heldKeys?.contains(key) == true) {
             return exitEarly(
                 message,
