@@ -2,7 +2,6 @@ package com.jimbroze.kbus.generation.processing
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
-import com.google.devtools.ksp.symbol.KSType
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
@@ -18,8 +17,8 @@ import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
+import com.jimbroze.kbus.generation.utility.findArgument
 import com.squareup.kotlinpoet.TypeName
-import kotlin.reflect.KProperty1
 
 class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
     fun createDependencies(dependencyInfoAnnotations: List<KSAnnotation>): Dependencies {
@@ -62,13 +61,10 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
             dependencyInfoAnnotation.findArgument(DependencyInfo::cannotBeAutoloaded)
         val topLevelDependencies: List<String> =
             dependencyInfoAnnotation.findArgument(DependencyInfo::topLevelDependencies)
-        val typeOfDependencySymbol: KSType =
+        val typeOfDependency: DependencyType =
             dependencyInfoAnnotation.findArgument(DependencyInfo::dependencyType)
 
         val dependencyTypeName = TypeResolver.resolve(signature)
-
-        val typeOfDependency =
-            DependencyType.valueOf(typeOfDependencySymbol.declaration.simpleName.asString())
 
         val metadata =
             createDependency(typeOfDependency, dependencyTypeName, requiresCommandDependencies)
@@ -95,15 +91,12 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
             handlerInfoAnnotation.findArgument(HandlerInfo::returnType)
         val topLevelDependenciesSignatures: List<String> =
             handlerInfoAnnotation.findArgument(HandlerInfo::topLevelDependencies)
-        val typeOfHandlerSymbol: KSType =
+        val typeOfHandler: HandlerType =
             handlerInfoAnnotation.findArgument(HandlerInfo::handlerType)
 
         val messageClass = TypeResolver.resolveClassName(messageClassSignature)
         val handlerClass = TypeResolver.resolveClassName(handlerClassSignature)
         val returnType = TypeResolver.resolve(returnTypeSignature)
-
-        val typeOfHandler =
-            HandlerType.valueOf(typeOfHandlerSymbol.declaration.simpleName.asString())
 
         val topLevelDependencies =
             topLevelDependenciesSignatures.map { allDependenciesBySignature.getValue(it) }
@@ -112,20 +105,6 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
 
         return createHandler(typeOfHandler, handlerData, logger)
     }
-}
-
-inline fun <reified T> KSAnnotation.findArgument(property: KProperty1<*, *>): T {
-    val argument =
-        arguments.find { it.name?.asString() == property.name }
-            ?: error("Argument '${property.name}' is missing")
-
-    val value = argument.value ?: error("Argument '${property.name}' has a null value")
-
-    return value as? T
-        ?: error(
-            "Argument '${property.name}' expected '${T::class.simpleName}' " +
-                "but KSP returned '${value::class.simpleName}'"
-        )
 }
 
 private data class DependencyWithDehydratedChildren(
