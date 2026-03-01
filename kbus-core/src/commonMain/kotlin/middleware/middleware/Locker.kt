@@ -28,6 +28,7 @@ class MessageHandlerPair<TMessage : Message, TResult : Any?>(
 }
 
 // TODO change to lockaware and have boolean for locking
+// TODO fix for JS Browser
 interface LockingMessage {
     val lockTimeout: Float?
         get() = null

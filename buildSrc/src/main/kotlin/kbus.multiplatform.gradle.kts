@@ -1,12 +1,8 @@
-// import org.gradle.accessors.dm.LibrariesForLibs
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.konan.target.HostManager
 
-// val libs = the<LibrariesForLibs>()
 val Project.libs
     get() = the<org.gradle.accessors.dm.LibrariesForLibs>()
-
-// val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 plugins { kotlin("multiplatform") }
 

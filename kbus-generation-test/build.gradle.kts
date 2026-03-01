@@ -36,12 +36,6 @@ kotlin.targets.configureEach {
 
 ksp { arg("kbus.indexPackage", "com.jimbroze.kbus.testing.indexes") }
 
-// tasks.withType(KotlinCompilationTask::class).all {
-//    if (name != "kspCommonMainKotlinMetadata") {
-//        dependsOn("kspCommonMainKotlinMetadata")
-//    }
-// }
-
 kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
