@@ -18,7 +18,6 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import kotlin.time.TimeSource
 import kotlinx.coroutines.test.runTest
 
 internal enum class LogLevels(override val level: String) : LogLevel {
@@ -39,12 +38,15 @@ class CaptureLogger : Logger {
     }
 }
 
-class TimeCaptureLogger : Logger {
-    private val timeSource = TimeSource.Monotonic
-    val logs = mutableListOf<TimeSource.Monotonic.ValueTimeMark>()
+class OrderCaptureLogger : Logger {
+    val logs = mutableListOf<Int>()
 
     override fun log(level: LogLevel, message: String, exception: Throwable?) {
-        logs.add(timeSource.markNow())
+        logs.add(orderCounter++)
+    }
+
+    companion object {
+        var orderCounter = 0
     }
 }
 

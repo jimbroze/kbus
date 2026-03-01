@@ -6,7 +6,7 @@ import com.jimbroze.kbus.core.middleware.middleware.LogLevels
 import com.jimbroze.kbus.core.middleware.middleware.LoggingLogCommand
 import com.jimbroze.kbus.core.middleware.middleware.LoggingLogCommandHandler
 import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
-import com.jimbroze.kbus.core.middleware.middleware.TimeCaptureLogger
+import com.jimbroze.kbus.core.middleware.middleware.OrderCaptureLogger
 import com.jimbroze.kbus.core.registry.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
@@ -61,8 +61,9 @@ class MiddlewareTest {
             ),
         )
 
-        val logger1 = TimeCaptureLogger()
-        val logger2 = TimeCaptureLogger()
+        OrderCaptureLogger.orderCounter = 0
+        val logger1 = OrderCaptureLogger()
+        val logger2 = OrderCaptureLogger()
         val bus =
             MessageBus(
                 PersistingHandlerLocator(stores),
