@@ -13,6 +13,7 @@ import com.jimbroze.kbus.core.registry.ReturnCommandHandler
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration
@@ -38,36 +39,28 @@ class TimeReturnCommandHandler :
     CommandHandler<TimeReturnCommand, BusResult<ValueTimeMark, MessageFailure>>() {
     override suspend fun handle(
         message: TimeReturnCommand
-    ): BusResult<ValueTimeMark, MessageFailure> {
-        val timeSource = TimeSource.Monotonic
-        val time = timeSource.markNow()
-
-        return success(time)
-    }
+    ): BusResult<ValueTimeMark, MessageFailure> = success(TimeSource.Monotonic.markNow())
 }
 
 class TestFailure(override val reason: FailureReason) : MessageFailure
 
-class LockingPrintReturnCommand(val internalCommand: TimeReturnCommand) :
+class NestingLockCommand(val internalCommand: TimeReturnCommand) :
     Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
         failure(TestFailure(failure))
 }
 
-class LockingPrintReturnCommandHandler(private val locker: BusLocker) :
-    CommandHandler<LockingPrintReturnCommand, BusResult<Any, MessageFailure>>() {
-    override suspend fun handle(
-        message: LockingPrintReturnCommand
-    ): BusResult<Any, MessageFailure> {
-        val timeSource = TimeSource.Monotonic
-        val preNestTime = timeSource.markNow()
+class NestingLockCommandHandler(private val locker: BusLocker) :
+    CommandHandler<NestingLockCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: NestingLockCommand): BusResult<Any, MessageFailure> {
+        val preNestTime = TimeSource.Monotonic.markNow()
 
         val result =
             locker.handle(message.internalCommand) { c: TimeReturnCommand ->
                 TimeReturnCommandHandler().handle(c)
             }
 
-        val postNestTime = timeSource.markNow()
+        val postNestTime = TimeSource.Monotonic.markNow()
 
         return success(
             mapOf("pre-nest" to preNestTime, "nest" to result, "post-nest" to postNestTime)
@@ -128,22 +121,21 @@ class LockingTest {
             val locker = BusLocker(ThreadSafeMapCache())
 
             val result =
-                locker.handle(LockingPrintReturnCommand(LockAwareTimeReturnCommand())) {
-                    LockingPrintReturnCommandHandler(locker).handle(it)
+                locker.handle(NestingLockCommand(LockAwareTimeReturnCommand())) {
+                    NestingLockCommandHandler(locker).handle(it)
                 }
 
-            // Streamlined assertions: assertIs returns the casted type
             val resultMap = assertIs<Map<String, Any?>>(result.getOrNull())
 
-            val nestException =
+            val nestFailure =
                 assertIs<TestFailure>(
                     assertIs<BusResult<*, MessageFailure>>(resultMap["nest"]).failureOrNull()
                 )
 
-            assertIs<BusLockedFailure>(nestException.reason)
+            assertIs<BusLockedFailure>(nestFailure.reason)
             assertEquals(
                 "Cannot handle message as message bus is locked by the same coroutine",
-                nestException.reason.message,
+                nestFailure.reason.message,
             )
 
             val preNest = assertIs<ValueTimeMark>(resultMap["pre-nest"])
@@ -157,8 +149,8 @@ class LockingTest {
             val locker = BusLocker(ThreadSafeMapCache())
 
             assertFailsWith<BusLockedException> {
-                locker.handle(LockingPrintReturnCommand(TimeReturnCommand())) {
-                    LockingPrintReturnCommandHandler(locker).handle(it)
+                locker.handle(NestingLockCommand(TimeReturnCommand())) {
+                    NestingLockCommandHandler(locker).handle(it)
                 }
             }
         }
@@ -208,18 +200,18 @@ class LockingTest {
         job.await()
 
         // After the locking message completes, busLocked should be false
-        assertTrue(!locker.busLocked, "busLocked should be false after lock is released")
+        assertFalse(locker.busLocked, "busLocked should be false after lock is released")
     }
 
     @Test
-    fun `busLocked is false while a non-locking message is being processed`() = runTest {
+    fun `busLocked is false during non-locking message handler execution`() = runTest {
         val locker = BusLocker(ThreadSafeMapCache())
 
         locker.handle(SleepCommand(1.seconds)) {
             // A non-locking message should not report the bus as locked,
             // even though a KeyedLock entry exists in the cache for waiting purposes
-            assertTrue(
-                !locker.busLocked,
+            assertFalse(
+                locker.busLocked,
                 "busLocked should be false during non-locking message processing",
             )
             SleepCommandHandler().handle(it)
@@ -227,14 +219,13 @@ class LockingTest {
     }
 
     @Test
-    fun `bus locker does not lock bus from a message not implementing locking interface`() =
-        runTest {
-            val locker = BusLocker(ThreadSafeMapCache())
+    fun `busLocked is false after non-locking message completes`() = runTest {
+        val locker = BusLocker(ThreadSafeMapCache())
 
-            locker.handle(SleepCommand(2.seconds)) { SleepCommandHandler().handle(it) }
+        locker.handle(SleepCommand(2.seconds)) { SleepCommandHandler().handle(it) }
 
-            assertTrue(!locker.busLocked)
-        }
+        assertFalse(locker.busLocked)
+    }
 
     @Test
     fun `command execution times out using default timeout if bus is locked for too long`() =
