@@ -10,13 +10,13 @@ import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
+import com.jimbroze.kbus.core.middleware.middleware.cache.ThreadSafeMapCache
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.decrementAndFetch
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.currentCoroutineContext
@@ -90,8 +90,7 @@ class KeyedLock(var timeoutOverride: Duration?, var shouldFailOnTimeout: Boolean
 
 @OptIn(ExperimentalAtomicApi::class)
 class BusLocker(
-    private val clock: Clock,
-    private val threadSafeCache: Cache<String, KeyedLock>,
+    private val threadSafeCache: Cache<String, KeyedLock> = ThreadSafeMapCache(),
     private val defaultTimeout: Duration = 5.seconds,
     private val defaultShouldFailOnTimeout: Boolean = false,
 ) : Middleware {
@@ -103,7 +102,7 @@ class BusLocker(
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         val key = "my-key"
-        if (isLockedByCurrentCoroutine(key)) {
+        if (currentCoroutineContext()[BusLockToken]?.heldKeys?.contains(key) == true) {
             return exitEarly(
                 message,
                 "Cannot handle message as message bus is locked by the same coroutine",
@@ -131,30 +130,41 @@ class BusLocker(
         var lock = acquireLock(message, key)
 
         try {
-            val lockAcquired =
-                withTimeoutOrNull(timeout) {
-                    lock.mutex.lock()
-                    true
-                } ?: false
-
-            if (!lockAcquired) {
-                if (shouldFailOnTimeout) {
-                    return exitEarly(message, "Message bus did not unlock in time")
-                }
-
-                lock =
-                    forceUnlockAndReacquire(lock, key)
-                        ?: return exitEarly(message, "Another process hijacked the lock")
+            val (acquiredLock, error) = acquireOrForceLock(lock, key, timeout, shouldFailOnTimeout)
+            if (acquiredLock == null) {
+                return exitEarly(message, error ?: "Failed to acquire lock")
             }
-
-            if (lock.isEvicted) {
-                if (lock.mutex.isLocked) lock.mutex.unlock()
-                return exitEarly(message, "Message aborted: Lock was hijacked while acquiring.")
-            }
-
+            lock = acquiredLock
             return handleMessage(key, nextMiddleware, message)
         } finally {
             releaseLock(key, lock, unlockBus = true)
+        }
+    }
+
+    private suspend fun acquireOrForceLock(
+        initialLock: KeyedLock,
+        key: String,
+        timeout: Duration,
+        shouldFailOnTimeout: Boolean,
+    ): Pair<KeyedLock?, String?> {
+        val lockAcquired =
+            withTimeoutOrNull(timeout) {
+                initialLock.mutex.lock()
+                true
+            } ?: false
+
+        return when {
+            lockAcquired && initialLock.isEvicted -> {
+                if (initialLock.mutex.isLocked) initialLock.mutex.unlock()
+                null to "Message aborted: Lock was hijacked while acquiring."
+            }
+            lockAcquired -> initialLock to null
+            shouldFailOnTimeout -> null to "Message bus did not unlock in time"
+            else -> {
+                val newLock = forceUnlockAndReacquire(initialLock, key)
+                if (newLock != null) newLock to null
+                else null to "Another process hijacked the lock"
+            }
         }
     }
 
@@ -173,11 +183,18 @@ class BusLocker(
                     true
                 } ?: false
 
-            if (!unlocked) return exitEarly(message, "Timed out waiting for message bus to unlock")
-            if (lock.isEvicted)
-                return exitEarly(message, "Message aborted: The lock was forcefully hijacked.")
+            val errorMessage =
+                when {
+                    !unlocked -> "Timed out waiting for message bus to unlock"
+                    lock.isEvicted -> "Message aborted: The lock was forcefully hijacked."
+                    else -> null
+                }
 
-            return handleMessage(key, nextMiddleware, message)
+            return if (errorMessage != null) {
+                exitEarly(message, errorMessage)
+            } else {
+                handleMessage(key, nextMiddleware, message)
+            }
         } finally {
             releaseLock(key, lock, unlockBus = false)
         }
@@ -188,7 +205,7 @@ class BusLocker(
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
         message: TMessage,
     ): TResult {
-        val token = currentCoroutineToken()
+        val token = currentCoroutineContext()[BusLockToken]
         val newHeldKeys = (token?.heldKeys ?: emptySet()) + key
 
         return withContext(BusLockToken(newHeldKeys)) { nextMiddleware(message) }
@@ -232,49 +249,6 @@ class BusLocker(
         }
     }
 
-    private suspend fun isLockedByCurrentCoroutine(key: String): Boolean {
-        val token = currentCoroutineToken()
-        return token?.heldKeys?.contains(key) == true
-    }
-
-    private suspend fun currentCoroutineToken(): BusLockToken? =
-        currentCoroutineContext()[BusLockToken]
-
-    //    private suspend fun waitForUnlock(message: Message) {
-    //        val timeout =
-    //            (message as? LockAdjustMessage)?.lockTimeout
-    //                ?: (threadSafeCache.expiryTime("my-key")?.let { it - clock.now() })
-    //                ?: defaultTimeout
-    //        // TODO override failOnTimeout
-    //
-    //        //        val timeout =
-    //        //            timeoutOverride?.let { now.plus(timeoutOverride) }
-    //        //                ?: expirableCache.expiryTime("my-key")
-    //        //                ?: now.plus(defaultTimeout)
-    //
-    //        //        while (busLocked && clock.now() < timeout) {
-    //        //            // FIXME why does yield() not work?
-    //        //            delay(timeout)
-    //        //        }
-    //        delay(timeout)
-    //        if (busLocked) {
-    //            if (defaultShouldFailOnTimeout) {
-    //                return exitEarly(message, "Message bus did not unlock in time")
-    //            } else {
-    //                unlockBus()
-    //            }
-    //        }
-    //    }
-
-    //    private fun lockBus(threadId: String, message: LockingMessage) {
-    //        val timeToLive = message.lockTimeout ?: defaultTimeout
-    //        threadSafeCache.putExpiring("my-key", threadId, timeToLive)
-    //    }
-    //
-    //    private fun unlockBus() {
-    //        threadSafeCache.remove("my-key")
-    //    }
-
     private fun <TMessage : Message, TResult> exitEarly(message: TMessage, error: String): TResult {
         return if (message is ResultReturningLockingMessage<*>) {
             @Suppress("UNCHECKED_CAST")
@@ -283,10 +257,6 @@ class BusLocker(
             throw BusLockedException(error)
         }
     }
-
-    //    private suspend fun getCoroutineId(): String {
-    //        return currentCoroutineContext()[Job]?.toString() ?: ""
-    //    }
 }
 
 class BusLockedFailure(override val message: String) : FailureReason

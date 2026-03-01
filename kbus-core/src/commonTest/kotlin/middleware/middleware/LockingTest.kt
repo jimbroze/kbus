@@ -7,7 +7,6 @@ import com.jimbroze.kbus.contracts.result.BusResult.Companion.failure
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.TestClock
 import com.jimbroze.kbus.core.middleware.middleware.cache.ThreadSafeMapCache
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
@@ -126,7 +125,7 @@ class LockingTest {
     @Test
     fun `message locker returns failure instantly when bus is locked by same coroutine`() =
         runTest {
-            val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache())
+            val locker = BusLocker(ThreadSafeMapCache())
 
             val result =
                 locker.handle(LockingPrintReturnCommand(LockAwareTimeReturnCommand())) {
@@ -155,7 +154,7 @@ class LockingTest {
     @Test
     fun `throws BusLockedException if bus is locked by same coroutine and command is not lock aware`() =
         runTest {
-            val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache())
+            val locker = BusLocker(ThreadSafeMapCache())
 
             assertFailsWith<BusLockedException> {
                 locker.handle(LockingPrintReturnCommand(TimeReturnCommand())) {
@@ -166,7 +165,7 @@ class LockingTest {
 
     @Test
     fun `message locker waits to execute command in a different coroutine`() = runTest {
-        val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache(), 5.seconds)
+        val locker = BusLocker(ThreadSafeMapCache(), 5.seconds)
 
         // Launch job 1: It locks the bus and delays for 1 second of VIRTUAL time
         val job1 = async {
@@ -196,7 +195,7 @@ class LockingTest {
 
     @Test
     fun `busLocked is true while a locking message holds the mutex`() = runTest {
-        val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache())
+        val locker = BusLocker(ThreadSafeMapCache())
 
         val job = async {
             locker.handle(LockingSleepCommand(2.seconds, "data")) {
@@ -214,7 +213,7 @@ class LockingTest {
 
     @Test
     fun `busLocked is false while a non-locking message is being processed`() = runTest {
-        val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache())
+        val locker = BusLocker(ThreadSafeMapCache())
 
         locker.handle(SleepCommand(1.seconds)) {
             // A non-locking message should not report the bus as locked,
@@ -230,7 +229,7 @@ class LockingTest {
     @Test
     fun `bus locker does not lock bus from a message not implementing locking interface`() =
         runTest {
-            val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache())
+            val locker = BusLocker(ThreadSafeMapCache())
 
             locker.handle(SleepCommand(2.seconds)) { SleepCommandHandler().handle(it) }
 
@@ -241,7 +240,7 @@ class LockingTest {
     fun `command execution times out using default timeout if bus is locked for too long`() =
         runTest {
             // Default lock timeout is 1 second
-            val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache(), 1.seconds)
+            val locker = BusLocker(ThreadSafeMapCache(), 1.seconds)
 
             val job1 = async {
                 // Holds the lock for 5 seconds
@@ -272,7 +271,7 @@ class LockingTest {
     @Test
     fun `locking timeout can be overridden by locking message`() = runTest {
         // Default timeout is 1 second
-        val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache(), 1.seconds)
+        val locker = BusLocker(ThreadSafeMapCache(), 1.seconds)
 
         val job1 = async {
             // Holds the lock for 3 seconds
@@ -301,7 +300,7 @@ class LockingTest {
     @Test
     fun `locking timeout can be overridden by waiting message`() = runTest {
         // Default timeout is 5 seconds
-        val locker = BusLocker(TestClock(testScheduler), ThreadSafeMapCache(), 5.seconds)
+        val locker = BusLocker(ThreadSafeMapCache(), 5.seconds)
 
         val job1 = async {
             // Holds for 3 seconds
@@ -331,12 +330,7 @@ class LockingTest {
     fun `locking message force-unlocks and proceeds when default shouldFailOnTimeout is false`() =
         runTest {
             val locker =
-                BusLocker(
-                    TestClock(testScheduler),
-                    ThreadSafeMapCache(),
-                    1.seconds,
-                    defaultShouldFailOnTimeout = false,
-                )
+                BusLocker(ThreadSafeMapCache(), 1.seconds, defaultShouldFailOnTimeout = false)
 
             val job1 = async {
                 // Holds the lock for 5 seconds
@@ -360,13 +354,7 @@ class LockingTest {
 
     @Test
     fun `locking message returns failure when default shouldFailOnTimeout is true`() = runTest {
-        val locker =
-            BusLocker(
-                TestClock(testScheduler),
-                ThreadSafeMapCache(),
-                1.seconds,
-                defaultShouldFailOnTimeout = true,
-            )
+        val locker = BusLocker(ThreadSafeMapCache(), 1.seconds, defaultShouldFailOnTimeout = true)
 
         val job1 = async {
             // Holds the lock for 5 seconds
@@ -393,13 +381,7 @@ class LockingTest {
     @Test
     fun `shouldFailOnTimeout can be overridden to true by locking message`() = runTest {
         // Default is false (force-unlock)
-        val locker =
-            BusLocker(
-                TestClock(testScheduler),
-                ThreadSafeMapCache(),
-                1.seconds,
-                defaultShouldFailOnTimeout = false,
-            )
+        val locker = BusLocker(ThreadSafeMapCache(), 1.seconds, defaultShouldFailOnTimeout = false)
 
         val job1 = async {
             locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
@@ -424,13 +406,7 @@ class LockingTest {
     @Test
     fun `shouldFailOnTimeout can be overridden to false by locking message`() = runTest {
         // Default is true (fail on timeout)
-        val locker =
-            BusLocker(
-                TestClock(testScheduler),
-                ThreadSafeMapCache(),
-                1.seconds,
-                defaultShouldFailOnTimeout = true,
-            )
+        val locker = BusLocker(ThreadSafeMapCache(), 1.seconds, defaultShouldFailOnTimeout = true)
 
         val job1 = async {
             locker.handle(LockingSleepCommand(5.seconds, "Job1")) {

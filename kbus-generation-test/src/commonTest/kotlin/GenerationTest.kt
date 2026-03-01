@@ -22,7 +22,7 @@ import kotlinx.coroutines.test.runTest
 // TODO don't add any dependencies not in module???
 // TODO pass source files to generator
 class Dependencies(private val instant: Instant) : AutoLoader() {
-    override val busLocker by lazy { BusLocker(clock) }
+    override val busLocker by lazy { BusLocker() }
     override val messageBus = MessageBus()
 
     override val anObject: AnObject = AnObject
