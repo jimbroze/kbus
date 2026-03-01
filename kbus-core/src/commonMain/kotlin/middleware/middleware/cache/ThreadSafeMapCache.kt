@@ -8,18 +8,39 @@ class ThreadSafeMapCache<K : Any, V : Any> : Cache<K, V> {
     private val cacheRef = AtomicReference<Map<K, V>>(emptyMap())
 
     override fun get(key: K): V? {
-        // Reads are completely lock-free and extremely fast
         return cacheRef.load()[key]
     }
 
     override fun put(key: K, value: V) {
-        // CAS loop: safely updates the map even under high contention
         while (true) {
             val currentMap = cacheRef.load()
             val newMap = currentMap + (key to value)
             if (cacheRef.compareAndSet(currentMap, newMap)) {
                 break
             }
+        }
+    }
+
+    override fun getOrPut(key: K, defaultValue: () -> V): V {
+        while (true) {
+            val currentMap = cacheRef.load()
+            currentMap[key]?.let {
+                return it
+            }
+            val value = defaultValue()
+            val newMap = currentMap + (key to value)
+            if (cacheRef.compareAndSet(currentMap, newMap)) {
+                return value
+            }
+        }
+    }
+
+    override fun replaceIfMatching(key: K, oldValue: V, newValue: V): Boolean {
+        while (true) {
+            val currentMap = cacheRef.load()
+            if (currentMap[key] != oldValue) return false
+            val newMap = currentMap + (key to newValue)
+            if (cacheRef.compareAndSet(currentMap, newMap)) return true
         }
     }
 
@@ -30,6 +51,15 @@ class ThreadSafeMapCache<K : Any, V : Any> : Cache<K, V> {
             if (cacheRef.compareAndSet(currentMap, newMap)) {
                 break
             }
+        }
+    }
+
+    override fun removeIfMatching(key: K, value: V): Boolean {
+        while (true) {
+            val currentMap = cacheRef.load()
+            if (currentMap[key] != value) return false
+            val newMap = currentMap - key
+            if (cacheRef.compareAndSet(currentMap, newMap)) return true
         }
     }
 }

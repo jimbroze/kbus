@@ -3,7 +3,9 @@ package com.jimbroze.kbus.core.middleware.middleware.cache
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Abstract test base for [Cache] implementations. Subclass this and implement [createCache] to
@@ -117,6 +119,116 @@ abstract class CacheTestBase<K : Any, V : Any>(
         cache.get(key)
 
         assertEquals(value, cache.get(key))
+    }
+
+    // getOrPut
+
+    @Test
+    fun getOrPut_returns_existing_value_when_key_is_present() {
+        val key = createKey(0)
+        val value = createValue(0)
+
+        cache.put(key, value)
+
+        val result = cache.getOrPut(key) { createValue(1) }
+
+        assertEquals(value, result)
+    }
+
+    @Test
+    fun getOrPut_does_not_overwrite_existing_value() {
+        val key = createKey(0)
+        val value = createValue(0)
+
+        cache.put(key, value)
+        cache.getOrPut(key) { createValue(1) }
+
+        assertEquals(value, cache.get(key))
+    }
+
+    @Test
+    fun getOrPut_inserts_and_returns_default_when_key_is_absent() {
+        val key = createKey(0)
+        val value = createValue(0)
+
+        val result = cache.getOrPut(key) { value }
+
+        assertEquals(value, result)
+        assertEquals(value, cache.get(key))
+    }
+
+    // replaceIfMatching
+
+    @Test
+    fun replaceIfMatching_replaces_value_when_old_value_matches() {
+        val key = createKey(0)
+        val oldValue = createValue(0)
+        val newValue = createValue(1)
+
+        cache.put(key, oldValue)
+
+        val result = cache.replaceIfMatching(key, oldValue, newValue)
+
+        assertTrue(result)
+        assertEquals(newValue, cache.get(key))
+    }
+
+    @Test
+    fun replaceIfMatching_does_not_replace_when_old_value_does_not_match() {
+        val key = createKey(0)
+        val currentValue = createValue(0)
+        val wrongOldValue = createValue(1)
+        val newValue = createValue(2)
+
+        cache.put(key, currentValue)
+
+        val result = cache.replaceIfMatching(key, wrongOldValue, newValue)
+
+        assertFalse(result)
+        assertEquals(currentValue, cache.get(key))
+    }
+
+    @Test
+    fun replaceIfMatching_returns_false_when_key_is_absent() {
+        val result = cache.replaceIfMatching(createKey(0), createValue(0), createValue(1))
+
+        assertFalse(result)
+    }
+
+    // removeIfMatching
+
+    @Test
+    fun removeIfMatching_removes_entry_when_value_matches() {
+        val key = createKey(0)
+        val value = createValue(0)
+
+        cache.put(key, value)
+
+        val result = cache.removeIfMatching(key, value)
+
+        assertTrue(result)
+        assertNull(cache.get(key))
+    }
+
+    @Test
+    fun removeIfMatching_does_not_remove_when_value_does_not_match() {
+        val key = createKey(0)
+        val value = createValue(0)
+        val wrongValue = createValue(1)
+
+        cache.put(key, value)
+
+        val result = cache.removeIfMatching(key, wrongValue)
+
+        assertFalse(result)
+        assertEquals(value, cache.get(key))
+    }
+
+    @Test
+    fun removeIfMatching_returns_false_when_key_is_absent() {
+        val result = cache.removeIfMatching(createKey(0), createValue(0))
+
+        assertFalse(result)
     }
 
     @Test

@@ -92,15 +92,14 @@ class YieldTest {
     //
     //        val job1 = async {
     //            locked = true
-    //            delay((500).toLong())
+    //            delay(500.milliseconds)
     //            locked = false
     //
     //            timeSource.markNow()
     //        }
     //
     //        val job2 = async {
-    //
-    //            val timeout = clock.now().plus(5, DateTimeUnit.SECOND)
+    //            val timeout = clock.now().plus(5.seconds)
     //            while (locked && clock.now() <= timeout) {
     //                yield()
     //            }

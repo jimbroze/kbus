@@ -2,7 +2,9 @@ package com.jimbroze.kbus.core.middleware.middleware.cache
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -102,6 +104,77 @@ class ExpirableCacheTest :
 
         assertNull(cache.get("short"))
         assertEquals("l", cache.get("long"))
+    }
+
+    @Test
+    fun getOrPut_returns_default_when_entry_has_expired() {
+        val expirableCache = cache as ExpirableCache<String, String>
+        expirableCache.putExpiring("key", "old", 5.minutes)
+
+        fixedClock.now += 6.minutes
+
+        val result = cache.getOrPut("key") { "new" }
+
+        assertEquals("new", result)
+    }
+
+    @Test
+    fun getOrPut_returns_existing_when_entry_has_not_expired() {
+        val expirableCache = cache as ExpirableCache<String, String>
+        expirableCache.putExpiring("key", "old", 5.minutes)
+
+        fixedClock.now += 4.minutes
+
+        val result = cache.getOrPut("key") { "new" }
+
+        assertEquals("old", result)
+    }
+
+    @Test
+    fun replaceIfMatching_returns_false_when_entry_has_expired() {
+        val expirableCache = cache as ExpirableCache<String, String>
+        expirableCache.putExpiring("key", "old", 5.minutes)
+
+        fixedClock.now += 6.minutes
+
+        val result = cache.replaceIfMatching("key", "old", "new")
+
+        assertFalse(result)
+        assertNull(cache.get("key"))
+    }
+
+    @Test
+    fun removeIfMatching_returns_false_when_entry_has_expired() {
+        val expirableCache = cache as ExpirableCache<String, String>
+        expirableCache.putExpiring("key", "value", 5.minutes)
+
+        fixedClock.now += 6.minutes
+
+        val result = cache.removeIfMatching("key", "value")
+
+        assertFalse(result)
+    }
+
+    @Test
+    fun replaceIfMatching_succeeds_before_expiry() {
+        val expirableCache = cache as ExpirableCache<String, String>
+        expirableCache.putExpiring("key", "old", 5.minutes)
+
+        fixedClock.now += 4.minutes
+
+        assertTrue(cache.replaceIfMatching("key", "old", "new"))
+        assertEquals("new", cache.get("key"))
+    }
+
+    @Test
+    fun removeIfMatching_succeeds_before_expiry() {
+        val expirableCache = cache as ExpirableCache<String, String>
+        expirableCache.putExpiring("key", "value", 5.minutes)
+
+        fixedClock.now += 4.minutes
+
+        assertTrue(cache.removeIfMatching("key", "value"))
+        assertNull(cache.get("key"))
     }
 
     @Test
