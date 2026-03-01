@@ -15,28 +15,15 @@ kotlin {
 
 dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
 
-kotlin.targets.configureEach {
-    if (name == "metadata") return@configureEach
+kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
 
-    val targetCapitalized = name.replaceFirstChar { it.uppercaseChar() }
-
-    dependencies {
-        add("ksp${targetCapitalized}Test", projects.kbusGeneration)
-        //        add("ksp$targetCapitalized", projects.kbusGeneration)
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    if (name.startsWith("compile")) {
+        dependsOn("kspCommonMainKotlinMetadata")
     }
 }
 
 ksp {
     arg("kbus.subModuleName", project.name)
     arg("kbus.indexPackage", "com.jimbroze.kbus.testing.indexes")
-}
-
-kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
-    if (name.startsWith("compile")) {
-        val kspTaskName = name.replaceFirst("compile", "ksp")
-        dependsOn(tasks.matching { it.name == kspTaskName })
-        dependsOn(tasks.matching { it.name == "kspCommonMainKotlinMetadata" })
-    }
 }
