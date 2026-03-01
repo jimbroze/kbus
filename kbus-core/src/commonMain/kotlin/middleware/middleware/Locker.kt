@@ -2,11 +2,8 @@ package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.common.ResultReturningMessage
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
@@ -25,56 +22,29 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-// TODO change to lockaware and have boolean for locking
 // TODO fix for JS Browser
-// TODO allow providing key for locking per aggregate etc.
 // TODO create queue?
-interface LockingMessage {
-    val lockChannelKey: String
-        get() = ""
+interface LockAwareMessage {
+    val shouldLockBus: Boolean
+    val lockChannelKey: String?
+        get() = null
 
-    val lockTimeout: Duration?
+    val lockTimeoutOverride: Duration?
+        get() = null
+
+    val shouldFailOnTimeoutOverride: Boolean?
         get() = null
 }
 
-interface ResultReturningLockingMessage<TResult : KBusResult> :
-    ResultReturningMessage<TResult>, LockingMessage {
+interface ResultReturningLockAwareMessage<TResult : KBusResult> :
+    ResultReturningMessage<TResult>, LockAwareMessage {
     fun busLockedFailure(failure: BusLockedFailure): TResult
 }
 
-interface AFailure : FailureReason
-
-sealed interface TestingMessageFailure : MessageFailure {
-    companion object {
-        fun busLockedFailure(failure: BusLockedFailure): BusResult<Nothing, TestingMessageFailure> =
-            BusResult.failure(BusLocked(failure))
-    }
-
-    data class A(override val reason: AFailure) : TestingMessageFailure
-
-    data class BusLocked(override val reason: BusLockedFailure) : TestingMessageFailure
+interface LockingCommand<TResult : KBusResult> : ResultReturningLockAwareMessage<TResult> {
+    override val shouldLockBus: Boolean
+        get() = true
 }
-
-// TODO move to tests
-class LockingMessageImpl(override val lockTimeout: Duration? = null) :
-    LockingCommand<BusResult<Any, TestingMessageFailure>>,
-    Command<BusResult<Any, TestingMessageFailure>>() {
-    override val messageType: String = "locking"
-
-    override fun busLockedFailure(
-        failure: BusLockedFailure
-    ): BusResult<Any, TestingMessageFailure> = TestingMessageFailure.busLockedFailure(failure)
-}
-
-// TODO remove interface
-interface LockAdjustMessage {
-    val lockTimeout: Duration?
-    val shouldFailOnTimeout: Boolean?
-}
-
-interface LockingCommand<TResult : KBusResult> : ResultReturningLockingMessage<TResult>
-
-interface LockingEvent : LockingMessage
 
 class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.Element {
     companion object Key : CoroutineContext.Key<BusLockToken>
@@ -84,6 +54,7 @@ class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.El
 }
 
 @OptIn(ExperimentalAtomicApi::class)
+// FIXME these aren't used
 class KeyedLock(var timeoutOverride: Duration?, var shouldFailOnTimeout: Boolean?) {
     val mutex: Mutex = Mutex()
     val waiters = AtomicInt(0)
@@ -98,10 +69,11 @@ class BusLocker(
 ) : Middleware {
     companion object {
         private const val KEY_PREFIX = "bus-lock-"
+        private const val GLOBAL_KEY_SUFFIX = "global-channel"
     }
 
-    fun busIsLocked(channelKey: String): Boolean =
-        threadSafeCache.get(KEY_PREFIX + channelKey)?.mutex?.isLocked == true
+    fun busIsLocked(channelKey: String? = null): Boolean =
+        threadSafeCache.get(KEY_PREFIX + (channelKey ?: GLOBAL_KEY_SUFFIX))?.mutex?.isLocked == true
 
     private sealed interface LockOutcome {
         data class Success(val activeLock: KeyedLock) : LockOutcome
@@ -113,7 +85,8 @@ class BusLocker(
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        val key = KEY_PREFIX + ((message as? LockingMessage)?.lockChannelKey ?: "")
+        val lockAware = message as? LockAwareMessage
+        val key = KEY_PREFIX + (lockAware?.lockChannelKey ?: GLOBAL_KEY_SUFFIX)
         if (currentCoroutineContext()[BusLockToken]?.heldKeys?.contains(key) == true) {
             return exitEarly(
                 message,
@@ -121,11 +94,11 @@ class BusLocker(
             )
         }
 
-        val timeout = (message as? LockAdjustMessage)?.lockTimeout ?: defaultTimeout
+        val timeout = lockAware?.lockTimeoutOverride ?: defaultTimeout
         val shouldFailOnTimeout =
-            (message as? LockAdjustMessage)?.shouldFailOnTimeout ?: defaultShouldFailOnTimeout
+            lockAware?.shouldFailOnTimeoutOverride ?: defaultShouldFailOnTimeout
 
-        return if (message is LockingMessage) {
+        return if (lockAware?.shouldLockBus == true) {
             processLockingMessage(message, key, timeout, shouldFailOnTimeout, nextMiddleware)
         } else {
             processNonLockingMessage(message, key, timeout, nextMiddleware)
@@ -227,7 +200,7 @@ class BusLocker(
     }
 
     private fun getLockAndRegisterWaiter(message: Message, key: String): KeyedLock {
-        val timeout = (message as? LockingMessage)?.lockTimeout
+        val timeout = (message as? LockAwareMessage)?.lockTimeoutOverride
         val lock = threadSafeCache.getOrPut(key) { KeyedLock(timeout, null) }
 
         lock.waiters.incrementAndFetch()
@@ -264,7 +237,7 @@ class BusLocker(
     }
 
     private fun <TMessage : Message, TResult> exitEarly(message: TMessage, error: String): TResult {
-        return if (message is ResultReturningLockingMessage<*>) {
+        return if (message is ResultReturningLockAwareMessage<*>) {
             @Suppress("UNCHECKED_CAST")
             message.busLockedFailure(BusLockedFailure(error)) as TResult
         } else {

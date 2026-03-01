@@ -28,7 +28,7 @@ import kotlinx.coroutines.test.runTest
 
 open class TimeReturnCommand : Command<BusResult<ValueTimeMark, MessageFailure>>()
 
-class LockAwareTimeReturnCommand(override val lockChannelKey: String = "") :
+class LockAwareTimeReturnCommand(override val lockChannelKey: String? = null) :
     TimeReturnCommand(), LockingCommand<BusResult<ValueTimeMark, MessageFailure>> {
     override fun busLockedFailure(
         failure: BusLockedFailure
@@ -46,7 +46,7 @@ class TestFailure(override val reason: FailureReason) : MessageFailure
 
 class NestingLockCommand(
     val internalCommand: TimeReturnCommand,
-    override val lockChannelKey: String = "",
+    override val lockChannelKey: String? = null,
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
         failure(TestFailure(failure))
@@ -73,8 +73,8 @@ class NestingLockCommandHandler(private val locker: BusLocker) :
 class LockingSleepCommand(
     val sleepFor: Duration,
     val messageData: String,
-    override val lockTimeout: Duration? = null,
-    override val lockChannelKey: String = "",
+    override val lockTimeoutOverride: Duration? = null,
+    override val lockChannelKey: String? = null,
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
         failure(TestFailure(failure))
@@ -99,13 +99,10 @@ class SleepCommandHandler : CommandHandler<SleepCommand, BusResult<Unit, Message
 
 class LockAdjustLockingCommand(
     val messageData: String,
-    override val lockTimeout: Duration? = null,
-    override val shouldFailOnTimeout: Boolean? = null,
-    override val lockChannelKey: String = "",
-) :
-    Command<BusResult<Any, MessageFailure>>(),
-    LockingCommand<BusResult<Any, MessageFailure>>,
-    LockAdjustMessage {
+    override val lockTimeoutOverride: Duration? = null,
+    override val shouldFailOnTimeoutOverride: Boolean? = null,
+    override val lockChannelKey: String? = null,
+) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
         failure(TestFailure(failure))
 }
@@ -196,7 +193,7 @@ class LockingTest {
         val job = async {
             locker.handle(LockingSleepCommand(2.seconds, "data")) {
                 // While the handler is running, the mutex should be held
-                assertTrue(locker.busIsLocked(""), "busLocked should be true while mutex is held")
+                assertTrue(locker.busIsLocked(), "busLocked should be true while mutex is held")
                 LockingSleepCommandHandler().handle(it)
             }
         }
@@ -204,7 +201,7 @@ class LockingTest {
         job.await()
 
         // After the locking message completes, busLocked should be false
-        assertFalse(locker.busIsLocked(""), "busLocked should be false after lock is released")
+        assertFalse(locker.busIsLocked(), "busLocked should be false after lock is released")
     }
 
     @Test
@@ -215,7 +212,7 @@ class LockingTest {
             // A non-locking message should not report the bus as locked,
             // even though a KeyedLock entry exists in the cache for waiting purposes
             assertFalse(
-                locker.busIsLocked(""),
+                locker.busIsLocked(),
                 "busLocked should be false during non-locking message processing",
             )
             SleepCommandHandler().handle(it)
@@ -228,7 +225,7 @@ class LockingTest {
 
         locker.handle(SleepCommand(2.seconds)) { SleepCommandHandler().handle(it) }
 
-        assertFalse(locker.busIsLocked(""))
+        assertFalse(locker.busIsLocked())
     }
 
     @Test
@@ -276,8 +273,10 @@ class LockingTest {
             currentTime
         }
         val job2 = async {
-            // Overrides lock timeout to 5 seconds via LockAdjustMessage
-            locker.handle(LockAdjustLockingCommand("After unlock", lockTimeout = 5.seconds)) {
+            // Overrides lock timeout to 5 seconds via LockAwareMessage
+            locker.handle(
+                LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 5.seconds)
+            ) {
                 LockAdjustLockingCommandHandler().handle(it)
             }
             currentTime
@@ -306,7 +305,9 @@ class LockingTest {
         }
         val job2 = async {
             // Waiting locking message overrides timeout to 1 second
-            locker.handle(LockAdjustLockingCommand("After unlock", lockTimeout = 1.seconds)) {
+            locker.handle(
+                LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 1.seconds)
+            ) {
                 LockAdjustLockingCommandHandler().handle(it)
             }
             currentTime
@@ -385,7 +386,7 @@ class LockingTest {
         }
         val job2 = async {
             // Override shouldFailOnTimeout to true
-            locker.handle(LockAdjustLockingCommand("Job2", shouldFailOnTimeout = true)) {
+            locker.handle(LockAdjustLockingCommand("Job2", shouldFailOnTimeoutOverride = true)) {
                 LockAdjustLockingCommandHandler().handle(it)
             }
         }
@@ -410,7 +411,7 @@ class LockingTest {
         }
         val job2 = async {
             // Override shouldFailOnTimeout to false (force-unlock instead)
-            locker.handle(LockAdjustLockingCommand("Job2", shouldFailOnTimeout = false)) {
+            locker.handle(LockAdjustLockingCommand("Job2", shouldFailOnTimeoutOverride = false)) {
                 LockAdjustLockingCommandHandler().handle(it)
             }
         }
@@ -480,7 +481,7 @@ class LockingTest {
             locker.handle(LockingSleepCommand(2.seconds, "data", lockChannelKey = "myKey")) {
                 assertTrue(locker.busIsLocked("myKey"), "myKey channel should be locked")
                 assertFalse(locker.busIsLocked("otherKey"), "otherKey channel should not be locked")
-                assertFalse(locker.busIsLocked(""), "default channel should not be locked")
+                assertFalse(locker.busIsLocked(), "default channel should not be locked")
                 LockingSleepCommandHandler().handle(it)
             }
         }
@@ -505,7 +506,7 @@ class LockingTest {
             currentTime
         }
         val job2 = async {
-            // Non-locking message uses the default key (""), so should not be blocked
+            // Non-locking message uses the default key (null), so should not be blocked
             locker.handle(ReturnCommand("NoLock")) { ReturnCommandHandler().handle(it) }
             currentTime
         }
