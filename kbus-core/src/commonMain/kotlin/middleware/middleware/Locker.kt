@@ -15,6 +15,7 @@ import kotlin.concurrent.atomics.decrementAndFetch
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.sync.Mutex
@@ -55,10 +56,71 @@ class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.El
 
 @OptIn(ExperimentalAtomicApi::class)
 // FIXME these aren't used
-class KeyedLock(var timeoutOverride: Duration?, var shouldFailOnTimeout: Boolean?) {
-    val mutex: Mutex = Mutex()
-    val waiters = AtomicInt(0)
-    @Volatile var isEvicted: Boolean = false
+// TODO make internal
+class KeyedLock(
+    val key: String,
+    val timeoutOverride: Duration?,
+    val shouldFailOnTimeout: Boolean?,
+) {
+    private val mutex: Mutex = Mutex()
+    private val waiters = AtomicInt(0)
+    @Volatile private var _forceUnlocked: Boolean = false
+
+    val isLocked: Boolean
+        get() = mutex.isLocked
+
+    val forceUnlocked: Boolean
+        get() = this._forceUnlocked
+
+    suspend fun waitFullTimeout(timeout: Duration): Boolean {
+        return withTimeoutOrNull(timeout) {
+            mutex.withLock {}
+            false
+        } ?: true
+    }
+
+    suspend fun lockBus(timeout: Duration): LockOutcome {
+        val lockAcquired =
+            withTimeoutOrNull(timeout) {
+                mutex.lock()
+                true
+            }
+        return if (lockAcquired == true) {
+            LockOutcome.Success(this@KeyedLock)
+        } else {
+            if (this.forceUnlocked) {
+                this.mutex.unlock()
+                LockOutcome.RaceConditionFailure("Lock was force-unlocked while acquiring")
+            }
+            LockOutcome.TimeoutFailure("bus did not unlock in time")
+        }
+    }
+
+    fun unLockBus() {
+        if (this.mutex.isLocked) {
+            this.mutex.unlock()
+        }
+    }
+
+    fun addWaiter(): Int {
+        return this.waiters.incrementAndFetch()
+    }
+
+    fun removeWaiter(): Int {
+        return this.waiters.decrementAndFetch()
+    }
+
+    fun forceUnlock() {
+        this._forceUnlocked = true
+    }
+}
+
+sealed interface LockOutcome {
+    data class Success(val activeLock: KeyedLock) : LockOutcome
+
+    data class TimeoutFailure(val reason: String) : LockOutcome
+
+    data class RaceConditionFailure(val reason: String) : LockOutcome
 }
 
 @OptIn(ExperimentalAtomicApi::class)
@@ -73,13 +135,7 @@ class BusLocker(
     }
 
     fun busIsLocked(channelKey: String? = null): Boolean =
-        threadSafeCache.get(KEY_PREFIX + (channelKey ?: GLOBAL_KEY_SUFFIX))?.mutex?.isLocked == true
-
-    private sealed interface LockOutcome {
-        data class Success(val activeLock: KeyedLock) : LockOutcome
-
-        data class Failure(val reason: String) : LockOutcome
-    }
+        threadSafeCache.get(KEY_PREFIX + (channelKey ?: GLOBAL_KEY_SUFFIX))?.isLocked == true
 
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
@@ -116,48 +172,21 @@ class BusLocker(
         var activeLock = initialLock
 
         try {
-            return when (
-                val outcome = acquireOrForceLock(initialLock, key, timeout, shouldFailOnTimeout)
-            ) {
-                is LockOutcome.Failure -> exitEarly(message, outcome.reason)
+            return when (initialLock.lockBus(timeout)) {
                 is LockOutcome.Success -> {
-                    activeLock =
-                        outcome.activeLock // Track the correct lock in case it was hijacked/forced
-                    dispatchWithLockContext(key, message, nextMiddleware)
+                    // TODO save lock?
+                    activeLock = initialLock
+                    dispatchWithLockContext(initialLock.key, message, nextMiddleware)
+                }
+                is LockOutcome.RaceConditionFailure ->
+                    exitEarly(message, "Message aborted: Lock was hijacked while acquiring.")
+                is LockOutcome.TimeoutFailure -> {
+                    handleTimeout(shouldFailOnTimeout, initialLock, message, nextMiddleware)
                 }
             }
         } finally {
-            deregisterWaiter(key, activeLock, unlockBus = true)
-        }
-    }
-
-    private suspend fun acquireOrForceLock(
-        initialLock: KeyedLock,
-        key: String,
-        timeout: Duration,
-        shouldFailOnTimeout: Boolean,
-    ): LockOutcome {
-        val isMutexAcquired =
-            withTimeoutOrNull(timeout) {
-                initialLock.mutex.lock()
-                true
-            } ?: false
-
-        return when {
-            isMutexAcquired && initialLock.isEvicted -> {
-                initialLock.mutex.unlock()
-                LockOutcome.Failure("Message aborted: Lock was hijacked while acquiring.")
-            }
-            isMutexAcquired -> LockOutcome.Success(initialLock)
-            shouldFailOnTimeout -> LockOutcome.Failure("Message bus did not unlock in time")
-            else -> {
-                val newLock = forceUnlockAndReacquire(initialLock, key)
-                if (newLock != null) {
-                    LockOutcome.Success(newLock)
-                } else {
-                    LockOutcome.Failure("Another process hijacked the lock")
-                }
-            }
+            activeLock.unLockBus()
+            deregisterWaiter(activeLock)
         }
     }
 
@@ -170,21 +199,36 @@ class BusLocker(
         val lock = getLockAndRegisterWaiter(message, key)
 
         try {
-            val isUnlockedInTime =
-                withTimeoutOrNull(timeout) {
-                    lock.mutex.withLock {} // Wait for availability without acquiring
-                    true
-                } ?: false
-
             return when {
-                !isUnlockedInTime ->
+                lock.waitFullTimeout(timeout) ->
                     exitEarly(message, "Timed out waiting for message bus to unlock")
-                lock.isEvicted ->
+                lock.forceUnlocked ->
                     exitEarly(message, "Message aborted: The lock was forcefully hijacked.")
                 else -> dispatchWithLockContext(key, message, nextMiddleware)
             }
         } finally {
-            deregisterWaiter(key, lock, unlockBus = false)
+            deregisterWaiter(lock)
+        }
+    }
+
+    private suspend fun <TMessage : Message, TResult> handleTimeout(
+        shouldFailOnTimeout: Boolean,
+        initialLock: KeyedLock,
+        message: TMessage,
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult {
+        if (shouldFailOnTimeout) {
+            return exitEarly(message, "Message bus did not unlock in time")
+        }
+
+        initialLock.forceUnlock()
+        val newLock = reacquireLock(initialLock)
+        return if (newLock != null) {
+            // TODO save new lock?
+            //            activeLock = newLock
+            dispatchWithLockContext(initialLock.key, message, nextMiddleware)
+        } else {
+            exitEarly(message, "Another process hijacked the lock")
         }
     }
 
@@ -201,38 +245,32 @@ class BusLocker(
 
     private fun getLockAndRegisterWaiter(message: Message, key: String): KeyedLock {
         val timeout = (message as? LockAwareMessage)?.lockTimeoutOverride
-        val lock = threadSafeCache.getOrPut(key) { KeyedLock(timeout, null) }
+        val lock = threadSafeCache.getOrPut(key) { KeyedLock(key, timeout, null) }
 
-        lock.waiters.incrementAndFetch()
+        lock.addWaiter()
         return lock
     }
 
-    private suspend fun forceUnlockAndReacquire(oldLock: KeyedLock, key: String): KeyedLock? {
-        oldLock.isEvicted = true
+    private suspend fun reacquireLock(oldLock: KeyedLock): KeyedLock? {
+        val newLock = KeyedLock(oldLock.key, null, null)
+        newLock.addWaiter()
 
-        val newLock = KeyedLock(null, null)
-        newLock.waiters.incrementAndFetch()
-
-        val swapSucceeded = threadSafeCache.replaceIfMatching(key, oldLock, newLock)
+        val swapSucceeded = threadSafeCache.replaceIfMatching(oldLock.key, oldLock, newLock)
         if (!swapSucceeded) {
-            newLock.waiters.decrementAndFetch()
+            newLock.removeWaiter()
             return null
         }
 
-        deregisterWaiter(key, oldLock, unlockBus = false)
+        deregisterWaiter(oldLock)
 
-        newLock.mutex.lock()
+        newLock.lockBus(1.milliseconds)
         return newLock
     }
 
-    private fun deregisterWaiter(key: String, lock: KeyedLock, unlockBus: Boolean) {
-        if (unlockBus && lock.mutex.isLocked) {
-            lock.mutex.unlock()
-        }
-
-        val remainingWaiters = lock.waiters.decrementAndFetch()
+    private fun deregisterWaiter(lock: KeyedLock) {
+        val remainingWaiters = lock.removeWaiter()
         if (remainingWaiters == 0) {
-            threadSafeCache.removeIfMatching(key, lock)
+            threadSafeCache.removeIfMatching(lock.key, lock)
         }
     }
 

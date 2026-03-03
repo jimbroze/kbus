@@ -607,4 +607,6 @@ class LockingTest {
         assertFalse(locker.busIsLocked("key2"))
         assertFalse(locker.busIsLocked("key3"))
     }
+
+    // TODO test with non-in-memory cache (Ensures cache takes time to simulate network/file)
 }
