@@ -100,7 +100,7 @@ class SleepCommandHandler : CommandHandler<SleepCommand, BusResult<Unit, Message
 class LockAdjustLockingCommand(
     val messageData: String,
     override val lockTimeoutOverride: Duration? = null,
-    override val shouldFailOnTimeoutOverride: Boolean? = null,
+    override val ignoreLockOnTimeoutOverride: Boolean? = null,
     override val lockChannelKey: String? = null,
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
@@ -324,13 +324,13 @@ class LockingTest {
     }
 
     @Test
-    fun `locking message force-unlocks and proceeds when default shouldFailOnTimeout is false`() =
+    fun `locking message force-unlocks and proceeds when default ignoreLockOnTimeoutOverride is true`() =
         runTest {
             val locker =
                 BusLocker(
                     InMemoryLockProvider(scope = backgroundScope),
                     1.seconds,
-                    defaultShouldFailOnTimeout = false,
+                    defaultIgnoreLockOnTimeout = true,
                 )
 
             val job1 = async {
@@ -354,12 +354,12 @@ class LockingTest {
         }
 
     @Test
-    fun `locking message returns failure when default shouldFailOnTimeout is true`() = runTest {
+    fun `locking message returns failure when default ignoreLockOnTimeout is false`() = runTest {
         val locker =
             BusLocker(
                 InMemoryLockProvider(scope = backgroundScope),
                 1.seconds,
-                defaultShouldFailOnTimeout = true,
+                defaultIgnoreLockOnTimeout = false,
             )
 
         val job1 = async {
@@ -385,13 +385,13 @@ class LockingTest {
     }
 
     @Test
-    fun `shouldFailOnTimeout can be overridden to true by locking message`() = runTest {
+    fun `ignoreLockOnTimeout can be overridden to false by locking message`() = runTest {
         // Default is false (force-unlock)
         val locker =
             BusLocker(
                 InMemoryLockProvider(scope = backgroundScope),
                 1.seconds,
-                defaultShouldFailOnTimeout = false,
+                defaultIgnoreLockOnTimeout = true,
             )
 
         val job1 = async {
@@ -400,8 +400,8 @@ class LockingTest {
             }
         }
         val job2 = async {
-            // Override shouldFailOnTimeout to true
-            locker.handle(LockAdjustLockingCommand("Job2", shouldFailOnTimeoutOverride = true)) {
+            // Override ignoreLockOnTimeout to false
+            locker.handle(LockAdjustLockingCommand("Job2", ignoreLockOnTimeoutOverride = false)) {
                 LockAdjustLockingCommandHandler().handle(it)
             }
         }
@@ -409,19 +409,19 @@ class LockingTest {
         val result2 = job2.await()
         job1.await()
 
-        // Job 2 should fail despite default being false, because it overrode to true
+        // Job 2 should fail despite default being true, because it overrode to false
         val failure = assertIs<TestFailure>(result2.failureOrNull())
         assertIs<BusLockedFailure>(failure.reason)
     }
 
     @Test
-    fun `shouldFailOnTimeout can be overridden to false by locking message`() = runTest {
+    fun `ignoreLockOnTimeout can be overridden to true by locking message`() = runTest {
         // Default is true (fail on timeout)
         val locker =
             BusLocker(
                 InMemoryLockProvider(scope = backgroundScope),
                 1.seconds,
-                defaultShouldFailOnTimeout = true,
+                defaultIgnoreLockOnTimeout = false,
             )
 
         val job1 = async {
@@ -430,8 +430,8 @@ class LockingTest {
             }
         }
         val job2 = async {
-            // Override shouldFailOnTimeout to false (force-unlock instead)
-            locker.handle(LockAdjustLockingCommand("Job2", shouldFailOnTimeoutOverride = false)) {
+            // Override shouldFailOnTimeout to true (force-unlock instead)
+            locker.handle(LockAdjustLockingCommand("Job2", ignoreLockOnTimeoutOverride = true)) {
                 LockAdjustLockingCommandHandler().handle(it)
             }
         }

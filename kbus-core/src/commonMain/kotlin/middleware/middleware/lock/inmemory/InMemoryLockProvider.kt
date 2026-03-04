@@ -49,18 +49,6 @@ class InMemoryLockProvider(
         }
     }
 
-    override suspend fun forceUnlock(key: String): Boolean {
-        val lock = this.cache.get(key) ?: return true
-        lock.addWaiter()
-
-        return try {
-            lock.forceUnlock()
-            true
-        } finally {
-            deregisterWaiter(lock)
-        }
-    }
-
     override suspend fun isLocked(key: String): Boolean {
         return this.cache.get(key)?.isLocked == true
     }

@@ -27,15 +27,6 @@ interface LockProvider {
     suspend fun releaseLock(key: String, lockToken: String): Boolean
 
     /**
-     * Releases the lock regardless of ownership.
-     *
-     * @param key The unique identifier for the lock.
-     * @return true if the lock was successfully released, false if it didn't exist or the token
-     *   didn't match.
-     */
-    suspend fun forceUnlock(key: String): Boolean
-
-    /**
      * Checks if the lock is currently held. Note: Prone to TOCTOU (Time of Check to Time of Use)
      * race conditions. Do not use this to decide whether to run critical business logic.
      */

@@ -26,7 +26,7 @@ interface LockAwareMessage {
     val lockTimeoutOverride: Duration?
         get() = null
 
-    val shouldFailOnTimeoutOverride: Boolean?
+    val ignoreLockOnTimeoutOverride: Boolean?
         get() = null
 }
 
@@ -52,7 +52,7 @@ class BusLocker(
     private val lockProvider: LockProvider,
     private val defaultTimeout: Duration = 5.seconds,
     private val defaultTTL: Duration = 10.seconds,
-    private val defaultShouldFailOnTimeout: Boolean = false,
+    private val defaultIgnoreLockOnTimeout: Boolean = false,
 ) : Middleware {
     companion object {
         private const val KEY_PREFIX = "bus-lock-"
@@ -78,11 +78,11 @@ class BusLocker(
         }
 
         val timeout = lockAware?.lockTimeoutOverride ?: defaultTimeout
-        val shouldFailOnTimeout =
-            lockAware?.shouldFailOnTimeoutOverride ?: defaultShouldFailOnTimeout
+        val ignoreLockOnTimeout =
+            lockAware?.ignoreLockOnTimeoutOverride ?: defaultIgnoreLockOnTimeout
 
         return if (lockAware?.shouldLockBus == true) {
-            processLockingMessage(message, key, timeout, shouldFailOnTimeout, nextMiddleware)
+            processLockingMessage(message, key, timeout, ignoreLockOnTimeout, nextMiddleware)
         } else {
             processNonLockingMessage(message, key, timeout, nextMiddleware)
         }
@@ -92,7 +92,7 @@ class BusLocker(
         message: TMessage,
         key: String,
         timeout: Duration,
-        shouldFailOnTimeout: Boolean,
+        ignoreLockOnTimeout: Boolean,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         var lockToken: String? = null
@@ -105,7 +105,7 @@ class BusLocker(
                     dispatchWithLockContext
                 }
                 is LockOutcome.Timeout ->
-                    handleTimeout(shouldFailOnTimeout, key, message, nextMiddleware)
+                    handleTimeout(ignoreLockOnTimeout, key, message, nextMiddleware)
                 is LockOutcome.ProviderError ->
                     exitEarly(message, "Message aborted: Lock was hijacked while acquiring.")
             }
@@ -130,19 +130,15 @@ class BusLocker(
     }
 
     private suspend fun <TMessage : Message, TResult> handleTimeout(
-        shouldFailOnTimeout: Boolean,
+        ignoreLockOnTimeout: Boolean,
         key: String,
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        return if (shouldFailOnTimeout) {
-            exitEarly(message, "Message bus did not unlock in time")
+        return if (ignoreLockOnTimeout) {
+            dispatchWithLockContext(key, message, nextMiddleware)
         } else {
-            if (lockProvider.forceUnlock(key)) {
-                dispatchWithLockContext(key, message, nextMiddleware)
-            } else {
-                exitEarly(message, "Message aborted: Lock was hijacked while handling timeout.")
-            }
+            exitEarly(message, "Message bus did not unlock in time")
         }
     }
 

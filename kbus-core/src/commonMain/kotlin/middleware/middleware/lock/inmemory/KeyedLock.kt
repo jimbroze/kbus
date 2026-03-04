@@ -22,8 +22,7 @@ class KeyedLock(
 ) {
     private val mutex = Mutex()
     private val waiters = AtomicInt(0)
-    // FIXME does buslocker need to know if it was forceUnlocked?
-    @Volatile private var _forceUnlocked: Boolean = false
+    // FIXME write test to ensure that if a message skips lock, the next messsage adheres to it
     @Volatile private var activeToken: String? = null
 
     val isLocked: Boolean
@@ -37,11 +36,11 @@ class KeyedLock(
     }
 
     suspend fun lockBus(timeout: Duration, newLockToken: String): Boolean {
+        @Suppress("SwallowedException")
         return try {
             withTimeout(timeout) {
                 mutex.lock(owner = newLockToken)
                 activeToken = newLockToken
-                _forceUnlocked = false
                 true
             }
         } catch (e: TimeoutCancellationException) {
@@ -61,12 +60,4 @@ class KeyedLock(
     fun addWaiter(): Int = this.waiters.incrementAndFetch()
 
     fun removeWaiter(): Int = this.waiters.decrementAndFetch()
-
-    fun forceUnlock(): Boolean {
-        val currentToken = activeToken ?: return false
-        activeToken = null
-        _forceUnlocked = true
-        mutex.unlock(owner = currentToken)
-        return true
-    }
 }
