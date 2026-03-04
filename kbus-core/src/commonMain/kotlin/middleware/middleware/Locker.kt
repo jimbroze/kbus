@@ -20,7 +20,7 @@ import kotlinx.serialization.json.Json
 
 // TODO fix for JS Browser
 // TODO create queue?
-interface LockAwareMessage {
+interface LockAwareMessage : Message {
     val shouldLockBus: Boolean
     val lockChannelKey: String?
         get() = null
@@ -65,6 +65,7 @@ class BusLocker(
     companion object {
         private const val KEY_PREFIX = "bus-lock-"
         private const val GLOBAL_KEY_SUFFIX = "global-channel"
+        private val jsonConfig = Json { ignoreUnknownKeys = true }
     }
 
     suspend fun busIsLocked(channelKey: String? = null): Boolean =
@@ -76,7 +77,9 @@ class BusLocker(
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        val key = key((message as? LockAwareMessage)?.lockChannelKey)
+        val lockAware = message as? LockAwareMessage
+        val key = key(lockAware?.lockChannelKey)
+
         if (currentCoroutineContext()[BusLockToken]?.heldKeys?.contains(key) == true) {
             return exitEarly(
                 message,
@@ -84,74 +87,87 @@ class BusLocker(
             )
         }
 
-        return if ((message as? LockAwareMessage)?.shouldLockBus == true) {
+        return if (lockAware?.shouldLockBus == true) {
             processLockingMessage(message, key, nextMiddleware)
         } else {
-            processNonLockingMessage(message, key, nextMiddleware)
+            processNonLockingMessage(message, lockAware, key, nextMiddleware)
         }
     }
 
-    private suspend fun <TMessage : Message, TResult> processLockingMessage(
+    private suspend fun <TMessage : LockAwareMessage, TResult> processLockingMessage(
         message: TMessage,
         key: String,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        var lockToken: String? = null
-        val lockingTimeout = (message as? LockAwareMessage)?.lockTimeoutOverride ?: defaultTimeout
-        val ignoreLockOnTimeout =
-            (message as? LockAwareMessage)?.ignoreLockOnTimeoutOverride
-                ?: defaultIgnoreLockOnTimeout
+        val lockingTimeout = message.lockTimeoutOverride ?: defaultTimeout
+        val ignoreLockOnTimeout = message.ignoreLockOnTimeoutOverride ?: defaultIgnoreLockOnTimeout
+
         val metadata =
-            Json.encodeToString(
+            jsonConfig.encodeToString(
                 BusLockData(
-                    (message as? LockAwareMessage)?.lockTimeoutOverride,
-                    (message as? LockAwareMessage)?.ignoreLockOnTimeoutOverride,
+                    timeoutOverride = message.lockTimeoutOverride,
+                    ignoreLockOnTimeoutOverride = message.ignoreLockOnTimeoutOverride,
                 )
             )
-        try {
-            return when (
-                val outcome =
-                    atomicLock.acquireLock(key, defaultLockExpiry, lockingTimeout, metadata)
-            ) {
-                is LockOutcome.Success -> {
-                    lockToken = outcome.lockToken
-                    val dispatchWithLockContext =
-                        dispatchWithLockContext(key, message, nextMiddleware)
-                    dispatchWithLockContext
+
+        return when (
+            val outcome = atomicLock.acquireLock(key, defaultLockExpiry, lockingTimeout, metadata)
+        ) {
+            is LockOutcome.Success -> {
+                try {
+                    dispatchWithLockContext(key, message, nextMiddleware)
+                } finally {
+                    atomicLock.releaseLock(key, outcome.lockToken)
                 }
-                is LockOutcome.Timeout ->
-                    handleTimeout(ignoreLockOnTimeout, key, message, nextMiddleware)
-                is LockOutcome.ProviderError ->
-                    exitEarly(message, "Message aborted: Lock was hijacked while acquiring.")
             }
-        } finally {
-            lockToken?.let { atomicLock.releaseLock(key, lockToken) }
+            is LockOutcome.Timeout -> {
+                handleTimeout(ignoreLockOnTimeout, key, message, nextMiddleware)
+            }
+            is LockOutcome.ProviderError -> {
+                exitEarly(
+                    message,
+                    "Lock provider error during acquisition: ${outcome.exception.message}",
+                )
+            }
         }
     }
 
     private suspend fun <TMessage : Message, TResult> processNonLockingMessage(
         message: TMessage,
+        lockAware: LockAwareMessage?,
         key: String,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
+        @Suppress("SwallowedException", "TooGenericExceptionCaught")
         val lockData =
-            atomicLock.getLockMetadata(key)?.let { Json.decodeFromString<BusLockData>(it) }
+            atomicLock.getLockMetadata(key)?.let {
+                try {
+                    jsonConfig.decodeFromString<BusLockData>(it)
+                } catch (e: Exception) {
+                    null
+                }
+            }
 
         val waitingTimeout =
-            (message as? LockAwareMessage)?.lockTimeoutOverride
-                ?: lockData?.timeoutOverride
-                ?: defaultTimeout
+            lockAware?.lockTimeoutOverride ?: lockData?.timeoutOverride ?: defaultTimeout
         val ignoreLockOnTimeout =
-            (message as? LockAwareMessage)?.ignoreLockOnTimeoutOverride
+            lockAware?.ignoreLockOnTimeoutOverride
                 ?: lockData?.ignoreLockOnTimeoutOverride
                 ?: defaultIgnoreLockOnTimeout
 
-        return when (atomicLock.waitForUnlock(key, waitingTimeout)) {
-            is WaitOutcome.Unlocked -> dispatchWithLockContext(key, message, nextMiddleware)
-            is WaitOutcome.Timeout ->
+        return when (val outcome = atomicLock.waitForUnlock(key, waitingTimeout)) {
+            is WaitOutcome.Unlocked -> {
+                dispatchWithLockContext(key, message, nextMiddleware)
+            }
+            is WaitOutcome.Timeout -> {
                 handleTimeout(ignoreLockOnTimeout, key, message, nextMiddleware)
-            is WaitOutcome.ProviderError ->
-                exitEarly(message, "Message aborted: The lock was forcefully hijacked.")
+            }
+            is WaitOutcome.ProviderError -> {
+                exitEarly(
+                    message,
+                    "Lock provider error while waiting: ${outcome.exception.message}",
+                )
+            }
         }
     }
 

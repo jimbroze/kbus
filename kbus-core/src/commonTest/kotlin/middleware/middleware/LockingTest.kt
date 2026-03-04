@@ -601,7 +601,7 @@ class LockingTest {
     }
 
     @Test
-    fun `after a message skips lock on timeout, the next locking message still waits for the original lock`() =
+    fun `after a message skips lock on timeout the next locking message still waits for the original lock`() =
         runTest {
             val locker =
                 BusLocker(
@@ -658,7 +658,7 @@ class LockingTest {
         }
 
     @Test
-    fun `after a message skips lock on timeout, the next non-locking message still waits for the original lock`() =
+    fun `after a message skips lock on timeout the next non-locking message still waits for the original lock`() =
         runTest {
             val locker =
                 BusLocker(
@@ -704,7 +704,7 @@ class LockingTest {
         }
 
     @Test
-    fun `after a locking message fails on timeout, the next message still respects the lock`() =
+    fun `after a locking message fails on timeout the next message still respects the lock`() =
         runTest {
             val locker =
                 BusLocker(
@@ -746,7 +746,7 @@ class LockingTest {
         }
 
     @Test
-    fun `after a message skips lock on timeout, a subsequent message after the lock releases succeeds normally`() =
+    fun `after a message skips lock on timeout a subsequent message after the lock releases succeeds normally`() =
         runTest {
             val locker =
                 BusLocker(
