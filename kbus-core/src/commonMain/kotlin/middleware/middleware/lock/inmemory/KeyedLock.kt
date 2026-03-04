@@ -22,7 +22,6 @@ class KeyedLock(
 ) {
     private val mutex = Mutex()
     private val waiters = AtomicInt(0)
-    // FIXME write test to ensure that if a message skips lock, the next messsage adheres to it
     @Volatile private var activeToken: String? = null
 
     val isLocked: Boolean

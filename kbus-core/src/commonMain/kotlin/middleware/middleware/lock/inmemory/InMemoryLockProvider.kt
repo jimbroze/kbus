@@ -18,7 +18,6 @@ class InMemoryLockProvider(
     val cache: Cache<String, KeyedLock> = ThreadSafeMapCache(),
     private val scope: CoroutineScope,
 ) : LockProvider {
-
     override suspend fun acquireLock(key: String, ttl: Duration, timeout: Duration): LockOutcome {
         val lock = cache.getOrPut(key) { KeyedLock(key, timeout, false) }
         lock.addWaiter()

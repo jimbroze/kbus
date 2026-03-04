@@ -119,7 +119,8 @@ class LockingTest {
     @Test
     fun `message locker returns failure instantly when bus is locked by same coroutine`() =
         runTest {
-            val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds, 30.seconds)
+            val locker =
+                BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds, 30.seconds)
 
             val result =
                 locker.handle(NestingLockCommand(LockAwareTimeReturnCommand())) {
@@ -147,7 +148,8 @@ class LockingTest {
     @Test
     fun `throws BusLockedException if bus is locked by same coroutine and command is not lock aware`() =
         runTest {
-            val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds, 30.seconds)
+            val locker =
+                BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds, 30.seconds)
 
             assertFailsWith<BusLockedException> {
                 locker.handle(NestingLockCommand(TimeReturnCommand())) {
@@ -232,7 +234,8 @@ class LockingTest {
     fun `command execution times out using default timeout if bus is locked for too long`() =
         runTest {
             // Default lock timeout is 1 second
-            val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 1.seconds, 30.seconds)
+            val locker =
+                BusLocker(InMemoryLockProvider(scope = backgroundScope), 1.seconds, 30.seconds)
 
             val job1 = async {
                 // Holds the lock for 5 seconds
@@ -274,7 +277,7 @@ class LockingTest {
         }
         val job2 = async {
             // Overrides lock timeout to 5 seconds via LockAwareMessage
-            // FIXME need to add tests for TTL and rename
+            // FIXME need to add tests for TTL
             locker.handle(
                 LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 5.seconds)
             ) {
@@ -594,6 +597,191 @@ class LockingTest {
             nestFailure.reason.message,
         )
     }
+
+    @Test
+    fun `after a message skips lock on timeout, the next locking message still waits for the original lock`() =
+        runTest {
+            val locker =
+                BusLocker(
+                    InMemoryLockProvider(scope = backgroundScope),
+                    1.seconds,
+                    30.seconds,
+                    defaultIgnoreLockOnTimeout = true,
+                )
+
+            // Job 1: holds the lock for 5 seconds
+            val job1 = async {
+                locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            // Job 2: times out after 1s, skips the lock and proceeds
+            val job2 = async {
+                locker.handle(LockAdjustLockingCommand("Job2")) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            // Job 3: arrives after job 2 skips, should still wait for job 1's lock to release
+            val job3 = async {
+                locker.handle(
+                    LockAdjustLockingCommand("Job3", ignoreLockOnTimeoutOverride = false)
+                ) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+                currentTime
+            }
+
+            val timeJob2Finished = job2.await()
+            val timeJob3Finished = job3.await()
+            val timeJob1Finished = job1.await()
+
+            // Job 2 skips the lock after 1s timeout
+            assertEquals(1000L, timeJob2Finished, "Job 2 should skip lock after 1s timeout")
+            // Job 3 does not skip, and its 1s timeout expires while job 1 still holds the lock
+            assertEquals(1000L, timeJob3Finished, "Job 3 should time out after 1s")
+            // Job 1 finishes after its full 5s sleep
+            assertEquals(5000L, timeJob1Finished)
+
+            // Job 3 should have failed because it respected the lock
+            val result3 =
+                locker.handle(
+                    LockAdjustLockingCommand("Job3-verify", ignoreLockOnTimeoutOverride = false)
+                ) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+            // After job 1 released, a new message should succeed
+            assertEquals("Job3-verify", result3.getOrNull())
+        }
+
+    @Test
+    fun `after a message skips lock on timeout, the next non-locking message still waits for the original lock`() =
+        runTest {
+            val locker =
+                BusLocker(
+                    InMemoryLockProvider(scope = backgroundScope),
+                    1.seconds,
+                    30.seconds,
+                    defaultIgnoreLockOnTimeout = true,
+                )
+
+            // Job 1: holds the lock for 5 seconds
+            val job1 = async {
+                locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            // Job 2: locking message times out after 1s, skips the lock
+            val job2 = async {
+                locker.handle(LockAdjustLockingCommand("Job2")) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            // Job 3: non-locking message should still wait for the original lock
+            val job3 = async {
+                assertFailsWith<BusLockedException> {
+                    locker.handle(ReturnCommand("Job3")) { ReturnCommandHandler().handle(it) }
+                }
+                currentTime
+            }
+
+            val timeJob2Finished = job2.await()
+            val timeJob3Finished = job3.await()
+            val timeJob1Finished = job1.await()
+
+            // Job 2 skips lock after 1s
+            assertEquals(1000L, timeJob2Finished, "Job 2 should skip lock after 1s timeout")
+            // Job 3 (non-locking) times out after 1s waiting for the lock
+            assertEquals(1000L, timeJob3Finished, "Job 3 should time out after 1s")
+            // Job 1 completes its full 5s
+            assertEquals(5000L, timeJob1Finished)
+        }
+
+    @Test
+    fun `after a locking message fails on timeout, the next message still respects the lock`() =
+        runTest {
+            val locker =
+                BusLocker(
+                    InMemoryLockProvider(scope = backgroundScope),
+                    1.seconds,
+                    30.seconds,
+                    defaultIgnoreLockOnTimeout = false,
+                )
+
+            // Job 1: holds the lock for 3 seconds
+            val job1 = async {
+                locker.handle(LockingSleepCommand(3.seconds, "Job1")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            // Job 2: times out after 1s, returns failure
+            val job2 = async {
+                locker.handle(LockAdjustLockingCommand("Job2")) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+            }
+            // Job 3: also times out after 1s, should still fail (lock still held by job 1)
+            val job3 = async {
+                locker.handle(LockAdjustLockingCommand("Job3")) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+            }
+
+            val result2 = job2.await()
+            val result3 = job3.await()
+            val timeJob1Finished = job1.await()
+
+            assertEquals(3000L, timeJob1Finished)
+
+            // Both job 2 and job 3 should have failed
+            assertIs<BusLockedFailure>(assertIs<TestFailure>(result2.failureOrNull()).reason)
+            assertIs<BusLockedFailure>(assertIs<TestFailure>(result3.failureOrNull()).reason)
+        }
+
+    @Test
+    fun `after a message skips lock on timeout, a subsequent message after the lock releases succeeds normally`() =
+        runTest {
+            val locker =
+                BusLocker(
+                    InMemoryLockProvider(scope = backgroundScope),
+                    1.seconds,
+                    30.seconds,
+                    defaultIgnoreLockOnTimeout = true,
+                )
+
+            // Job 1: holds the lock for 2 seconds
+            val job1 = async {
+                locker.handle(LockingSleepCommand(2.seconds, "Job1")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            // Job 2: times out after 1s, skips the lock
+            val job2 = async {
+                locker.handle(LockAdjustLockingCommand("Job2")) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+                currentTime
+            }
+
+            val timeJob2Finished = job2.await()
+            val timeJob1Finished = job1.await()
+
+            assertEquals(1000L, timeJob2Finished)
+            assertEquals(2000L, timeJob1Finished)
+
+            // After the lock is released, a new locking message should acquire and release cleanly
+            val result3 =
+                locker.handle(LockingSleepCommand(1.seconds, "Job3")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+            assertEquals("Job3", result3.getOrNull())
+            assertFalse(locker.busIsLocked(), "Bus should be unlocked after Job3 completes")
+        }
 
     @Test
     fun `multiple different keys can be locked concurrently by different coroutines`() = runTest {
