@@ -7,6 +7,7 @@ import com.jimbroze.kbus.contracts.result.BusResult.Companion.failure
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.core.middleware.middleware.lock.inmemory.InMemoryLockProvider
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
 import kotlin.test.Test
@@ -118,7 +119,7 @@ class LockingTest {
     @Test
     fun `message locker returns failure instantly when bus is locked by same coroutine`() =
         runTest {
-            val locker = BusLocker(InMemoryLockProvider())
+            val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
             val result =
                 locker.handle(NestingLockCommand(LockAwareTimeReturnCommand())) {
@@ -146,7 +147,7 @@ class LockingTest {
     @Test
     fun `throws BusLockedException if bus is locked by same coroutine and command is not lock aware`() =
         runTest {
-            val locker = BusLocker(InMemoryLockProvider())
+            val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
             assertFailsWith<BusLockedException> {
                 locker.handle(NestingLockCommand(TimeReturnCommand())) {
@@ -157,7 +158,7 @@ class LockingTest {
 
     @Test
     fun `message locker waits to execute command in a different coroutine`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider(), 5.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds)
 
         // Launch job 1: It locks the bus and delays for 1 second of VIRTUAL time
         val job1 = async {
@@ -187,7 +188,7 @@ class LockingTest {
 
     @Test
     fun `busLocked is true while a locking message holds the mutex`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider())
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
         val job = async {
             locker.handle(LockingSleepCommand(2.seconds, "data")) {
@@ -205,7 +206,7 @@ class LockingTest {
 
     @Test
     fun `busLocked is false during non-locking message handler execution`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider())
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
         locker.handle(SleepCommand(1.seconds)) {
             // A non-locking message should not report the bus as locked,
@@ -220,7 +221,7 @@ class LockingTest {
 
     @Test
     fun `busLocked is false after non-locking message completes`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider())
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
         locker.handle(SleepCommand(2.seconds)) { SleepCommandHandler().handle(it) }
 
@@ -231,7 +232,7 @@ class LockingTest {
     fun `command execution times out using default timeout if bus is locked for too long`() =
         runTest {
             // Default lock timeout is 1 second
-            val locker = BusLocker(InMemoryLockProvider(), 1.seconds)
+            val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 1.seconds)
 
             val job1 = async {
                 // Holds the lock for 5 seconds
@@ -262,7 +263,7 @@ class LockingTest {
     @Test
     fun `locking timeout can be overridden by locking message`() = runTest {
         // Default timeout is 1 second
-        val locker = BusLocker(InMemoryLockProvider(), 1.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 1.seconds)
 
         val job1 = async {
             // Holds the lock for 3 seconds
@@ -273,6 +274,7 @@ class LockingTest {
         }
         val job2 = async {
             // Overrides lock timeout to 5 seconds via LockAwareMessage
+            // FIXME need to add tests for TTL and rename
             locker.handle(
                 LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 5.seconds)
             ) {
@@ -293,7 +295,7 @@ class LockingTest {
     @Test
     fun `locking timeout can be overridden by waiting message`() = runTest {
         // Default timeout is 5 seconds
-        val locker = BusLocker(InMemoryLockProvider(), 5.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds)
 
         val job1 = async {
             // Holds for 3 seconds
@@ -325,7 +327,11 @@ class LockingTest {
     fun `locking message force-unlocks and proceeds when default shouldFailOnTimeout is false`() =
         runTest {
             val locker =
-                BusLocker(InMemoryLockProvider(), 1.seconds, defaultShouldFailOnTimeout = false)
+                BusLocker(
+                    InMemoryLockProvider(scope = backgroundScope),
+                    1.seconds,
+                    defaultShouldFailOnTimeout = false,
+                )
 
             val job1 = async {
                 // Holds the lock for 5 seconds
@@ -349,7 +355,12 @@ class LockingTest {
 
     @Test
     fun `locking message returns failure when default shouldFailOnTimeout is true`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider(), 1.seconds, defaultShouldFailOnTimeout = true)
+        val locker =
+            BusLocker(
+                InMemoryLockProvider(scope = backgroundScope),
+                1.seconds,
+                defaultShouldFailOnTimeout = true,
+            )
 
         val job1 = async {
             // Holds the lock for 5 seconds
@@ -377,7 +388,11 @@ class LockingTest {
     fun `shouldFailOnTimeout can be overridden to true by locking message`() = runTest {
         // Default is false (force-unlock)
         val locker =
-            BusLocker(InMemoryLockProvider(), 1.seconds, defaultShouldFailOnTimeout = false)
+            BusLocker(
+                InMemoryLockProvider(scope = backgroundScope),
+                1.seconds,
+                defaultShouldFailOnTimeout = false,
+            )
 
         val job1 = async {
             locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
@@ -402,7 +417,12 @@ class LockingTest {
     @Test
     fun `shouldFailOnTimeout can be overridden to false by locking message`() = runTest {
         // Default is true (fail on timeout)
-        val locker = BusLocker(InMemoryLockProvider(), 1.seconds, defaultShouldFailOnTimeout = true)
+        val locker =
+            BusLocker(
+                InMemoryLockProvider(scope = backgroundScope),
+                1.seconds,
+                defaultShouldFailOnTimeout = true,
+            )
 
         val job1 = async {
             locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
@@ -425,7 +445,7 @@ class LockingTest {
 
     @Test
     fun `messages with different lockChannelKeys do not block each other`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider(), 5.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds)
 
         val job1 = async {
             locker.handle(LockingSleepCommand(3.seconds, "KeyA", lockChannelKey = "keyA")) {
@@ -450,7 +470,7 @@ class LockingTest {
 
     @Test
     fun `messages with the same lockChannelKey block each other`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider(), 5.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds)
 
         val job1 = async {
             locker.handle(LockingSleepCommand(1.seconds, "First", lockChannelKey = "shared")) {
@@ -475,7 +495,7 @@ class LockingTest {
 
     @Test
     fun `busIsLocked is true only for the locked channel key`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider())
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
         val job = async {
             locker.handle(LockingSleepCommand(2.seconds, "data", lockChannelKey = "myKey")) {
@@ -496,7 +516,7 @@ class LockingTest {
 
     @Test
     fun `non-locking message only waits for lock on the default channel key`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider(), 5.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds)
 
         val job1 = async {
             // Lock on a specific key
@@ -524,7 +544,7 @@ class LockingTest {
 
     @Test
     fun `nested locking message with a different key succeeds`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider())
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
         val result =
             locker.handle(
@@ -545,7 +565,7 @@ class LockingTest {
 
     @Test
     fun `nested locking message with the same key fails`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider())
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope))
 
         val result =
             locker.handle(
@@ -573,7 +593,7 @@ class LockingTest {
 
     @Test
     fun `multiple different keys can be locked concurrently by different coroutines`() = runTest {
-        val locker = BusLocker(InMemoryLockProvider(), 5.seconds)
+        val locker = BusLocker(InMemoryLockProvider(scope = backgroundScope), 5.seconds)
 
         val job1 = async {
             locker.handle(LockingSleepCommand(2.seconds, "A", lockChannelKey = "key1")) {

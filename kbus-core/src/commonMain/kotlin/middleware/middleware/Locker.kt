@@ -51,6 +51,7 @@ class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.El
 class BusLocker(
     private val lockProvider: LockProvider,
     private val defaultTimeout: Duration = 5.seconds,
+    private val defaultTTL: Duration = 10.seconds,
     private val defaultShouldFailOnTimeout: Boolean = false,
 ) : Middleware {
     companion object {
@@ -96,8 +97,7 @@ class BusLocker(
     ): TResult {
         var lockToken: String? = null
         try {
-            // FIXME TTL?
-            return when (val outcome = lockProvider.acquireLock(key, timeout, timeout)) {
+            return when (val outcome = lockProvider.acquireLock(key, defaultTTL, timeout)) {
                 is LockOutcome.Success -> {
                     lockToken = outcome.lockToken
                     val dispatchWithLockContext =
