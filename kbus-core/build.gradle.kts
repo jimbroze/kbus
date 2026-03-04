@@ -3,6 +3,7 @@ description = "Kotlin message bus framework"
 plugins {
     id("kbus.multiplatform")
     id("kbus.publish")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -11,6 +12,7 @@ kotlin {
             api(projects.kbusContracts)
             api(projects.kbusDomain)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
         }
 
         commonTest.dependencies {

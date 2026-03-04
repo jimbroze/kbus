@@ -2,8 +2,8 @@ package com.jimbroze.kbus.core.middleware.middleware.lock.inmemory
 
 import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
 import com.jimbroze.kbus.core.middleware.middleware.cache.ThreadSafeMapCache
+import com.jimbroze.kbus.core.middleware.middleware.lock.AtomicLock
 import com.jimbroze.kbus.core.middleware.middleware.lock.LockOutcome
-import com.jimbroze.kbus.core.middleware.middleware.lock.LockProvider
 import com.jimbroze.kbus.core.middleware.middleware.lock.WaitOutcome
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
@@ -14,12 +14,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)
-class InMemoryLockProvider(
-    val cache: Cache<String, KeyedLock> = ThreadSafeMapCache(),
+class InMemoryAtomicLock(
+    val cache: Cache<String, ThreadSafeInMemoryLock> = ThreadSafeMapCache(),
     private val scope: CoroutineScope,
-) : LockProvider {
-    override suspend fun acquireLock(key: String, ttl: Duration, timeout: Duration): LockOutcome {
-        val lock = cache.getOrPut(key) { KeyedLock(key, timeout, false) }
+) : AtomicLock {
+    override suspend fun acquireLock(
+        key: String,
+        ttl: Duration,
+        timeout: Duration,
+        metadata: String?,
+    ): LockOutcome {
+        val lock = cache.getOrPut(key) { ThreadSafeInMemoryLock(key, metadata) }
         lock.addWaiter()
 
         val lockToken = Uuid.generateV7().toString()
@@ -35,6 +40,10 @@ class InMemoryLockProvider(
             deregisterWaiter(lock)
             return LockOutcome.Timeout
         }
+    }
+
+    override suspend fun getLockMetadata(key: String): String? {
+        return cache.get(key)?.metadata
     }
 
     override suspend fun releaseLock(key: String, lockToken: String): Boolean {
@@ -62,7 +71,7 @@ class InMemoryLockProvider(
         }
     }
 
-    private fun deregisterWaiter(lock: KeyedLock) {
+    private fun deregisterWaiter(lock: ThreadSafeInMemoryLock) {
         if (lock.removeWaiter() == 0 && !lock.isLocked) {
             cache.removeIfMatching(lock.key, lock)
         }

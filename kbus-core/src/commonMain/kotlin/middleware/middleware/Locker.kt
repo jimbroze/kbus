@@ -6,14 +6,17 @@ import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.middleware.lock.AtomicLock
 import com.jimbroze.kbus.core.middleware.middleware.lock.LockOutcome
-import com.jimbroze.kbus.core.middleware.middleware.lock.LockProvider
 import com.jimbroze.kbus.core.middleware.middleware.lock.WaitOutcome
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 // TODO fix for JS Browser
 // TODO create queue?
@@ -46,9 +49,15 @@ class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.El
         get() = Key
 }
 
+@Serializable
+private data class BusLockData(
+    val timeoutOverride: Duration?,
+    val ignoreLockOnTimeoutOverride: Boolean?,
+)
+
 @OptIn(ExperimentalAtomicApi::class)
 class BusLocker(
-    private val lockProvider: LockProvider,
+    private val atomicLock: AtomicLock,
     private val defaultTimeout: Duration,
     private val defaultLockExpiry: Duration,
     private val defaultIgnoreLockOnTimeout: Boolean = false,
@@ -59,7 +68,7 @@ class BusLocker(
     }
 
     suspend fun busIsLocked(channelKey: String? = null): Boolean =
-        lockProvider.isLocked(key(channelKey))
+        atomicLock.isLocked(key(channelKey))
 
     private fun key(channelKey: String?): String = KEY_PREFIX + (channelKey ?: GLOBAL_KEY_SUFFIX)
 
@@ -67,8 +76,7 @@ class BusLocker(
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        val lockAware = message as? LockAwareMessage
-        val key = key(lockAware?.lockChannelKey)
+        val key = key((message as? LockAwareMessage)?.lockChannelKey)
         if (currentCoroutineContext()[BusLockToken]?.heldKeys?.contains(key) == true) {
             return exitEarly(
                 message,
@@ -76,27 +84,35 @@ class BusLocker(
             )
         }
 
-        val timeout = lockAware?.lockTimeoutOverride ?: defaultTimeout
-        val ignoreLockOnTimeout =
-            lockAware?.ignoreLockOnTimeoutOverride ?: defaultIgnoreLockOnTimeout
-
-        return if (lockAware?.shouldLockBus == true) {
-            processLockingMessage(message, key, timeout, ignoreLockOnTimeout, nextMiddleware)
+        return if ((message as? LockAwareMessage)?.shouldLockBus == true) {
+            processLockingMessage(message, key, nextMiddleware)
         } else {
-            processNonLockingMessage(message, key, timeout, nextMiddleware)
+            processNonLockingMessage(message, key, nextMiddleware)
         }
     }
 
     private suspend fun <TMessage : Message, TResult> processLockingMessage(
         message: TMessage,
         key: String,
-        timeout: Duration,
-        ignoreLockOnTimeout: Boolean,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         var lockToken: String? = null
+        val lockingTimeout = (message as? LockAwareMessage)?.lockTimeoutOverride ?: defaultTimeout
+        val ignoreLockOnTimeout =
+            (message as? LockAwareMessage)?.ignoreLockOnTimeoutOverride
+                ?: defaultIgnoreLockOnTimeout
+        val metadata =
+            Json.encodeToString(
+                BusLockData(
+                    (message as? LockAwareMessage)?.lockTimeoutOverride,
+                    (message as? LockAwareMessage)?.ignoreLockOnTimeoutOverride,
+                )
+            )
         try {
-            return when (val outcome = lockProvider.acquireLock(key, defaultLockExpiry, timeout)) {
+            return when (
+                val outcome =
+                    atomicLock.acquireLock(key, defaultLockExpiry, lockingTimeout, metadata)
+            ) {
                 is LockOutcome.Success -> {
                     lockToken = outcome.lockToken
                     val dispatchWithLockContext =
@@ -109,20 +125,31 @@ class BusLocker(
                     exitEarly(message, "Message aborted: Lock was hijacked while acquiring.")
             }
         } finally {
-            lockToken?.let { lockProvider.releaseLock(key, lockToken) }
+            lockToken?.let { atomicLock.releaseLock(key, lockToken) }
         }
     }
 
     private suspend fun <TMessage : Message, TResult> processNonLockingMessage(
         message: TMessage,
         key: String,
-        timeout: Duration,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        return when (lockProvider.waitForUnlock(key, timeout)) {
+        val lockData =
+            atomicLock.getLockMetadata(key)?.let { Json.decodeFromString<BusLockData>(it) }
+
+        val waitingTimeout =
+            (message as? LockAwareMessage)?.lockTimeoutOverride
+                ?: lockData?.timeoutOverride
+                ?: defaultTimeout
+        val ignoreLockOnTimeout =
+            (message as? LockAwareMessage)?.ignoreLockOnTimeoutOverride
+                ?: lockData?.ignoreLockOnTimeoutOverride
+                ?: defaultIgnoreLockOnTimeout
+
+        return when (atomicLock.waitForUnlock(key, waitingTimeout)) {
             is WaitOutcome.Unlocked -> dispatchWithLockContext(key, message, nextMiddleware)
             is WaitOutcome.Timeout ->
-                exitEarly(message, "Timed out waiting for message bus to unlock")
+                handleTimeout(ignoreLockOnTimeout, key, message, nextMiddleware)
             is WaitOutcome.ProviderError ->
                 exitEarly(message, "Message aborted: The lock was forcefully hijacked.")
         }
@@ -137,7 +164,7 @@ class BusLocker(
         return if (ignoreLockOnTimeout) {
             dispatchWithLockContext(key, message, nextMiddleware)
         } else {
-            exitEarly(message, "Message bus did not unlock in time")
+            exitEarly(message, "Timed out waiting for message bus to unlock")
         }
     }
 

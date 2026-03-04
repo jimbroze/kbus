@@ -13,13 +13,8 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
 @OptIn(ExperimentalAtomicApi::class)
-// FIXME use these overrides
 // TODO make internal
-class KeyedLock(
-    val key: String,
-    val timeoutOverride: Duration?,
-    val shouldFailOnTimeout: Boolean?,
-) {
+class ThreadSafeInMemoryLock(val key: String, val metadata: String?) {
     private val mutex = Mutex()
     private val waiters = AtomicInt(0)
     @Volatile private var activeToken: String? = null
