@@ -12,7 +12,6 @@ import com.jimbroze.kbus.core.middleware.middleware.lock.WaitOutcome
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 
@@ -50,8 +49,8 @@ class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.El
 @OptIn(ExperimentalAtomicApi::class)
 class BusLocker(
     private val lockProvider: LockProvider,
-    private val defaultTimeout: Duration = 5.seconds,
-    private val defaultTTL: Duration = 10.seconds,
+    private val defaultTimeout: Duration,
+    private val defaultLockExpiry: Duration,
     private val defaultIgnoreLockOnTimeout: Boolean = false,
 ) : Middleware {
     companion object {
@@ -97,7 +96,7 @@ class BusLocker(
     ): TResult {
         var lockToken: String? = null
         try {
-            return when (val outcome = lockProvider.acquireLock(key, defaultTTL, timeout)) {
+            return when (val outcome = lockProvider.acquireLock(key, defaultLockExpiry, timeout)) {
                 is LockOutcome.Success -> {
                     lockToken = outcome.lockToken
                     val dispatchWithLockContext =
