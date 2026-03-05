@@ -79,6 +79,7 @@ class CacheLock(private val cache: Cache<in String, String>, private val clock: 
     }
 
     private fun decodeValue(value: String): LockData? {
+        @Suppress("SwallowedException", "TooGenericExceptionCaught")
         return try {
             Json.decodeFromString<LockData>(value)
         } catch (e: Exception) {

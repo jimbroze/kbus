@@ -5,8 +5,8 @@ package com.jimbroze.kbus.core.middleware.middleware.cache
  * and [getOrPut] call returns a *copy* of the stored value, so callers never hold a reference to
  * the cached object.
  *
- * [replaceIfMatching] and [removeIfMatching] use reference identity (`===`), matching how
- * [ThreadSafeMapCache] behaves with types that don't override `equals` (like `KeyedLock`).
+ * [replaceIfMatching] and [removeIfMatching] use structural equality (`==`), matching how a real
+ * distributed cache (or [ThreadSafeMapCache]) compares serialized/deserialized values.
  */
 class CopyingCache<K : Any, V : Any>(private val copy: (V) -> V) : Cache<K, V> {
     private val map = mutableMapOf<K, V>()
@@ -28,7 +28,7 @@ class CopyingCache<K : Any, V : Any>(private val copy: (V) -> V) : Cache<K, V> {
     }
 
     override fun replaceIfMatching(key: K, oldValue: V, newValue: V): Boolean {
-        if (map[key] !== oldValue) return false
+        if (map[key] != oldValue) return false
         map[key] = newValue
         return true
     }
@@ -38,7 +38,7 @@ class CopyingCache<K : Any, V : Any>(private val copy: (V) -> V) : Cache<K, V> {
     }
 
     override fun removeIfMatching(key: K, value: V): Boolean {
-        if (map[key] !== value) return false
+        if (map[key] != value) return false
         map.remove(key)
         return true
     }
