@@ -4,11 +4,8 @@ package com.jimbroze.kbus.core.middleware.middleware.cache
  * A [Cache] test double that simulates non-in-memory (e.g. Redis, database) behavior: every [get]
  * and [getOrPut] call returns a *copy* of the stored value, so callers never hold a reference to
  * the cached object.
- *
- * [replaceIfMatching] and [removeIfMatching] use structural equality (`==`), matching how a real
- * distributed cache (or [ThreadSafeMapCache]) compares serialized/deserialized values.
  */
-class CopyingCache<K : Any, V : Any>(private val copy: (V) -> V) : Cache<K, V> {
+class FakeDistributedCache<K : Any, V : Any>(private val copy: (V) -> V) : Cache<K, V> {
     private val map = mutableMapOf<K, V>()
 
     override fun get(key: K): V? {

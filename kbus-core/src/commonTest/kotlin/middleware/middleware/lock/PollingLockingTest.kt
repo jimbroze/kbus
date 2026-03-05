@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.middleware.middleware.lock
 
 import com.jimbroze.kbus.core.TestClock
-import com.jimbroze.kbus.core.middleware.middleware.cache.CopyingCache
+import com.jimbroze.kbus.core.middleware.middleware.cache.FakeDistributedCache
 import com.jimbroze.kbus.core.middleware.middleware.lock.locks.CacheLock
 import com.jimbroze.kbus.core.middleware.middleware.lock.locks.PollingSignallingLock
 import kotlin.test.Test
@@ -16,7 +16,10 @@ class PollingLockingTest : LockingTestBase() {
         scheduler: TestCoroutineScheduler,
     ): SignallingLock =
         PollingSignallingLock(
-            CacheLock(CopyingCache { it.toCharArray().concatToString() }, TestClock(scheduler)),
+            CacheLock(
+                FakeDistributedCache { it.toCharArray().concatToString() },
+                TestClock(scheduler),
+            ),
             backgroundScope = backgroundScope,
         )
 

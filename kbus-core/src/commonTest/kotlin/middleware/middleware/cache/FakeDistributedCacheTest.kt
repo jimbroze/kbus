@@ -4,9 +4,11 @@ import kotlin.test.Test
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 
-class CopyingCacheTest :
-    CacheTestBase<String, String>(createKey = { "key-$it" }, createValue = { "value-$it" }) {
-    override fun createCache() = CopyingCache<String, String> { it.toCharArray().concatToString() }
+data class Box(val value: String)
+
+class FakeDistributedCacheTest :
+    CacheTestBase<String, Box>(createKey = { "key-$it" }, createValue = { Box("value-$it") }) {
+    override fun createCache() = FakeDistributedCache<String, Box> { Box(it.value) }
 
     @Test
     fun get_returns_a_different_reference_than_what_was_put() {
