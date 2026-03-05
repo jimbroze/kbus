@@ -4,20 +4,19 @@ import kotlin.time.Duration
 
 interface AtomicLock {
     /**
-     * Attempt to acquire a lock. If held, waits up to [timeout] to acquire it. Use this when you
-     * actually want to own the lock.
-     * * @param key The unique identifier for the lock.
+     * Attempt to acquire a lock.
      *
+     * @param key The unique identifier for the lock.
+     * @param token A unique token to identify the lock owner
      * @param ttl How long the lock is held before the provider auto-expires it.
-     * @param timeout How long to wait to acquire the lock before giving up.
      * @return A [LockOutcome] containing the token if successful, or the failure reason.
      */
-    suspend fun acquireLock(
+    suspend fun tryAcquireLock(
         key: String,
+        token: String,
         ttl: Duration,
-        timeout: Duration,
         metadata: String? = null,
-    ): LockOutcome
+    ): Boolean
 
     /**
      * Retrieve the metadata currently associated with the lock. WARNING: This data is stale as soon
@@ -32,7 +31,7 @@ interface AtomicLock {
      * Release the lock.
      *
      * @param key The unique identifier for the lock.
-     * @param lockToken The token returned by [acquireLock] to ensure ownership.
+     * @param lockToken The token returned by [tryAcquireLock] to ensure ownership.
      * @return true if the lock was successfully released, false if it didn't exist or the token
      *   didn't match.
      */
@@ -45,31 +44,4 @@ interface AtomicLock {
      * @param key The unique identifier for the lock.
      */
     suspend fun isLocked(key: String): Boolean
-
-    /**
-     * Suspend until the lock is released by its current owner, or the timeout is reached. Use this
-     * for "spectator" coroutines that need to know when the bus is free, but DO NOT intend to
-     * acquire the lock themselves.
-     * * @param key The unique identifier for the lock.
-     *
-     * @param timeout How long to wait for the lock to become free.
-     * @return A [WaitOutcome] indicating success, timeout, or a backend error.
-     */
-    suspend fun waitForUnlock(key: String, timeout: Duration): WaitOutcome
-}
-
-sealed interface LockOutcome {
-    data class Success(val lockToken: String) : LockOutcome
-
-    object Timeout : LockOutcome
-
-    data class ProviderError(val exception: Throwable) : LockOutcome
-}
-
-sealed interface WaitOutcome {
-    object Unlocked : WaitOutcome
-
-    object Timeout : WaitOutcome
-
-    data class ProviderError(val exception: Throwable) : WaitOutcome
 }

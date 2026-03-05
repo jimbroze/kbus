@@ -122,7 +122,7 @@ class LockAdjustLockingCommandHandler :
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("LargeClass")
 abstract class LockingTestBase {
-    abstract fun createAtomicLock(scope: CoroutineScope): AtomicLock
+    abstract fun createAtomicLock(scope: CoroutineScope): SignallingLock
 
     @Test
     fun `message locker returns failure instantly when bus is locked by same coroutine`() =

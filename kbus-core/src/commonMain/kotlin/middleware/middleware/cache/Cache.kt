@@ -15,4 +15,6 @@ interface Cache<K : Any, V : Any> {
     fun remove(key: K)
 
     fun removeIfMatching(key: K, value: V): Boolean
+
+    //    suspend fun putIfAbsent(key: K, value: V): Boolean
 }

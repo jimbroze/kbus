@@ -5,12 +5,7 @@ import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.decrementAndFetch
 import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.time.Duration
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 
 @OptIn(ExperimentalAtomicApi::class)
 // TODO make internal
@@ -22,27 +17,13 @@ class ThreadSafeInMemoryLock(val key: String, val metadata: String?) {
     val isLocked: Boolean
         get() = mutex.isLocked
 
-    suspend fun waitFullTimeout(timeout: Duration): Boolean {
-        return withTimeoutOrNull(timeout) {
-            mutex.withLock {}
-            false
-        } ?: true
+    suspend fun acquire(lockToken: String): Boolean {
+        mutex.lock(owner = lockToken)
+        activeToken = lockToken
+        return true
     }
 
-    suspend fun lockBus(timeout: Duration, newLockToken: String): Boolean {
-        @Suppress("SwallowedException")
-        return try {
-            withTimeout(timeout) {
-                mutex.lock(owner = newLockToken)
-                activeToken = newLockToken
-                true
-            }
-        } catch (e: TimeoutCancellationException) {
-            false
-        }
-    }
-
-    fun unLockBus(token: String): Boolean {
+    fun release(token: String): Boolean {
         if (activeToken == token) {
             activeToken = null
             mutex.unlock(owner = token)

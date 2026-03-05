@@ -6,14 +6,18 @@ import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.middleware.lock.AtomicLock
-import com.jimbroze.kbus.core.middleware.middleware.lock.LockOutcome
-import com.jimbroze.kbus.core.middleware.middleware.lock.WaitOutcome
+import com.jimbroze.kbus.core.middleware.middleware.lock.SignallingLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -55,9 +59,9 @@ private data class BusLockData(
     val ignoreLockOnTimeoutOverride: Boolean?,
 )
 
-@OptIn(ExperimentalAtomicApi::class)
+@OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)
 class BusLocker(
-    private val atomicLock: AtomicLock,
+    private val atomicLock: SignallingLock,
     private val defaultTimeout: Duration,
     private val defaultLockExpiry: Duration,
     private val defaultIgnoreLockOnTimeout: Boolean = false,
@@ -110,9 +114,9 @@ class BusLocker(
                 )
             )
 
-        return when (
-            val outcome = atomicLock.acquireLock(key, defaultLockExpiry, lockingTimeout, metadata)
-        ) {
+        val lockToken = Uuid.generateV7().toString()
+
+        return when (val outcome = acquireLock(key, lockToken, lockingTimeout, metadata)) {
             is LockOutcome.Success -> {
                 try {
                     dispatchWithLockContext(key, message, nextMiddleware)
@@ -155,7 +159,7 @@ class BusLocker(
                 ?: lockData?.ignoreLockOnTimeoutOverride
                 ?: defaultIgnoreLockOnTimeout
 
-        return when (val outcome = atomicLock.waitForUnlock(key, waitingTimeout)) {
+        return when (val outcome = waitForUnlock(key, waitingTimeout)) {
             is WaitOutcome.Unlocked -> {
                 dispatchWithLockContext(key, message, nextMiddleware)
             }
@@ -203,8 +207,82 @@ class BusLocker(
             throw BusLockedException(error)
         }
     }
+
+    private suspend fun acquireLock(
+        key: String,
+        token: String,
+        lockingTimeout: Duration,
+        metadata: String,
+    ): LockOutcome {
+        @Suppress("SwallowedException", "TooGenericExceptionCaught")
+        return try {
+            withTimeout(lockingTimeout) {
+                while (true) {
+                    if (atomicLock.tryAcquireLock(key, token, defaultLockExpiry, metadata)) {
+                        return@withTimeout LockOutcome.Success(token)
+                    }
+
+                    var acquiredInSubscription = false
+                    atomicLock.unlockEvents
+                        .onSubscription {
+                            if (
+                                atomicLock.tryAcquireLock(key, token, defaultLockExpiry, metadata)
+                            ) {
+                                acquiredInSubscription = true
+                                emit(key)
+                            }
+                        }
+                        .first { it == key }
+
+                    if (acquiredInSubscription) {
+                        return@withTimeout LockOutcome.Success(token)
+                    }
+                }
+                error("Unreachable")
+            }
+        } catch (e: TimeoutCancellationException) {
+            LockOutcome.Timeout
+        } catch (e: Exception) {
+            LockOutcome.ProviderError(e)
+        }
+    }
+
+    private suspend fun waitForUnlock(key: String, waitingTimeout: Duration): WaitOutcome {
+        @Suppress("SwallowedException", "TooGenericExceptionCaught")
+        return try {
+            withTimeout(waitingTimeout) {
+                if (!atomicLock.isLocked(key)) return@withTimeout WaitOutcome.Unlocked
+
+                atomicLock.unlockEvents
+                    .onSubscription { if (!atomicLock.isLocked(key)) emit(key) }
+                    .first { it == key }
+
+                WaitOutcome.Unlocked
+            }
+        } catch (e: TimeoutCancellationException) {
+            WaitOutcome.Timeout
+        } catch (e: Exception) {
+            WaitOutcome.ProviderError(e)
+        }
+    }
 }
 
 class BusLockedFailure(override val message: String) : FailureReason
 
 class BusLockedException(override val message: String) : Exception(message)
+
+private sealed interface LockOutcome {
+    data class Success(val lockToken: String) : LockOutcome
+
+    object Timeout : LockOutcome
+
+    data class ProviderError(val exception: Throwable) : LockOutcome
+}
+
+private sealed interface WaitOutcome {
+    object Unlocked : WaitOutcome
+
+    object Timeout : WaitOutcome
+
+    data class ProviderError(val exception: Throwable) : WaitOutcome
+}
