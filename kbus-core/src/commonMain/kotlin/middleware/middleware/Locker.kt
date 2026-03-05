@@ -238,7 +238,7 @@ class BusLocker(
                         return@withTimeout LockOutcome.Success(token)
                     }
                 }
-                error("Unreachable")
+                @Suppress("UNREACHABLE_CODE") error("Unreachable")
             }
         } catch (e: TimeoutCancellationException) {
             LockOutcome.Timeout

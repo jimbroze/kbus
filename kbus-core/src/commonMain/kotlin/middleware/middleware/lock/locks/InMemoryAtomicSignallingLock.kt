@@ -1,8 +1,9 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock.inmemory
+package com.jimbroze.kbus.core.middleware.middleware.lock.locks
 
 import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
 import com.jimbroze.kbus.core.middleware.middleware.cache.ThreadSafeMapCache
 import com.jimbroze.kbus.core.middleware.middleware.lock.SignallingLock
+import com.jimbroze.kbus.core.middleware.middleware.lock.inmemory.ThreadSafeInMemoryLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
@@ -15,7 +16,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)
 class InMemoryAtomicSignallingLock(
     val cache: Cache<String, ThreadSafeInMemoryLock> = ThreadSafeMapCache(),
-    private val scope: CoroutineScope,
+    private val backgroundScope: CoroutineScope,
 ) : SignallingLock {
     private val _unlockEvents = MutableSharedFlow<String>(extraBufferCapacity = 100)
 
@@ -36,7 +37,7 @@ class InMemoryAtomicSignallingLock(
 
         val acquired = lock.acquire(token)
         if (acquired) {
-            scope.launch {
+            backgroundScope.launch {
                 delay(ttl)
                 releaseLock(key, token)
             }
