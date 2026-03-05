@@ -17,9 +17,6 @@ class InMemoryAtomicSignallingLock(
     val cache: Cache<String, ThreadSafeInMemoryLock> = ThreadSafeMapCache(),
     private val scope: CoroutineScope,
 ) : SignallingLock {
-    // extraCapacity is critical here! It provides a buffer so that if a lock
-    // is released right before a subscriber attaches, the event isn't dropped,
-    // and the publisher doesn't suspend/deadlock waiting for a subscriber.
     private val _unlockEvents = MutableSharedFlow<String>(extraBufferCapacity = 100)
 
     override val unlockEvents: SharedFlow<String> = _unlockEvents
@@ -59,7 +56,11 @@ class InMemoryAtomicSignallingLock(
         lock.addWaiter()
 
         return try {
-            lock.release(lockToken)
+            lock.release(lockToken).also { wasReleased ->
+                if (wasReleased) {
+                    publishUnlock(key)
+                }
+            }
         } finally {
             deregisterWaiter(lock)
         }

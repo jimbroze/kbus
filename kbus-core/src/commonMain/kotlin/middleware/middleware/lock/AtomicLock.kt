@@ -9,7 +9,7 @@ interface AtomicLock {
      * @param key The unique identifier for the lock.
      * @param token A unique token to identify the lock owner
      * @param ttl How long the lock is held before the provider auto-expires it.
-     * @return A [LockOutcome] containing the token if successful, or the failure reason.
+     * @return If the lock was acquired
      */
     suspend fun tryAcquireLock(
         key: String,
