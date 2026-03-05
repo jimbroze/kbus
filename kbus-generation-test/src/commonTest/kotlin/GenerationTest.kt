@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.test
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.middleware.middleware.BusLocker
+import com.jimbroze.kbus.core.middleware.middleware.lock.locks.InMemoryAtomicSignallingLock
 import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
@@ -16,13 +17,22 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 
 // TODO don't add any dependencies not in module???
 // TODO pass source files to generator
-class Dependencies(private val instant: Instant) : AutoLoader() {
-    override val busLocker by lazy { BusLocker() }
+class Dependencies(private val instant: Instant, private val applicationScope: CoroutineScope) :
+    AutoLoader() {
+    override val busLocker by lazy {
+        BusLocker(
+            InMemoryAtomicSignallingLock(backgroundScope = applicationScope),
+            5.seconds,
+            30.seconds,
+        )
+    }
     override val messageBus = MessageBus()
 
     override val anObject: AnObject = AnObject
@@ -66,7 +76,7 @@ class GenerationTest {
     fun test_it_executes_commands() = runTest {
         val bus =
             CompileTimeLoadedMessageBus(
-                Dependencies(Instant.parse("2024-02-23T19:01:09Z")),
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                 EmptyTransactionManager(),
                 emptyList(),
             )
@@ -83,7 +93,7 @@ class GenerationTest {
     fun test_it_handles_lifecycles() = runTest {
         val bus =
             CompileTimeLoadedMessageBus(
-                Dependencies(Instant.parse("2024-02-23T19:01:09Z")),
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                 EmptyTransactionManager(),
                 emptyList(),
             )
@@ -108,7 +118,7 @@ class GenerationTest {
 
         val bus =
             CompileTimeLoadedMessageBus(
-                Dependencies(instant),
+                Dependencies(instant, backgroundScope),
                 EmptyTransactionManager(),
                 emptyList(),
             )
