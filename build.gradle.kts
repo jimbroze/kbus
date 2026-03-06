@@ -5,7 +5,7 @@ description = "Kotlin message bus framework"
 
 plugins {
     id("com.ncorti.ktfmt.gradle") version ("0.20.1")
-    id("io.gitlab.arturbosch.detekt") version ("1.23.7")
+    alias(libs.plugins.arturbosch.detekt)
 }
 
 allprojects {
