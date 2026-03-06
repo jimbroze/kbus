@@ -29,8 +29,6 @@ include("kbus-domain")
 
 include("kbus-core")
 
-include("kbus-koin")
-
 include("kbus-generation")
 
 include("kbus-generation-test")

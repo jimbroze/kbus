@@ -1,7 +1,6 @@
 [versions]
 detekt = "1.23.8"
 jdk-target = "17"
-koinCore = "4.0.0"
 kotlin = "2.3.10"
 kotlinPoet = "2.2.0"
 kotlinxCoroutinesCore = "1.10.2"
@@ -11,7 +10,6 @@ ktfmt = "0.25.0"
 maven-publish = "0.30.0"
 
 [libraries]
-koin-core = { module = "io.insert-koin:koin-core", version.ref = "koinCore" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinPoet" }
 kotlin-poet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinPoet" }
