@@ -326,7 +326,6 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Overrides lock timeout to 5 seconds via LockAwareMessage
-            // FIXME need to add tests for TTL
             locker.handle(
                 LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 5.seconds)
             ) {
@@ -866,6 +865,99 @@ abstract class LockingTestBase {
                 }
             assertEquals("Job3", result3.getOrNull())
             assertFalse(locker.busIsLocked(), "Bus should be unlocked after Job3 completes")
+        }
+
+    // --- Lock expiry (defaultLockExpiry / TTL) tests ---
+
+    @Test
+    fun `lock auto-expires after defaultLockExpiry and waiting message proceeds`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(backgroundScope, testScheduler),
+                10.seconds, // timeout long enough to not interfere
+                2.seconds, // lock expires after 2 seconds
+            )
+
+        val job1 = async {
+            // Handler sleeps for 5s, but lock expires after 2s
+            locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
+            // Waits for the lock to release; should proceed when TTL expires at 2s
+            locker.handle(LockAdjustLockingCommand("Job2")) {
+                LockAdjustLockingCommandHandler().handle(it)
+            }
+            currentTime
+        }
+
+        val timeJob2Finished = job2.await()
+        val timeJob1Finished = job1.await()
+
+        // Job 2 should proceed after lock auto-expires, before job 1's handler finishes
+        // (Polling-based locks may add latency to detect expiry, so we check ordering not exact
+        // time)
+        assertTrue(
+            timeJob2Finished < timeJob1Finished,
+            "Job 2 ($timeJob2Finished) should proceed before Job 1 finishes ($timeJob1Finished)",
+        )
+        assertEquals(5000L, timeJob1Finished, "Job 1 should finish after its full 5s sleep")
+    }
+
+    @Test
+    fun `busIsLocked is false after lock auto-expires`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(backgroundScope, testScheduler),
+                10.seconds,
+                1.seconds, // lock expires after 1 second
+            )
+
+        val job = async {
+            locker.handle(LockingSleepCommand(3.seconds, "data")) {
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+
+        // Advance past the lock expiry but before handler finishes
+        delay(2.seconds)
+        assertFalse(locker.busIsLocked(), "busIsLocked should be false after lock auto-expires")
+
+        job.await()
+    }
+
+    @Test
+    fun `lock expiry does not prevent normal unlock when handler finishes before expiry`() =
+        runTest {
+            val locker =
+                LockingMiddleware(
+                    createAtomicLock(backgroundScope, testScheduler),
+                    10.seconds,
+                    5.seconds, // lock expires after 5 seconds
+                )
+
+            val job1 = async {
+                // Handler finishes in 1s, well before the 5s expiry
+                locker.handle(LockingSleepCommand(1.seconds, "Job1")) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            val job2 = async {
+                locker.handle(LockAdjustLockingCommand("Job2")) {
+                    LockAdjustLockingCommandHandler().handle(it)
+                }
+                currentTime
+            }
+
+            val timeJob1Finished = job1.await()
+            val timeJob2Finished = job2.await()
+
+            // Job 2 should proceed at 1s (normal unlock), not wait until 5s (expiry)
+            assertEquals(1000L, timeJob1Finished)
+            assertEquals(1000L, timeJob2Finished, "Job 2 should proceed after normal unlock at 1s")
         }
 
     @Test
