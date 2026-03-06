@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
@@ -37,7 +38,16 @@ class CommandExecutorTest {
 
     @Test
     fun test_it_gives_handlers_access_to_bus() = runTest {
-        // TODO
+        val busAccess = TestBusAccess()
+        val executor =
+            CommandExecutor(null, emptyList(), busAccess, TestCommandDependenciesFactory())
+
+        val handler = DispatchingCommandHandler()
+
+        executor.execute(DispatchingCommand()) { handler }
+
+        assertEquals(1, busAccess.dispatchedEvents.size)
+        assertEquals("test-event", (busAccess.dispatchedEvents[0] as TestIntegrationEvent).name)
     }
 
     @Test
@@ -155,8 +165,10 @@ class CommandExecutorTest {
 }
 
 class TestBusAccess : BusAccess {
+    val dispatchedEvents = mutableListOf<Event>()
+
     override suspend fun <TEvent : Event> dispatch(event: TEvent) {
-        // No-op
+        dispatchedEvents.add(event)
     }
 }
 
@@ -252,6 +264,18 @@ class TestDomainEventPublisher : DomainEventPublisher {
 
     override suspend fun dispatch(event: DomainEvent) {
         publishedEvents.add(event)
+    }
+}
+
+class TestIntegrationEvent(val name: String) : IntegrationEvent()
+
+class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
+
+class DispatchingCommandHandler :
+    CommandHandler<DispatchingCommand, BusResult<Unit, MessageFailure>>() {
+    override suspend fun handle(message: DispatchingCommand): BusResult<Unit, MessageFailure> {
+        dispatch(TestIntegrationEvent("test-event"))
+        return BusResult.success(Unit)
     }
 }
 
