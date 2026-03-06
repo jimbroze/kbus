@@ -18,7 +18,7 @@ import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
-import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
+import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
 
@@ -39,7 +39,7 @@ class KbusProcessor(
     private val isSubModule: Boolean,
     private val indexPackagePath: String,
 ) : SymbolProcessor {
-    private val dependencies = HandlersAndDependencies()
+    private val dependencies = ProcessingContext()
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {

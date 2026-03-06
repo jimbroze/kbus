@@ -9,17 +9,17 @@ import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.processing.ConflictPolicy
 import com.jimbroze.kbus.generation.processing.IndexParser
-import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
+import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 
 class DependencyIndexVisitor(private val indexParser: IndexParser, private val logger: KSPLogger) :
-    KSDefaultVisitor<HandlersAndDependencies, Unit>() {
-    override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
+    KSDefaultVisitor<ProcessingContext, Unit>() {
+    override fun defaultHandler(node: KSNode, data: ProcessingContext) {
         logger.error("Only classes can be annotated with @${KbusIndex::class.simpleName}", node)
     }
 
     override fun visitClassDeclaration(
         classDeclaration: KSClassDeclaration,
-        data: HandlersAndDependencies,
+        data: ProcessingContext,
     ) {
         if (classDeclaration.classKind != ClassKind.CLASS) {
             logger.error(
@@ -41,7 +41,7 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
         addHandlers(kbusIndexAnnotation, data)
     }
 
-    private fun addDependencies(kbusIndexAnnotation: KSAnnotation, data: HandlersAndDependencies) {
+    private fun addDependencies(kbusIndexAnnotation: KSAnnotation, data: ProcessingContext) {
         val dependenciesArg =
             kbusIndexAnnotation.arguments.find {
                 it.name?.asString() == KbusIndex::dependencies.name
@@ -66,7 +66,7 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
         }
     }
 
-    private fun addHandlers(kbusIndexAnnotation: KSAnnotation, data: HandlersAndDependencies) {
+    private fun addHandlers(kbusIndexAnnotation: KSAnnotation, data: ProcessingContext) {
         val handlersArg =
             kbusIndexAnnotation.arguments.find { it.name?.asString() == KbusIndex::handlers.name }
 

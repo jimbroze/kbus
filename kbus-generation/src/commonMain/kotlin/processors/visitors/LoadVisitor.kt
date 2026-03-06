@@ -11,16 +11,16 @@ import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyPro
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
-import com.jimbroze.kbus.generation.processors.context.HandlersAndDependencies
+import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.squareup.kotlinpoet.ksp.toClassName
 
 class LoadVisitor(
     private val commandDependenciesProps: CommandDependencyProperties,
     private val handlerFactory: HandlerFactory,
     private val logger: KSPLogger,
-) : KSDefaultVisitor<HandlersAndDependencies, Unit>() {
+) : KSDefaultVisitor<ProcessingContext, Unit>() {
 
-    override fun defaultHandler(node: KSNode, data: HandlersAndDependencies) {
+    override fun defaultHandler(node: KSNode, data: ProcessingContext) {
         logger.error(
             "Only classes can be annotated with @${LoadMessageHandler::class.simpleName}. " +
                 "$node is not a class",
@@ -30,7 +30,7 @@ class LoadVisitor(
 
     override fun visitClassDeclaration(
         classDeclaration: KSClassDeclaration,
-        data: HandlersAndDependencies,
+        data: ProcessingContext,
     ) {
         if (classDeclaration.classKind != ClassKind.CLASS) {
             logger.error(
@@ -63,7 +63,7 @@ class LoadVisitor(
 
     private fun addDependencies(
         dependencies: Dependencies,
-        data: HandlersAndDependencies,
+        data: ProcessingContext,
         handlerClass: KSClassDeclaration,
     ) {
         for (dependency in dependencies.allDependencies) {
@@ -84,7 +84,7 @@ class LoadVisitor(
     }
 
     private fun addHandler(
-        data: HandlersAndDependencies,
+        data: ProcessingContext,
         handler: HandlerDefinition,
         classDeclaration: KSClassDeclaration,
     ) {
