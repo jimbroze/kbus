@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
@@ -27,7 +28,7 @@ class AutoLoaderGenerator(
     private val loaderClassName: String,
     private val packagePath: String,
 ) {
-    fun generateAutoloader(dependencies: Set<DependencyWithChildren>) {
+    fun generateAutoloader(dependencies: Set<DependencyWithChildren>, sourceFiles: List<KSFile>) {
         val superClassName = ClassName(packagePath, loaderInterfaceName)
 
         val classBuilder =
@@ -54,7 +55,9 @@ class AutoLoaderGenerator(
 
         val file = FileSpec.builder(packagePath, loaderClassName)
         file.addType(classBuilder.build())
-        file.build().writeTo(codeGenerator, Dependencies(true))
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
     private fun generateLoaderFunction(

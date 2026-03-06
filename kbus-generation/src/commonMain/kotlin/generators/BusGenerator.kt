@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
@@ -33,7 +34,7 @@ class BusGenerator(
     private val config: BusConfig,
     private val packagePath: String,
 ) {
-    fun generateClass(handlers: Set<HandlerDefinition>) {
+    fun generateClass(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
         val dependenciesClassName = ClassName(packagePath, config.dependenciesInterfaceName)
         val handlerFactoryClassName = ClassName(packagePath, config.handlerFactoryName)
 
@@ -87,7 +88,9 @@ class BusGenerator(
 
         val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
-        file.build().writeTo(codeGenerator, Dependencies(true))
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {

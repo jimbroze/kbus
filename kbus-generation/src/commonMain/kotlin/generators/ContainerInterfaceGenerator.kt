@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
@@ -21,7 +22,7 @@ class ContainerInterfaceGenerator(
     private val loaderInterfaceName: String,
     private val packagePath: String,
 ) {
-    fun generateInterface(dependencies: Set<DependencyWithChildren>) {
+    fun generateInterface(dependencies: Set<DependencyWithChildren>, sourceFiles: List<KSFile>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(loaderInterfaceName)
 
         for (dependency in dependencies) {
@@ -36,7 +37,9 @@ class ContainerInterfaceGenerator(
         val file = FileSpec.builder(packagePath, loaderInterfaceName)
         file.addType(interfaceBuilder.build())
 
-        file.build().writeTo(codeGenerator, Dependencies(true))
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
     private fun addFunctionalDependency(

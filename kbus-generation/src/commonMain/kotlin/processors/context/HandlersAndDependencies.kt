@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.generation.processors.context
 
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.generation.processing.ConflictPolicy
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyConflictPolicy
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
@@ -10,12 +11,20 @@ import com.squareup.kotlinpoet.ClassName
 class HandlersAndDependencies {
     private val _allDependencies = mutableSetOf<DependencyWithChildren>()
     private val _handlers = mutableMapOf<String, HandlerDefinition>()
+    private val _sourceFiles = mutableSetOf<KSFile>()
 
     val allDependencies: Set<DependencyWithChildren>
         get() = _allDependencies
 
     val handlers: Set<HandlerDefinition>
         get() = _handlers.values.toSet()
+
+    val sourceFiles: Set<KSFile>
+        get() = _sourceFiles
+
+    fun addSourceFile(file: KSFile) {
+        _sourceFiles.add(file)
+    }
 
     fun hasHandler(handlerClass: ClassName): Boolean =
         _handlers.containsKey(handlerClass.canonicalName)

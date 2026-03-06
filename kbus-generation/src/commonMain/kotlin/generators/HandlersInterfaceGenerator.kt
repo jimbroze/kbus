@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -16,14 +17,16 @@ class HandlersInterfaceGenerator(
     private val handlerInterfaceName: String,
     private val packagePath: String,
 ) {
-    fun generateInterface(handlers: Set<HandlerDefinition>) {
+    fun generateInterface(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
         val interfaceBuilder = TypeSpec.interfaceBuilder(handlerInterfaceName)
 
         handlers.forEach { addHandlerDefinition(interfaceBuilder, it) }
 
         val file = FileSpec.builder(packagePath, handlerInterfaceName)
         file.addType(interfaceBuilder.build())
-        file.build().writeTo(codeGenerator, Dependencies(true))
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
     private fun addHandlerDefinition(

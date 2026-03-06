@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
@@ -35,6 +36,7 @@ class DependencyIndexGenerator(
     fun generateIndexClass(
         dependencies: Set<DependencyWithChildren>,
         handlers: Set<HandlerDefinition>,
+        sourceFiles: List<KSFile>,
     ) {
         val classBuilder = TypeSpec.classBuilder(indexClassName)
 
@@ -59,7 +61,9 @@ class DependencyIndexGenerator(
         val file = FileSpec.builder(packagePath, indexClassName)
         file.addType(classBuilder.build())
 
-        file.build().writeTo(codeGenerator, Dependencies(true))
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
     private fun addDependency(dependency: DependencyWithChildren): AnnotationSpec {

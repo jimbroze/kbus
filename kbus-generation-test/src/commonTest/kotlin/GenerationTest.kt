@@ -23,7 +23,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 
 // TODO don't add any dependencies not in module???
-// TODO pass source files to generator
 class Dependencies(private val instant: Instant, private val applicationScope: CoroutineScope) :
     AutoLoader() {
     override val lockingMiddleware by lazy {

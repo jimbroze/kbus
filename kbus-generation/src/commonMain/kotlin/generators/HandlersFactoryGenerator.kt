@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
@@ -32,7 +33,7 @@ class HandlersFactoryGenerator(
     private val handlersInterfaceName: String,
     private val packagePath: String,
 ) {
-    fun generateClass(handlers: Set<HandlerDefinition>) {
+    fun generateClass(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
         val superClassName = ClassName(packagePath, handlersInterfaceName)
         val dependenciesClassName = ClassName(packagePath, dependenciesInterfaceName)
 
@@ -65,7 +66,9 @@ class HandlersFactoryGenerator(
 
         val file = FileSpec.builder(packagePath, factoryClassName)
         file.addType(classBuilder.build())
-        file.build().writeTo(codeGenerator, Dependencies(true))
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
     private fun buildCommandsHandlersFor(handlers: Set<CommandHandlerDefinition>): FunSpec {

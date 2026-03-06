@@ -54,6 +54,8 @@ class LoadVisitor(
             handlerFactory.createHandler(classDeclaration, dependencies.topLevelDependencies)
         if (handler === null) return
 
+        classDeclaration.containingFile?.let { data.addSourceFile(it) }
+
         addDependencies(dependencies, data, classDeclaration)
 
         addHandler(data, handler, classDeclaration)

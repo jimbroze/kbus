@@ -29,6 +29,8 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
             )
         }
 
+        classDeclaration.containingFile?.let { data.addSourceFile(it) }
+
         val kbusIndexAnnotation =
             classDeclaration.annotations.find {
                 it.annotationType.resolve().declaration.qualifiedName?.asString() ==

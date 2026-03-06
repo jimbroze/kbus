@@ -98,17 +98,20 @@ class KbusProcessor(
     override fun finish() {
         if (dependencies.isEmpty()) return
 
-        generators.containerInterface.generateInterface(dependencies.allDependencies)
-        generators.handlersInterface.generateInterface(dependencies.handlers)
+        val sourceFiles = dependencies.sourceFiles.toList()
+
+        generators.containerInterface.generateInterface(dependencies.allDependencies, sourceFiles)
+        generators.handlersInterface.generateInterface(dependencies.handlers, sourceFiles)
         if (isSubModule) {
             generators.dependencyIndexGenerator.generateIndexClass(
                 dependencies.allDependencies,
                 dependencies.handlers,
+                sourceFiles,
             )
         } else {
-            generators.autoLoader.generateAutoloader(dependencies.allDependencies)
-            generators.handlersFactory.generateClass(dependencies.handlers)
-            generators.bus.generateClass(dependencies.handlers)
+            generators.autoLoader.generateAutoloader(dependencies.allDependencies, sourceFiles)
+            generators.handlersFactory.generateClass(dependencies.handlers, sourceFiles)
+            generators.bus.generateClass(dependencies.handlers, sourceFiles)
         }
     }
 }
