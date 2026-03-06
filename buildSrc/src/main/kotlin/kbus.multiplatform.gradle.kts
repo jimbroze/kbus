@@ -26,9 +26,8 @@ kotlin {
     }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        //        browser()
+        browser()
         nodejs()
-        //        d8()
     }
     if (HostManager.hostIsMac) {
         macosX64()

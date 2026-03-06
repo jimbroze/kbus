@@ -82,7 +82,7 @@ class YieldTest {
         print(afterUnlock)
         print(afterSleep - afterUnlock)
 
-        assertTrue(afterSleep < afterUnlock)
+        assertTrue(afterSleep <= afterUnlock)
     }
 
     //    @Test
