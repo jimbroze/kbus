@@ -31,8 +31,14 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 
+// --- Helper messages and handlers ---
+
+class TestFailure(override val reason: FailureReason) : MessageFailure
+
+/** Returns the current time mark. Not lock-aware (no LockingCommand). */
 open class TimeReturnCommand : Command<BusResult<ValueTimeMark, MessageFailure>>()
 
+/** Lock-aware variant of [TimeReturnCommand]; returns a [TestFailure] when the bus is locked. */
 class LockAwareTimeReturnCommand(override val lockChannelKey: String? = null) :
     TimeReturnCommand(), LockingCommand<BusResult<ValueTimeMark, MessageFailure>> {
     override fun busLockedFailure(
@@ -47,8 +53,10 @@ class TimeReturnCommandHandler :
     ): BusResult<ValueTimeMark, MessageFailure> = success(TimeSource.Monotonic.markNow())
 }
 
-class TestFailure(override val reason: FailureReason) : MessageFailure
-
+/**
+ * Dispatches [internalCommand] through the locker during handling, creating a nested/reentrant lock
+ * scenario. Returns a map with "pre-nest", "nest" (inner result), and "post-nest" timestamps.
+ */
 class NestingLockCommand(
     val internalCommand: TimeReturnCommand,
     override val lockChannelKey: String? = null,
@@ -75,6 +83,7 @@ class NestingLockCommandHandler(private val locker: LockingMiddleware) :
     }
 }
 
+/** Lock-aware command that delays for [sleepFor] before returning. Used to hold a lock. */
 class LockingSleepCommand(
     val sleepFor: Duration,
     val messageData: String,
@@ -94,6 +103,7 @@ class LockingSleepCommandHandler :
     }
 }
 
+/** Non-locking command that delays for [sleepFor]. Does not acquire or interact with the lock. */
 class SleepCommand(val sleepFor: Duration) : Command<BusResult<Unit, MessageFailure>>()
 
 class SleepCommandHandler : CommandHandler<SleepCommand, BusResult<Unit, MessageFailure>>() {
@@ -103,7 +113,11 @@ class SleepCommandHandler : CommandHandler<SleepCommand, BusResult<Unit, Message
     }
 }
 
-class LockAdjustLockingCommand(
+/**
+ * Lock-aware command that completes instantly. Supports configurable lock overrides (timeout,
+ * ignoreLockOnTimeout, channel key) for testing the override chain.
+ */
+class ConfigurableLockingCommand(
     val messageData: String,
     override val lockTimeoutOverride: Duration? = null,
     override val ignoreLockOnTimeoutOverride: Boolean? = null,
@@ -113,9 +127,11 @@ class LockAdjustLockingCommand(
         failure(TestFailure(failure))
 }
 
-class LockAdjustLockingCommandHandler :
-    CommandHandler<LockAdjustLockingCommand, BusResult<Any, MessageFailure>>() {
-    override suspend fun handle(message: LockAdjustLockingCommand): BusResult<Any, MessageFailure> {
+class ConfigurableLockingCommandHandler :
+    CommandHandler<ConfigurableLockingCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(
+        message: ConfigurableLockingCommand
+    ): BusResult<Any, MessageFailure> {
         return success(message.messageData)
     }
 }
@@ -127,6 +143,8 @@ abstract class LockingTestBase {
         backgroundScope: CoroutineScope,
         scheduler: TestCoroutineScheduler,
     ): SignallingLock
+
+    // --- Reentrant locking (same coroutine) ---
 
     @Test
     fun `message locker returns failure instantly when bus is locked by same coroutine`() =
@@ -178,6 +196,8 @@ abstract class LockingTestBase {
             }
         }
 
+    // --- Cross-coroutine lock waiting ---
+
     @Test
     fun `message locker waits to execute command in a different coroutine`() = runTest {
         val locker =
@@ -213,8 +233,10 @@ abstract class LockingTestBase {
         )
     }
 
+    // --- busIsLocked state ---
+
     @Test
-    fun `busLocked is true while a locking message holds the mutex`() = runTest {
+    fun `busIsLocked is true while a locking message holds the mutex`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(backgroundScope, testScheduler),
@@ -237,7 +259,7 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `busLocked is false during non-locking message handler execution`() = runTest {
+    fun `busIsLocked is false during non-locking message handler execution`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(backgroundScope, testScheduler),
@@ -257,7 +279,7 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `busLocked is false after non-locking message completes`() = runTest {
+    fun `busIsLocked is false after non-locking message completes`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(backgroundScope, testScheduler),
@@ -269,6 +291,8 @@ abstract class LockingTestBase {
 
         assertFalse(locker.busIsLocked())
     }
+
+    // --- Lock timeout ---
 
     @Test
     fun `command execution times out using default timeout if bus is locked for too long`() =
@@ -307,6 +331,8 @@ abstract class LockingTestBase {
             assertEquals(5000L, timeJob1Finished)
         }
 
+    // --- Lock timeout override (per-message) ---
+
     @Test
     fun `locking timeout can be overridden by locking message`() = runTest {
         // Default timeout is 1 second
@@ -327,9 +353,9 @@ abstract class LockingTestBase {
         val job2 = async {
             // Overrides lock timeout to 5 seconds via LockAwareMessage
             locker.handle(
-                LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 5.seconds)
+                ConfigurableLockingCommand("After unlock", lockTimeoutOverride = 5.seconds)
             ) {
-                LockAdjustLockingCommandHandler().handle(it)
+                ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
         }
@@ -363,9 +389,9 @@ abstract class LockingTestBase {
         val job2 = async {
             // Waiting locking message overrides timeout to 1 second
             locker.handle(
-                LockAdjustLockingCommand("After unlock", lockTimeoutOverride = 1.seconds)
+                ConfigurableLockingCommand("After unlock", lockTimeoutOverride = 1.seconds)
             ) {
-                LockAdjustLockingCommandHandler().handle(it)
+                ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
         }
@@ -379,8 +405,10 @@ abstract class LockingTestBase {
         assertEquals(3000L, timeJob1Finished)
     }
 
+    // --- ignoreLockOnTimeout behavior ---
+
     @Test
-    fun `locking message force-unlocks and proceeds when default ignoreLockOnTimeoutOverride is true`() =
+    fun `locking message force-unlocks and proceeds when default ignoreLockOnTimeout is true`() =
         runTest {
             val locker =
                 LockingMiddleware(
@@ -398,8 +426,8 @@ abstract class LockingTestBase {
             }
             val job2 = async {
                 // Another locking message: times out after 1s, force-unlocks and proceeds
-                locker.handle(LockAdjustLockingCommand("Job2")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job2")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
             }
 
@@ -428,8 +456,8 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Another locking message: times out after 1s, should fail
-            locker.handle(LockAdjustLockingCommand("Job2")) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2")) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
         }
 
@@ -460,8 +488,8 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Override ignoreLockOnTimeout to false
-            locker.handle(LockAdjustLockingCommand("Job2", ignoreLockOnTimeoutOverride = false)) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false)) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
         }
 
@@ -491,8 +519,8 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Override shouldFailOnTimeout to true (force-unlock instead)
-            locker.handle(LockAdjustLockingCommand("Job2", ignoreLockOnTimeoutOverride = true)) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = true)) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
         }
 
@@ -502,6 +530,8 @@ abstract class LockingTestBase {
         // Job 2 should succeed because it overrode shouldFailOnTimeout to false
         assertEquals("Job2", result2.getOrNull())
     }
+
+    // --- Lock channel keys ---
 
     @Test
     fun `messages with different lockChannelKeys do not block each other`() = runTest {
@@ -681,6 +711,8 @@ abstract class LockingTestBase {
         )
     }
 
+    // --- Lock behavior after timeout (skip/fail continuity) ---
+
     @Test
     fun `after a message skips lock on timeout the next locking message still waits for the original lock`() =
         runTest {
@@ -701,17 +733,17 @@ abstract class LockingTestBase {
             }
             // Job 2: times out after 1s, skips the lock and proceeds
             val job2 = async {
-                locker.handle(LockAdjustLockingCommand("Job2")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job2")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
                 currentTime
             }
             // Job 3: arrives after job 2 skips, should still wait for job 1's lock to release
             val job3 = async {
                 locker.handle(
-                    LockAdjustLockingCommand("Job3", ignoreLockOnTimeoutOverride = false)
+                    ConfigurableLockingCommand("Job3", ignoreLockOnTimeoutOverride = false)
                 ) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
                 currentTime
             }
@@ -730,9 +762,9 @@ abstract class LockingTestBase {
             // Job 3 should have failed because it respected the lock
             val result3 =
                 locker.handle(
-                    LockAdjustLockingCommand("Job3-verify", ignoreLockOnTimeoutOverride = false)
+                    ConfigurableLockingCommand("Job3-verify", ignoreLockOnTimeoutOverride = false)
                 ) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
             // After job 1 released, a new message should succeed
             assertEquals("Job3-verify", result3.getOrNull())
@@ -758,8 +790,8 @@ abstract class LockingTestBase {
             }
             // Job 2: locking message times out after 1s, skips the lock
             val job2 = async {
-                locker.handle(LockAdjustLockingCommand("Job2")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job2")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
                 currentTime
             }
@@ -804,14 +836,14 @@ abstract class LockingTestBase {
             }
             // Job 2: times out after 1s, returns failure
             val job2 = async {
-                locker.handle(LockAdjustLockingCommand("Job2")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job2")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
             }
             // Job 3: also times out after 1s, should still fail (lock still held by job 1)
             val job3 = async {
-                locker.handle(LockAdjustLockingCommand("Job3")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job3")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
             }
 
@@ -846,8 +878,8 @@ abstract class LockingTestBase {
             }
             // Job 2: times out after 1s, skips the lock
             val job2 = async {
-                locker.handle(LockAdjustLockingCommand("Job2")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job2")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
                 currentTime
             }
@@ -867,7 +899,7 @@ abstract class LockingTestBase {
             assertFalse(locker.busIsLocked(), "Bus should be unlocked after Job3 completes")
         }
 
-    // --- Lock expiry (defaultLockExpiry / TTL) tests ---
+    // --- Lock auto-expiry (TTL) ---
 
     @Test
     fun `lock auto-expires after defaultLockExpiry and waiting message proceeds`() = runTest {
@@ -887,8 +919,8 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Waits for the lock to release; should proceed when TTL expires at 2s
-            locker.handle(LockAdjustLockingCommand("Job2")) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2")) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
         }
@@ -946,8 +978,8 @@ abstract class LockingTestBase {
                 currentTime
             }
             val job2 = async {
-                locker.handle(LockAdjustLockingCommand("Job2")) {
-                    LockAdjustLockingCommandHandler().handle(it)
+                locker.handle(ConfigurableLockingCommand("Job2")) {
+                    ConfigurableLockingCommandHandler().handle(it)
                 }
                 currentTime
             }
@@ -1002,9 +1034,9 @@ abstract class LockingTestBase {
         assertFalse(locker.busIsLocked("key3"))
     }
 
-    // --- Lock data override tests ---
-    // These test the middle tier of the override chain: when a locking message stores
-    // overrides in lock data, subsequent non-locking messages inherit those values.
+    // --- Lock data inheritance (override chain) ---
+    // When a locking message stores overrides in lock data, subsequent non-locking
+    // messages inherit those values unless they provide their own overrides.
 
     @Test
     fun `non-locking message inherits ignoreLockOnTimeout=true from lock data`() = runTest {
@@ -1135,8 +1167,8 @@ abstract class LockingTestBase {
         val job2 = async {
             // LockAwareMessage that overrides ignoreLockOnTimeout to false,
             // which should take priority over both lock data (true) and default (true)
-            locker.handle(LockAdjustLockingCommand("Job2", ignoreLockOnTimeoutOverride = false)) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false)) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
         }
 
@@ -1169,8 +1201,8 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Overrides timeout to 1s, which takes priority over lock data's 3s
-            locker.handle(LockAdjustLockingCommand("Job2", lockTimeoutOverride = 1.seconds)) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2", lockTimeoutOverride = 1.seconds)) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
         }
 
