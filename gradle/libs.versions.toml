@@ -7,6 +7,7 @@ kotlinPoet = "2.2.0"
 kotlinxCoroutinesCore = "1.10.2"
 kotlinxSerializationJson = "1.6.3"
 ksp = "2.3.6"
+ktfmt = "0.25.0"
 maven-publish = "0.30.0"
 
 [libraries]
@@ -24,5 +25,6 @@ symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-ap
 [plugins]
 arturbosch-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+ncorti-ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
