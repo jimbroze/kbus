@@ -9,11 +9,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-@Serializable
-private data class LockData(val expiresAt: Long, val token: String, val metadata: String? = null) {
-    fun hasExpired(now: Instant): Boolean = expiresAt <= now.toEpochMilliseconds()
-}
-
 class CacheLock(private val cache: Cache<in String, String>, private val clock: Clock) :
     AtomicLock {
     override suspend fun tryAcquireLock(
@@ -86,4 +81,9 @@ class CacheLock(private val cache: Cache<in String, String>, private val clock: 
             null
         }
     }
+}
+
+@Serializable
+private data class LockData(val expiresAt: Long, val token: String, val metadata: String? = null) {
+    fun hasExpired(now: Instant): Boolean = expiresAt <= now.toEpochMilliseconds()
 }

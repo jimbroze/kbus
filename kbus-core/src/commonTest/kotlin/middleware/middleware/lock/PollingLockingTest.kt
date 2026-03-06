@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.middleware.middleware.lock
 
-import com.jimbroze.kbus.core.TestClock
+import com.jimbroze.kbus.core.TestCoroutineClock
 import com.jimbroze.kbus.core.middleware.middleware.cache.FakeDistributedCache
 import com.jimbroze.kbus.core.middleware.middleware.lock.locks.CacheLock
 import com.jimbroze.kbus.core.middleware.middleware.lock.locks.PollingSignallingLock
@@ -18,7 +18,7 @@ class PollingLockingTest : LockingTestBase() {
         PollingSignallingLock(
             CacheLock(
                 FakeDistributedCache { it.toCharArray().concatToString() },
-                TestClock(scheduler),
+                TestCoroutineClock(scheduler),
             ),
             backgroundScope = backgroundScope,
         )

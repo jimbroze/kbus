@@ -9,7 +9,7 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.middleware.middleware.BusLocker
+import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import com.jimbroze.kbus.core.uow.ExecuteInTransaction
 import com.jimbroze.kbus.domain.DomainEventPublisher
 import com.test.external.ExternalEmpty
@@ -133,8 +133,10 @@ class OtherClassesCommand(val messageData: String?) : Command<BusResult<Any, Mes
 
 @Suppress("unused")
 @LoadMessageHandler
-class OtherClassesCommandHandler(private val locker: BusLocker, private val bus: MessageBus) :
-    CommandHandler<OtherClassesCommand, BusResult<Any, MessageFailure>>() {
+class OtherClassesCommandHandler(
+    private val locker: LockingMiddleware,
+    private val bus: MessageBus,
+) : CommandHandler<OtherClassesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: OtherClassesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
@@ -199,7 +201,7 @@ class TestGeneratorQuery(val messageData: String, val moreMessageData: String) :
 @Suppress("unused")
 @LoadMessageHandler
 class TestGeneratorQueryHandler(
-    private val locker: BusLocker,
+    private val locker: LockingMiddleware,
     private val clock: Clock,
     private val genericClassString: GenericClass<String>,
     private val stringCombiner: TypeAliasStringCombiner,

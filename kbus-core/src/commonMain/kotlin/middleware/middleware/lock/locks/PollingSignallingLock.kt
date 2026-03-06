@@ -21,7 +21,7 @@ data class PollingConfig(
     val timeout: Duration = 30.seconds,
 )
 
-class PollingSignallingLock(
+internal class PollingSignallingLock(
     private val delegate: AtomicLock,
     private val backgroundScope: CoroutineScope,
     private val config: PollingConfig = PollingConfig(),

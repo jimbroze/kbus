@@ -8,8 +8,7 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlinx.coroutines.sync.Mutex
 
 @OptIn(ExperimentalAtomicApi::class)
-// TODO make internal
-class ThreadSafeInMemoryLock(val key: String, val metadata: String?) {
+internal class ThreadSafeInMemoryLock(val key: String, val metadata: String?) {
     private val mutex = Mutex()
     private val waiters = AtomicInt(0)
     @Volatile private var activeToken: String? = null

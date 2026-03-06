@@ -1,9 +1,10 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.common.ResultReturningMessage
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.contracts.middleware.BusLockedException
+import com.jimbroze.kbus.contracts.middleware.BusLockedFailure
+import com.jimbroze.kbus.contracts.middleware.LockAwareMessage
+import com.jimbroze.kbus.contracts.middleware.ResultReturningLockAwareMessage
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.middleware.lock.SignallingLock
@@ -24,43 +25,9 @@ import kotlinx.serialization.json.Json
 
 // TODO fix for JS Browser
 // TODO create queue?
-interface LockAwareMessage : Message {
-    val shouldLockBus: Boolean
-    val lockChannelKey: String?
-        get() = null
-
-    val lockTimeoutOverride: Duration?
-        get() = null
-
-    val ignoreLockOnTimeoutOverride: Boolean?
-        get() = null
-}
-
-interface ResultReturningLockAwareMessage<TResult : KBusResult> :
-    ResultReturningMessage<TResult>, LockAwareMessage {
-    fun busLockedFailure(failure: BusLockedFailure): TResult
-}
-
-interface LockingCommand<TResult : KBusResult> : ResultReturningLockAwareMessage<TResult> {
-    override val shouldLockBus: Boolean
-        get() = true
-}
-
-class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.Element {
-    companion object Key : CoroutineContext.Key<BusLockToken>
-
-    override val key: CoroutineContext.Key<*>
-        get() = Key
-}
-
-@Serializable
-private data class BusLockData(
-    val timeoutOverride: Duration?,
-    val ignoreLockOnTimeoutOverride: Boolean?,
-)
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)
-class BusLocker(
+class LockingMiddleware(
     private val atomicLock: SignallingLock,
     private val defaultTimeout: Duration,
     private val defaultLockExpiry: Duration,
@@ -267,9 +234,18 @@ class BusLocker(
     }
 }
 
-class BusLockedFailure(override val message: String) : FailureReason
+@Serializable
+private data class BusLockData(
+    val timeoutOverride: Duration?,
+    val ignoreLockOnTimeoutOverride: Boolean?,
+)
 
-class BusLockedException(override val message: String) : Exception(message)
+private class BusLockToken(val heldKeys: Set<String> = emptySet()) : CoroutineContext.Element {
+    companion object Key : CoroutineContext.Key<BusLockToken>
+
+    override val key: CoroutineContext.Key<*>
+        get() = Key
+}
 
 private sealed interface LockOutcome {
     data class Success(val lockToken: String) : LockOutcome

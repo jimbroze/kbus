@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)
-class InMemoryAtomicSignallingLock(
+internal class InMemoryAtomicSignallingLock(
     val cache: Cache<String, ThreadSafeInMemoryLock> = ThreadSafeMapCache(),
     private val backgroundScope: CoroutineScope,
 ) : SignallingLock {
