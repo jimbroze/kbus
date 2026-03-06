@@ -23,7 +23,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-// TODO fix for JS Browser
 // TODO create queue?
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)

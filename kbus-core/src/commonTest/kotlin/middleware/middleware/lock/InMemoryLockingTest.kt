@@ -44,8 +44,8 @@ class InMemoryLockingTest : LockingTestBase() {
             currentTime
         }
         val job2 = async {
-            locker.handle(LockAdjustLockingCommand("Job2")) {
-                LockAdjustLockingCommandHandler().handle(it)
+            locker.handle(ConfigurableLockingCommand("Job2")) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
         }

@@ -12,7 +12,7 @@ kotlin {
     }
 
     js {
-        //        browser()
+        browser()
         nodejs()
     }
     jvm {

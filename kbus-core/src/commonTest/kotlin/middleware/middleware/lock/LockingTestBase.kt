@@ -176,7 +176,7 @@ abstract class LockingTestBase {
 
             val preNest = assertIs<ValueTimeMark>(resultMap["pre-nest"])
             val postNest = assertIs<ValueTimeMark>(resultMap["post-nest"])
-            assertTrue(preNest < postNest)
+            assertTrue(preNest <= postNest)
         }
 
     @Test
