@@ -7,10 +7,10 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
-import com.jimbroze.kbus.core.uow.ExecuteInTransaction
 import com.jimbroze.kbus.domain.DomainEventPublisher
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalInterface

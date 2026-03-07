@@ -7,12 +7,11 @@ import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
-import com.jimbroze.kbus.core.uow.CommandDependencies
-import com.jimbroze.kbus.core.uow.ExecuteInTransaction
-import com.jimbroze.kbus.core.uow.TransactionManager
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.DomainEvent

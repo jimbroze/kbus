@@ -5,7 +5,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.test.external.ExternalInterface
 
 class ExternalDependenciesCommandSub(val messageData: String) :

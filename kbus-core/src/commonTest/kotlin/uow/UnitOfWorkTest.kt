@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.runTest
 class UnitOfWorkTest {
     @Test
     fun test_it_executes_primary_work_without_setting_transaction_manager() = runTest {
-        val unitOfWork = UnitOfWorkImpl<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>()
         var executed = false
 
         unitOfWork.setReturningWork { executed = true }
@@ -25,7 +25,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_execute_returns_result_of_primary_work() = runTest {
-        val unitOfWork = UnitOfWorkImpl<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>()
         unitOfWork.setReturningWork { "Noice one" }
         unitOfWork.addSecondaryWork { "Failed!" }
         unitOfWork.addPostCommitWork { "Also Failed!" }
@@ -37,7 +37,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_it_executes_primary_then_secondary_then_post_commit() = runTest {
-        val unitOfWork = UnitOfWorkImpl<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>()
         val executionOrder = mutableListOf<String>()
 
         unitOfWork.addPostCommitWork { executionOrder.add("postCommit1") }
@@ -59,7 +59,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_execute_runs_primary_and_secondary_work_in_transaction() = runTest {
-        val unitOfWork = UnitOfWorkImpl<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>()
         val executedWork = mutableListOf<String>()
         unitOfWork.useTransaction(NonExecutingTransactionManager())
 
@@ -74,7 +74,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_execute_runs_post_commit_work_outside_transaction() = runTest {
-        val unitOfWork = UnitOfWorkImpl<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>()
         val executedWork = mutableListOf<String>()
         unitOfWork.useTransaction(NonExecutingTransactionManager())
 
@@ -90,7 +90,7 @@ class UnitOfWorkTest {
         runTest {
             val testDispatcher = TestDomainEventDispatcher()
 
-            val unitOfWork = UnitOfWorkImpl<Any?>()
+            val unitOfWork = DefaultUnitOfWork<Any?>()
             val publisher = UnitOfWorkDomainEventPublisher(testDispatcher, unitOfWork)
             val testEvent = object : DomainEvent() {}
 
@@ -116,6 +116,6 @@ class UnitOfWorkTest {
     fun test_DefaultUnitOfWorkFactory_creates_new_UnitOfWork_instance() {
         val factory = DefaultUnitOfWorkFactory()
         val uow = factory.create<Any?>()
-        assertIs<UnitOfWorkImpl<Any?>>(uow)
+        assertIs<DefaultUnitOfWork<Any?>>(uow)
     }
 }

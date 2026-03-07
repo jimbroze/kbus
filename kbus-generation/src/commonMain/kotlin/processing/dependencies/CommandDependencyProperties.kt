@@ -4,7 +4,7 @@ import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSType
-import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 
 class CommandDependencyProperties(properties: Set<KSType>) {
     val propertyNames: Set<String> =

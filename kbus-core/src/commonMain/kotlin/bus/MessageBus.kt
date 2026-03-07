@@ -6,6 +6,8 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
@@ -13,8 +15,6 @@ import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.MessageHandlerLocator
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-import com.jimbroze.kbus.core.uow.CommandDependencies
-import com.jimbroze.kbus.core.uow.TransactionManager
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(

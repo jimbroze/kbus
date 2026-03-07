@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.processing.dependencies
 
-import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.squareup.kotlinpoet.TypeName
 import kotlin.reflect.KClass
 

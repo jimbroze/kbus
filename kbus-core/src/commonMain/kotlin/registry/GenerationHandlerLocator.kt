@@ -7,7 +7,7 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.core.uow.CommandDependencies
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 
 interface GenerationHandlerFactory {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(

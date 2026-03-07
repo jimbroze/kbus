@@ -4,13 +4,12 @@ import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.uow.CommandDependencies
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
-import com.jimbroze.kbus.core.uow.ExecuteInTransaction
-import com.jimbroze.kbus.core.uow.TransactionManager
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory

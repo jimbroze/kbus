@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.registry
 
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.TestDomainEventPublisher
 import com.jimbroze.kbus.core.messages.command.testCommandDependencies
 import com.jimbroze.kbus.core.messages.event.TestDomainEvent
 import com.jimbroze.kbus.core.messages.event.TestDomainEventHandler
-import com.jimbroze.kbus.core.uow.CommandDependencies
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
