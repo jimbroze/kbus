@@ -80,10 +80,10 @@ class GetUserHandler :
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.CommandHandlerFactory
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-import com.jimbroze.kbus.core.registry.QueryHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import com.jimbroze.kbus.example.fixtures.CreateUser
 import com.jimbroze.kbus.example.fixtures.CreateUserHandler
 import com.jimbroze.kbus.example.fixtures.GetUser
@@ -328,8 +328,8 @@ Pass middleware when creating the bus:
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
 import com.jimbroze.kbus.example.fixtures.DebugLevel
 import com.jimbroze.kbus.example.fixtures.InfoLevel
@@ -368,8 +368,8 @@ To opt into transactional execution, pass a `TransactionManager` to the bus to a
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.example.fixtures.myTransactionManager
 -->
 

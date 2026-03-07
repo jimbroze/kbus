@@ -2,8 +2,8 @@
 package com.jimbroze.kbus.example.samples.exampleMiddleware02
 
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
 import com.jimbroze.kbus.example.fixtures.DebugLevel
 import com.jimbroze.kbus.example.fixtures.InfoLevel
