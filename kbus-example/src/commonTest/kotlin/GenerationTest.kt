@@ -8,7 +8,7 @@ import com.jimbroze.kbus.core.middleware.middleware.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
-import com.jimbroze.kbus.generation.test.fixtures.AutoTickingClock
+import com.jimbroze.kbus.testdoubles.AutoTickingClock
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalNestedWithExternal
 import com.test.external.ExternalNestedWithPrimitive

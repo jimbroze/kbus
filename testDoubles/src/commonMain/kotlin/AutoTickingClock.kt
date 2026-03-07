@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.generation.test.fixtures
+package com.jimbroze.kbus.testdoubles
 
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
