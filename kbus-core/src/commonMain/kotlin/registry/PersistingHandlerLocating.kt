@@ -26,13 +26,6 @@ data class EventHandlerMapping<TEvent : Event>(
     val handlers: List<KClass<out EventHandler<TEvent>>>,
 )
 
-interface EventFactory {
-    fun <TEvent : Event> create(
-        eventClass: KClass<TEvent>,
-        handlerClasses: List<KClass<EventHandler<TEvent>>>,
-    ): List<EventHandler<TEvent>>
-}
-
 class PersistingEventFactory(val eventStore: MessageHandlerFactoryStore<Event>) : EventFactory {
     override fun <TEvent : Event> create(
         eventClass: KClass<TEvent>,
@@ -52,10 +45,10 @@ class PersistingEventFactory(val eventStore: MessageHandlerFactoryStore<Event>) 
 
 class PersistingHandlerLocator(
     stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
-) : MessageHandlerLocator, EventMapperProvider {
+) : HandlerLocator, EventMapperProvider {
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
-    private val eventMapper = EventMapper(PersistingEventFactory(stores.eventStore))
+    private val eventMapper = DefaultEventMapper(PersistingEventFactory(stores.eventStore))
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
     override val inlineIntegrationEventMapper = eventMapper as InlineIntegrationEventMapper

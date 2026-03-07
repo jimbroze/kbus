@@ -21,8 +21,9 @@ interface GenerationHandlerFactory {
 }
 
 class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
-    MessageHandlerLocator, EventMapperProvider {
-    private val eventMapper = EventMapper(PersistingEventFactory(MessageHandlerFactoryStore()))
+    HandlerLocator, EventMapperProvider {
+    private val eventMapper =
+        DefaultEventMapper(PersistingEventFactory(MessageHandlerFactoryStore()))
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
     override val inlineIntegrationEventMapper = eventMapper as InlineIntegrationEventMapper

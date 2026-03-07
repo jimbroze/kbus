@@ -13,7 +13,7 @@ import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.registry.MessageHandlerLocator
+import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
 
 interface IMessageBus {
@@ -25,7 +25,7 @@ interface IMessageBus {
 }
 
 abstract class BaseMessageBus(
-    protected val handlerLocator: MessageHandlerLocator,
+    protected val handlerLocator: HandlerLocator,
     transactionManager: TransactionManager?,
     protected val middlewares: List<Middleware>,
 ) : IMessageBus {
@@ -73,7 +73,7 @@ abstract class BaseMessageBus(
 }
 
 class MessageBus(
-    handlerLocator: MessageHandlerLocator = PersistingHandlerLocator(),
+    handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = null,
     middlewares: List<Middleware> = emptyList(),
 ) : BaseMessageBus(handlerLocator, transactionManager, middlewares)
