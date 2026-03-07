@@ -262,7 +262,7 @@ fun <TResult> testCommandDependencies() =
 class TestDomainEventPublisher : DomainEventPublisher {
     val publishedEvents = mutableListOf<DomainEvent>()
 
-    override suspend fun dispatch(event: DomainEvent) {
+    override suspend fun publish(event: DomainEvent) {
         publishedEvents.add(event)
     }
 }

@@ -94,7 +94,7 @@ class UnitOfWorkTest {
             val publisher = UnitOfWorkDomainEventPublisher(testDispatcher, unitOfWork)
             val testEvent = object : DomainEvent() {}
 
-            publisher.dispatch(testEvent)
+            publisher.publish(testEvent)
 
             assertContentEquals(
                 listOf(Pair(testEvent, unitOfWork)),

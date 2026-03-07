@@ -28,6 +28,7 @@ class PersistingHandlerLocatorTest {
 
         val factory = PersistingHandlerLocator(stores)
 
+        // TODO test for CommandDependencies passed into handler
         stores.commandStore.registerHandlers(
             StorageCommand::class,
             listOf(CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }),

@@ -105,12 +105,31 @@ Events support multiple handlers and come in two flavors:
 
 #### Domain Events
 
-Domain events dispatch relative to the Unit of Work lifecycle. Choose a dispatch strategy by extending the appropriate
-*handler* base class. Each handler can have a different dispatch strategy, even for the same event type.
+Domain events dispatch relative to the Unit of Work lifecycle. Publish them from a domain object by
+taking a `DomainEventPublisher` as a constructor dependency. See the section on // TODO
 
 ```kotlin
 class OrderShipped(val orderId: String) : DomainEvent()
 
+class Order(private val domainEventPublisher: DomainEventPublisher) {
+
+    override suspend fun place(orderId: Int): Boolean {
+        // Place the order...
+
+        domainEventPublisher.publish(OrderShipped(orderId))
+
+        return true
+    }
+}
+```
+
+`CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and
+routes events through the Unit of Work.
+
+Choose a dispatch strategy by extending the appropriate *handler* base class. Each handler can have a different dispatch
+strategy, even for the same event type.
+
+```kotlin
 // Dispatched immediately when the event is raised
 class NotifyWarehouse : DispatchImmediately<OrderShipped>() {
     override suspend fun handle(message: OrderShipped) { /* ... */
