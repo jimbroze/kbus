@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.core.middleware.middleware.lock
 
-import com.jimbroze.kbus.core.TestCoroutineClock
 import com.jimbroze.kbus.core.middleware.middleware.cache.FakeDistributedCache
 import com.jimbroze.kbus.core.middleware.middleware.lock.locks.CacheLock
 import com.jimbroze.kbus.core.middleware.middleware.lock.locks.PollingSignallingLock
+import com.jimbroze.kbus.testdoubles.TestCoroutineClock
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.CoroutineScope
