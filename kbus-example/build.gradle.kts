@@ -9,7 +9,7 @@ kotlin {
             implementation(projects.kbusContracts)
             implementation(projects.kbusCore)
             implementation(projects.testDoubles)
-            implementation(projects.kbusGenerationTestSub)
+            implementation(projects.kbusExampleSub)
 
             implementation(libs.kotlinx.coroutines.core)
         }

@@ -31,6 +31,6 @@ include("kbus-core")
 
 include("kbus-generation")
 
-include("kbus-generation-test")
+include("kbus-example")
 
-include("kbus-generation-test-sub")
+include("kbus-example-sub")
