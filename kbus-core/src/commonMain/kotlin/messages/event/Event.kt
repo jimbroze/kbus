@@ -12,6 +12,6 @@ abstract class DomainEventHandler<TEvent : DomainEvent> :
 // TODO should these apply to integration events too?
 abstract class DispatchImmediately<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-abstract class DispatchAfterPrimaryWork<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchAtEndOfTransaction<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-abstract class DispatchAfterCommit<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchAfterTransaction<TEvent : DomainEvent> : DomainEventHandler<TEvent>()

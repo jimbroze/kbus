@@ -1,6 +1,8 @@
 # KBUS
 
-A Kotlin Multiplatform CQRS message bus framework. Route Commands, Queries, and Events to their handlers with a composable middleware pipeline, Unit of Work support, and optional KSP code generation for compile-time type-safe handler resolution (zero reflection).
+A Kotlin Multiplatform CQRS message bus framework. Route Commands, Queries, and Events to their handlers with a
+composable middleware pipeline, Unit of Work support, and optional KSP code generation for compile-time type-safe
+handler resolution (zero reflection).
 
 ## Features
 
@@ -24,9 +26,6 @@ dependencies {
     // For KSP code generation (optional)
     implementation("com.jimbroze:kbus-annotations:<version>")
     ksp("com.jimbroze:kbus-generation:<version>")
-
-    // For Koin DI integration (optional)
-    implementation("com.jimbroze:kbus-koin:<version>")
 }
 ```
 
@@ -94,49 +93,40 @@ val userResult = bus.fetch(GetUser(1))
 
 KBUS has three message types, each with a corresponding handler:
 
-| Message | Handler | Cardinality | Purpose |
-|---------|---------|-------------|---------|
-| `Command<TResult>` | `CommandHandler` | One handler per command | State-modifying operations, executes within Unit of Work |
-| `Query<TResult>` | `QueryHandler` | One handler per query | Read-only operations |
-| `Event` | `EventHandler` | Multiple handlers per event | Notifications and side effects |
+| Message            | Handler          | Cardinality                 | Returns                      | Purpose                                                  |
+|--------------------|------------------|-----------------------------|------------------------------|----------------------------------------------------------|
+| `Command<TResult>` | `CommandHandler` | One handler per command     | Yes (minimal data suggested) | State-modifying operations, executes within Unit of Work |
+| `Query<TResult>`   | `QueryHandler`   | One handler per query       | Yes                          | Read-only operations                                     |
+| `Event`            | `EventHandler`   | Multiple handlers per event | No                           | Notifications, side effects, eventual consistency        |
 
 ### Events
 
-Events support multiple handlers and come in several flavors:
-
-```kotlin
-// Basic event
-class OrderPlaced(val orderId: String) : Event()
-
-class SendConfirmationEmail :
-    EventHandler<OrderPlaced> {
-
-    override suspend fun handle(message: OrderPlaced) {
-        // Send email...
-    }
-}
-```
+Events support multiple handlers and come in two flavors:
 
 #### Domain Events
 
-Domain events dispatch relative to the Unit of Work lifecycle. Choose a dispatch strategy by extending the appropriate base class:
+Domain events dispatch relative to the Unit of Work lifecycle. Choose a dispatch strategy by extending the appropriate
+*handler* base class. Each handler can have a different dispatch strategy, even for the same event type.
 
 ```kotlin
 class OrderShipped(val orderId: String) : DomainEvent()
 
 // Dispatched immediately when the event is raised
 class NotifyWarehouse : DispatchImmediately<OrderShipped>() {
-    override suspend fun handle(message: OrderShipped) { /* ... */ }
+    override suspend fun handle(message: OrderShipped) { /* ... */
+    }
 }
 
 // Dispatched after the primary handler completes but before transaction commit
-class UpdateInventory : DispatchAfterPrimaryWork<OrderShipped>() {
-    override suspend fun handle(message: OrderShipped) { /* ... */ }
+class UpdateInventory : DispatchAtEndOfTransaction<OrderShipped>() {
+    override suspend fun handle(message: OrderShipped) { /* ... */
+    }
 }
 
 // Dispatched after the transaction has been committed
-class SendShipmentNotification : DispatchAfterCommit<OrderShipped>() {
-    override suspend fun handle(message: OrderShipped) { /* ... */ }
+class SendShipmentNotification : DispatchAfterTransaction<OrderShipped>() {
+    override suspend fun handle(message: OrderShipped) { /* ... */
+    }
 }
 ```
 
@@ -164,7 +154,9 @@ class RegisterUserHandler :
 
     override suspend fun handle(message: RegisterUser): BusResult<String, MessageFailure> {
         // Register user...
+
         dispatch(UserRegistered(userId))
+
         return BusResult.success(userId)
     }
 }
@@ -192,7 +184,8 @@ BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
 
 ## Middleware
 
-Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next handler in the chain.
+Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next
+handler in the chain.
 
 ### Writing Custom Middleware
 
@@ -202,11 +195,11 @@ class TimingMiddleware : Middleware {
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        val start = Clock.System.now()
+        val start = clock.now()
         try {
             return nextMiddleware(message)
         } finally {
-            val duration = Clock.System.now() - start
+            val duration = clock.now() - start
             println("${message::class.simpleName} took $duration")
         }
     }
@@ -221,9 +214,8 @@ Pass middleware when creating the bus:
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     middlewares = listOf(
-        BusLocker(Clock.System),
+        BusLockingMiddleware(Clock.System),
         MessageLogger(logger, LogLevel.DEBUG, LogLevel.INFO, LogLevel.ERROR),
-        TimingMiddleware(),
     )
 )
 ```
@@ -231,7 +223,7 @@ val bus = MessageBus(
 ### Built-in Middleware
 
 - **`MessageLogger`** — Logs message dispatch, completion, and errors at configurable log levels
-- **`BusLocker`** — Prevents concurrent message handling with a configurable timeout
+- **`BusLockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
 
 ## Unit of Work
 
@@ -241,12 +233,19 @@ Commands execute within a Unit of Work that manages three phases:
 2. **Secondary work** — Domain event handlers run (within the same transaction)
 3. **Post-commit work** — Integration event handlers run (after transaction commit)
 
-To opt into transactional execution, implement `ExecuteInTransaction`:
+To opt into transactional execution, pass a `TransactionManager` to the bus to apply it globally:
 
 ```kotlin
-class TransferFundsHandler(
-    override val transactionManager: TransactionManager
-) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
+val bus = MessageBus(
+    handlerLocator = PersistingHandlerLocator(stores),
+    transactionManager = myTransactionManager,
+)
+```
+
+And then implement `ExecuteInTransaction` on the command handlers to run within the transaction:
+
+```kotlin
+class TransferFundsHandler() : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
     ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>> {
 
     override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
@@ -256,18 +255,20 @@ class TransferFundsHandler(
 }
 ```
 
-Or pass a `TransactionManager` to the bus to apply it globally:
+You can also provide a `TransactionManager` to individual command handlers:
 
 ```kotlin
-val bus = MessageBus(
-    handlerLocator = PersistingHandlerLocator(stores),
-    transactionManager = myTransactionManager,
-)
+class TransferFundsHandler(
+    override val transactionManager: TransactionManager
+) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
+    ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>>
 ```
 
 ## KSP Code Generation
 
-For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module.
+For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module. This
+requires adding no annotations or coupling to anything outside your message handlers (which are already coupled
+to Kbus).
 
 ### Setup
 
@@ -314,14 +315,15 @@ The KSP processor generates:
 - **`AllDependencies`** — Interface listing all required dependencies (implement this to provide them)
 - **`AllHandlers`** — Interface with factory methods for every handler
 - **`HandlerFactory`** — Factory that creates handlers with their dependencies resolved
-- **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute` and `fetch` methods for each message type
+- **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute` and `fetch` methods for each message
+  type
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
 
 ### Using the Generated Bus
 
 ```kotlin
-// Implement the generated AllDependencies interface
-class MyDependencies : AllDependencies {
+// Implement the generated AutoLoader abstract class (or AllDependencies interface)
+class MyDependencies : AutoLoader() {
     override val orderRepository: OrderRepository = OrderRepositoryImpl()
     override val paymentService: PaymentService = PaymentServiceImpl()
 }
@@ -339,17 +341,25 @@ val result = bus.execute(PlaceOrder(items))
 
 ### Submodules
 
-For multi-module projects, submodules can export their handler metadata for the main module to consume:
+For multi-module projects, submodules can export their handler metadata for the main module to consume. You must
+provide a package name for the indexes. This prevents trying to load indexes from a dependent library that uses
+Kbus.
 
 ```kotlin
 // In the submodule's build.gradle.kts
 ksp {
     arg("kbus.subModuleName", project.name)
-    arg("kbus.indexPackage", "com.example.submodule.indexes")
+    arg("kbus.indexPackage", "com.example.myApp.indexes")
+}
+
+// In the top-level module's build.gradle.kts
+ksp {
+    arg("kbus.indexPackage", "com.example.myApp.indexes")
 }
 ```
 
-Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up these indexes automatically.
+Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
+these indexes automatically.
 
 ## Domain Modeling
 
@@ -368,15 +378,15 @@ class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 
 ## Supported Platforms
 
-| Platform | Targets |
-|----------|---------|
-| JVM | Java 17+ |
-| JS | IR |
-| WASM | WASM-JS |
-| macOS | x64, ARM64 |
-| iOS | x64, ARM64, Simulator ARM64 |
-| Linux | x64, ARM64 |
-| Windows | x64 |
+| Platform | Targets                     |
+|----------|-----------------------------|
+| JVM      | Java 17+                    |
+| JS       | Node, Browser               |
+| WASM     | Node, Browser               |
+| macOS    | x64, ARM64                  |
+| iOS      | x64, ARM64, Simulator ARM64 |
+| Linux    | x64, ARM64                  |
+| Windows  | x64                         |
 
 ## License
 

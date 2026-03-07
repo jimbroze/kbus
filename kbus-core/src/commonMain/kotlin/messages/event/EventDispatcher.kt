@@ -24,8 +24,8 @@ class EventDispatcher(
             handlers.forEach { handler ->
                 val dispatch = suspend { handler.handle(message) }
                 when (handler) {
-                    is DispatchAfterPrimaryWork<*> -> unitOfWork.addSecondaryWork(dispatch)
-                    is DispatchAfterCommit<*> -> unitOfWork.addPostCommitWork(dispatch)
+                    is DispatchAtEndOfTransaction<*> -> unitOfWork.addSecondaryWork(dispatch)
+                    is DispatchAfterTransaction<*> -> unitOfWork.addPostCommitWork(dispatch)
                     else -> dispatch()
                 }
             }

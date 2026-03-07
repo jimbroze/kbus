@@ -45,7 +45,7 @@ class EventDispatcherTest {
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
         val handlers =
-            listOf(TestDispatchAfterPrimaryWorkHandler(results) as EventHandler<DomainEvent>)
+            listOf(TestDispatchAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
         dispatcher.dispatch(TestDomainEvent("after-primary"), unitOfWork)
@@ -62,7 +62,8 @@ class EventDispatcherTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
-        val handlers = listOf(TestDispatchAfterCommitHandler(results) as EventHandler<DomainEvent>)
+        val handlers =
+            listOf(TestDispatchAfterTransactionHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
         dispatcher.dispatch(TestDomainEvent("after-commit"), unitOfWork)
@@ -83,8 +84,8 @@ class EventDispatcherTest {
             val handlers =
                 listOf(
                     TestDomainEventHandler(results) as EventHandler<DomainEvent>,
-                    TestDispatchAfterPrimaryWorkHandler(results) as EventHandler<DomainEvent>,
-                    TestDispatchAfterCommitHandler(results) as EventHandler<DomainEvent>,
+                    TestDispatchAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>,
+                    TestDispatchAfterTransactionHandler(results) as EventHandler<DomainEvent>,
                 )
 
             val dispatcher = EventDispatcher({ handlers }, emptyList())
@@ -115,15 +116,15 @@ class TestDomainEventHandler(private val results: MutableList<String>) :
     }
 }
 
-class TestDispatchAfterPrimaryWorkHandler(private val results: MutableList<String>) :
-    DispatchAfterPrimaryWork<TestDomainEvent>() {
+class TestDispatchAtEndOfTransactionHandler(private val results: MutableList<String>) :
+    DispatchAtEndOfTransaction<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
 }
 
-class TestDispatchAfterCommitHandler(private val results: MutableList<String>) :
-    DispatchAfterCommit<TestDomainEvent>() {
+class TestDispatchAfterTransactionHandler(private val results: MutableList<String>) :
+    DispatchAfterTransaction<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
