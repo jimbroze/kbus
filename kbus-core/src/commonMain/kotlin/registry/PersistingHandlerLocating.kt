@@ -4,13 +4,10 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.domain.DomainEvent
-import kotlin.collections.forEach
 import kotlin.reflect.KClass
 
 data class HandlerFactoryStoreCollection(
@@ -29,68 +26,6 @@ data class EventHandlerMapping<TEvent : Event>(
     val handlers: List<KClass<out EventHandler<TEvent>>>,
 )
 
-class EventMapper(private val eventFactory: EventFactory) :
-    DomainEventMapper, IntegrationEventMapper, InlineIntegrationEventMapper {
-    private val mappings = mutableMapOf<KClass<out Event>, List<KClass<EventHandler<*>>>>()
-    private val inlineMappings = mutableMapOf<KClass<out Event>, List<EventHandlerFactory<*, *>>>()
-
-    override fun addDomainHandlers(mappings: List<EventHandlerMapping<out DomainEvent>>) {
-        @Suppress("UNCHECKED_CAST")
-        mappings.forEach { mapping ->
-            this.mappings[mapping.event] = mapping.handlers as List<KClass<EventHandler<*>>>
-        }
-    }
-
-    override fun addEventHandlers(mappings: List<EventHandlerMapping<out IntegrationEvent>>) {
-        @Suppress("UNCHECKED_CAST")
-        mappings.forEach { mapping ->
-            this.mappings[mapping.event] = mapping.handlers as List<KClass<EventHandler<*>>>
-        }
-    }
-
-    override fun addInlineEventHandlers(
-        mappings: List<EventAndHandlerFactories<out IntegrationEvent>>
-    ) {
-        mappings.forEach { mapping -> this.inlineMappings[mapping.event] = mapping.factories }
-    }
-
-    override fun removeInlineEventHandlers(
-        mappings: List<EventAndHandlerFactories<out IntegrationEvent>>
-    ) {
-        mappings.forEach { mappingToRemove ->
-            val eventType = mappingToRemove.event
-            val currentHandlers = this.inlineMappings[eventType] ?: return@forEach
-
-            val updatedHandlers = currentHandlers - mappingToRemove.factories.toSet()
-
-            if (updatedHandlers.isEmpty()) {
-                this.inlineMappings.remove(eventType)
-            } else {
-                this.inlineMappings[eventType] = updatedHandlers
-            }
-        }
-    }
-
-    fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
-        val inlineFactoryHandlers =
-            (inlineMappings[event::class]?.mapNotNull { factory ->
-                @Suppress("UNCHECKED_CAST") (factory as? EventHandlerFactory<TEvent, *>)?.create()
-            } ?: emptyList())
-
-        @Suppress("UNCHECKED_CAST") val eventClass = event::class as? KClass<TEvent>
-        @Suppress("UNCHECKED_CAST")
-        val otherHandlerClasses = mappings[event::class] as? List<KClass<EventHandler<TEvent>>>
-        val otherHandlers =
-            if (otherHandlerClasses != null && eventClass != null) {
-                eventFactory.create(eventClass, otherHandlerClasses)
-            } else {
-                emptyList()
-            }
-
-        return inlineFactoryHandlers + otherHandlers
-    }
-}
-
 interface EventFactory {
     fun <TEvent : Event> create(
         eventClass: KClass<TEvent>,
@@ -98,7 +33,6 @@ interface EventFactory {
     ): List<EventHandler<TEvent>>
 }
 
-// TODO should we allow multiple of same handler?
 class PersistingEventFactory(val eventStore: MessageHandlerFactoryStore<Event>) : EventFactory {
     override fun <TEvent : Event> create(
         eventClass: KClass<TEvent>,

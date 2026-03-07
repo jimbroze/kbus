@@ -72,7 +72,6 @@ abstract class BaseMessageBus(
     }
 }
 
-// TODO remove default handlerLocator
 class MessageBus(
     handlerLocator: MessageHandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = null,
