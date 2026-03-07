@@ -19,7 +19,7 @@ handler resolution (zero reflection).
 
 Add the dependencies to your `build.gradle.kts`:
 
-```kotlin
+```groovy
 dependencies {
     implementation("com.jimbroze:kbus-core:<version>")
 
@@ -32,6 +32,17 @@ dependencies {
 ## Quick Start
 
 ### Define Messages and Handlers
+
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.FailureReason
+import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.contracts.result.MessageFailure
+-->
 
 ```kotlin
 // A command that returns a String result
@@ -47,17 +58,16 @@ class CreateUserHandler :
     }
 }
 
-// A query that returns a User result
+// A query that returns a String result
 class GetUser(val id: Int) :
-    Query<BusResult<User, MessageFailure>>()
+    Query<BusResult<String, MessageFailure>>()
 
 class GetUserHandler :
-    QueryHandler<GetUser, BusResult<User, MessageFailure>>() {
+    QueryHandler<GetUser, BusResult<String, MessageFailure>>() {
 
-    override suspend fun handle(message: GetUser): BusResult<User, MessageFailure> {
-        val user = userRepository.findById(message.id)
-            ?: return BusResult.failure(GenericMessageFailure(GenericFailure("User not found")))
-        return BusResult.success(user)
+    override suspend fun handle(message: GetUser): BusResult<String, MessageFailure> {
+        // Look up the user...
+        return BusResult.success("User #${message.id}")
     }
 }
 ```
@@ -66,29 +76,65 @@ class GetUserHandler :
 
 ### Create the Bus and Dispatch Messages
 
-```kotlin
-// Register handlers
-val stores = HandlerFactoryStoreCollection()
-stores.commandStore.registerHandlers(
-    CreateUser::class,
-    listOf(CommandHandlerFactory(CreateUserHandler::class) { CreateUserHandler() })
-)
-stores.queryStore.registerHandlers(
-    GetUser::class,
-    listOf(QueryHandlerFactory(GetUserHandler::class) { GetUserHandler() })
-)
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.core.registry.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.QueryHandlerFactory
 
-// Create the bus
-val bus = MessageBus(PersistingHandlerLocator(stores))
+class CreateUser(val name: String, val email: String) :
+    Command<BusResult<String, MessageFailure>>()
 
-// Execute a command
-val result = bus.execute(CreateUser("Alice", "alice@example.com"))
-if (result.isSuccess) {
-    println(result.getOrNull()) // "User Alice created"
+class CreateUserHandler :
+    CommandHandler<CreateUser, BusResult<String, MessageFailure>>() {
+    override suspend fun handle(message: CreateUser): BusResult<String, MessageFailure> =
+        BusResult.success("User ${message.name} created")
 }
 
-// Fetch a query
-val userResult = bus.fetch(GetUser(1))
+class GetUser(val id: Int) :
+    Query<BusResult<String, MessageFailure>>()
+
+class GetUserHandler :
+    QueryHandler<GetUser, BusResult<String, MessageFailure>>() {
+    override suspend fun handle(message: GetUser): BusResult<String, MessageFailure> =
+        BusResult.success("User #${message.id}")
+}
+-->
+
+```kotlin
+suspend fun main() {
+    // Register handlers
+    val stores = HandlerFactoryStoreCollection()
+    stores.commandStore.registerHandlers(
+        CreateUser::class,
+        listOf(CommandHandlerFactory(CreateUserHandler::class) { _: CommandDependencies -> CreateUserHandler() })
+    )
+    stores.queryStore.registerHandlers(
+        GetUser::class,
+        listOf(QueryHandlerFactory(GetUserHandler::class) { GetUserHandler() })
+    )
+
+    // Create the bus
+    val bus = MessageBus(PersistingHandlerLocator(stores))
+
+    // Execute a command
+    val result = bus.execute(CreateUser("Alice", "alice@example.com"))
+    if (result.isSuccess) {
+        println(result.getOrNull()) // "User Alice created"
+    }
+
+    // Fetch a query
+    val userResult = bus.fetch(GetUser(1))
+}
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-bus-01.kt).
@@ -112,17 +158,21 @@ Events support multiple handlers and come in two flavors:
 Domain events dispatch relative to the Unit of Work lifecycle. Publish them from a domain object by
 taking a `DomainEventPublisher` as a constructor dependency. See the section on // TODO
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.DomainEventPublisher
+-->
+
 ```kotlin
 class OrderShipped(val orderId: String) : DomainEvent()
 
 class Order(private val domainEventPublisher: DomainEventPublisher) {
 
-    override suspend fun place(orderId: Int): Boolean {
+    suspend fun place(orderId: String) {
         // Place the order...
 
         domainEventPublisher.publish(OrderShipped(orderId))
-
-        return true
     }
 }
 ```
@@ -134,6 +184,16 @@ routes events through the Unit of Work.
 
 Choose a dispatch strategy by extending the appropriate *handler* base class. Each handler can have a different dispatch
 strategy, even for the same event type.
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.core.messages.event.DispatchImmediately
+import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
+import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
+
+class OrderShipped(val orderId: String) : DomainEvent()
+-->
 
 ```kotlin
 // Dispatched immediately when the event is raised
@@ -161,6 +221,12 @@ class SendShipmentNotification : DispatchAfterTransaction<OrderShipped>() {
 
 Integration events are dispatched after the transaction commits, intended for cross-boundary communication:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+-->
+
 ```kotlin
 class UserRegistered(val userId: String) : IntegrationEvent()
 
@@ -177,12 +243,25 @@ class SyncToExternalCRM :
 
 Command handlers can dispatch integration events:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
+
+class RegisterUser(val name: String) : Command<BusResult<String, MessageFailure>>()
+
+class UserRegistered(val userId: String) : IntegrationEvent()
+-->
+
 ```kotlin
 class RegisterUserHandler :
     CommandHandler<RegisterUser, BusResult<String, MessageFailure>>() {
 
     override suspend fun handle(message: RegisterUser): BusResult<String, MessageFailure> {
-        // Register user...
+        val userId = "generated-id"
 
         dispatch(UserRegistered(userId))
 
@@ -197,12 +276,42 @@ class RegisterUserHandler :
 
 All commands and queries return `BusResult<TValue, TMessageFailure>`:
 
-```kotlin
-val result: BusResult<String, MessageFailure> = bus.execute(myCommand)
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.core.registry.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
 
-when {
-    result.isSuccess -> println("Value: ${result.getOrNull()}")
-    result.isFailure -> println("Error: ${result.failureOrNull()?.reason?.message}")
+class MyCommand : Command<BusResult<String, MessageFailure>>()
+
+class MyCommandHandler : CommandHandler<MyCommand, BusResult<String, MessageFailure>>() {
+    override suspend fun handle(message: MyCommand): BusResult<String, MessageFailure> =
+        BusResult.success("done")
+}
+
+val stores = HandlerFactoryStoreCollection()
+val bus = MessageBus(PersistingHandlerLocator(stores)).also {
+    stores.commandStore.registerHandlers(
+        MyCommand::class,
+        listOf(CommandHandlerFactory(MyCommandHandler::class) { _: CommandDependencies -> MyCommandHandler() })
+    )
+}
+-->
+
+```kotlin
+suspend fun main() {
+    val result: BusResult<String, MessageFailure> = bus.execute(MyCommand())
+
+    when {
+        result.isSuccess -> println("Value: ${result.getOrNull()}")
+        result.isFailure -> println("Error: ${result.failureOrNull()?.reason?.message}")
+    }
 }
 ```
 
@@ -210,9 +319,19 @@ when {
 
 Create results with companion functions:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.FailureReason
+import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.contracts.result.MessageFailure
+
+class GenericMessageFailure(override val reason: FailureReason) : MessageFailure
+-->
+
 ```kotlin
-BusResult.success("value")
-BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
+val success = BusResult.success("value")
+val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-02.kt).
@@ -224,17 +343,25 @@ handler in the chain.
 
 ### Writing Custom Middleware
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import kotlin.time.TimeSource
+-->
+
 ```kotlin
 class TimingMiddleware : Middleware {
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
-        val start = clock.now()
+        val mark = TimeSource.Monotonic.markNow()
         try {
             return nextMiddleware(message)
         } finally {
-            val duration = clock.now() - start
+            val duration = mark.elapsedNow()
             println("${message::class.simpleName} took $duration")
         }
     }
@@ -247,12 +374,36 @@ class TimingMiddleware : Middleware {
 
 Pass middleware when creating the bus:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.core.middleware.middleware.LogLevel
+import com.jimbroze.kbus.core.middleware.middleware.Logger
+import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
+
+object DebugLevel : LogLevel { override val level = "DEBUG" }
+object InfoLevel : LogLevel { override val level = "INFO" }
+object ErrorLevel : LogLevel { override val level = "ERROR" }
+
+val logger = object : Logger {
+    override fun log(level: LogLevel, message: String, exception: Throwable?) {
+        println("[${level.level}] $message")
+    }
+}
+-->
+
 ```kotlin
+val stores = HandlerFactoryStoreCollection()
+
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     middlewares = listOf(
-        BusLockingMiddleware(Clock.System),
-        MessageLogger(logger, LogLevel.DEBUG, LogLevel.INFO, LogLevel.ERROR),
+        MessageLogger(logger, DebugLevel, InfoLevel, ErrorLevel),
     )
 )
 ```
@@ -262,7 +413,7 @@ val bus = MessageBus(
 ### Built-in Middleware
 
 - **`MessageLogger`** — Logs message dispatch, completion, and errors at configurable log levels
-- **`BusLockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
+- **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
 
 ## Unit of Work
 
@@ -274,7 +425,21 @@ Commands execute within a Unit of Work that manages three phases:
 
 To opt into transactional execution, pass a `TransactionManager` to the bus to apply it globally:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+
+val myTransactionManager = object : TransactionManager {
+    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult = block()
+}
+-->
+
 ```kotlin
+val stores = HandlerFactoryStoreCollection()
+
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     transactionManager = myTransactionManager,
@@ -285,8 +450,20 @@ val bus = MessageBus(
 
 And then implement `ExecuteInTransaction` on the command handlers to run within the transaction:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+
+class TransferFunds(val from: String, val to: String, val amount: Int) :
+    Command<BusResult<Unit, MessageFailure>>()
+-->
+
 ```kotlin
-class TransferFundsHandler() : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
+class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
     ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>> {
 
     override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
@@ -300,11 +477,30 @@ class TransferFundsHandler() : CommandHandler<TransferFunds, BusResult<Unit, Mes
 
 You can also provide a `TransactionManager` to individual command handlers:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.TransactionManager
+
+class TransferFunds(val from: String, val to: String, val amount: Int) :
+    Command<BusResult<Unit, MessageFailure>>()
+-->
+
 ```kotlin
 class TransferFundsHandler(
     override val transactionManager: TransactionManager
 ) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
-    ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>>
+    ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>> {
+
+    override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
+        // This runs inside a transaction
+        return BusResult.success(Unit)
+    }
+}
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
@@ -317,7 +513,7 @@ to Kbus).
 
 ### Setup
 
-```kotlin
+```groovy
 plugins {
     kotlin("multiplatform")
     alias(libs.plugins.devtools.ksp)
@@ -339,6 +535,25 @@ kotlin.sourceSets.commonMain {
 
 Mark handler classes with `@LoadMessageHandler`. Constructor parameters become automatically resolved dependencies:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
+
+class PlaceOrder(val items: List<String>) : Command<BusResult<String, MessageFailure>>()
+
+interface OrderRepository {
+    fun save(items: List<String>): String
+}
+
+interface PaymentService {
+    fun charge(orderId: String)
+}
+-->
+
 ```kotlin
 @LoadMessageHandler
 class PlaceOrderHandler(
@@ -347,7 +562,8 @@ class PlaceOrderHandler(
 ) : CommandHandler<PlaceOrder, BusResult<String, MessageFailure>>() {
 
     override suspend fun handle(message: PlaceOrder): BusResult<String, MessageFailure> {
-        // ...
+        val orderId = orderRepository.save(message.items)
+        paymentService.charge(orderId)
         return BusResult.success(orderId)
     }
 }
@@ -368,6 +584,8 @@ The KSP processor generates:
 
 ### Using the Generated Bus
 
+<!--- CLEAR -->
+
 ```kotlin
 // Implement the generated AutoLoader abstract class (or AllDependencies interface)
 class MyDependencies : AutoLoader() {
@@ -386,15 +604,13 @@ val bus = CompileTimeLoadedMessageBus(
 val result = bus.execute(PlaceOrder(items))
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-generation-02.kt).
-
 ### Submodules
 
 For multi-module projects, submodules can export their handler metadata for the main module to consume. You must
 provide a package name for the indexes. This prevents trying to load indexes from a dependent library that uses
 Kbus.
 
-```kotlin
+```groovy
 // In the submodule's build.gradle.kts
 ksp {
     arg("kbus.subModuleName", project.name)
@@ -414,14 +630,37 @@ these indexes automatically.
 
 KBUS includes base types for domain-driven design:
 
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.domain.AggregateRoot
+import com.jimbroze.kbus.domain.Entity
+import com.jimbroze.kbus.domain.Identifier
+import com.jimbroze.kbus.domain.ValueObject
+-->
+
 ```kotlin
 // Value Object — equals() and hashCode() required
-class Money(val amount: BigDecimal, val currency: String) : ValueObject<Money>()
+class Money(val amount: Double, val currency: String) : ValueObject<Money>() {
+    override fun equals(other: Any?) =
+        other is Money && amount == other.amount && currency == other.currency
+
+    override fun hashCode() = 31 * amount.hashCode() + currency.hashCode()
+}
 
 // Entity
-class Order(override val id: OrderId, val items: List<Item>) : Entity<Order>()
+class OrderId(private val value: String) : Identifier {
+    override fun equals(other: Any?) = other is OrderId && value == other.value
+    override fun hashCode() = value.hashCode()
+}
+
+class Order(override val id: OrderId, val items: List<String>) : Entity<Order>()
 
 // Aggregate Root
+class CartId(private val value: String) : Identifier {
+    override fun equals(other: Any?) = other is CartId && value == other.value
+    override fun hashCode() = value.hashCode()
+}
+
 class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 ```
 

@@ -32,3 +32,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
 }
 
 ksp { arg("kbus.indexPackage", "com.jimbroze.kbus.testing.indexes") }
+
+// Exclude Knit-generated samples from ktfmt and detekt — Knit owns these files and knitCheck
+// verifies them
+tasks.withType<com.ncorti.ktfmt.gradle.tasks.KtfmtBaseTask>().configureEach {
+    exclude("**/samples/**")
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach { exclude("**/samples/**") }
