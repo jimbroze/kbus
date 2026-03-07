@@ -5,6 +5,10 @@ import com.jimbroze.kbus.core.messages.command.TestDomainEventPublisher
 import com.jimbroze.kbus.core.messages.command.testCommandDependencies
 import com.jimbroze.kbus.core.messages.event.TestDomainEvent
 import com.jimbroze.kbus.core.messages.event.TestDomainEventHandler
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

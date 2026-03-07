@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.registry
+package com.jimbroze.kbus.core.registry.persisting
 
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
@@ -8,47 +8,22 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import kotlin.reflect.KClass
-
-data class HandlerFactoryStoreCollection(
-    val commandStore: MessageHandlerFactoryStore<Command<*>> = MessageHandlerFactoryStore(),
-    val queryStore: MessageHandlerFactoryStore<Query<*>> = MessageHandlerFactoryStore(),
-    val eventStore: MessageHandlerFactoryStore<Event> = MessageHandlerFactoryStore(),
-)
-
-data class EventAndHandlerFactories<TEvent : Event>(
-    val event: KClass<TEvent>,
-    val factories: List<EventHandlerFactory<TEvent, *>>,
-)
-
-data class EventHandlerMapping<TEvent : Event>(
-    val event: KClass<TEvent>,
-    val handlers: List<KClass<out EventHandler<TEvent>>>,
-)
-
-class PersistingEventFactory(val eventStore: MessageHandlerFactoryStore<Event>) : EventFactory {
-    override fun <TEvent : Event> create(
-        eventClass: KClass<TEvent>,
-        handlerClasses: List<KClass<EventHandler<TEvent>>>,
-    ): List<EventHandler<TEvent>> {
-        val handlerFactories =
-            eventStore.getHandlers(eventClass).filterIsInstance<EventHandlerFactory<TEvent, *>>()
-
-        val factoriesByHandlerClass = handlerFactories.associateBy { it.handlerType }
-
-        return handlerClasses.map { handlerClass ->
-            factoriesByHandlerClass[handlerClass]?.create()
-                ?: error("No factory found for handler class: ${handlerClass.simpleName}")
-        }
-    }
-}
+import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.EventMapperProvider
+import com.jimbroze.kbus.core.registry.HandlerLocator
+import com.jimbroze.kbus.core.registry.InlineIntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.store.MessageHandlerFactoryStore
+import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 
 class PersistingHandlerLocator(
     stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
 ) : HandlerLocator, EventMapperProvider {
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
-    private val eventMapper = DefaultEventMapper(PersistingEventFactory(stores.eventStore))
+    private val eventMapper = PersistingEventMapper(PersistingEventFactory(stores.eventStore))
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
     override val inlineIntegrationEventMapper = eventMapper as InlineIntegrationEventMapper

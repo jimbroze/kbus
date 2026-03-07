@@ -9,15 +9,15 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.registry.CommandHandlerFactory
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-import com.jimbroze.kbus.core.registry.QueryHandlerFactory
 import com.jimbroze.kbus.core.registry.ReturnCommand
 import com.jimbroze.kbus.core.registry.ReturnCommandHandler
 import com.jimbroze.kbus.core.registry.StorageCommand
 import com.jimbroze.kbus.core.registry.StorageCommandHandler
 import com.jimbroze.kbus.core.registry.StorageEvent
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -25,6 +25,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+
+// TODO move fixtures
 
 open class FailureCommand : Command<BusResult<String, FailureCommandFailure>>()
 

@@ -7,9 +7,9 @@ import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.CommandHandlerFactory
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 
 class MyCommand : Command<BusResult<String, MessageFailure>>()
 

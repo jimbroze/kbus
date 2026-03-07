@@ -14,7 +14,7 @@ import com.jimbroze.kbus.core.messages.event.EventDispatcher
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.HandlerLocator
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(

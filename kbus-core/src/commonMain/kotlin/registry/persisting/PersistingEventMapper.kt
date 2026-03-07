@@ -1,13 +1,20 @@
-package com.jimbroze.kbus.core.registry
+package com.jimbroze.kbus.core.registry.persisting
 
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.EventAndHandlerFactories
+import com.jimbroze.kbus.core.registry.EventFactory
+import com.jimbroze.kbus.core.registry.EventHandlerMapping
+import com.jimbroze.kbus.core.registry.InlineIntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.reflect.KClass
 
 // TODO disallow multiple of same handler
-class DefaultEventMapper(private val eventFactory: EventFactory) :
+class PersistingEventMapper(private val eventFactory: EventFactory) :
     DomainEventMapper, IntegrationEventMapper, InlineIntegrationEventMapper {
     private val mappings = mutableMapOf<KClass<out Event>, List<KClass<EventHandler<*>>>>()
     private val inlineMappings = mutableMapOf<KClass<out Event>, List<EventHandlerFactory<*, *>>>()

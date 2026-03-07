@@ -6,7 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.registry.GenerationHandlerLocator
+import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.BusConfig
 import com.jimbroze.kbus.generation.generators.BusGenerator

@@ -7,9 +7,9 @@ import com.jimbroze.kbus.core.middleware.middleware.LoggingLogCommand
 import com.jimbroze.kbus.core.middleware.middleware.LoggingLogCommandHandler
 import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
 import com.jimbroze.kbus.core.middleware.middleware.OrderCaptureLogger
-import com.jimbroze.kbus.core.registry.CommandHandlerFactory
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
