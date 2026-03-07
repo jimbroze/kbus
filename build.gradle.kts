@@ -6,6 +6,9 @@ description = "Kotlin message bus framework"
 plugins {
     alias(libs.plugins.ncorti.ktfmt)
     alias(libs.plugins.arturbosch.detekt)
+
+    kotlin("multiplatform") apply false // Required for Knit
+    alias(libs.plugins.kotlinx.knit)
 }
 
 allprojects {
@@ -48,4 +51,19 @@ tasks.withType<Detekt>().configureEach {
         md.required.set(true)
         md.outputLocation.set(file("build/reports/detekt.md"))
     }
+}
+
+knit {
+    files =
+        fileTree(project.rootDir) {
+            include("**/*.md")
+            include("**/*.kt")
+            include("**/*.kts")
+
+            exclude("**/build/**")
+            exclude("**/.gradle/**")
+
+            exclude("**/.aider.chat.history.md")
+            exclude("**/.aider/**")
+        }
 }

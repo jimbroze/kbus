@@ -4,6 +4,7 @@ jdk-target = "17"
 kotlin = "2.3.10"
 kotlinPoet = "2.2.0"
 kotlinxCoroutinesCore = "1.10.2"
+kotlinxKnit = "0.5.1"
 kotlinxSerializationJson = "1.6.3"
 ksp = "2.3.6"
 ktfmt = "0.25.0"
@@ -25,4 +26,5 @@ arturbosch-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt"
 devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 ncorti-ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlinx-knit = { id = "org.jetbrains.kotlinx.knit", version.ref = "kotlinxKnit" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

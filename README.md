@@ -62,6 +62,8 @@ class GetUserHandler :
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-messages-01.kt).
+
 ### Create the Bus and Dispatch Messages
 
 ```kotlin
@@ -88,6 +90,8 @@ if (result.isSuccess) {
 // Fetch a query
 val userResult = bus.fetch(GetUser(1))
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-bus-01.kt).
 
 ## Message Types
 
@@ -123,6 +127,8 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-01.kt).
+
 `CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and
 routes events through the Unit of Work.
 
@@ -149,6 +155,8 @@ class SendShipmentNotification : DispatchAfterTransaction<OrderShipped>() {
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-02.kt).
+
 #### Integration Events
 
 Integration events are dispatched after the transaction commits, intended for cross-boundary communication:
@@ -164,6 +172,8 @@ class SyncToExternalCRM :
     }
 }
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-01.kt).
 
 Command handlers can dispatch integration events:
 
@@ -181,6 +191,8 @@ class RegisterUserHandler :
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-02.kt).
+
 ## Result Types
 
 All commands and queries return `BusResult<TValue, TMessageFailure>`:
@@ -194,12 +206,16 @@ when {
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-01.kt).
+
 Create results with companion functions:
 
 ```kotlin
 BusResult.success("value")
 BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-02.kt).
 
 ## Middleware
 
@@ -225,6 +241,8 @@ class TimingMiddleware : Middleware {
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-middleware-01.kt).
+
 ### Using Middleware
 
 Pass middleware when creating the bus:
@@ -238,6 +256,8 @@ val bus = MessageBus(
     )
 )
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-middleware-02.kt).
 
 ### Built-in Middleware
 
@@ -261,6 +281,8 @@ val bus = MessageBus(
 )
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
+
 And then implement `ExecuteInTransaction` on the command handlers to run within the transaction:
 
 ```kotlin
@@ -274,6 +296,8 @@ class TransferFundsHandler() : CommandHandler<TransferFunds, BusResult<Unit, Mes
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
+
 You can also provide a `TransactionManager` to individual command handlers:
 
 ```kotlin
@@ -282,6 +306,8 @@ class TransferFundsHandler(
 ) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
     ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>>
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
 
 ## KSP Code Generation
 
@@ -327,6 +353,8 @@ class PlaceOrderHandler(
 }
 ```
 
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-generation-01.kt).
+
 ### Generated Code
 
 The KSP processor generates:
@@ -357,6 +385,8 @@ val bus = CompileTimeLoadedMessageBus(
 // Strongly-typed dispatch — compile error if message type is wrong
 val result = bus.execute(PlaceOrder(items))
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-generation-02.kt).
 
 ### Submodules
 
@@ -394,6 +424,8 @@ class Order(override val id: OrderId, val items: List<Item>) : Entity<Order>()
 // Aggregate Root
 class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 ```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-modeling-01.kt).
 
 ## Supported Platforms
 
