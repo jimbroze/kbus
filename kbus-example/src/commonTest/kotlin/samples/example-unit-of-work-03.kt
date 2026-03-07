@@ -1,15 +1,12 @@
 // This file was automatically generated from README.md by Knit tool. Do not edit.
 package com.jimbroze.kbus.example.samples.exampleUnitOfWork03
 
-import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.contracts.uow.TransactionManager
-
-class TransferFunds(val from: String, val to: String, val amount: Int) :
-    Command<BusResult<Unit, MessageFailure>>()
+import com.jimbroze.kbus.example.fixtures.TransferFunds
 
 class TransferFundsHandler(
     override val transactionManager: TransactionManager

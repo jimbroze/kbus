@@ -78,36 +78,16 @@ class GetUserHandler :
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.QueryHandlerFactory
-
-class CreateUser(val name: String, val email: String) :
-    Command<BusResult<String, MessageFailure>>()
-
-class CreateUserHandler :
-    CommandHandler<CreateUser, BusResult<String, MessageFailure>>() {
-    override suspend fun handle(message: CreateUser): BusResult<String, MessageFailure> =
-        BusResult.success("User ${message.name} created")
-}
-
-class GetUser(val id: Int) :
-    Query<BusResult<String, MessageFailure>>()
-
-class GetUserHandler :
-    QueryHandler<GetUser, BusResult<String, MessageFailure>>() {
-    override suspend fun handle(message: GetUser): BusResult<String, MessageFailure> =
-        BusResult.success("User #${message.id}")
-}
+import com.jimbroze.kbus.example.fixtures.CreateUser
+import com.jimbroze.kbus.example.fixtures.CreateUserHandler
+import com.jimbroze.kbus.example.fixtures.GetUser
+import com.jimbroze.kbus.example.fixtures.GetUserHandler
 -->
 
 ```kotlin
@@ -187,12 +167,10 @@ strategy, even for the same event type.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.domain.DomainEvent
 import com.jimbroze.kbus.core.messages.event.DispatchImmediately
 import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
 import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
-
-class OrderShipped(val orderId: String) : DomainEvent()
+import com.jimbroze.kbus.example.fixtures.OrderShipped
 -->
 
 ```kotlin
@@ -245,15 +223,11 @@ Command handlers can dispatch integration events:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-
-class RegisterUser(val name: String) : Command<BusResult<String, MessageFailure>>()
-
-class UserRegistered(val userId: String) : IntegrationEvent()
+import com.jimbroze.kbus.example.fixtures.RegisterUser
+import com.jimbroze.kbus.example.fixtures.UserRegistered
 -->
 
 ```kotlin
@@ -278,30 +252,10 @@ All commands and queries return `BusResult<TValue, TMessageFailure>`:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.CommandHandlerFactory
-import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-
-class MyCommand : Command<BusResult<String, MessageFailure>>()
-
-class MyCommandHandler : CommandHandler<MyCommand, BusResult<String, MessageFailure>>() {
-    override suspend fun handle(message: MyCommand): BusResult<String, MessageFailure> =
-        BusResult.success("done")
-}
-
-val stores = HandlerFactoryStoreCollection()
-val bus = MessageBus(PersistingHandlerLocator(stores)).also {
-    stores.commandStore.registerHandlers(
-        MyCommand::class,
-        listOf(CommandHandlerFactory(MyCommandHandler::class) { _: CommandDependencies -> MyCommandHandler() })
-    )
-}
+import com.jimbroze.kbus.example.fixtures.MyCommand
+import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
 -->
 
 ```kotlin
@@ -322,11 +276,8 @@ Create results with companion functions:
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
-
-class GenericMessageFailure(override val reason: FailureReason) : MessageFailure
+import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
 -->
 
 ```kotlin
@@ -377,24 +328,13 @@ Pass middleware when creating the bus:
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.middleware.middleware.LogLevel
-import com.jimbroze.kbus.core.middleware.middleware.Logger
 import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
-
-object DebugLevel : LogLevel { override val level = "DEBUG" }
-object InfoLevel : LogLevel { override val level = "INFO" }
-object ErrorLevel : LogLevel { override val level = "ERROR" }
-
-val logger = object : Logger {
-    override fun log(level: LogLevel, message: String, exception: Throwable?) {
-        println("[${level.level}] $message")
-    }
-}
+import com.jimbroze.kbus.example.fixtures.DebugLevel
+import com.jimbroze.kbus.example.fixtures.InfoLevel
+import com.jimbroze.kbus.example.fixtures.ErrorLevel
+import com.jimbroze.kbus.example.fixtures.logger
 -->
 
 ```kotlin
@@ -427,14 +367,10 @@ To opt into transactional execution, pass a `TransactionManager` to the bus to a
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
-
-val myTransactionManager = object : TransactionManager {
-    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult = block()
-}
+import com.jimbroze.kbus.example.fixtures.myTransactionManager
 -->
 
 ```kotlin
@@ -452,14 +388,11 @@ And then implement `ExecuteInTransaction` on the command handlers to run within 
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
-
-class TransferFunds(val from: String, val to: String, val amount: Int) :
-    Command<BusResult<Unit, MessageFailure>>()
+import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
 ```kotlin
@@ -479,15 +412,12 @@ You can also provide a `TransactionManager` to individual command handlers:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.contracts.uow.TransactionManager
-
-class TransferFunds(val from: String, val to: String, val amount: Int) :
-    Command<BusResult<Unit, MessageFailure>>()
+import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
 ```kotlin
@@ -538,20 +468,12 @@ Mark handler classes with `@LoadMessageHandler`. Constructor parameters become a
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-
-class PlaceOrder(val items: List<String>) : Command<BusResult<String, MessageFailure>>()
-
-interface OrderRepository {
-    fun save(items: List<String>): String
-}
-
-interface PaymentService {
-    fun charge(orderId: String)
-}
+import com.jimbroze.kbus.example.fixtures.OrderRepository
+import com.jimbroze.kbus.example.fixtures.PaymentService
+import com.jimbroze.kbus.example.fixtures.PlaceOrder
 -->
 
 ```kotlin

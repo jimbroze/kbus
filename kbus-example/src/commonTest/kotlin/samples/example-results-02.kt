@@ -2,11 +2,8 @@
 package com.jimbroze.kbus.example.samples.exampleResults02
 
 import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
-
-class GenericMessageFailure(override val reason: FailureReason) : MessageFailure
+import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
 
 val success = BusResult.success("value")
 val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))

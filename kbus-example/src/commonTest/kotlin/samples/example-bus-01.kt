@@ -1,36 +1,16 @@
 // This file was automatically generated from README.md by Knit tool. Do not edit.
 package com.jimbroze.kbus.example.samples.exampleBus01
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.QueryHandlerFactory
-
-class CreateUser(val name: String, val email: String) :
-    Command<BusResult<String, MessageFailure>>()
-
-class CreateUserHandler :
-    CommandHandler<CreateUser, BusResult<String, MessageFailure>>() {
-    override suspend fun handle(message: CreateUser): BusResult<String, MessageFailure> =
-        BusResult.success("User ${message.name} created")
-}
-
-class GetUser(val id: Int) :
-    Query<BusResult<String, MessageFailure>>()
-
-class GetUserHandler :
-    QueryHandler<GetUser, BusResult<String, MessageFailure>>() {
-    override suspend fun handle(message: GetUser): BusResult<String, MessageFailure> =
-        BusResult.success("User #${message.id}")
-}
+import com.jimbroze.kbus.example.fixtures.CreateUser
+import com.jimbroze.kbus.example.fixtures.CreateUserHandler
+import com.jimbroze.kbus.example.fixtures.GetUser
+import com.jimbroze.kbus.example.fixtures.GetUserHandler
 
 suspend fun main() {
     // Register handlers

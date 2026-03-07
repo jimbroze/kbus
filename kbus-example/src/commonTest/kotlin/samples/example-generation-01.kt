@@ -2,20 +2,12 @@
 package com.jimbroze.kbus.example.samples.exampleGeneration01
 
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-
-class PlaceOrder(val items: List<String>) : Command<BusResult<String, MessageFailure>>()
-
-interface OrderRepository {
-    fun save(items: List<String>): String
-}
-
-interface PaymentService {
-    fun charge(orderId: String)
-}
+import com.jimbroze.kbus.example.fixtures.OrderRepository
+import com.jimbroze.kbus.example.fixtures.PaymentService
+import com.jimbroze.kbus.example.fixtures.PlaceOrder
 
 @LoadMessageHandler
 class PlaceOrderHandler(

@@ -1,12 +1,10 @@
 // This file was automatically generated from README.md by Knit tool. Do not edit.
 package com.jimbroze.kbus.example.samples.exampleDomainEvents02
 
-import com.jimbroze.kbus.domain.DomainEvent
 import com.jimbroze.kbus.core.messages.event.DispatchImmediately
 import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
 import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
-
-class OrderShipped(val orderId: String) : DomainEvent()
+import com.jimbroze.kbus.example.fixtures.OrderShipped
 
 // Dispatched immediately when the event is raised
 class NotifyWarehouse : DispatchImmediately<OrderShipped>() {
