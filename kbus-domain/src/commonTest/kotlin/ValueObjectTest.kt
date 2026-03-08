@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.domain
 
+import TestValueObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
