@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :kbus-core:jvmTest --tests "com.jimbroze.kbus.core.SomeTest"  # Single test class
 ./gradlew check                  # Run all checks (tests + linting)
 ./gradlew ktfmtFormat            # Format code with ktfmt (Kotlin official style)
-./gradlew detekt                 # Run Detekt static analysis (auto-corrects)
+./gradlew detekt                 # Run Detekt static analysis
 ```
 
 Always format code and check static analysis after making changes.
@@ -24,12 +24,11 @@ with KSP code generation for compile-time type-safe handler resolution (zero ref
 
 ## Module Structure
 
-- **kbus-core** — Core framework: message types, bus, middleware pipeline, handler locators, Unit of Work, result types
-- **kbus-annotations** — `@LoadMessageHandler` and `@KbusIndex` annotations
+- **kbus-contracts** — API & interfaces: message types, result types. KSP Annotations
+- **kbus-core** — Core framework & infrastructure: bus, middleware pipeline, handler locators, Unit of Work
 - **kbus-generation** — KSP processor that generates handler factories, dependency containers, and bus classes
-- **kbus-generation-test** / **kbus-generation-test-sub** — Test modules for code generation (sub is a submodule test)
-- **kbus-koin** — Koin DI framework integration
-- **testDoubles** — Shared test fixtures (mock handlers, test messages)
+- **kbus-example** / **kbus-example-sub** — Example/Test modules (sub is a submodule test)
+- **testDoubles** — Shared test fixtures
 - **buildSrc** — Custom Gradle plugins (`kbus.multiplatform`, `kbus.publish`)
 
 ## Architecture
@@ -86,3 +85,9 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Kotlin Multiplatform: all core code in `commonMain`, tests use `kotlinx.coroutines.test.runTest`
 - Targets: JVM (17), JS, WASM, macOS, iOS, Linux, Windows
 - Commit messages follow conventional commits: `feat(scope):`, `refactor(scope):`, `fix(scope):`
+
+## Testing
+
+- Everything should have unit test coverage. Use Test-driven development; creating (failing) tests before writing the
+  implementation.
+- Use `testDoubles` for test fixtures with no dependencies on other kbus modules.
