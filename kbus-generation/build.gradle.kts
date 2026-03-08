@@ -19,5 +19,7 @@ kotlin {
             implementation(libs.kotlin.poet)
             implementation(libs.kotlin.poet.ksp)
         }
+
+        commonTest.dependencies { implementation(libs.kotlin.test) }
     }
 }

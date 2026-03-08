@@ -5,4 +5,10 @@ plugins {
     id("kbus.publish")
 }
 
-kotlin { sourceSets { commonMain.dependencies {} } }
+kotlin {
+    sourceSets {
+        commonMain.dependencies {}
+
+        commonTest.dependencies { implementation(libs.kotlin.test) }
+    }
+}
