@@ -4,7 +4,10 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -13,6 +16,7 @@ import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
@@ -86,6 +90,9 @@ class BusGenerator(
 
         handlers.forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
 
+        classBuilder.addFunction(buildDeprecatedExecute())
+        classBuilder.addFunction(buildDeprecatedFetch())
+
         val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
         file
@@ -128,5 +135,60 @@ class BusGenerator(
         )
 
         return functionBuilder.build()
+    }
+
+    private fun buildDeprecatedExecute(): FunSpec {
+        val tResult =
+            TypeVariableName(
+                "TResult",
+                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
+            )
+        val tCommand =
+            TypeVariableName("TCommand", Command::class.asClassName().parameterizedBy(tResult))
+
+        return FunSpec.builder("execute")
+            .addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
+            .addAnnotation(
+                AnnotationSpec.builder(Deprecated::class)
+                    .addMember(
+                        "message = %S",
+                        "This command has not been loaded. Are you missing a @LoadMessageHandler annotation?",
+                    )
+                    .addMember("level = %T.%L", DeprecationLevel::class, "ERROR")
+                    .build()
+            )
+            .addTypeVariable(tCommand)
+            .addTypeVariable(tResult)
+            .addParameter("command", tCommand)
+            .returns(tResult)
+            .addStatement("error(%S)", "Should not be called directly on the compile-time bus.")
+            .build()
+    }
+
+    private fun buildDeprecatedFetch(): FunSpec {
+        val tResult =
+            TypeVariableName(
+                "TResult",
+                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
+            )
+        val tQuery = TypeVariableName("TQuery", Query::class.asClassName().parameterizedBy(tResult))
+
+        return FunSpec.builder("fetch")
+            .addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
+            .addAnnotation(
+                AnnotationSpec.builder(Deprecated::class)
+                    .addMember(
+                        "message = %S",
+                        "This query has not been loaded. Are you missing a @LoadMessageHandler annotation?",
+                    )
+                    .addMember("level = %T.%L", DeprecationLevel::class, "ERROR")
+                    .build()
+            )
+            .addTypeVariable(tQuery)
+            .addTypeVariable(tResult)
+            .addParameter("query", tQuery)
+            .returns(tResult)
+            .addStatement("error(%S)", "Should not be called directly on the compile-time bus.")
+            .build()
     }
 }
