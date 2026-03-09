@@ -4,6 +4,7 @@ import java.util.*
 description = "Kotlin message bus framework"
 
 plugins {
+    base
     alias(libs.plugins.ncorti.ktfmt)
     alias(libs.plugins.arturbosch.detekt)
 
@@ -66,4 +67,16 @@ knit {
             exclude("**/.aider.chat.history.md")
             exclude("**/.aider/**")
         }
+}
+
+val knitTask = tasks.named("knit")
+val ktfmtTask = tasks.named("ktfmtFormat")
+
+allprojects {
+    pluginManager.withPlugin("base") {
+        tasks.named("check") {
+            dependsOn(knitTask)
+            dependsOn(ktfmtTask)
+        }
+    }
 }
