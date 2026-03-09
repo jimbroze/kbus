@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.registry
+package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
@@ -7,8 +7,6 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.MessageFailure
-
-// TODO move fixtures
 
 class ReturnCommand(val messageData: String) : Command<BusResult<String, MessageFailure>>()
 

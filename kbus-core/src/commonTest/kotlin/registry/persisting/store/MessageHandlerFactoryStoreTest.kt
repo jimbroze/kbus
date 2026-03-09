@@ -1,13 +1,13 @@
 package com.jimbroze.kbus.core.registry.persisting.store
 
 import com.jimbroze.kbus.contracts.messages.command.TooManyHandlersException
-import com.jimbroze.kbus.core.registry.OtherPrintEventHandler
-import com.jimbroze.kbus.core.registry.PrintEventHandler
-import com.jimbroze.kbus.core.registry.ReturnCommand
-import com.jimbroze.kbus.core.registry.ReturnCommandHandler
-import com.jimbroze.kbus.core.registry.StorageCommand
-import com.jimbroze.kbus.core.registry.StorageCommandHandler
-import com.jimbroze.kbus.core.registry.StorageEvent
+import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.ReturnCommand
+import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
+import com.jimbroze.kbus.core.fixtures.StorageCommand
+import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
+import com.jimbroze.kbus.core.fixtures.StorageEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

@@ -1,21 +1,17 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.contracts.bus.BusAccess
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
-import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.registry.ReturnCommand
-import com.jimbroze.kbus.core.registry.ReturnCommandHandler
-import com.jimbroze.kbus.core.uow.UnitOfWork
-import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
-import com.jimbroze.kbus.domain.DomainEvent
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.core.fixtures.DispatchingCommand
+import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler
+import com.jimbroze.kbus.core.fixtures.ReturnCommand
+import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
+import com.jimbroze.kbus.core.fixtures.TestBusAccess
+import com.jimbroze.kbus.core.fixtures.TestCommandDependenciesFactory
+import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.fixtures.TestTransactionManager
+import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
+import com.jimbroze.kbus.core.fixtures.TransactionCommand
+import com.jimbroze.kbus.core.fixtures.TransactionCommandHandler
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -160,131 +156,5 @@ class CommandExecutorTest {
         assertNotNull(testDependencies)
         assertSame(testDependencies, dependenciesFactory.commandDependencies)
         assertSame(unitOfWork, dependenciesFactory.unitOfWork)
-    }
-}
-
-class TestBusAccess : BusAccess {
-    val dispatchedEvents = mutableListOf<Event>()
-
-    override suspend fun <TEvent : Event> dispatch(event: TEvent) {
-        dispatchedEvents.add(event)
-    }
-}
-
-class TestDomainEventDispatcher : DomainEventDispatcher {
-    val dispatchedEvents = mutableListOf<Pair<DomainEvent, UnitOfWork<*>>>()
-
-    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>) {
-        dispatchedEvents.add(Pair(event, unitOfWork))
-    }
-}
-
-class TestTransactionManager : TransactionManager {
-    val executedWork = mutableListOf<Any?>()
-
-    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult {
-        val result = block()
-        executedWork.add(result)
-
-        return result
-    }
-}
-
-class NonExecutingTransactionManager : TransactionManager {
-    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult {
-        @Suppress("UNCHECKED_CAST")
-        return null as TResult
-    }
-}
-
-class TestUnitOfWorkFactory : UnitOfWorkFactory {
-    lateinit var unitOfWork: TestUnitOfWork<*>
-
-    override fun <TResult> create(): UnitOfWork<TResult> {
-        val unitOfWork = TestUnitOfWork<TResult>()
-        this.unitOfWork = unitOfWork
-        return unitOfWork
-    }
-}
-
-class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
-    lateinit var primaryWork: suspend () -> TResult
-    val secondaryWork = mutableListOf<suspend () -> Unit>()
-    val postCommitWork = mutableListOf<suspend () -> Unit>()
-    val executedWork = mutableListOf<suspend () -> Any?>()
-    var transactionManager: TransactionManager? = null
-
-    override suspend fun execute(): TResult {
-        executedWork.add(primaryWork)
-
-        return primaryWork()
-    }
-
-    override fun setReturningWork(primaryWork: suspend () -> TResult) {
-        this.primaryWork = primaryWork
-    }
-
-    override fun addSecondaryWork(subUnitOfWork: suspend () -> Unit) {
-        secondaryWork.add(subUnitOfWork)
-    }
-
-    override fun addPostCommitWork(subUnitOfWork: suspend () -> Unit) {
-        postCommitWork.add(subUnitOfWork)
-    }
-
-    override fun useTransaction(transactionManager: TransactionManager) {
-        this.transactionManager = transactionManager
-    }
-}
-
-class TestCommandDependenciesFactory : CommandDependenciesFactory {
-    var unitOfWork: UnitOfWork<*>? = null
-    var commandDependencies: CommandDependencies? = null
-
-    override fun create(unitOfWork: UnitOfWork<*>): CommandDependencies {
-        if (this.unitOfWork !== null) {
-            error("Unit of work has already been set")
-        }
-
-        val commandDependencies = CommandDependencies(TestDomainEventPublisher())
-
-        this.unitOfWork = unitOfWork
-        this.commandDependencies = commandDependencies
-
-        return commandDependencies
-    }
-}
-
-fun <TResult> testCommandDependencies() =
-    TestCommandDependenciesFactory().create(TestUnitOfWork<TResult>())
-
-class TestDomainEventPublisher : DomainEventPublisher {
-    val publishedEvents = mutableListOf<DomainEvent>()
-
-    override suspend fun publish(event: DomainEvent) {
-        publishedEvents.add(event)
-    }
-}
-
-class TestIntegrationEvent(val name: String) : IntegrationEvent()
-
-class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
-
-class DispatchingCommandHandler :
-    CommandHandler<DispatchingCommand, BusResult<Unit, MessageFailure>>() {
-    override suspend fun handle(message: DispatchingCommand): BusResult<Unit, MessageFailure> {
-        dispatch(TestIntegrationEvent("test-event"))
-        return BusResult.success(Unit)
-    }
-}
-
-class TransactionCommand(val message: String) : Command<BusResult<String, MessageFailure>>()
-
-class TransactionCommandHandler(override val transactionManager: TransactionManager? = null) :
-    CommandHandler<TransactionCommand, BusResult<String, MessageFailure>>(),
-    ExecuteInTransaction<TransactionCommand, BusResult<String, MessageFailure>> {
-
-    override suspend fun handle(message: TransactionCommand): BusResult<String, MessageFailure> {
-        return BusResult.success(message.message)
     }
 }

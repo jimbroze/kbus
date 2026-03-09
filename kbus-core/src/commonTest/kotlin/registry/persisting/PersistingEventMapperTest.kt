@@ -1,13 +1,13 @@
 package com.jimbroze.kbus.core.registry.persisting
 
-import com.jimbroze.kbus.core.messages.event.TestDomainEvent
-import com.jimbroze.kbus.core.messages.event.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.StorageEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.registry.DuplicateEventHandlerException
 import com.jimbroze.kbus.core.registry.EventAndHandlerFactories
 import com.jimbroze.kbus.core.registry.EventHandlerMapping
-import com.jimbroze.kbus.core.registry.OtherPrintEventHandler
-import com.jimbroze.kbus.core.registry.PrintEventHandler
-import com.jimbroze.kbus.core.registry.StorageEvent
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.MessageHandlerFactoryStore
 import kotlin.test.Test

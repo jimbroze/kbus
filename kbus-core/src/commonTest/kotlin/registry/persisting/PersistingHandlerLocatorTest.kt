@@ -1,17 +1,17 @@
 package com.jimbroze.kbus.core.registry.persisting
 
+import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.StorageCommand
+import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
+import com.jimbroze.kbus.core.fixtures.StorageEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.TestDomainEventPublisher
+import com.jimbroze.kbus.core.fixtures.testCommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.messages.command.TestDomainEventPublisher
-import com.jimbroze.kbus.core.messages.command.testCommandDependencies
-import com.jimbroze.kbus.core.messages.event.TestDomainEvent
-import com.jimbroze.kbus.core.messages.event.TestDomainEventHandler
 import com.jimbroze.kbus.core.registry.EventAndHandlerFactories
 import com.jimbroze.kbus.core.registry.EventHandlerMapping
-import com.jimbroze.kbus.core.registry.OtherPrintEventHandler
-import com.jimbroze.kbus.core.registry.PrintEventHandler
-import com.jimbroze.kbus.core.registry.StorageCommand
-import com.jimbroze.kbus.core.registry.StorageCommandHandler
-import com.jimbroze.kbus.core.registry.StorageEvent
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection

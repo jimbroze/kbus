@@ -2,9 +2,9 @@ package com.jimbroze.kbus.core.registry.persisting
 
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.core.registry.OtherPrintEventHandler
-import com.jimbroze.kbus.core.registry.PrintEventHandler
-import com.jimbroze.kbus.core.registry.StorageEvent
+import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.MessageHandlerFactoryStore
 import kotlin.reflect.KClass

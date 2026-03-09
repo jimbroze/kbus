@@ -1,10 +1,14 @@
 package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.core.messages.command.TestUnitOfWork
-import com.jimbroze.kbus.core.registry.OtherPrintEventHandler
-import com.jimbroze.kbus.core.registry.PrintEventHandler
-import com.jimbroze.kbus.core.registry.StorageEvent
+import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.StorageEvent
+import com.jimbroze.kbus.core.fixtures.TestDispatchAfterTransactionHandler
+import com.jimbroze.kbus.core.fixtures.TestDispatchAtEndOfTransactionHandler
+import com.jimbroze.kbus.core.fixtures.TestDomainEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -105,27 +109,4 @@ class EventDispatcherTest {
             assertEquals(3, results.size)
             assertEquals("mixed", results[2])
         }
-}
-
-class TestDomainEvent(val data: String) : DomainEvent()
-
-class TestDomainEventHandler(private val results: MutableList<String>) :
-    DomainEventHandler<TestDomainEvent>() {
-    override suspend fun handle(message: TestDomainEvent) {
-        results.add(message.data)
-    }
-}
-
-class TestDispatchAtEndOfTransactionHandler(private val results: MutableList<String>) :
-    DispatchAtEndOfTransaction<TestDomainEvent>() {
-    override suspend fun handle(message: TestDomainEvent) {
-        results.add(message.data)
-    }
-}
-
-class TestDispatchAfterTransactionHandler(private val results: MutableList<String>) :
-    DispatchAfterTransaction<TestDomainEvent>() {
-    override suspend fun handle(message: TestDomainEvent) {
-        results.add(message.data)
-    }
 }

@@ -1,19 +1,17 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.registry.ReturnCommand
-import com.jimbroze.kbus.core.registry.ReturnCommandHandler
-import com.jimbroze.kbus.core.registry.StorageCommand
-import com.jimbroze.kbus.core.registry.StorageCommandHandler
-import com.jimbroze.kbus.core.registry.StorageEvent
+import com.jimbroze.kbus.core.fixtures.BrokenStateFailureCommandHandler
+import com.jimbroze.kbus.core.fixtures.FailureCommand
+import com.jimbroze.kbus.core.fixtures.FailureCommandFailure
+import com.jimbroze.kbus.core.fixtures.FailureQuery
+import com.jimbroze.kbus.core.fixtures.FailureQueryHandler
+import com.jimbroze.kbus.core.fixtures.ReturnCommand
+import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
+import com.jimbroze.kbus.core.fixtures.StorageCommand
+import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
+import com.jimbroze.kbus.core.fixtures.StorageQuery
+import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -25,63 +23,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-
-// TODO move fixtures
-
-open class FailureCommand : Command<BusResult<String, FailureCommandFailure>>()
-
-class BrokenStateFailureReason(override val message: String) : FailureReason
-
-sealed interface FailureCommandFailure : MessageFailure {
-    class BrokenStateFailure(message: String) : FailureCommandFailure {
-        override val reason = BrokenStateFailureReason(message)
-    }
-}
-
-class BrokenStateFailureCommandHandler :
-    CommandHandler<FailureCommand, BusResult<String, FailureCommandFailure>>() {
-    override suspend fun handle(message: FailureCommand): BusResult<String, FailureCommandFailure> {
-        return BusResult.failure(
-            FailureCommandFailure.BrokenStateFailure("Illegal state in command handling")
-        )
-    }
-}
-
-open class StorageQuery(val index: Int, val listStore: MutableList<String>) :
-    Query<BusResult<String, MessageFailure>>()
-
-class StorageQueryHandler : QueryHandler<StorageQuery, BusResult<String, MessageFailure>>() {
-    override suspend fun handle(message: StorageQuery): BusResult<String, MessageFailure> {
-        return BusResult.success(message.listStore[message.index])
-    }
-}
-
-open class FailureQuery : Query<BusResult<String, FailureCommandFailure>>()
-
-class FailureQueryHandler : QueryHandler<FailureQuery, BusResult<String, FailureCommandFailure>>() {
-    override suspend fun handle(message: FailureQuery): BusResult<String, FailureCommandFailure> {
-        return BusResult.failure(FailureCommandFailure.BrokenStateFailure("The query failed"))
-    }
-}
-
-class TestEvent(val message: String) : Event()
-
-class TestIntegrationEventHandler(val messageOutput: MutableList<String>) :
-    EventHandler<TestEvent> {
-    override suspend fun handle(message: TestEvent) {
-        messageOutput.add(message.message)
-    }
-}
-
-class EventCommand(val message: String, val listStore: MutableList<String>) :
-    Command<BusResult<Unit, MessageFailure>>()
-
-class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, MessageFailure>>() {
-    override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
-        dispatch(StorageEvent(message.message, message.listStore))
-        return BusResult.success(Unit)
-    }
-}
 
 class MessageBusTest {
     @Test

@@ -1,12 +1,12 @@
 package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.middleware.middleware.CaptureLogger
-import com.jimbroze.kbus.core.middleware.middleware.LogLevels
-import com.jimbroze.kbus.core.middleware.middleware.LoggingLogCommand
-import com.jimbroze.kbus.core.middleware.middleware.LoggingLogCommandHandler
+import com.jimbroze.kbus.core.fixtures.CaptureLogger
+import com.jimbroze.kbus.core.fixtures.LogLevels
+import com.jimbroze.kbus.core.fixtures.LoggingLogCommand
+import com.jimbroze.kbus.core.fixtures.LoggingLogCommandHandler
+import com.jimbroze.kbus.core.fixtures.OrderCaptureLogger
 import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
-import com.jimbroze.kbus.core.middleware.middleware.OrderCaptureLogger
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
