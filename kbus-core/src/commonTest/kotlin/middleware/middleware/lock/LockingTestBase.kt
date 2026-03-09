@@ -17,6 +17,7 @@ import com.jimbroze.kbus.core.fixtures.SleepCommand
 import com.jimbroze.kbus.core.fixtures.SleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestFailure
 import com.jimbroze.kbus.core.fixtures.TimeReturnCommand
+import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals

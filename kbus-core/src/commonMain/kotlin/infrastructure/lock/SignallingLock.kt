@@ -1,10 +1,10 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock
+package com.jimbroze.kbus.core.infrastructure.lock
 
-import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
-import com.jimbroze.kbus.core.middleware.middleware.lock.locks.CacheLock
-import com.jimbroze.kbus.core.middleware.middleware.lock.locks.InMemoryAtomicSignallingLock
-import com.jimbroze.kbus.core.middleware.middleware.lock.locks.PollingConfig
-import com.jimbroze.kbus.core.middleware.middleware.lock.locks.PollingSignallingLock
+import com.jimbroze.kbus.core.infrastructure.cache.Cache
+import com.jimbroze.kbus.core.infrastructure.lock.locks.CacheLock
+import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignallingLock
+import com.jimbroze.kbus.core.infrastructure.lock.locks.PollingConfig
+import com.jimbroze.kbus.core.infrastructure.lock.locks.PollingSignallingLock
 import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow

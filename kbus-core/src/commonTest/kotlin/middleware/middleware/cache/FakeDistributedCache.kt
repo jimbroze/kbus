@@ -1,9 +1,11 @@
 package com.jimbroze.kbus.core.middleware.middleware.cache
 
+import com.jimbroze.kbus.core.infrastructure.cache.Cache
+
 /**
- * A [Cache] test double that simulates non-in-memory (e.g. Redis, database) behavior: every [get]
- * and [getOrPut] call returns a *copy* of the stored value, so callers never hold a reference to
- * the cached object.
+ * A [com.jimbroze.kbus.core.infrastructure.cache.Cache] test double that simulates non-in-memory
+ * (e.g. Redis, database) behavior: every [get] and [getOrPut] call returns a *copy* of the stored
+ * value, so callers never hold a reference to the cached object.
  */
 class FakeDistributedCache<K : Any, V : Any>(private val copy: (V) -> V) : Cache<K, V> {
     private val map = mutableMapOf<K, V>()

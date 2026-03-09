@@ -330,7 +330,7 @@ Pass middleware when creating the bus:
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
-import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
+import com.jimbroze.kbus.core.middleware.middleware.LoggingMiddleware
 import com.jimbroze.kbus.example.fixtures.DebugLevel
 import com.jimbroze.kbus.example.fixtures.InfoLevel
 import com.jimbroze.kbus.example.fixtures.ErrorLevel
@@ -343,7 +343,7 @@ val stores = HandlerFactoryStoreCollection()
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     middlewares = listOf(
-        MessageLogger(logger, DebugLevel, InfoLevel, ErrorLevel),
+        LoggingMiddleware(logger, DebugLevel, InfoLevel, ErrorLevel),
     )
 )
 ```
@@ -352,7 +352,7 @@ val bus = MessageBus(
 
 ### Built-in Middleware
 
-- **`MessageLogger`** — Logs message dispatch, completion, and errors at configurable log levels
+- **`LoggingMiddleware`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
 
 ## Unit of Work
@@ -519,7 +519,7 @@ class MyDependencies : AutoLoader() {
 val bus = CompileTimeLoadedMessageBus(
     loader = MyDependencies(),
     transactionManager = myTransactionManager,
-    middleware = listOf(MessageLogger(logger)),
+    middleware = listOf(LoggingMiddleware(logger)),
 )
 
 // Strongly-typed dispatch — compile error if message type is wrong

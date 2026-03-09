@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
 import kotlin.time.Clock
 import kotlin.time.Duration

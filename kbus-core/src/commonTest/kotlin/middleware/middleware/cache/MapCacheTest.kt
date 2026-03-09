@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.middleware.middleware.cache
 
+import com.jimbroze.kbus.core.infrastructure.cache.MapCache
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 

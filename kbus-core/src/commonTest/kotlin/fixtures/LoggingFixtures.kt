@@ -6,12 +6,12 @@ import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.middleware.LoggingMessage
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.middleware.middleware.LogLevel
-import com.jimbroze.kbus.core.middleware.middleware.Logger
-import com.jimbroze.kbus.core.middleware.middleware.LoggingMessage
+import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
+import com.jimbroze.kbus.core.infrastructure.logging.Logger
 
 internal enum class LogLevels(override val level: String) : LogLevel {
     DEBUG("DEBUG"),

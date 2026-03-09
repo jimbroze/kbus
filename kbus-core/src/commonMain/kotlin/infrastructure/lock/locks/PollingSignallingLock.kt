@@ -1,7 +1,7 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock.locks
+package com.jimbroze.kbus.core.infrastructure.lock.locks
 
-import com.jimbroze.kbus.core.middleware.middleware.lock.AtomicLock
-import com.jimbroze.kbus.core.middleware.middleware.lock.SignallingLock
+import com.jimbroze.kbus.core.infrastructure.lock.AtomicLock
+import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds

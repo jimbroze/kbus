@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
 class MapCache<K : Any, V : Any> : Cache<K, V> {
     val cacheMap = mutableMapOf<K, V>()

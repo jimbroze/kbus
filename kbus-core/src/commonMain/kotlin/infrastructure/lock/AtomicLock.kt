@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock
+package com.jimbroze.kbus.core.infrastructure.lock
 
 import kotlin.time.Duration
 

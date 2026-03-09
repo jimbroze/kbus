@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock.inmemory
+package com.jimbroze.kbus.core.infrastructure.lock.inmemory
 
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicInt

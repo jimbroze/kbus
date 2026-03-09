@@ -1,9 +1,9 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock.locks
+package com.jimbroze.kbus.core.infrastructure.lock.locks
 
-import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
-import com.jimbroze.kbus.core.middleware.middleware.cache.ThreadSafeMapCache
-import com.jimbroze.kbus.core.middleware.middleware.lock.SignallingLock
-import com.jimbroze.kbus.core.middleware.middleware.lock.inmemory.ThreadSafeInMemoryLock
+import com.jimbroze.kbus.core.infrastructure.cache.Cache
+import com.jimbroze.kbus.core.infrastructure.cache.ThreadSafeMapCache
+import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
+import com.jimbroze.kbus.core.infrastructure.lock.inmemory.ThreadSafeInMemoryLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi

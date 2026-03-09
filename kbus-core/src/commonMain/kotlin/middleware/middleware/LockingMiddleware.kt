@@ -5,9 +5,9 @@ import com.jimbroze.kbus.contracts.middleware.BusLockedException
 import com.jimbroze.kbus.contracts.middleware.BusLockedFailure
 import com.jimbroze.kbus.contracts.middleware.LockAwareMessage
 import com.jimbroze.kbus.contracts.middleware.ResultReturningLockAwareMessage
+import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.middleware.lock.SignallingLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration

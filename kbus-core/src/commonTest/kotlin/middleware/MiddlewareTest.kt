@@ -6,7 +6,7 @@ import com.jimbroze.kbus.core.fixtures.LogLevels
 import com.jimbroze.kbus.core.fixtures.LoggingLogCommand
 import com.jimbroze.kbus.core.fixtures.LoggingLogCommandHandler
 import com.jimbroze.kbus.core.fixtures.OrderCaptureLogger
-import com.jimbroze.kbus.core.middleware.middleware.MessageLogger
+import com.jimbroze.kbus.core.middleware.middleware.LoggingMiddleware
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -35,7 +35,7 @@ class MiddlewareTest {
                 PersistingHandlerLocator(stores),
                 middlewares =
                     listOf(
-                        MessageLogger(
+                        LoggingMiddleware(
                             captureLogger,
                             LogLevels.DEBUG,
                             LogLevels.INFO,
@@ -69,8 +69,13 @@ class MiddlewareTest {
                 PersistingHandlerLocator(stores),
                 middlewares =
                     listOf(
-                        MessageLogger(logger1, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
-                        MessageLogger(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
+                        LoggingMiddleware(
+                            logger1,
+                            LogLevels.DEBUG,
+                            LogLevels.INFO,
+                            LogLevels.ERROR,
+                        ),
+                        LoggingMiddleware(logger2, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR),
                     ),
             )
 

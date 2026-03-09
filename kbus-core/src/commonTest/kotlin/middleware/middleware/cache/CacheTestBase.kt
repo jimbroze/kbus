@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.middleware.middleware.cache
 
+import com.jimbroze.kbus.core.infrastructure.cache.Cache
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,8 +9,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Abstract test base for [Cache] implementations. Subclass this and implement [createCache] to
- * fully test a cache implementation.
+ * Abstract test base for [com.jimbroze.kbus.core.infrastructure.cache.Cache] implementations.
+ * Subclass this and implement [createCache] to fully test a cache implementation.
  */
 abstract class CacheTestBase<K : Any, V : Any>(
     protected val createKey: (Int) -> K,

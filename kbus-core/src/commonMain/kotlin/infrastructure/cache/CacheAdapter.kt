@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
 /**
  * Adapts a generic Cache<K, T> into a strictly typed Cache<K, V>, where V is a subtype of T.

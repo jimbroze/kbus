@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
 interface Cache<K : Any, V : Any> {
     /** Returns the value for the given key, or null if it's a cache miss. */

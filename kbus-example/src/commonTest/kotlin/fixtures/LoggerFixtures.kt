@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.example.fixtures
 
-import com.jimbroze.kbus.core.middleware.middleware.LogLevel
-import com.jimbroze.kbus.core.middleware.middleware.Logger
+import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
+import com.jimbroze.kbus.core.infrastructure.logging.Logger
 
 object DebugLevel : LogLevel {
     override val level = "DEBUG"

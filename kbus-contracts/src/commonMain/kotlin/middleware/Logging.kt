@@ -1,16 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware
-
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-
-interface LogLevel {
-    val level: String
-}
-
-interface Logger {
-    fun log(level: LogLevel, message: String, exception: Throwable?)
-}
+package com.jimbroze.kbus.contracts.middleware
 
 interface LoggingMessage {
     val messageType: String
@@ -73,30 +61,4 @@ interface LoggingEvent : LoggingMessage {
 
     override val pastVerb: String
         get() = "dispatched"
-}
-
-class MessageLogger(
-    private val logger: Logger,
-    private val preDispatchLevel: LogLevel,
-    private val postDispatchLevel: LogLevel,
-    private val errorLevel: LogLevel,
-) : Middleware {
-    override suspend fun <TMessage : Message, TResult> handle(
-        message: TMessage,
-        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
-    ): TResult {
-        if (message !is LoggingMessage) return nextMiddleware(message)
-
-        logger.log(preDispatchLevel, message.preHandleLog(), null)
-
-        @Suppress("TooGenericExceptionCaught")
-        return try {
-            val result = nextMiddleware(message)
-            logger.log(postDispatchLevel, message.postHandleLog(), null)
-            result
-        } catch (ex: Throwable) {
-            logger.log(errorLevel, message.errorLog(), ex)
-            throw ex
-        }
-    }
 }

@@ -26,7 +26,8 @@ class LoggingTest {
     @Test
     fun message_logger_does_not_log_messages_that_do_not_implement_logging_interface() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(StorageCommand("Testing", mutableListOf())) {
             StorageCommandHandler().handle(it)
@@ -38,7 +39,8 @@ class LoggingTest {
     @Test
     fun message_logger_logs_before_and_after_message_using_provided_level() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingLogCommand("Testing", captureLogger)) {
             LoggingLogCommandHandler().handle(it)
@@ -53,7 +55,8 @@ class LoggingTest {
     @Test
     fun test_commands_log_with_correct_verbs() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingLogCommand("Testing", captureLogger)) {
             LoggingLogCommandHandler().handle(it)
@@ -68,7 +71,8 @@ class LoggingTest {
     @Test
     fun test_queries_log_with_correct_verbs() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingLogQuery("Testing", captureLogger)) {
             LoggingLogQueryHandler().handle(it)
@@ -83,7 +87,8 @@ class LoggingTest {
     @Test
     fun test_commands_log_exception_and_rethrow() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
             logger.handle(LoggingExceptionCommand()) { ExceptionCommandHandler().handle(it) }
@@ -100,7 +105,8 @@ class LoggingTest {
     @Test
     fun test_events_log_with_correct_verbs() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         logger.handle(LoggingStorageEvent("Testing", mutableListOf())) {
             PrintEventHandler().handle(it)
@@ -115,7 +121,8 @@ class LoggingTest {
     @Test
     fun test_events_log_exception_and_rethrow() = runTest {
         val captureLogger = CaptureLogger()
-        val logger = MessageLogger(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
+        val logger =
+            LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
             logger.handle(LoggingExceptionEvent()) { ExceptionEventHandler().handle(it) }

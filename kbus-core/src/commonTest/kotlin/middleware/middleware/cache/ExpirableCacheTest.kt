@@ -1,5 +1,9 @@
 package com.jimbroze.kbus.core.middleware.middleware.cache
 
+import com.jimbroze.kbus.core.infrastructure.cache.Cache
+import com.jimbroze.kbus.core.infrastructure.cache.ExpirableCache
+import com.jimbroze.kbus.core.infrastructure.cache.MapCache
+import com.jimbroze.kbus.core.infrastructure.cache.expirableCache
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

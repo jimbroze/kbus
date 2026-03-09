@@ -1,7 +1,7 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock.locks
+package com.jimbroze.kbus.core.infrastructure.lock.locks
 
-import com.jimbroze.kbus.core.middleware.middleware.cache.Cache
-import com.jimbroze.kbus.core.middleware.middleware.lock.AtomicLock
+import com.jimbroze.kbus.core.infrastructure.cache.Cache
+import com.jimbroze.kbus.core.infrastructure.lock.AtomicLock
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
