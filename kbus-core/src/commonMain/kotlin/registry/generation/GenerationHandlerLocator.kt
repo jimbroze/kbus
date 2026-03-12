@@ -9,17 +9,35 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.EventFactory
 import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
-import com.jimbroze.kbus.core.registry.persisting.PersistingEventFactory
 import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
-import com.jimbroze.kbus.core.registry.persisting.store.MessageHandlerFactoryStore
+import kotlin.reflect.KClass
 
+// TODO type-safe generated event factory
+// TODO EventMapper should not contain EventFactory. Keep separate
 class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
     HandlerLocator, EventMapperProvider {
     private val eventMapper =
-        PersistingEventMapper(PersistingEventFactory(MessageHandlerFactoryStore()))
+        PersistingEventMapper(
+            object : EventFactory {
+                override fun <TEvent : Event> create(
+                    eventClass: KClass<TEvent>,
+                    handlerClasses: List<KClass<EventHandler<TEvent>>>,
+                ): List<EventHandler<TEvent>> {
+                    @Suppress("UNCHECKED_CAST")
+                    return handlerClasses.map { handlerClass ->
+                        generationHandlerFactory.eventHandlerFor(handlerClass)
+                            ?: error(
+                                "No generated factory for ${handlerClass.simpleName}. " +
+                                    "Annotate it with @LoadMessageHandler."
+                            )
+                    } as List<EventHandler<TEvent>>
+                }
+            }
+        )
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 

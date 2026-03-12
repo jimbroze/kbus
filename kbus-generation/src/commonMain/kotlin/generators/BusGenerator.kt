@@ -6,6 +6,10 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.EventMapperProvider
+import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
@@ -52,6 +56,28 @@ class BusGenerator(
                 .addSuperclassConstructorParameter("transactionManager")
                 .addSuperclassConstructorParameter("middleware")
 
+        buildConstructors(classBuilder, dependenciesClassName, handlerFactoryClassName)
+        buildEventMapperProperties(classBuilder)
+
+        handlers
+            .filterNot { it is EventHandlerDefinition }
+            .forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
+
+        classBuilder.addFunction(buildDeprecatedExecute())
+        classBuilder.addFunction(buildDeprecatedFetch())
+
+        val file = FileSpec.builder(packagePath, config.busClassName)
+        file.addType(classBuilder.build())
+        file
+            .build()
+            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
+    }
+
+    private fun buildConstructors(
+        classBuilder: TypeSpec.Builder,
+        dependenciesClassName: ClassName,
+        handlerFactoryClassName: ClassName,
+    ) {
         classBuilder
             .primaryConstructor(
                 FunSpec.constructorBuilder()
@@ -87,17 +113,29 @@ class BusGenerator(
                     )
                     .build()
             )
+    }
 
-        handlers.forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
+    private fun buildEventMapperProperties(classBuilder: TypeSpec.Builder) {
+        val domainEventMapperClass = DomainEventMapper::class.asClassName()
+        val integrationEventMapperClass = IntegrationEventMapper::class.asClassName()
 
-        classBuilder.addFunction(buildDeprecatedExecute())
-        classBuilder.addFunction(buildDeprecatedFetch())
-
-        val file = FileSpec.builder(packagePath, config.busClassName)
-        file.addType(classBuilder.build())
-        file
-            .build()
-            .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
+        classBuilder
+            .addProperty(
+                PropertySpec.builder("domainEventMapper", domainEventMapperClass)
+                    .initializer(
+                        "(handlerLocator as %T).domainEventMapper",
+                        EventMapperProvider::class,
+                    )
+                    .build()
+            )
+            .addProperty(
+                PropertySpec.builder("integrationEventMapper", integrationEventMapperClass)
+                    .initializer(
+                        "(handlerLocator as %T).integrationEventMapper",
+                        EventMapperProvider::class,
+                    )
+                    .build()
+            )
     }
 
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {

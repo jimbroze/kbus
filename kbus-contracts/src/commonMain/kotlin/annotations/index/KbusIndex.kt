@@ -10,6 +10,7 @@ enum class DependencyType {
 enum class HandlerType {
     COMMAND,
     QUERY,
+    EVENT,
 }
 
 @Target(AnnotationTarget.CLASS)

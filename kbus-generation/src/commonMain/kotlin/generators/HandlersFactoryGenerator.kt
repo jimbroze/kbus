@@ -6,11 +6,13 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
 import com.squareup.kotlinpoet.ClassName
@@ -20,10 +22,13 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
+import com.squareup.kotlinpoet.WildcardTypeName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.ksp.writeTo
+import kotlin.reflect.KClass
 
 class HandlersFactoryGenerator(
     private val codeGenerator: CodeGenerator,
@@ -60,6 +65,9 @@ class HandlersFactoryGenerator(
             )
             .addFunction(
                 buildQueriesHandlersFor(handlers.filterIsInstance<QueryHandlerDefinition>().toSet())
+            )
+            .addFunction(
+                buildEventHandlerFor(handlers.filterIsInstance<EventHandlerDefinition>().toSet())
             )
 
         handlers.forEach { addHandlerDefinition(classBuilder, it) }
@@ -144,6 +152,41 @@ class HandlersFactoryGenerator(
                 .addCode(codeBlock.build())
 
         return functionBuilder.build()
+    }
+
+    private fun buildEventHandlerFor(handlers: Set<EventHandlerDefinition>): FunSpec {
+        val handlerClassType =
+            KClass::class.asClassName()
+                .parameterizedBy(
+                    WildcardTypeName.producerOf(
+                        EventHandler::class.asClassName().parameterizedBy(STAR)
+                    )
+                )
+        val returnType =
+            EventHandler::class.asClassName().parameterizedBy(STAR).copy(nullable = true)
+
+        val codeBlock =
+            CodeBlock.builder()
+                .addStatement("@Suppress(%S)", "UNCHECKED_CAST")
+                .add("return when (handlerClass) {\n")
+                .indent()
+
+        for (handler in handlers) {
+            val handlerName = handler.handlerData.nameAsDependency
+            codeBlock.addStatement(
+                "%T::class -> this.$handlerName()",
+                handler.handlerData.handlerClass,
+            )
+        }
+
+        codeBlock.addStatement("else -> null").unindent().add("}")
+
+        return FunSpec.builder("eventHandlerFor")
+            .addModifiers(KModifier.OVERRIDE)
+            .addParameter("handlerClass", handlerClassType)
+            .returns(returnType)
+            .addCode(codeBlock.build())
+            .build()
     }
 
     private fun addHandlerDefinition(classBuilder: TypeSpec.Builder, handler: HandlerDefinition) {

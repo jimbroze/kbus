@@ -14,6 +14,7 @@ import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
 import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
 import com.jimbroze.kbus.generation.processing.dependencies.PropertyDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
@@ -156,5 +157,6 @@ private fun createHandler(
     return when (typeOfHandler) {
         HandlerType.COMMAND -> CommandHandlerDefinition(handlerData)
         HandlerType.QUERY -> QueryHandlerDefinition.create(handlerData, logger, null)
+        HandlerType.EVENT -> EventHandlerDefinition(handlerData)
     }
 }

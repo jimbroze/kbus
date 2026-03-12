@@ -4,6 +4,8 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
@@ -94,4 +96,21 @@ class QueryHandlerDefinition private constructor(override val handlerData: Handl
     override fun hashCode(): Int {
         return handlerData.hashCode()
     }
+}
+
+data class EventHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
+    override val handlerBaseClass
+        get() = EventHandler::class.asClassName()
+
+    override val messageBaseClass
+        get() = Event::class.asClassName()
+
+    override val processorMethodName: String
+        get() = "dispatch"
+
+    override val messageProcessorName: String
+        get() = "eventDispatcher"
+
+    override val functionParameters: List<FunctionalDependency.DependencyConstructorParameters>
+        get() = emptyList()
 }

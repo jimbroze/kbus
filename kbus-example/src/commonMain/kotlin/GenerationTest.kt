@@ -10,7 +10,9 @@ import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.event.DispatchImmediately
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.domain.DomainEvent
 import com.jimbroze.kbus.domain.DomainEventPublisher
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalInterface
@@ -26,7 +28,7 @@ class FixedClock(private var fixedInstant: Instant) : Clock {
 @Suppress("unused")
 class RequiresCommandDepsContainsInterface(
     private val clock: Clock,
-    private val domainEventPublisher: DomainEventPublisher,
+    val domainEventPublisher: DomainEventPublisher,
 ) {
     fun createClock(): Clock {
         return clock
@@ -212,5 +214,37 @@ class TestGeneratorQueryHandler(
         return BusResult.success(
             message.messageData + message.moreMessageData + clock.now().toString()
         )
+    }
+}
+
+class TestGeneratorEvent : DomainEvent()
+
+@LoadMessageHandler
+@Suppress("unused")
+class TestGeneratorEventHandler(@Suppress("unused") private val clock: Clock) :
+    DispatchImmediately<TestGeneratorEvent>() {
+    override suspend fun handle(message: TestGeneratorEvent) {
+        timesHandled++
+    }
+
+    companion object {
+        var timesHandled = 0
+    }
+}
+
+class TestEventPublishingCommand : Command<BusResult<Any, MessageFailure>>()
+
+@LoadMessageHandler
+@Suppress("unused")
+class TestEventPublishingCommandHandler(
+    private val requiresCommandDepsContainsInterface: RequiresCommandDepsContainsInterface
+) :
+    CommandHandler<TestEventPublishingCommand, BusResult<Any, MessageFailure>>(),
+    ExecuteInTransaction<TestEventPublishingCommand, BusResult<Any, MessageFailure>> {
+    override suspend fun handle(
+        message: TestEventPublishingCommand
+    ): BusResult<Any, MessageFailure> {
+        requiresCommandDepsContainsInterface.domainEventPublisher.publish(TestGeneratorEvent())
+        return BusResult.success("published")
     }
 }

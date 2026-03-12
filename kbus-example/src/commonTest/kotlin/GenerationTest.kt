@@ -5,6 +5,7 @@ import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.registry.EventHandlerMapping
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
@@ -125,5 +126,28 @@ class GenerationTest {
         val result = bus.fetch(TestGeneratorQuery("The time is ", "now "))
 
         assertEquals("The time is now 2024-02-23T19:01:09Z", result.getOrNull())
+    }
+
+    @Test
+    fun test_it_dispatches_events() = runTest {
+        val bus =
+            CompileTimeLoadedMessageBus(
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                EmptyTransactionManager(),
+                emptyList(),
+            )
+
+        bus.domainEventMapper.addDomainHandlers(
+            listOf(
+                EventHandlerMapping(
+                    TestGeneratorEvent::class,
+                    listOf(TestGeneratorEventHandler::class),
+                )
+            )
+        )
+
+        val handledBefore = TestGeneratorEventHandler.timesHandled
+        bus.execute(TestEventPublishingCommand())
+        assertEquals(handledBefore + 1, TestGeneratorEventHandler.timesHandled)
     }
 }

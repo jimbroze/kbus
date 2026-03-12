@@ -40,7 +40,7 @@ abstract class BaseMessageBus(
             transactionManager,
             middlewares,
             busAccess,
-            DefaultCommandDependenciesFactory(null),
+            DefaultCommandDependenciesFactory(eventDispatcher),
         )
     protected val queryFetcher = QueryFetcher(middlewares)
 
