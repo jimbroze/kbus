@@ -13,6 +13,7 @@ interface EventObserver<TUiEvent : IntegrationEvent> {
 
 // TODO Autoloader generates observer & publisher from mapper
 // TODO rename to InternalEventStream?
+
 class ObservableEventMapper<TEvent : IntegrationEvent> :
     ObservableEventPublisher<TEvent>, EventObserver<TEvent> {
 

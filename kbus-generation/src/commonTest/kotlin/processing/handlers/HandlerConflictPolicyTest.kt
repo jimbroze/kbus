@@ -50,10 +50,9 @@ class HandlerConflictPolicyTest {
         val result = HandlerConflictPolicy.evaluate(handler, listOf(existing))
 
         assertIs<ConflictPolicy.Result.InvalidConflict>(result)
-        val conflict = result as ConflictPolicy.Result.InvalidConflict
         assertEquals(
             "Message class MyCommand is used by multiple handlers: 'ExistingHandler' & 'NewHandler'",
-            conflict.reason,
+            result.reason,
         )
     }
 

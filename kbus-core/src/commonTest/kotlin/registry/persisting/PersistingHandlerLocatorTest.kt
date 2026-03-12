@@ -10,7 +10,6 @@ import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.TestDomainEventPublisher
 import com.jimbroze.kbus.core.fixtures.testCommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.EventAndHandlerFactories
 import com.jimbroze.kbus.core.registry.EventHandlerMapping
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -38,7 +37,7 @@ class PersistingHandlerLocatorTest {
 
         val factory = PersistingHandlerLocator(stores)
 
-        // TODO test for CommandDependencies passed into handler
+        //  TODO test for CommandDependencies passed into handler
         stores.commandStore.registerHandlers(
             StorageCommand::class,
             listOf(CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }),
@@ -108,57 +107,9 @@ class PersistingHandlerLocatorTest {
         locator.integrationEventMapper.addEventHandlers(
             listOf(EventHandlerMapping(StorageEvent::class, listOf(PrintEventHandler::class)))
         )
-        locator.inlineIntegrationEventMapper.addInlineEventHandlers(
-            listOf(
-                EventAndHandlerFactories(
-                    StorageEvent::class,
-                    listOf(
-                        EventHandlerFactory(OtherPrintEventHandler::class) {
-                            OtherPrintEventHandler("Still testing the bus")
-                        }
-                    ),
-                )
-            )
-        )
 
         assertEquals(1, locator.handlersFor(domainEvent).size)
-        assertEquals(2, locator.handlersFor(integrationEvent).size)
-    }
-
-    @Test
-    fun test_inline_event_mappings_can_be_removed_from_locator() {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-
-        val eventType = StorageEvent::class
-        val event = StorageEvent("test", mutableListOf())
-
-        stores.eventStore.registerHandlers(
-            eventType,
-            listOf(
-                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
-                EventHandlerFactory(OtherPrintEventHandler::class) {
-                    OtherPrintEventHandler("Still testing the bus")
-                },
-            ),
-        )
-
-        val factory1 = EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }
-        val factory2 =
-            EventHandlerFactory(OtherPrintEventHandler::class) {
-                OtherPrintEventHandler("Print me")
-            }
-        locator.inlineIntegrationEventMapper.addInlineEventHandlers(
-            listOf(EventAndHandlerFactories(StorageEvent::class, listOf(factory1, factory2)))
-        )
-
-        assertEquals(2, locator.handlersFor(event).size)
-
-        locator.inlineIntegrationEventMapper.removeInlineEventHandlers(
-            listOf(EventAndHandlerFactories(StorageEvent::class, listOf(factory1)))
-        )
-
-        assertEquals(1, locator.handlersFor(event).size)
+        assertEquals(1, locator.handlersFor(integrationEvent).size)
     }
 
     @Test
