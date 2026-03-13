@@ -18,8 +18,24 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class PersistingHandlerLocatorTest {
+    private fun createLocatorWithStorageEventHandlers(): PersistingHandlerLocator {
+        val stores = HandlerFactoryStoreCollection()
+        stores.eventStore.registerHandlers(
+            StorageEvent::class,
+            listOf(
+                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
+                EventHandlerFactory(OtherPrintEventHandler::class) {
+                    OtherPrintEventHandler("test")
+                },
+            ),
+        )
+        return PersistingHandlerLocator(stores)
+    }
+
+
     @Test
     fun test_it_returns_null_if_handler_not_registered() {
         val locator = PersistingHandlerLocator()
@@ -132,5 +148,71 @@ class PersistingHandlerLocatorTest {
         )
 
         assertFailsWith<IllegalStateException> { locator.handlersFor(event) }
+    }
+
+    @Test
+    fun test_handlers_are_returned_in_order_of_requested_handler_classes() {
+        val locator = createLocatorWithStorageEventHandlers()
+        locator.integrationEventMapper.addEventHandlers(
+            listOf(
+                EventHandlerMapping(
+                    StorageEvent::class,
+                    listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
+                )
+            )
+        )
+
+        val handlers = locator.handlersFor(StorageEvent("test", mutableListOf()))
+
+        assertEquals(2, handlers.size)
+        assertIs<PrintEventHandler>(handlers[0])
+        assertIs<OtherPrintEventHandler>(handlers[1])
+    }
+
+    @Test
+    fun test_handlers_are_returned_in_reversed_order_of_requested_handler_classes() {
+        val locator = createLocatorWithStorageEventHandlers()
+        locator.integrationEventMapper.addEventHandlers(
+            listOf(
+                EventHandlerMapping(
+                    StorageEvent::class,
+                    listOf(OtherPrintEventHandler::class, PrintEventHandler::class),
+                )
+            )
+        )
+
+        val handlers = locator.handlersFor(StorageEvent("test", mutableListOf()))
+
+        assertEquals(2, handlers.size)
+        assertIs<OtherPrintEventHandler>(handlers[0])
+        assertIs<PrintEventHandler>(handlers[1])
+    }
+
+    @Test
+    fun test_single_handler_is_returned_when_only_one_class_is_mapped() {
+        val locator = createLocatorWithStorageEventHandlers()
+        locator.integrationEventMapper.addEventHandlers(
+            listOf(EventHandlerMapping(StorageEvent::class, listOf(PrintEventHandler::class)))
+        )
+
+        val handlers = locator.handlersFor(StorageEvent("test", mutableListOf()))
+
+        assertEquals(1, handlers.size)
+        assertIs<PrintEventHandler>(handlers[0])
+    }
+
+    @Test
+    fun test_new_handler_instances_are_created_on_each_request() {
+        val locator = createLocatorWithStorageEventHandlers()
+        locator.integrationEventMapper.addEventHandlers(
+            listOf(EventHandlerMapping(StorageEvent::class, listOf(PrintEventHandler::class)))
+        )
+
+        val handlers1 = locator.handlersFor(StorageEvent("test", mutableListOf()))
+        val handlers2 = locator.handlersFor(StorageEvent("test", mutableListOf()))
+
+        assertIs<PrintEventHandler>(handlers1[0])
+        assertIs<PrintEventHandler>(handlers2[0])
+        assertTrue("Expected different instances") { handlers1[0] !== handlers2[0] }
     }
 }
