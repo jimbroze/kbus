@@ -16,13 +16,16 @@ import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.store.MessageHandlerFactoryStore
 import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
+import kotlin.reflect.KClass
 
+// TODO create EventLocator that combines mapper and factory?
 class PersistingHandlerLocator(
     stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
 ) : HandlerLocator, EventMapperProvider {
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
-    private val eventMapper = PersistingEventMapper(PersistingEventFactory(stores.eventStore))
+    private val eventMapper = PersistingEventMapper()
+    private val eventFactory = PersistingEventFactory(stores.eventStore)
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
@@ -54,6 +57,9 @@ class PersistingHandlerLocator(
     }
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
-        return eventMapper.handlersFor(event)
+        val handlerClasses = eventMapper.handlerClassesFor(event)
+        if (handlerClasses.isEmpty()) return emptyList()
+        @Suppress("UNCHECKED_CAST")
+        return eventFactory.create(event::class as KClass<TEvent>, handlerClasses)
     }
 }

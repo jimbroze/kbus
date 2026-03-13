@@ -20,6 +20,6 @@ interface GenerationHandlerFactory {
         query: TQuery
     ): QueryHandler<TQuery, TResult>?
 
-    // Returns null if handler class not generated (not annotated with @LoadMessageHandler)
+    // FIXME type args
     fun eventHandlerFor(handlerClass: KClass<out EventHandler<*>>): EventHandler<*>?
 }

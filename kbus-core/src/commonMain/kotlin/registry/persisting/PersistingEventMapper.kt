@@ -5,15 +5,13 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.registry.DomainEventMapper
 import com.jimbroze.kbus.core.registry.DuplicateEventHandlerException
-import com.jimbroze.kbus.core.registry.EventFactory
 import com.jimbroze.kbus.core.registry.EventHandlerMapping
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.collections.forEach
 import kotlin.reflect.KClass
 
-class PersistingEventMapper(private val eventFactory: EventFactory) :
-    DomainEventMapper, IntegrationEventMapper {
+class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
     private val mappings = mutableMapOf<KClass<out Event>, List<KClass<EventHandler<*>>>>()
 
     override fun addDomainHandlers(mappings: List<EventHandlerMapping<out DomainEvent>>) {
@@ -42,15 +40,9 @@ class PersistingEventMapper(private val eventFactory: EventFactory) :
         }
     }
 
-    fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
-        @Suppress("UNCHECKED_CAST") val eventClass = event::class as? KClass<TEvent>
+    // TODO put this in an interface?
+    fun <TEvent : Event> handlerClassesFor(event: TEvent): List<KClass<EventHandler<TEvent>>> {
         @Suppress("UNCHECKED_CAST")
-        val handlerClasses = mappings[event::class] as? List<KClass<EventHandler<TEvent>>>
-
-        return if (handlerClasses != null && eventClass != null) {
-            eventFactory.create(eventClass, handlerClasses)
-        } else {
-            emptyList<EventHandler<TEvent>>()
-        }
+        return mappings[event::class] as? List<KClass<EventHandler<TEvent>>> ?: emptyList()
     }
 }

@@ -17,27 +17,25 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
 import kotlin.reflect.KClass
 
 // TODO type-safe generated event factory
-// TODO EventMapper should not contain EventFactory. Keep separate
 class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
     HandlerLocator, EventMapperProvider {
-    private val eventMapper =
-        PersistingEventMapper(
-            object : EventFactory {
-                override fun <TEvent : Event> create(
-                    eventClass: KClass<TEvent>,
-                    handlerClasses: List<KClass<EventHandler<TEvent>>>,
-                ): List<EventHandler<TEvent>> {
-                    @Suppress("UNCHECKED_CAST")
-                    return handlerClasses.map { handlerClass ->
-                        generationHandlerFactory.eventHandlerFor(handlerClass)
-                            ?: error(
-                                "No generated factory for ${handlerClass.simpleName}. " +
-                                    "Annotate it with @LoadMessageHandler."
-                            )
-                    } as List<EventHandler<TEvent>>
-                }
+    private val eventMapper = PersistingEventMapper()
+    private val eventFactory =
+        object : EventFactory {
+            override fun <TEvent : Event> create(
+                eventClass: KClass<TEvent>,
+                handlerClasses: List<KClass<EventHandler<TEvent>>>,
+            ): List<EventHandler<TEvent>> {
+                @Suppress("UNCHECKED_CAST")
+                return handlerClasses.map { handlerClass ->
+                    generationHandlerFactory.eventHandlerFor(handlerClass)
+                        ?: error(
+                            "No generated factory for ${handlerClass.simpleName}. " +
+                                "Annotate it with @LoadMessageHandler."
+                        )
+                } as List<EventHandler<TEvent>>
             }
-        )
+        }
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
@@ -55,6 +53,9 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
     }
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
-        return eventMapper.handlersFor(event)
+        val handlerClasses = eventMapper.handlerClassesFor(event)
+        if (handlerClasses.isEmpty()) return emptyList()
+        @Suppress("UNCHECKED_CAST")
+        return eventFactory.create(event::class as KClass<TEvent>, handlerClasses)
     }
 }
