@@ -13,6 +13,7 @@ import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.store.MessageHandlerFactoryStore
 import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
@@ -24,8 +25,8 @@ class PersistingHandlerLocator(
 ) : HandlerLocator, EventMapperProvider {
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
+    private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
     private val eventMapper = PersistingEventMapper()
-    private val eventFactory = PersistingEventFactory(stores.eventStore)
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
@@ -59,7 +60,16 @@ class PersistingHandlerLocator(
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()
-        @Suppress("UNCHECKED_CAST")
-        return eventFactory.create(event::class as KClass<TEvent>, handlerClasses)
+        @Suppress("UNCHECKED_CAST") val eventClass = event::class as KClass<TEvent>
+
+        val handlerFactories =
+            eventStore.getHandlers(eventClass).filterIsInstance<EventHandlerFactory<TEvent, *>>()
+
+        val factoriesByHandlerClass = handlerFactories.associateBy { it.handlerType }
+
+        return handlerClasses.map { handlerClass ->
+            factoriesByHandlerClass[handlerClass]?.create()
+                ?: error("No factory found for handler class: ${handlerClass.simpleName}")
+        }
     }
 }

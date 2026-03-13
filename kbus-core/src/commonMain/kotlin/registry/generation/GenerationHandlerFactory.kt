@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.registry.generation
 
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
@@ -9,7 +10,6 @@ import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import kotlin.reflect.KClass
 
-// TODO delete this and use normal interface
 interface GenerationHandlerFactory {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
@@ -20,6 +20,7 @@ interface GenerationHandlerFactory {
         query: TQuery
     ): QueryHandler<TQuery, TResult>?
 
-    // FIXME type args
-    fun eventHandlerFor(handlerClass: KClass<out EventHandler<*>>): EventHandler<*>?
+    fun <TEvent : Event> eventHandler(
+        handlerClass: KClass<EventHandler<TEvent>>
+    ): EventHandler<TEvent>?
 }

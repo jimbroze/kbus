@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
@@ -22,10 +23,8 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
-import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
-import com.squareup.kotlinpoet.WildcardTypeName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.ksp.writeTo
 import kotlin.reflect.KClass
@@ -155,15 +154,13 @@ class HandlersFactoryGenerator(
     }
 
     private fun buildEventHandlerFor(handlers: Set<EventHandlerDefinition>): FunSpec {
+        val tEvent = TypeVariableName("TEvent", Event::class.asClassName())
+
         val handlerClassType =
             KClass::class.asClassName()
-                .parameterizedBy(
-                    WildcardTypeName.producerOf(
-                        EventHandler::class.asClassName().parameterizedBy(STAR)
-                    )
-                )
+                .parameterizedBy(EventHandler::class.asClassName().parameterizedBy(tEvent))
         val returnType =
-            EventHandler::class.asClassName().parameterizedBy(STAR).copy(nullable = true)
+            EventHandler::class.asClassName().parameterizedBy(tEvent).copy(nullable = true)
 
         val codeBlock =
             CodeBlock.builder()
@@ -179,10 +176,11 @@ class HandlersFactoryGenerator(
             )
         }
 
-        codeBlock.addStatement("else -> null").unindent().add("}")
+        codeBlock.addStatement("else -> null").unindent().add("} as %T", returnType)
 
-        return FunSpec.builder("eventHandlerFor")
+        return FunSpec.builder("eventHandler")
             .addModifiers(KModifier.OVERRIDE)
+            .addTypeVariables(listOf(tEvent))
             .addParameter("handlerClass", handlerClassType)
             .returns(returnType)
             .addCode(codeBlock.build())

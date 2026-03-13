@@ -9,7 +9,6 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
-import com.jimbroze.kbus.core.registry.EventFactory
 import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
@@ -20,22 +19,6 @@ import kotlin.reflect.KClass
 class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
     HandlerLocator, EventMapperProvider {
     private val eventMapper = PersistingEventMapper()
-    private val eventFactory =
-        object : EventFactory {
-            override fun <TEvent : Event> create(
-                eventClass: KClass<TEvent>,
-                handlerClasses: List<KClass<EventHandler<TEvent>>>,
-            ): List<EventHandler<TEvent>> {
-                @Suppress("UNCHECKED_CAST")
-                return handlerClasses.map { handlerClass ->
-                    generationHandlerFactory.eventHandlerFor(handlerClass)
-                        ?: error(
-                            "No generated factory for ${handlerClass.simpleName}. " +
-                                "Annotate it with @LoadMessageHandler."
-                        )
-                } as List<EventHandler<TEvent>>
-            }
-        }
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
@@ -55,7 +38,13 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()
-        @Suppress("UNCHECKED_CAST")
-        return eventFactory.create(event::class as KClass<TEvent>, handlerClasses)
+        return handlerClasses.map<KClass<EventHandler<TEvent>>, EventHandler<TEvent>> { handlerClass
+            ->
+            generationHandlerFactory.eventHandler(handlerClass)
+                ?: error(
+                    "No generated factory for ${handlerClass.simpleName}. " +
+                        "Annotate it with @LoadMessageHandler."
+                )
+        }
     }
 }
