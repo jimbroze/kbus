@@ -5,7 +5,8 @@ import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
-import com.jimbroze.kbus.core.registry.EventHandlerMapping
+import com.jimbroze.kbus.core.registry.GeneratedKBusApi
+import com.jimbroze.kbus.core.registry.LoadedHandlerToken
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
@@ -137,14 +138,9 @@ class GenerationTest {
                 emptyList(),
             )
 
-        bus.domainEventMapper.addDomainHandlers(
-            listOf(
-                EventHandlerMapping(
-                    TestGeneratorEvent::class,
-                    listOf(TestGeneratorEventHandler::class),
-                )
-            )
-        )
+        @OptIn(GeneratedKBusApi::class)
+        val token = LoadedHandlerToken(TestGeneratorEventHandler::class)
+        bus.domainEventMapper.addDomainHandlers(TestGeneratorEvent::class, listOf(token))
 
         val handledBefore = TestGeneratorEventHandler.timesHandled
         bus.execute(TestEventPublishingCommand())

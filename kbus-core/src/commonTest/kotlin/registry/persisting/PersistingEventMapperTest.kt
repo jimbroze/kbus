@@ -6,7 +6,6 @@ import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.registry.DuplicateEventHandlerException
-import com.jimbroze.kbus.core.registry.EventHandlerMapping
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,27 +19,22 @@ class PersistingEventMapperTest {
 
         assertFailsWith<DuplicateEventHandlerException> {
             eventMapper.addDomainHandlers(
-                listOf(
-                    EventHandlerMapping(
-                        TestDomainEvent::class,
-                        listOf(TestDomainEventHandler::class, TestDomainEventHandler::class),
-                    )
-                )
+                TestDomainEvent::class,
+                listOf(TestDomainEventHandler::class, TestDomainEventHandler::class),
             )
         }
+    }
+
+    @Test
+    fun test_it_does_not_allow_duplicate_domain_handlers_across_calls() {
+        val eventMapper = PersistingEventMapper()
+
+        eventMapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
 
         assertFailsWith<DuplicateEventHandlerException> {
             eventMapper.addDomainHandlers(
-                listOf(
-                    EventHandlerMapping(
-                        TestDomainEvent::class,
-                        listOf(TestDomainEventHandler::class),
-                    ),
-                    EventHandlerMapping(
-                        TestDomainEvent::class,
-                        listOf(TestDomainEventHandler::class),
-                    ),
-                )
+                TestDomainEvent::class,
+                listOf(TestDomainEventHandler::class),
             )
         }
     }
@@ -51,22 +45,20 @@ class PersistingEventMapperTest {
 
         assertFailsWith<DuplicateEventHandlerException> {
             eventMapper.addEventHandlers(
-                listOf(
-                    EventHandlerMapping(
-                        StorageEvent::class,
-                        listOf(PrintEventHandler::class, PrintEventHandler::class),
-                    )
-                )
+                StorageEvent::class,
+                listOf(PrintEventHandler::class, PrintEventHandler::class),
             )
         }
+    }
+
+    @Test
+    fun test_it_does_not_allow_duplicate_integration_handlers_across_calls() {
+        val eventMapper = PersistingEventMapper()
+
+        eventMapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
         assertFailsWith<DuplicateEventHandlerException> {
-            eventMapper.addEventHandlers(
-                listOf(
-                    EventHandlerMapping(StorageEvent::class, listOf(PrintEventHandler::class)),
-                    EventHandlerMapping(StorageEvent::class, listOf(PrintEventHandler::class)),
-                )
-            )
+            eventMapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
         }
     }
 
@@ -84,11 +76,7 @@ class PersistingEventMapperTest {
     fun test_handlerClassesFor_returns_domain_event_handler_classes() {
         val mapper = PersistingEventMapper()
 
-        mapper.addDomainHandlers(
-            listOf(
-                EventHandlerMapping(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
-            )
-        )
+        mapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
 
         val event = TestDomainEvent("test data")
         val handlerClasses = mapper.handlerClassesFor(event)
@@ -102,12 +90,8 @@ class PersistingEventMapperTest {
         val mapper = PersistingEventMapper()
 
         mapper.addEventHandlers(
-            listOf(
-                EventHandlerMapping(
-                    StorageEvent::class,
-                    listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
-                )
-            )
+            StorageEvent::class,
+            listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
         )
 
         val event = StorageEvent("test", mutableListOf())
@@ -123,12 +107,8 @@ class PersistingEventMapperTest {
         val mapper = PersistingEventMapper()
 
         mapper.addEventHandlers(
-            listOf(
-                EventHandlerMapping(
-                    StorageEvent::class,
-                    listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
-                )
-            )
+            StorageEvent::class,
+            listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
         )
 
         val handlerClasses = mapper.handlerClassesFor(StorageEvent("test", mutableListOf()))
@@ -139,9 +119,7 @@ class PersistingEventMapperTest {
     fun test_allows_same_handler_type_for_different_events() {
         val mapper = PersistingEventMapper()
 
-        mapper.addEventHandlers(
-            listOf(EventHandlerMapping(StorageEvent::class, listOf(PrintEventHandler::class)))
-        )
+        mapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
         val handlerClasses = mapper.handlerClassesFor(StorageEvent("test", mutableListOf()))
         assertEquals(1, handlerClasses.size)

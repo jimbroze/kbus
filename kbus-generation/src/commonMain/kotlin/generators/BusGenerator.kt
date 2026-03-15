@@ -6,9 +6,9 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
+import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
 import com.jimbroze.kbus.core.registry.EventMapperProvider
-import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
@@ -116,14 +116,15 @@ class BusGenerator(
     }
 
     private fun buildEventMapperProperties(classBuilder: TypeSpec.Builder) {
-        val domainEventMapperClass = DomainEventMapper::class.asClassName()
-        val integrationEventMapperClass = IntegrationEventMapper::class.asClassName()
+        val domainEventMapperClass = CompileTimeDomainEventMapper::class.asClassName()
+        val integrationEventMapperClass = CompileTimeIntegrationEventMapper::class.asClassName()
 
         classBuilder
             .addProperty(
                 PropertySpec.builder("domainEventMapper", domainEventMapperClass)
                     .initializer(
-                        "(handlerLocator as %T).domainEventMapper",
+                        "%T((handlerLocator as %T).domainEventMapper)",
+                        CompileTimeDomainEventMapper::class,
                         EventMapperProvider::class,
                     )
                     .build()
@@ -131,7 +132,8 @@ class BusGenerator(
             .addProperty(
                 PropertySpec.builder("integrationEventMapper", integrationEventMapperClass)
                     .initializer(
-                        "(handlerLocator as %T).integrationEventMapper",
+                        "%T((handlerLocator as %T).integrationEventMapper)",
+                        CompileTimeIntegrationEventMapper::class,
                         EventMapperProvider::class,
                     )
                     .build()
