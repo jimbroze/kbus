@@ -98,7 +98,15 @@ class QueryHandlerDefinition private constructor(override val handlerData: Handl
     }
 }
 
-data class EventHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
+enum class EventHandlerKind {
+    DOMAIN,
+    INTEGRATION,
+}
+
+data class EventHandlerDefinition(
+    override val handlerData: HandlerData,
+    val kind: EventHandlerKind,
+) : HandlerDefinition {
     override val handlerBaseClass
         get() = EventHandler::class.asClassName()
 

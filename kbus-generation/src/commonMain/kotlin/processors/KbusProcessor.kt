@@ -15,6 +15,7 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.LoadedEventHandlersGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -22,6 +23,7 @@ import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
 
+@Suppress("LongParameterList")
 class CodeGenerators(
     val containerInterface: ContainerInterfaceGenerator,
     val handlersInterface: HandlersInterfaceGenerator,
@@ -29,6 +31,7 @@ class CodeGenerators(
     val handlersFactory: HandlersFactoryGenerator,
     val dependencyIndexGenerator: DependencyIndexGenerator,
     val bus: BusGenerator,
+    val loadedEventHandlersGenerator: LoadedEventHandlersGenerator,
 )
 
 class KbusProcessor(
@@ -111,6 +114,10 @@ class KbusProcessor(
         } else {
             generators.autoLoader.generateAutoloader(dependencies.allDependencies, sourceFiles)
             generators.handlersFactory.generateClass(dependencies.handlers, sourceFiles)
+            generators.loadedEventHandlersGenerator.generateObjects(
+                dependencies.handlers,
+                sourceFiles,
+            )
             generators.bus.generateClass(dependencies.handlers, sourceFiles)
         }
     }

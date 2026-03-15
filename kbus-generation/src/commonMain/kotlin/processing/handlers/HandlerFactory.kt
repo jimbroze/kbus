@@ -7,7 +7,9 @@ import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.domain.DomainEvent
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.squareup.kotlinpoet.UNIT
@@ -49,14 +51,37 @@ class HandlerFactory(
         val messageClass =
             baseClassTypeArgs[0].type?.resolve()?.declaration as? KSClassDeclaration
                 ?: error("Event type argument missing or invalid")
+        val kind = resolveEventKind(messageClass)
         return EventHandlerDefinition(
             HandlerData(
                 handlerClass.toClassName(),
                 messageClass.toClassName(),
                 UNIT,
                 constructorDependencies,
-            )
+            ),
+            kind,
         )
+    }
+
+    private fun resolveEventKind(messageClass: KSClassDeclaration): EventHandlerKind {
+        return when {
+            extendsType(messageClass, DomainEvent::class.qualifiedName!!) -> EventHandlerKind.DOMAIN
+            extendsType(messageClass, IntegrationEvent::class.qualifiedName!!) ->
+                EventHandlerKind.INTEGRATION
+            else ->
+                error(
+                    "Event ${messageClass.qualifiedName?.asString()} must extend " +
+                        "DomainEvent or IntegrationEvent"
+                )
+        }
+    }
+
+    private fun extendsType(decl: KSClassDeclaration, qualifiedName: String): Boolean {
+        if (decl.qualifiedName?.asString() == qualifiedName) return true
+        return decl.superTypes.any { superType ->
+            val superDecl = superType.resolve().declaration as? KSClassDeclaration
+            superDecl != null && extendsType(superDecl, qualifiedName)
+        }
     }
 
     private fun createCommandOrQueryHandlerDefinition(
@@ -127,7 +152,8 @@ fun createHandler(
         CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
         QueryHandler::class.qualifiedName ->
             QueryHandlerDefinition.create(handlerData, logger, handlerBaseClass)
-        EventHandler::class.qualifiedName -> EventHandlerDefinition(handlerData)
+        EventHandler::class.qualifiedName ->
+            EventHandlerDefinition(handlerData, EventHandlerKind.DOMAIN)
         else -> null
     }
 }

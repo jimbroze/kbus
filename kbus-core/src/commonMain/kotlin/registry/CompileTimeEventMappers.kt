@@ -7,7 +7,7 @@ import kotlin.reflect.KClass
 class CompileTimeDomainEventMapper(val rawMapper: DomainEventMapper) {
     fun <TEvent : DomainEvent> addDomainHandlers(
         event: KClass<TEvent>,
-        handlers: List<LoadedHandlerToken<TEvent>>,
+        handlers: List<LoadedEventHandler<TEvent>>,
     ) {
         rawMapper.addDomainHandlers(event, handlers.map { it.handlerClass })
     }
@@ -16,7 +16,7 @@ class CompileTimeDomainEventMapper(val rawMapper: DomainEventMapper) {
 class CompileTimeIntegrationEventMapper(val rawMapper: IntegrationEventMapper) {
     fun <TEvent : IntegrationEvent> addEventHandlers(
         event: KClass<TEvent>,
-        handlers: List<LoadedHandlerToken<TEvent>>,
+        handlers: List<LoadedEventHandler<TEvent>>,
     ) {
         rawMapper.addEventHandlers(event, handlers.map { it.handlerClass })
     }

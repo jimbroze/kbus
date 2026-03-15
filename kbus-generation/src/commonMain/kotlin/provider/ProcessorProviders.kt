@@ -14,6 +14,7 @@ import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.LoadedEventHandlersGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -28,6 +29,8 @@ private const val LOADER_CLASS_NAME = "AutoLoader"
 private const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
 private const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
 private const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
+private const val LOADED_DOMAIN_EVENT_HANDLERS_NAME = "LoadedDomainEventHandlers"
+private const val LOADED_INTEGRATION_EVENT_HANDLERS_NAME = "LoadedIntegrationEventHandlers"
 
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
 private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
@@ -94,6 +97,13 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                     TransactionManager::class,
                     GenerationHandlerLocator::class,
                 ),
+                PACKAGE_PATH,
+            ),
+            LoadedEventHandlersGenerator(
+                env.codeGenerator,
+                env.logger,
+                config.moduleClassName(LOADED_DOMAIN_EVENT_HANDLERS_NAME),
+                config.moduleClassName(LOADED_INTEGRATION_EVENT_HANDLERS_NAME),
                 PACKAGE_PATH,
             ),
         )
