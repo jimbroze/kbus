@@ -8,7 +8,7 @@ import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
-import com.jimbroze.kbus.generated.LoadedDomainEventHandlers
+import com.jimbroze.kbus.generated.loaded
 import com.jimbroze.kbus.testdoubles.AutoTickingClock
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalNestedWithExternal
@@ -139,7 +139,7 @@ class GenerationTest {
 
         bus.domainEventMapper.addDomainHandlers(
             TestGeneratorEvent::class,
-            listOf(LoadedDomainEventHandlers.testGeneratorEventHandler()),
+            listOf(TestGeneratorEventHandler::class.loaded),
         )
 
         val handledBefore = TestGeneratorEventHandler.timesHandled

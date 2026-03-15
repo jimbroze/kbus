@@ -12,19 +12,21 @@ import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.ksp.writeTo
+import kotlin.reflect.KClass
 
 class LoadedEventHandlersGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
-    val domainClassName: String,
-    val integrationClassName: String,
+    val domainFileName: String,
+    val integrationFileName: String,
     private val packagePath: String,
 ) {
-    fun generateObjects(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
+    fun generateExtensionProperties(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
         val eventHandlers = handlers.filterIsInstance<EventHandlerDefinition>()
         if (eventHandlers.isEmpty()) return
 
@@ -32,27 +34,21 @@ class LoadedEventHandlersGenerator(
         val integrationHandlers = eventHandlers.filter { it.kind == EventHandlerKind.INTEGRATION }
 
         if (domainHandlers.isNotEmpty()) {
-            generateObject(domainClassName, domainHandlers, sourceFiles)
+            generateFile(domainFileName, domainHandlers, sourceFiles)
         }
 
         if (integrationHandlers.isNotEmpty()) {
-            generateObject(integrationClassName, integrationHandlers, sourceFiles)
+            generateFile(integrationFileName, integrationHandlers, sourceFiles)
         }
     }
 
-    private fun generateObject(
-        className: String,
+    private fun generateFile(
+        fileName: String,
         eventHandlers: List<EventHandlerDefinition>,
         sourceFiles: List<KSFile>,
     ) {
-        val objectBuilder = TypeSpec.objectBuilder(className)
-
-        for (handler in eventHandlers) {
-            objectBuilder.addFunction(buildHandlerFunction(handler))
-        }
-
-        val file =
-            FileSpec.builder(packagePath, className)
+        val fileBuilder =
+            FileSpec.builder(packagePath, fileName)
                 .addAnnotation(
                     AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
                         .addMember(
@@ -61,24 +57,29 @@ class LoadedEventHandlersGenerator(
                         )
                         .build()
                 )
-                .addType(objectBuilder.build())
 
-        file
+        for (handler in eventHandlers) {
+            fileBuilder.addProperty(buildExtensionProperty(handler))
+        }
+
+        fileBuilder
             .build()
             .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
-    private fun buildHandlerFunction(handler: EventHandlerDefinition): FunSpec {
+    private fun buildExtensionProperty(handler: EventHandlerDefinition): PropertySpec {
         val handlerClass = handler.handlerData.handlerClass
         val messageClass = handler.handlerData.messageClass
         val returnType = LoadedEventHandler::class.asClassName().parameterizedBy(messageClass)
+        val receiverType = KClass::class.asClassName().parameterizedBy(handlerClass)
 
-        return FunSpec.builder(handler.handlerData.nameAsDependency)
-            .returns(returnType)
-            .addStatement(
-                "return %T(%T::class)",
-                LoadedEventHandler::class.asClassName(),
-                handlerClass,
+        return PropertySpec.builder("loaded", returnType)
+            .receiver(receiverType)
+            .addModifiers(KModifier.PUBLIC)
+            .getter(
+                FunSpec.getterBuilder()
+                    .addStatement("return %T(this)", LoadedEventHandler::class.asClassName())
+                    .build()
             )
             .build()
     }

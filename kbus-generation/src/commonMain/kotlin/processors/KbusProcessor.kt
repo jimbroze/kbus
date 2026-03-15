@@ -114,7 +114,7 @@ class KbusProcessor(
         } else {
             generators.autoLoader.generateAutoloader(dependencies.allDependencies, sourceFiles)
             generators.handlersFactory.generateClass(dependencies.handlers, sourceFiles)
-            generators.loadedEventHandlersGenerator.generateObjects(
+            generators.loadedEventHandlersGenerator.generateExtensionProperties(
                 dependencies.handlers,
                 sourceFiles,
             )
