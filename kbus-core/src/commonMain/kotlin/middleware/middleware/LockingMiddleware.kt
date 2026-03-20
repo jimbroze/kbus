@@ -80,7 +80,7 @@ class LockingMiddleware(
                 )
             )
 
-        val lockToken = Uuid.generateV7().toString()
+        val lockToken = Uuid.random().toString()
 
         return when (val outcome = acquireLock(key, lockToken, lockingTimeout, metadata)) {
             is LockOutcome.Success -> {

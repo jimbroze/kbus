@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.jimbroze.kbus.core.infrastructure.lock
 
 import com.jimbroze.kbus.core.infrastructure.cache.Cache
@@ -6,6 +8,7 @@ import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignalling
 import com.jimbroze.kbus.core.infrastructure.lock.locks.PollingConfig
 import com.jimbroze.kbus.core.infrastructure.lock.locks.PollingSignallingLock
 import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 

@@ -1,7 +1,10 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.jimbroze.kbus.core.infrastructure.cache
 
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 fun <K : Any, V : Any> expirableCache(

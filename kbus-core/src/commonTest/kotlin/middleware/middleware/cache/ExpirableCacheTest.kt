@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.jimbroze.kbus.core.middleware.middleware.cache
 
 import com.jimbroze.kbus.core.infrastructure.cache.Cache
@@ -12,6 +14,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 class ExpirableCacheTest :
@@ -20,7 +23,7 @@ class ExpirableCacheTest :
     private val fixedClock = FixedClock(Instant.parse("2016-02-15T12:00:00Z"))
 
     override fun createCache(): Cache<String, String> {
-        fixedClock.now = Instant.parse("2016-02-15T12:00:00Z")
+        fixedClock.nowInstant = Instant.parse("2016-02-15T12:00:00Z")
         return ExpirableCache(MapCache(), fixedClock)
     }
 
@@ -29,7 +32,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 4.minutes
+        fixedClock.nowInstant += 4.minutes
 
         assertEquals("value", cache.get("key"))
     }
@@ -39,7 +42,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 5.minutes
+        fixedClock.nowInstant += 5.minutes
 
         assertEquals("value", cache.get("key"))
     }
@@ -49,7 +52,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 6.minutes
+        fixedClock.nowInstant += 6.minutes
 
         assertNull(cache.get("key"))
     }
@@ -59,11 +62,11 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 6.minutes
+        fixedClock.nowInstant += 6.minutes
         cache.get("key") // triggers removal
 
         // Reset clock — entry should still be gone
-        fixedClock.now -= 6.minutes
+        fixedClock.nowInstant -= 6.minutes
         assertNull(cache.get("key"))
     }
 
@@ -71,7 +74,7 @@ class ExpirableCacheTest :
     fun put_without_ttl_never_expires() {
         cache.put("key", "value")
 
-        fixedClock.now += 999.minutes
+        fixedClock.nowInstant += 999.minutes
 
         assertEquals("value", cache.get("key"))
     }
@@ -82,7 +85,7 @@ class ExpirableCacheTest :
         expirableCache.putExpiring("key", "value1", 2.minutes)
         expirableCache.putExpiring("key", "value2", 10.minutes)
 
-        fixedClock.now += 5.minutes
+        fixedClock.nowInstant += 5.minutes
 
         assertEquals("value2", cache.get("key"))
     }
@@ -93,7 +96,7 @@ class ExpirableCacheTest :
         expirableCache.putExpiring("key", "value1", 2.minutes)
         cache.put("key", "value2")
 
-        fixedClock.now += 999.minutes
+        fixedClock.nowInstant += 999.minutes
 
         assertEquals("value2", cache.get("key"))
     }
@@ -104,7 +107,7 @@ class ExpirableCacheTest :
         expirableCache.putExpiring("short", "s", 1.minutes)
         expirableCache.putExpiring("long", "l", 10.minutes)
 
-        fixedClock.now += 5.minutes
+        fixedClock.nowInstant += 5.minutes
 
         assertNull(cache.get("short"))
         assertEquals("l", cache.get("long"))
@@ -115,7 +118,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "old", 5.minutes)
 
-        fixedClock.now += 6.minutes
+        fixedClock.nowInstant += 6.minutes
 
         val result = cache.getOrPut("key") { "new" }
 
@@ -127,7 +130,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "old", 5.minutes)
 
-        fixedClock.now += 4.minutes
+        fixedClock.nowInstant += 4.minutes
 
         val result = cache.getOrPut("key") { "new" }
 
@@ -139,7 +142,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "old", 5.minutes)
 
-        fixedClock.now += 6.minutes
+        fixedClock.nowInstant += 6.minutes
 
         val result = cache.replaceIfMatching("key", "old", "new")
 
@@ -152,7 +155,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 6.minutes
+        fixedClock.nowInstant += 6.minutes
 
         val result = cache.removeIfMatching("key", "value")
 
@@ -164,7 +167,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "old", 5.minutes)
 
-        fixedClock.now += 4.minutes
+        fixedClock.nowInstant += 4.minutes
 
         assertTrue(cache.replaceIfMatching("key", "old", "new"))
         assertEquals("new", cache.get("key"))
@@ -175,7 +178,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 4.minutes
+        fixedClock.nowInstant += 4.minutes
 
         assertTrue(cache.removeIfMatching("key", "value"))
         assertNull(cache.get("key"))
@@ -186,7 +189,7 @@ class ExpirableCacheTest :
         val expirableCache = cache as ExpirableCache<String, String>
         expirableCache.putExpiring("key", "value", 0.seconds)
 
-        fixedClock.now += 1.seconds
+        fixedClock.nowInstant += 1.seconds
 
         assertNull(cache.get("key"))
     }
@@ -211,12 +214,12 @@ class ExpirableCacheFactoryTest {
 
         cache.putExpiring("key", "value", 5.minutes)
 
-        fixedClock.now += 10.minutes
+        fixedClock.nowInstant += 10.minutes
 
         assertNull(cache.get("key"))
     }
 }
 
-private class FixedClock(var now: Instant) : Clock {
-    override fun now(): Instant = now
+private class FixedClock(var nowInstant: Instant) : Clock {
+    override fun now(): Instant = nowInstant
 }

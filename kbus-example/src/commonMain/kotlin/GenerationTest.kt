@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.jimbroze.kbus.generation.test
 
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
@@ -19,6 +21,7 @@ import com.test.external.ExternalInterface
 import com.test.external.ExternalNestedWithExternal
 import com.test.external.ExternalNestedWithPrimitive
 import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 class FixedClock(private var fixedInstant: Instant) : Clock {

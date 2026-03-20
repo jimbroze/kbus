@@ -1,9 +1,12 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.jimbroze.kbus.core.infrastructure.lock.locks
 
 import com.jimbroze.kbus.core.infrastructure.cache.Cache
 import com.jimbroze.kbus.core.infrastructure.lock.AtomicLock
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString

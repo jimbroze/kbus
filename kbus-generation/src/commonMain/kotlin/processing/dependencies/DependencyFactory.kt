@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.jimbroze.kbus.generation.processing.dependencies
 
 import com.google.devtools.ksp.processing.KSPLogger
@@ -12,6 +14,7 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.reflect.KClass
 import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 interface Dependencies {
     val topLevelDependencies: List<Dependency>
