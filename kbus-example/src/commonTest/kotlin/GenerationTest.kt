@@ -90,6 +90,7 @@ class GenerationTest {
         assertEquals("success", bus.execute(InterfacesCommand("")).getOrNull())
         assertEquals("success", bus.execute(NonClassTypesCommand("")).getOrNull())
         assertEquals("success", bus.execute(ExternalDependenciesCommand("")).getOrNull())
+        assertEquals("success", bus.execute(ExternalDependenciesCommandSub("")).getOrNull())
     }
 
     @Test
