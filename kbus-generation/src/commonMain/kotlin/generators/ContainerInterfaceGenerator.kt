@@ -9,6 +9,8 @@ import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildr
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
 import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
 import com.jimbroze.kbus.generation.processing.dependencies.PropertyDependency
+import com.squareup.kotlinpoet.AnnotationSpec
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
@@ -35,6 +37,12 @@ class ContainerInterfaceGenerator(
         }
 
         val file = FileSpec.builder(packagePath, loaderInterfaceName)
+        file.addAnnotation(
+            AnnotationSpec.builder(ClassName("kotlin", "Suppress"))
+                .addMember("%S", "OPT_IN_USAGE")
+                .addMember("%S", "OPT_IN_USAGE_ERROR")
+                .build()
+        )
         file.addType(interfaceBuilder.build())
 
         file

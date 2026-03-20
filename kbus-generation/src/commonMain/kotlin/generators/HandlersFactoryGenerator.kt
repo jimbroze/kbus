@@ -16,6 +16,7 @@ import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -72,6 +73,12 @@ class HandlersFactoryGenerator(
         handlers.forEach { addHandlerDefinition(classBuilder, it) }
 
         val file = FileSpec.builder(packagePath, factoryClassName)
+        file.addAnnotation(
+            AnnotationSpec.builder(ClassName("kotlin", "Suppress"))
+                .addMember("%S", "OPT_IN_USAGE")
+                .addMember("%S", "OPT_IN_USAGE_ERROR")
+                .build()
+        )
         file.addType(classBuilder.build())
         file
             .build()
