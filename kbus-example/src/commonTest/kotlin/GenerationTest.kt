@@ -11,6 +11,11 @@ import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generated.loaded
+import com.jimbroze.kbus.generation.test.inventory.infrastructure.ExampleWarehouseNotifier
+import com.jimbroze.kbus.generation.test.inventory.infrastructure.InMemoryInventoryRepository
+import com.jimbroze.kbus.generation.test.orders.infrastructure.ExampleEmailService
+import com.jimbroze.kbus.generation.test.orders.infrastructure.ExamplePaymentGateway
+import com.jimbroze.kbus.generation.test.orders.infrastructure.InMemoryOrderRepository
 import com.jimbroze.kbus.testdoubles.AutoTickingClock
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalNestedWithExternal
@@ -58,6 +63,11 @@ class Dependencies(private val instant: Instant, private val applicationScope: C
     override val externalInterface = externalEmpty
     override val externalNestedWithPrimitive = ExternalNestedWithPrimitive("A string")
     override val externalNestedWithExternal = ExternalNestedWithExternal(externalEmpty)
+    override val orderRepository = InMemoryOrderRepository()
+    override val paymentGateway = ExamplePaymentGateway()
+    override val emailService = ExampleEmailService()
+    override val inventoryRepository = InMemoryInventoryRepository()
+    override val warehouseNotifier = ExampleWarehouseNotifier()
 
     override val transientExample: TransientExample
         get() = FixedClock(tickingClock.now())

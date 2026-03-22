@@ -65,4 +65,38 @@ class HandlerConflictPolicyTest {
 
         assertIs<ConflictPolicy.Result.Accept>(result)
     }
+
+    private fun createEventHandlerDefinition(
+        handlerName: String,
+        messageName: String,
+    ): HandlerDefinition {
+        val handlerData =
+            HandlerData(
+                handlerClass = ClassName("com.example", handlerName),
+                messageClass = ClassName("com.example", messageName),
+                returnType = UNIT,
+                topLevelDependencies = emptyList(),
+            )
+        return EventHandlerDefinition(handlerData, EventHandlerKind.DOMAIN)
+    }
+
+    @Test
+    fun event_handlers_with_same_message_different_handlers_returns_accept() {
+        val handler = createEventHandlerDefinition("HandlerA", "MyEvent")
+        val existing = createEventHandlerDefinition("HandlerB", "MyEvent")
+
+        val result = HandlerConflictPolicy.evaluate(handler, listOf(existing))
+
+        assertIs<ConflictPolicy.Result.Accept>(result)
+    }
+
+    @Test
+    fun event_handlers_with_same_message_same_handler_returns_exact_duplicate() {
+        val handler = createEventHandlerDefinition("HandlerA", "MyEvent")
+        val existing = createEventHandlerDefinition("HandlerA", "MyEvent")
+
+        val result = HandlerConflictPolicy.evaluate(handler, listOf(existing))
+
+        assertIs<ConflictPolicy.Result.ExactDuplicate>(result)
+    }
 }

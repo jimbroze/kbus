@@ -34,3 +34,5 @@ include("kbus-generation")
 include("kbus-example")
 
 include("kbus-example-sub")
+
+include("kbus-example-sub-two")

@@ -10,6 +10,7 @@ kotlin {
             implementation(projects.kbusCore)
             implementation(projects.testDoubles)
             implementation(projects.kbusExampleSub)
+            implementation(projects.kbusExampleSubTwo)
 
             implementation(libs.kotlinx.coroutines.core)
         }

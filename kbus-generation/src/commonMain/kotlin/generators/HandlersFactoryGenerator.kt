@@ -12,6 +12,7 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
@@ -199,7 +200,8 @@ class HandlersFactoryGenerator(
 
         val subDependencyArgs =
             handler.handlerData.topLevelDependencies.joinToString(", ") {
-                "dependencies.${it.accessReference}"
+                if (it is CommandDependency) it.accessReference
+                else "dependencies.${it.accessReference}"
             }
 
         val functionBuilder =
