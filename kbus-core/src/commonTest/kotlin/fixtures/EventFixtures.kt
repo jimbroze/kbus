@@ -1,11 +1,14 @@
 package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
 import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
+import com.jimbroze.kbus.core.messages.event.DispatchImmediately
 import com.jimbroze.kbus.core.messages.event.DomainEventHandler
 import com.jimbroze.kbus.domain.DomainEvent
 import com.jimbroze.kbus.domain.DomainEventPublisher
+import kotlinx.coroutines.delay
 
 class TestDomainEvent(val data: String) : DomainEvent()
 
@@ -38,4 +41,73 @@ class TestDomainEventPublisher : DomainEventPublisher {
     }
 }
 
+class TestDispatchImmediatelyHandler(private val results: MutableList<String>) :
+    DispatchImmediately<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        results.add(message.data)
+    }
+}
+
+class DelayingDomainEventHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DomainEventHandler<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
+
+class DelayingDispatchImmediatelyHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DispatchImmediately<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
+
+class DelayingDispatchAtEndOfTransactionHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DispatchAtEndOfTransaction<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
+
+class DelayingDispatchAfterTransactionHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DispatchAfterTransaction<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
+
 class TestIntegrationEvent(val name: String) : IntegrationEvent()
+
+class SimpleIntegrationEventHandler(private val results: MutableList<String>) :
+    IntegrationEventHandler<TestIntegrationEvent> {
+    override suspend fun handle(message: TestIntegrationEvent) {
+        results.add(message.name)
+    }
+}
+
+class DelayingIntegrationEventHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : IntegrationEventHandler<TestIntegrationEvent> {
+    override suspend fun handle(message: TestIntegrationEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
