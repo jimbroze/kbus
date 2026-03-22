@@ -3,8 +3,10 @@ package com.jimbroze.kbus.core.fixtures
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
+import com.jimbroze.kbus.core.messages.event.DispatchAsynchronously
 import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchImmediately
+import com.jimbroze.kbus.core.messages.event.DispatchImmediatelyInTransaction
+import com.jimbroze.kbus.core.messages.event.DispatchSynchronously
 import com.jimbroze.kbus.core.messages.event.DomainEventHandler
 import com.jimbroze.kbus.domain.DomainEvent
 import com.jimbroze.kbus.domain.DomainEventPublisher
@@ -42,7 +44,7 @@ class TestDomainEventPublisher : DomainEventPublisher {
 }
 
 class TestDispatchImmediatelyHandler(private val results: MutableList<String>) :
-    DispatchImmediately<TestDomainEvent>() {
+    DispatchImmediatelyInTransaction<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
@@ -63,7 +65,7 @@ class DelayingDispatchImmediatelyHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchImmediately<TestDomainEvent>() {
+) : DispatchImmediatelyInTransaction<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs)
         results.add(label)
@@ -75,6 +77,28 @@ class DelayingDispatchAtEndOfTransactionHandler(
     private val delayMs: Long,
     private val label: String,
 ) : DispatchAtEndOfTransaction<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
+
+class DelayingDispatchSynchronouslyHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DispatchSynchronously<TestDomainEvent>() {
+    override suspend fun handle(message: TestDomainEvent) {
+        delay(delayMs)
+        results.add(label)
+    }
+}
+
+class DelayingDispatchAsynchronouslyHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DispatchAsynchronously<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs)
         results.add(label)

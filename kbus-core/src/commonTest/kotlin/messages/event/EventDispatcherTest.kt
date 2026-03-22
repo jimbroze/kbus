@@ -3,8 +3,10 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
+import com.jimbroze.kbus.core.fixtures.DelayingDispatchAsynchronouslyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchImmediatelyHandler
+import com.jimbroze.kbus.core.fixtures.DelayingDispatchSynchronouslyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
@@ -261,6 +263,66 @@ class EventDispatcherTest {
         assertEquals("dispatched second, no delay", results[0])
         assertEquals("dispatched first, with delay", results[1])
     }
+
+    @Test
+    fun test_DispatchSynchronously_domain_event_handlers_are_dispatched_synchronously() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingDispatchSynchronouslyHandler(results, 100, "dispatched first, with delay")
+                    as EventHandler<DomainEvent>,
+                DelayingDispatchSynchronouslyHandler(results, 0, "dispatched second, no delay")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+        assertEquals(0, results.size)
+        assertEquals(2, unitOfWork.postCommitWork.size)
+
+        unitOfWork.postCommitWork.forEach { it.invoke() }
+
+        // Synchronous: order preserved regardless of delay
+        assertEquals(2, results.size)
+        assertEquals("dispatched first, with delay", results[0])
+        assertEquals("dispatched second, no delay", results[1])
+    }
+
+    @Test
+    fun test_DispatchAsynchronously_domain_event_handlers_are_dispatched_asynchronously() =
+        runTest {
+            val results = mutableListOf<String>()
+            val unitOfWork = TestUnitOfWork<Any?>()
+            @Suppress("UNCHECKED_CAST")
+            val handlers =
+                listOf(
+                    DelayingDispatchAsynchronouslyHandler(
+                        results,
+                        100,
+                        "dispatched first, with delay",
+                    )
+                        as EventHandler<DomainEvent>,
+                    DelayingDispatchAsynchronouslyHandler(results, 0, "dispatched second, no delay")
+                        as EventHandler<DomainEvent>,
+                )
+            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+            assertEquals(0, results.size)
+            assertEquals(2, unitOfWork.postCommitWork.size)
+
+            unitOfWork.postCommitWork.forEach { it.invoke() }
+            advanceUntilIdle()
+
+            // Async: shorter delay completes first regardless of dispatch order
+            assertEquals(2, results.size)
+            assertEquals("dispatched second, no delay", results[0])
+            assertEquals("dispatched first, with delay", results[1])
+        }
 
     @Test
     fun test_async_dispatch_is_fire_and_forget() = runTest {

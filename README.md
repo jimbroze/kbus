@@ -165,28 +165,52 @@ routes events through the Unit of Work.
 Choose a dispatch strategy by extending the appropriate *handler* base class. Each handler can have a different dispatch
 strategy, even for the same event type.
 
+| Handler Base Class                 | When it runs                         | Sync / Async |
+|------------------------------------|--------------------------------------|--------------|
+| `DispatchImmediatelyInTransaction` | Immediately when the event is raised | Synchronous  |
+| `DispatchAtEndOfTransaction`       | After primary handler, before commit | Synchronous  |
+| `DispatchAfterTransaction`         | After the transaction commits        | Asynchronous |
+| `DomainEventHandler` (default)     | After the transaction commits        | Asynchronous |
+
+**Synchronous** handlers (`DispatchImmediatelyInTransaction`, `DispatchAtEndOfTransaction`) run sequentially in order —
+the next handler waits for the previous one to complete. **Asynchronous** handlers (`DispatchAfterTransaction`,
+`DomainEventHandler`) are fire-and-forget: they launch concurrently and the caller does not wait for them to finish.
+
+By default, domain event handlers that extend `DomainEventHandler` directly are dispatched **asynchronously after the
+transaction commits**. This default is intentional:
+
+- **Asynchronous by default** — All events (both domain and integration) default to async dispatch. If work must be
+  synchronous and transactional, it should be modeled as an explicit Command, not an Event. This keeps coupled
+  operations visible in the code rather than hiding them behind event handlers that appear decoupled but are
+  actually tightly bound. Synchronous event dispatch should be avoided where possible outside of infrastructure
+  concerns.
+- **After transaction by default** — Domain events default to dispatching after the transaction commits because
+  handlers typically trigger side effects (notifications, external calls) that should only happen once the primary
+  work has been persisted. Dispatching before commit risks executing side effects for work that may still be
+  rolled back.
+
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.core.messages.event.DispatchImmediately
+import com.jimbroze.kbus.core.messages.event.DispatchImmediatelyInTransaction
 import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
 import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
 import com.jimbroze.kbus.example.fixtures.OrderShipped
 -->
 
 ```kotlin
-// Dispatched immediately when the event is raised
-class NotifyWarehouse : DispatchImmediately<OrderShipped>() {
+// Dispatched immediately when the event is raised (synchronous)
+class NotifyWarehouse : DispatchImmediatelyInTransaction<OrderShipped>() {
     override suspend fun handle(message: OrderShipped) { /* ... */
     }
 }
 
-// Dispatched after the primary handler completes but before transaction commit
+// Dispatched after the primary handler completes but before transaction commit (synchronous)
 class UpdateInventory : DispatchAtEndOfTransaction<OrderShipped>() {
     override suspend fun handle(message: OrderShipped) { /* ... */
     }
 }
 
-// Dispatched after the transaction has been committed
+// Dispatched after the transaction has been committed (asynchronous)
 class SendShipmentNotification : DispatchAfterTransaction<OrderShipped>() {
     override suspend fun handle(message: OrderShipped) { /* ... */
     }
@@ -197,7 +221,8 @@ class SendShipmentNotification : DispatchAfterTransaction<OrderShipped>() {
 
 #### Integration Events
 
-Integration events are dispatched after the transaction commits, intended for cross-boundary communication:
+Integration events are dispatched after the transaction commits, intended for cross-boundary communication.
+Integration events are **always dispatched asynchronously** — handlers run concurrently in a fire-and-forget manner.
 
 <!--- CLEAR -->
 <!--- INCLUDE

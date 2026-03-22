@@ -32,14 +32,19 @@ class EventDispatcher(
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             handlers.forEach { handler ->
+                val dispatch = suspend {
+                    when (handler) {
+                        is DispatchSynchronously<*> -> dispatchSync(message, handler)
+                        is DispatchAsynchronously<*> -> dispatchAsync(message, handler)
+                        else -> dispatchAsync(message, handler)
+                    }
+                }
                 when (handler) {
-                    is DispatchImmediately<*> -> dispatchSync(message, handler)
-                    is DispatchAtEndOfTransaction<*> ->
-                        unitOfWork.addSecondaryWork { dispatchSync(message, handler) }
-                    is DispatchAfterTransaction<*> ->
-                        unitOfWork.addPostCommitWork { dispatchAsync(message, handler) }
+                    is DispatchImmediatelyInTransaction<*> -> dispatch()
+                    is DispatchAtEndOfTransaction<*> -> unitOfWork.addSecondaryWork { dispatch() }
+                    is DispatchAfterTransaction<*> -> unitOfWork.addPostCommitWork { dispatch() }
                     // TODO outbox
-                    else -> unitOfWork.addPostCommitWork { dispatchAsync(message, handler) }
+                    else -> unitOfWork.addPostCommitWork { dispatch() }
                 }
             }
         }

@@ -9,8 +9,13 @@ abstract class DomainEventHandler<TEvent : DomainEvent> :
     abstract override suspend fun handle(message: TEvent)
 }
 
-abstract class DispatchImmediately<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchSynchronously<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-abstract class DispatchAtEndOfTransaction<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchAsynchronously<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-abstract class DispatchAfterTransaction<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchImmediatelyInTransaction<TEvent : DomainEvent> :
+    DispatchSynchronously<TEvent>()
+
+abstract class DispatchAtEndOfTransaction<TEvent : DomainEvent> : DispatchSynchronously<TEvent>()
+
+abstract class DispatchAfterTransaction<TEvent : DomainEvent> : DispatchAsynchronously<TEvent>()
