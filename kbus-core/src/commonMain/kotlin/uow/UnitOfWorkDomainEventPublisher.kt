@@ -9,6 +9,6 @@ class UnitOfWorkDomainEventPublisher(
     val unitOfWork: UnitOfWork<*>,
 ) : DomainEventPublisher {
     override suspend fun publish(event: DomainEvent) {
-        baseDispatcher?.dispatch(event, unitOfWork)
+        baseDispatcher?.dispatchDomainEvent(event, unitOfWork)
     }
 }

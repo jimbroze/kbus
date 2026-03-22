@@ -8,7 +8,7 @@ import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.DomainEvent
 
 interface DomainEventDispatcher {
-    suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>)
+    suspend fun <TEvent : DomainEvent> dispatchDomainEvent(event: TEvent, unitOfWork: UnitOfWork<*>)
 }
 
 typealias GetHandlers<TEvent> = (event: TEvent) -> List<EventHandler<TEvent>>
@@ -17,7 +17,10 @@ class EventDispatcher(
     val getHandlers: GetHandlers<DomainEvent>,
     val middlewares: List<Middleware>,
 ) : DomainEventDispatcher {
-    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>) {
+    override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
+        event: TEvent,
+        unitOfWork: UnitOfWork<*>,
+    ) {
         val handlers = getHandlers(event)
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
@@ -34,7 +37,7 @@ class EventDispatcher(
         dispatchToHandlers(finalHandler, event)
     }
 
-    suspend fun <TEvent : Event> dispatch(
+    suspend fun <TEvent : Event> dispatchIntegrationEvent(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {

@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.contracts.bus
 
-import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 
 abstract class CanDispatchIntegrationEvent {
@@ -16,5 +15,5 @@ abstract class CanDispatchIntegrationEvent {
 }
 
 interface BusAccess {
-    suspend fun <TEvent : Event> dispatch(event: TEvent)
+    suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent)
 }

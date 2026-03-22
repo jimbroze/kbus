@@ -67,7 +67,10 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
 class TestDomainEventDispatcher : DomainEventDispatcher {
     val dispatchedEvents = mutableListOf<Pair<DomainEvent, UnitOfWork<*>>>()
 
-    override suspend fun <TEvent : DomainEvent> dispatch(event: TEvent, unitOfWork: UnitOfWork<*>) {
+    override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
+        event: TEvent,
+        unitOfWork: UnitOfWork<*>,
+    ) {
         dispatchedEvents.add(Pair(event, unitOfWork))
     }
 }

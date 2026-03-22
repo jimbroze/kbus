@@ -3,7 +3,7 @@ package com.jimbroze.kbus.core.bus
 import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
@@ -31,8 +31,8 @@ abstract class BaseMessageBus(
 ) : IMessageBus {
     private val busAccess =
         object : BusAccess {
-            override suspend fun <TEvent : Event> dispatch(event: TEvent) =
-                this@BaseMessageBus.dispatch(event)
+            override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) =
+                this@BaseMessageBus.dispatchIntegration(event)
         }
     protected val eventDispatcher = EventDispatcher(handlerLocator::handlersFor, middlewares)
     protected val commandExecutor =
@@ -65,10 +65,10 @@ abstract class BaseMessageBus(
         return queryFetcher.fetch(query, handlerCreator)
     }
 
-    private suspend fun <TEvent : Event> dispatch(event: TEvent) {
+    private suspend fun <TEvent : IntegrationEvent> dispatchIntegration(event: TEvent) {
         val handlers = handlerLocator.handlersFor(event)
 
-        eventDispatcher.dispatch(event, handlers)
+        eventDispatcher.dispatchIntegrationEvent(event, handlers)
     }
 }
 

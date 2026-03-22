@@ -27,7 +27,7 @@ class EventDispatcherTest {
         val results = mutableListOf<String>()
         val dispatcher = EventDispatcher({ emptyList() }, emptyList())
 
-        dispatcher.dispatch(
+        dispatcher.dispatchIntegrationEvent(
             StorageEvent("string", results),
             listOf(PrintEventHandler(), OtherPrintEventHandler("string")),
         )
@@ -44,7 +44,7 @@ class EventDispatcherTest {
         val handlers = listOf(TestDomainEventHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("immediate"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("immediate"), unitOfWork)
 
         assertEquals(1, results.size)
         assertEquals("immediate", results[0])
@@ -59,7 +59,7 @@ class EventDispatcherTest {
             listOf(TestDispatchAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("after-primary"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("after-primary"), unitOfWork)
 
         assertEquals(0, results.size)
         assertEquals(1, unitOfWork.secondaryWork.size)
@@ -77,7 +77,7 @@ class EventDispatcherTest {
             listOf(TestDispatchAfterTransactionHandler(results) as EventHandler<DomainEvent>)
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("after-commit"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("after-commit"), unitOfWork)
 
         assertEquals(0, results.size)
         assertEquals(1, unitOfWork.postCommitWork.size)
@@ -101,7 +101,7 @@ class EventDispatcherTest {
 
             val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-            dispatcher.dispatch(TestDomainEvent("mixed"), unitOfWork)
+            dispatcher.dispatchDomainEvent(TestDomainEvent("mixed"), unitOfWork)
 
             assertEquals(1, results.size)
             assertEquals("mixed", results[0])
@@ -131,7 +131,7 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
         assertEquals(2, results.size)
         assertEquals("fast", results[0])
@@ -154,7 +154,7 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
         assertEquals(0, results.size)
         assertEquals(2, unitOfWork.postCommitWork.size)
@@ -182,7 +182,7 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
         assertEquals(0, results.size)
         assertEquals(2, unitOfWork.secondaryWork.size)
@@ -210,7 +210,7 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList())
 
-        dispatcher.dispatch(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
         // Synchronous: order preserved regardless of delay
         assertEquals(2, results.size)
@@ -232,7 +232,7 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ emptyList() }, emptyList())
 
-        dispatcher.dispatch(TestIntegrationEvent("test"), handlers)
+        dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("test"), handlers)
 
         assertEquals(2, results.size)
         assertEquals("fast", results[0])
