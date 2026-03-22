@@ -62,6 +62,11 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     override fun useTransaction(transactionManager: TransactionManager) {
         this.transactionManager = transactionManager
     }
+
+    suspend fun executeAllScheduledWork() {
+        secondaryWork.forEach { it.invoke() }
+        postCommitWork.forEach { it.invoke() }
+    }
 }
 
 class TestDomainEventDispatcher : DomainEventDispatcher {
