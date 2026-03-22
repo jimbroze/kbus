@@ -78,6 +78,16 @@ class LoadedEventHandlersGenerator(
             .addModifiers(KModifier.PUBLIC)
             .getter(
                 FunSpec.getterBuilder()
+                    .addAnnotation(
+                        AnnotationSpec.builder(ClassName("kotlin.jvm", "JvmName"))
+                            .addMember("%S", "get_loaded_${handlerClass.simpleName}")
+                            .build()
+                    )
+                    .addAnnotation(
+                        AnnotationSpec.builder(ClassName("kotlin.js", "JsName"))
+                            .addMember("%S", "get_loaded_${handlerClass.simpleName}")
+                            .build()
+                    )
                     .addStatement("return %T(this)", LoadedEventHandler::class.asClassName())
                     .build()
             )
