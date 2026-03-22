@@ -2,18 +2,25 @@ package com.jimbroze.kbus.core.bus
 
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.core.fixtures.BrokenStateFailureCommandHandler
+import com.jimbroze.kbus.core.fixtures.DelayingStorageEventHandler
+import com.jimbroze.kbus.core.fixtures.EventCommand
+import com.jimbroze.kbus.core.fixtures.EventCommandHandler
 import com.jimbroze.kbus.core.fixtures.FailureCommand
 import com.jimbroze.kbus.core.fixtures.FailureCommandFailure
 import com.jimbroze.kbus.core.fixtures.FailureQuery
 import com.jimbroze.kbus.core.fixtures.FailureQueryHandler
+import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
+import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.StorageQuery
 import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingStorageEventHandler
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import kotlin.test.Test
@@ -22,7 +29,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 
 class MessageBusTest {
     @Test
@@ -115,6 +128,102 @@ class MessageBusTest {
         assertNotNull(failure)
         assertIs<FailureReason>(failure.reason)
         assertEquals("The query failed", failure.reason.message)
+    }
+
+    private fun createBusWithIntegrationEventHandlers(
+        stores: HandlerFactoryStoreCollection,
+        locator: PersistingHandlerLocator,
+    ) {
+        stores.commandStore.registerHandlers(
+            EventCommand::class,
+            listOf(CommandHandlerFactory(EventCommandHandler::class) { EventCommandHandler() }),
+        )
+        stores.eventStore.registerHandlers(
+            StorageEvent::class,
+            listOf(
+                EventHandlerFactory(ThrowingStorageEventHandler::class) {
+                    ThrowingStorageEventHandler()
+                },
+                EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(ThrowingStorageEventHandler::class, PrintEventHandler::class),
+        )
+    }
+
+    @Test
+    fun test_failing_integration_event_handler_does_not_prevent_other_handlers() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        createBusWithIntegrationEventHandlers(stores, locator)
+
+        val bus = MessageBus(locator)
+        val list = mutableListOf<String>()
+
+        bus.execute(EventCommand("test", list))
+
+        // Real delay to allow async handlers on Dispatchers.Default to complete
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        assertContains(list, "test")
+    }
+
+    @Test
+    fun test_failing_handler_does_not_cancel_bus_event_dispatcher_scope() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        createBusWithIntegrationEventHandlers(stores, locator)
+
+        val bus = MessageBus(locator)
+
+        // First command: triggers a throwing handler
+        val list1 = mutableListOf<String>()
+        bus.execute(EventCommand("first", list1))
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        // Second command: scope should still be active, handlers should still execute
+        val list2 = mutableListOf<String>()
+        bus.execute(EventCommand("second", list2))
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        assertContains(list2, "second")
+    }
+
+    @Test
+    fun test_cancelling_bus_rootScope_stops_pending_event_handlers() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        stores.commandStore.registerHandlers(
+            EventCommand::class,
+            listOf(CommandHandlerFactory(EventCommandHandler::class) { EventCommandHandler() }),
+        )
+        stores.eventStore.registerHandlers(
+            StorageEvent::class,
+            listOf(
+                EventHandlerFactory(DelayingStorageEventHandler::class) {
+                    DelayingStorageEventHandler(5000)
+                }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(DelayingStorageEventHandler::class),
+        )
+
+        val rootScope = CoroutineScope(Dispatchers.Default)
+        val bus = MessageBus(locator, rootScope = rootScope)
+        val list = mutableListOf<String>()
+
+        bus.execute(EventCommand("test", list))
+
+        // Cancel the root scope before the delayed handler completes
+        rootScope.cancel()
+
+        withContext(Dispatchers.Default) { delay(200.milliseconds) }
+
+        assertEquals(0, list.size)
     }
 
     //    @Test

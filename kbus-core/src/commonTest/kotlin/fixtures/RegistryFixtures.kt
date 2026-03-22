@@ -7,6 +7,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import kotlinx.coroutines.delay
 
 class ReturnCommand(val messageData: String) : Command<BusResult<String, MessageFailure>>()
 
@@ -47,5 +48,18 @@ class PrintEventHandler : EventHandler<StorageEvent> {
 class OtherPrintEventHandler(val toPrint: String) : EventHandler<StorageEvent> {
     override suspend fun handle(message: StorageEvent) {
         message.listStore.add(toPrint)
+    }
+}
+
+class DelayingStorageEventHandler(private val delayMs: Long) : EventHandler<StorageEvent> {
+    override suspend fun handle(message: StorageEvent) {
+        delay(delayMs)
+        message.listStore.add(message.eventData)
+    }
+}
+
+class ThrowingStorageEventHandler : EventHandler<StorageEvent> {
+    override suspend fun handle(message: StorageEvent) {
+        throw TestHandlerException("Handler failed for: ${message.eventData}")
     }
 }

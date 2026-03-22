@@ -135,3 +135,11 @@ class DelayingIntegrationEventHandler(
         results.add(label)
     }
 }
+
+class ThrowingIntegrationEventHandler : IntegrationEventHandler<TestIntegrationEvent> {
+    override suspend fun handle(message: TestIntegrationEvent) {
+        throw TestHandlerException("Handler failed for: ${message.name}")
+    }
+}
+
+class TestHandlerException(message: String) : Exception(message)

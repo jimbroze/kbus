@@ -15,6 +15,11 @@ import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.plus
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -24,17 +29,22 @@ interface IMessageBus {
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult
 }
 
+// TODO allow middleware to get scope from bus?
 abstract class BaseMessageBus(
     protected val handlerLocator: HandlerLocator,
     transactionManager: TransactionManager?,
     protected val middlewares: List<Middleware>,
+    public val rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) : IMessageBus {
     private val busAccess =
         object : BusAccess {
             override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) =
                 this@BaseMessageBus.dispatchIntegration(event)
         }
-    protected val eventDispatcher = EventDispatcher(handlerLocator::handlersFor, middlewares)
+    private val eventDispatcherScope =
+        rootScope + SupervisorJob() + Dispatchers.Default + CoroutineName("KBus-Event-Dispatcher")
+    protected val eventDispatcher =
+        EventDispatcher(handlerLocator::handlersFor, middlewares, eventDispatcherScope)
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
@@ -76,4 +86,5 @@ class MessageBus(
     handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = null,
     middlewares: List<Middleware> = emptyList(),
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares)
+    rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope)

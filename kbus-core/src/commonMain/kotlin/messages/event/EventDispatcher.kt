@@ -7,8 +7,6 @@ import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 interface DomainEventDispatcher {
@@ -17,12 +15,10 @@ interface DomainEventDispatcher {
 
 typealias GetHandlers<TEvent> = (event: TEvent) -> List<EventHandler<TEvent>>
 
-// TODO cancel scope on shutdown?
 class EventDispatcher(
     val getHandlers: GetHandlers<DomainEvent>,
     val middlewares: List<Middleware>,
-    private val dispatcherScope: CoroutineScope =
-        CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val dispatcherScope: CoroutineScope,
 ) : DomainEventDispatcher {
     override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
         event: TEvent,
