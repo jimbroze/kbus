@@ -12,16 +12,30 @@ import com.jimbroze.kbus.core.fixtures.DelayingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
+import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateHandler
+import com.jimbroze.kbus.core.fixtures.SucceedingFailFastHandler
+import com.jimbroze.kbus.core.fixtures.SucceedingFireAndForgetHandler
+import com.jimbroze.kbus.core.fixtures.TestContinueAndAggregateEvent
 import com.jimbroze.kbus.core.fixtures.TestDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.TestDispatchAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.TestDispatchImmediatelyHandler
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.TestFailFastEvent
+import com.jimbroze.kbus.core.fixtures.TestFireAndForgetEvent
+import com.jimbroze.kbus.core.fixtures.TestHandlerException
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
+import com.jimbroze.kbus.core.fixtures.ThrowingContinueAndAggregateHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingDispatchImmediatelyHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingFailFastHandler
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -323,6 +337,162 @@ class EventDispatcherTest {
             assertEquals("dispatched second, no delay", results[0])
             assertEquals("dispatched first, with delay", results[1])
         }
+
+    // --- Error handling strategy tests ---
+
+    @Test
+    fun test_domain_events_default_to_fire_and_forget_for_async_handlers() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingDomainEventHandler(results) as EventHandler<DomainEvent>,
+                TestDomainEventHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        // Plain DomainEvent — fire and forget is the default
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+        unitOfWork.executeAllScheduledWork()
+        advanceUntilIdle()
+
+        // Both handlers were invoked (throwing handler ran but didn't stop the second)
+        assertEquals(2, results.size)
+        assertEquals("threw:test", results[0])
+        assertEquals("test", results[1])
+    }
+
+    @Test
+    fun test_domain_events_default_to_fire_and_forget_for_sync_handlers() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingDispatchImmediatelyHandler(results) as EventHandler<DomainEvent>,
+                TestDispatchImmediatelyHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        // Plain DomainEvent — fire and forget is the default even for sync handlers
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+        // Both handlers executed
+        assertEquals(2, results.size)
+        assertEquals("threw:test", results[0])
+        assertEquals("test", results[1])
+    }
+
+    @Test
+    fun test_FireAndForgetDomainEvent_does_not_propagate_exceptions() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingFireAndForgetHandler(results) as EventHandler<DomainEvent>,
+                SucceedingFireAndForgetHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestFireAndForgetEvent("test"), unitOfWork)
+
+        // Both handlers executed despite the first one throwing
+        assertEquals(2, results.size)
+        assertEquals("threw:test", results[0])
+        assertEquals("success:test", results[1])
+    }
+
+    @Test
+    fun test_FailFast_throws_first_exception_immediately() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingFailFastHandler(results) as EventHandler<DomainEvent>,
+                SucceedingFailFastHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        val exception =
+            assertFailsWith<TestHandlerException> {
+                dispatcher.dispatchDomainEvent(TestFailFastEvent("test"), unitOfWork)
+            }
+
+        assertEquals("FailFast handler failed for: test", exception.message)
+        // Second handler should NOT have executed
+        assertEquals(1, results.size)
+        assertEquals("threw:test", results[0])
+    }
+
+    @Test
+    fun test_FailFast_does_not_throw_when_all_handlers_succeed() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                SucceedingFailFastHandler(results) as EventHandler<DomainEvent>,
+                SucceedingFailFastHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestFailFastEvent("test"), unitOfWork)
+
+        assertEquals(2, results.size)
+    }
+
+    @Test
+    fun test_ContinueAndAggregate_runs_all_handlers_then_throws_aggregate() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingContinueAndAggregateHandler(results, "first") as EventHandler<DomainEvent>,
+                SucceedingContinueAndAggregateHandler(results, "second")
+                    as EventHandler<DomainEvent>,
+                ThrowingContinueAndAggregateHandler(results, "third") as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        val exception =
+            assertFailsWith<MultipleException> {
+                dispatcher.dispatchDomainEvent(TestContinueAndAggregateEvent("test"), unitOfWork)
+            }
+
+        // All three handlers executed
+        assertEquals(3, results.size)
+        assertEquals("threw:first", results[0])
+        assertEquals("success:second", results[1])
+        assertEquals("threw:third", results[2])
+
+        // AggregateException contains the two failures
+        assertEquals(2, exception.exceptions.size)
+        assertTrue(exception.exceptions[0].message!!.contains("first"))
+        assertTrue(exception.exceptions[1].message!!.contains("third"))
+    }
+
+    @Test
+    fun test_ContinueAndAggregate_does_not_throw_when_all_handlers_succeed() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                SucceedingContinueAndAggregateHandler(results, "first")
+                    as EventHandler<DomainEvent>,
+                SucceedingContinueAndAggregateHandler(results, "second")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestContinueAndAggregateEvent("test"), unitOfWork)
+
+        assertEquals(2, results.size)
+    }
 
     @Test
     fun test_async_dispatch_is_fire_and_forget() = runTest {
