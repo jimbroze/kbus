@@ -8,6 +8,7 @@ import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignallingLock
+import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,13 +24,15 @@ import kotlinx.coroutines.test.runTest
 @OptIn(ExperimentalCoroutinesApi::class)
 class InMemoryLockingTest : LockingTestBase() {
     override fun createAtomicLock(
-        backgroundScope: CoroutineScope,
-        scheduler: TestCoroutineScheduler,
-    ): SignallingLock = InMemoryAtomicSignallingLock(backgroundScope = backgroundScope)
+        scheduler: TestCoroutineScheduler
+    ): (CoroutineScope) -> SignallingLock = { scope: CoroutineScope ->
+        InMemoryAtomicSignallingLock(backgroundScope = scope)
+    }
 
     @Test
     fun verifies_concrete_lock_instance_type() = runTest {
-        val lock = createAtomicLock(backgroundScope, testScheduler)
+        val lockFactory = createAtomicLock(testScheduler)
+        val lock = lockFactory(backgroundScope)
         assertNotNull(lock)
     }
 
@@ -37,10 +40,11 @@ class InMemoryLockingTest : LockingTestBase() {
     fun `lock auto-expires at exact TTL time and waiting locking message proceeds`() = runTest {
         val locker =
             LockingMiddleware(
-                createAtomicLock(backgroundScope, testScheduler),
+                createAtomicLock(testScheduler),
                 10.seconds,
                 2.seconds, // lock expires after 2 seconds
             )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
             locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
@@ -70,10 +74,11 @@ class InMemoryLockingTest : LockingTestBase() {
     fun `non-locking message waiting on expired lock proceeds at exact TTL time`() = runTest {
         val locker =
             LockingMiddleware(
-                createAtomicLock(backgroundScope, testScheduler),
+                createAtomicLock(testScheduler),
                 10.seconds,
                 1.seconds, // lock expires after 1 second
             )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
             locker.handle(LockingSleepCommand(5.seconds, "Job1")) {

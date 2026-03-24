@@ -6,13 +6,15 @@ import com.jimbroze.kbus.contracts.middleware.BusLockedFailure
 import com.jimbroze.kbus.contracts.middleware.LockAwareMessage
 import com.jimbroze.kbus.contracts.middleware.ResultReturningLockAwareMessage
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
-import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
+import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
@@ -27,15 +29,21 @@ import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalAtomicApi::class, ExperimentalUuidApi::class)
 class LockingMiddleware(
-    private val atomicLock: SignallingLock,
+    private val lockFactory: (CoroutineScope) -> SignallingLock,
     private val defaultTimeout: Duration,
     private val defaultLockExpiry: Duration,
     private val defaultIgnoreLockOnTimeout: Boolean = false,
-) : Middleware {
+) : LifecycleAwareMiddleware {
     companion object {
         private const val KEY_PREFIX = "bus-lock-"
         private const val GLOBAL_KEY_SUFFIX = "global-channel"
         private val jsonConfig = Json { ignoreUnknownKeys = true }
+    }
+
+    private lateinit var atomicLock: SignallingLock
+
+    override fun onStart(context: MiddlewareContext) {
+        this.atomicLock = lockFactory(context.scope)
     }
 
     suspend fun busIsLocked(channelKey: String? = null): Boolean =

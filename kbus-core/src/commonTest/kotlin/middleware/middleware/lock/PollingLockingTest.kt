@@ -16,20 +16,21 @@ import kotlinx.coroutines.test.runTest
 
 class PollingLockingTest : LockingTestBase() {
     override fun createAtomicLock(
-        backgroundScope: CoroutineScope,
-        scheduler: TestCoroutineScheduler,
-    ): SignallingLock =
+        scheduler: TestCoroutineScheduler
+    ): (CoroutineScope) -> SignallingLock = { scope: CoroutineScope ->
         PollingSignallingLock(
             CacheLock(
                 FakeDistributedCache { it.toCharArray().concatToString() },
                 TestCoroutineClock(scheduler),
             ),
-            backgroundScope = backgroundScope,
+            backgroundScope = scope,
         )
+    }
 
     @Test
     fun verifies_concrete_lock_instance_type() = runTest {
-        val lock = createAtomicLock(backgroundScope, testScheduler)
+        val lockFactory = createAtomicLock(testScheduler)
+        val lock = lockFactory(backgroundScope)
         assertNotNull(lock)
     }
 }

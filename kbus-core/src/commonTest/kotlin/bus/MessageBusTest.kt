@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.bus
 
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.core.fixtures.BrokenStateFailureCommandHandler
+import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
 import com.jimbroze.kbus.core.fixtures.DelayingStorageEventHandler
 import com.jimbroze.kbus.core.fixtures.EventCommand
 import com.jimbroze.kbus.core.fixtures.EventCommandHandler
@@ -26,14 +27,17 @@ import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 
@@ -224,6 +228,51 @@ class MessageBusTest {
         withContext(Dispatchers.Default) { delay(200.milliseconds) }
 
         assertEquals(0, list.size)
+    }
+
+    @Test
+    fun test_lifecycle_aware_middleware_receives_scope_on_bus_creation() = runTest {
+        val middleware = CapturingLifecycleMiddleware()
+
+        MessageBus(middlewares = listOf(middleware))
+
+        assertNotNull(middleware.startContext)
+        assertTrue(middleware.startContext!!.scope.isActive)
+    }
+
+    @Test
+    fun test_multiple_lifecycle_middlewares_each_get_their_own_scope() = runTest {
+        val middleware1 = CapturingLifecycleMiddleware("First")
+        val middleware2 = CapturingLifecycleMiddleware("Second")
+
+        MessageBus(middlewares = listOf(middleware1, middleware2))
+
+        val scope1 = middleware1.startContext!!.scope
+        val scope2 = middleware2.startContext!!.scope
+
+        assertTrue(scope1.isActive)
+        assertTrue(scope2.isActive)
+
+        val name1 = scope1.coroutineContext[CoroutineName]?.name
+        val name2 = scope2.coroutineContext[CoroutineName]?.name
+        assertEquals("KBus-Middleware-CapturingLifecycleMiddleware", name1)
+        assertEquals("KBus-Middleware-CapturingLifecycleMiddleware", name2)
+    }
+
+    @Test
+    fun test_cancelling_root_scope_cancels_middleware_scopes() = runTest {
+        val middleware = CapturingLifecycleMiddleware()
+        val rootScope = CoroutineScope(Dispatchers.Default)
+
+        MessageBus(middlewares = listOf(middleware), rootScope = rootScope)
+
+        assertTrue(middleware.startContext!!.scope.isActive)
+
+        rootScope.cancel()
+
+        withContext(Dispatchers.Default) { delay(50.milliseconds) }
+
+        assertFalse(middleware.startContext!!.scope.isActive)
     }
 
     //    @Test

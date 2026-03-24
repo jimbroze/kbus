@@ -12,14 +12,16 @@ import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
+import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
+import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.plus
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -29,20 +31,27 @@ interface IMessageBus {
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult
 }
 
-// TODO allow middleware to get scope from bus?
 abstract class BaseMessageBus(
     protected val handlerLocator: HandlerLocator,
     transactionManager: TransactionManager?,
     protected val middlewares: List<Middleware>,
-    public val rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) : IMessageBus {
     private val busAccess =
         object : BusAccess {
             override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) =
                 this@BaseMessageBus.dispatchIntegration(event)
         }
+    protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
+    protected val rootScope =
+        CoroutineScope(appScope.coroutineContext + rootJob + CoroutineName("KBus-Root"))
     private val eventDispatcherScope =
-        rootScope + SupervisorJob() + Dispatchers.Default + CoroutineName("KBus-Event-Dispatcher")
+        CoroutineScope(
+            rootScope.coroutineContext +
+                SupervisorJob(parent = rootJob) +
+                Dispatchers.Default +
+                CoroutineName("KBus-EventDispatcher")
+        )
     protected val eventDispatcher =
         EventDispatcher(handlerLocator::handlersFor, middlewares, eventDispatcherScope)
     protected val commandExecutor =
@@ -53,6 +62,23 @@ abstract class BaseMessageBus(
             DefaultCommandDependenciesFactory(eventDispatcher),
         )
     protected val queryFetcher = QueryFetcher(middlewares)
+
+    init {
+        middlewares.forEach { middleware ->
+            if (middleware is LifecycleAwareMiddleware) {
+                val middlewareName = middleware::class.simpleName ?: "Unknown"
+                val middlewareScope =
+                    CoroutineScope(
+                        rootScope.coroutineContext +
+                            SupervisorJob(parent = rootJob) +
+                            Dispatchers.Default +
+                            CoroutineName("KBus-Middleware-$middlewareName")
+                    )
+
+                middleware.onStart(BusMiddlewareContext(middlewareScope))
+            }
+        }
+    }
 
     override suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand
