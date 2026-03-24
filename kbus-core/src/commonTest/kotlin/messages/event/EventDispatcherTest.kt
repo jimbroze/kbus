@@ -29,8 +29,8 @@ import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.fixtures.ThrowingContinueAndAggregateHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingDispatchImmediatelyHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingDomainEventHandler
-import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingFailFastHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals

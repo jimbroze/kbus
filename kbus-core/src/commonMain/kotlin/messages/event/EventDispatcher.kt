@@ -9,6 +9,20 @@ import com.jimbroze.kbus.domain.DomainEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+private enum class ErrorStrategy {
+    FIRE_AND_FORGET,
+    FAIL_FAST,
+    CONTINUE_AND_AGGREGATE,
+}
+
+private fun errorStrategyFor(event: DomainEvent): ErrorStrategy =
+    when (event) {
+        is FailFastDomainEvent -> ErrorStrategy.FAIL_FAST
+        is ContinueAndAggregateDomainEvent -> ErrorStrategy.CONTINUE_AND_AGGREGATE
+        is FireAndForgetDomainEvent -> ErrorStrategy.FIRE_AND_FORGET
+        else -> ErrorStrategy.FIRE_AND_FORGET
+    }
+
 interface DomainEventDispatcher {
     suspend fun <TEvent : DomainEvent> dispatchDomainEvent(event: TEvent, unitOfWork: UnitOfWork<*>)
 }
@@ -25,9 +39,12 @@ class EventDispatcher(
         unitOfWork: UnitOfWork<*>,
     ) {
         val handlers = getHandlers(event)
+        val errorStrategy = errorStrategyFor(event)
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
-            handlers.forEach { handler ->
+            val aggregatedExceptions = mutableListOf<Exception>()
+
+            for (handler in handlers) {
                 val dispatch = suspend {
                     when (handler) {
                         is DispatchSynchronously<*> -> dispatchSync(message, handler)
@@ -35,13 +52,31 @@ class EventDispatcher(
                         else -> dispatchAsync(message, handler)
                     }
                 }
+
+                val dispatchWithErrorHandling: suspend () -> Unit =
+                    when (errorStrategy) {
+                        ErrorStrategy.FIRE_AND_FORGET -> {
+                            { fireAndForget(message, handler) { dispatch() } }
+                        }
+                        ErrorStrategy.FAIL_FAST -> dispatch
+                        ErrorStrategy.CONTINUE_AND_AGGREGATE -> {
+                            { aggregateExceptions(aggregatedExceptions) { dispatch() } }
+                        }
+                    }
+
                 when (handler) {
-                    is DispatchImmediatelyInTransaction<*> -> dispatch()
-                    is DispatchAtEndOfTransaction<*> -> unitOfWork.addSecondaryWork { dispatch() }
-                    is DispatchAfterTransaction<*> -> unitOfWork.addPostCommitWork { dispatch() }
+                    is DispatchImmediatelyInTransaction<*> -> dispatchWithErrorHandling()
+                    is DispatchAtEndOfTransaction<*> ->
+                        unitOfWork.addSecondaryWork { dispatchWithErrorHandling() }
+                    is DispatchAfterTransaction<*> ->
+                        unitOfWork.addPostCommitWork { dispatchWithErrorHandling() }
                     // TODO outbox
-                    else -> unitOfWork.addPostCommitWork { dispatch() }
+                    else -> unitOfWork.addPostCommitWork { dispatchWithErrorHandling() }
                 }
+            }
+
+            if (aggregatedExceptions.isNotEmpty()) {
+                throw MultipleException(aggregatedExceptions)
             }
         }
 
@@ -80,19 +115,44 @@ class EventDispatcher(
             try {
                 handler.handle(message)
             } catch (e: Exception) {
-                handleAsyncFailure(message, handler, e)
+                handleFailure(message, handler, e)
             }
         }
     }
 
-    private fun <TEvent : Event> handleAsyncFailure(
+    private suspend fun <TEvent : Event> fireAndForget(
+        message: TEvent,
+        handler: EventHandler<TEvent>,
+        dispatch: suspend () -> Unit,
+    ) {
+        @Suppress("TooGenericExceptionCaught")
+        try {
+            dispatch()
+        } catch (e: Exception) {
+            handleFailure(message, handler, e)
+        }
+    }
+
+    private suspend fun aggregateExceptions(
+        exceptions: MutableList<Exception>,
+        dispatch: suspend () -> Unit,
+    ) {
+        @Suppress("TooGenericExceptionCaught")
+        try {
+            dispatch()
+        } catch (e: Exception) {
+            exceptions.add(e)
+        }
+    }
+
+    private fun <TEvent : Event> handleFailure(
         message: TEvent,
         handler: EventHandler<TEvent>,
         e: Exception,
     ) {
         // TODO Log the error, send to a Dead Letter Queue (DLQ)
         println(
-            "Async handler ${handler::class.simpleName} failed for event $message. Error: ${e.message}"
+            "Handler ${handler::class.simpleName} failed for event $message. Error: ${e.message}"
         )
     }
 }
