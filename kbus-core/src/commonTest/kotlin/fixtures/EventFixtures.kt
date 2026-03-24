@@ -191,6 +191,110 @@ class SucceedingFireAndForgetHandler(private val results: MutableList<String>) :
     }
 }
 
+// --- FailFast + deferred dispatch strategies ---
+
+class ThrowingFailFastAtEndOfTransactionHandler(private val results: MutableList<String>) :
+    DispatchAtEndOfTransaction<TestFailFastEvent>() {
+    override suspend fun handle(message: TestFailFastEvent) {
+        results.add("threw:${message.data}")
+        throw TestHandlerException("FailFast handler failed for: ${message.data}")
+    }
+}
+
+class SucceedingFailFastAtEndOfTransactionHandler(private val results: MutableList<String>) :
+    DispatchAtEndOfTransaction<TestFailFastEvent>() {
+    override suspend fun handle(message: TestFailFastEvent) {
+        results.add("success:${message.data}")
+    }
+}
+
+class ThrowingFailFastAfterTransactionHandler(private val results: MutableList<String>) :
+    DispatchAfterTransaction<TestFailFastEvent>() {
+    override suspend fun handle(message: TestFailFastEvent) {
+        results.add("threw:${message.data}")
+        throw TestHandlerException("FailFast handler failed for: ${message.data}")
+    }
+}
+
+class SucceedingFailFastAfterTransactionHandler(private val results: MutableList<String>) :
+    DispatchAfterTransaction<TestFailFastEvent>() {
+    override suspend fun handle(message: TestFailFastEvent) {
+        results.add("success:${message.data}")
+    }
+}
+
+// --- FireAndForget + deferred dispatch strategies ---
+
+class ThrowingFireAndForgetAtEndOfTransactionHandler(private val results: MutableList<String>) :
+    DispatchAtEndOfTransaction<TestFireAndForgetEvent>() {
+    override suspend fun handle(message: TestFireAndForgetEvent) {
+        results.add("threw:${message.data}")
+        throw TestHandlerException("FireAndForget handler failed for: ${message.data}")
+    }
+}
+
+class SucceedingFireAndForgetAtEndOfTransactionHandler(private val results: MutableList<String>) :
+    DispatchAtEndOfTransaction<TestFireAndForgetEvent>() {
+    override suspend fun handle(message: TestFireAndForgetEvent) {
+        results.add("success:${message.data}")
+    }
+}
+
+class ThrowingFireAndForgetAfterTransactionHandler(private val results: MutableList<String>) :
+    DispatchAfterTransaction<TestFireAndForgetEvent>() {
+    override suspend fun handle(message: TestFireAndForgetEvent) {
+        results.add("threw:${message.data}")
+        throw TestHandlerException("FireAndForget handler failed for: ${message.data}")
+    }
+}
+
+class SucceedingFireAndForgetAfterTransactionHandler(private val results: MutableList<String>) :
+    DispatchAfterTransaction<TestFireAndForgetEvent>() {
+    override suspend fun handle(message: TestFireAndForgetEvent) {
+        results.add("success:${message.data}")
+    }
+}
+
+// --- ContinueAndAggregate + deferred dispatch strategies ---
+
+class ThrowingContinueAndAggregateAtEndOfTransactionHandler(
+    private val results: MutableList<String>,
+    private val label: String,
+) : DispatchAtEndOfTransaction<TestContinueAndAggregateEvent>() {
+    override suspend fun handle(message: TestContinueAndAggregateEvent) {
+        results.add("threw:$label")
+        throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
+    }
+}
+
+class SucceedingContinueAndAggregateAtEndOfTransactionHandler(
+    private val results: MutableList<String>,
+    private val label: String,
+) : DispatchAtEndOfTransaction<TestContinueAndAggregateEvent>() {
+    override suspend fun handle(message: TestContinueAndAggregateEvent) {
+        results.add("success:$label")
+    }
+}
+
+class ThrowingContinueAndAggregateAfterTransactionHandler(
+    private val results: MutableList<String>,
+    private val label: String,
+) : DispatchAfterTransaction<TestContinueAndAggregateEvent>() {
+    override suspend fun handle(message: TestContinueAndAggregateEvent) {
+        results.add("threw:$label")
+        throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
+    }
+}
+
+class SucceedingContinueAndAggregateAfterTransactionHandler(
+    private val results: MutableList<String>,
+    private val label: String,
+) : DispatchAfterTransaction<TestContinueAndAggregateEvent>() {
+    override suspend fun handle(message: TestContinueAndAggregateEvent) {
+        results.add("success:$label")
+    }
+}
+
 class TestIntegrationEvent(val name: String) : IntegrationEvent()
 
 class DelayingIntegrationEventHandler(
