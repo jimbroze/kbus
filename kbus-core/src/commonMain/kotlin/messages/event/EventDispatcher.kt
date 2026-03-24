@@ -34,61 +34,45 @@ class EventDispatcher(
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
 ) : DomainEventDispatcher {
-    override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
-        event: TEvent,
-        unitOfWork: UnitOfWork<*>,
-    ) {
-        val handlers = getHandlers(event)
-        val errorStrategy = errorStrategyFor(event)
-
-        val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
-            val aggregatedExceptions = mutableListOf<Exception>()
-
-            for (handler in handlers) {
-                val dispatch = suspend {
-                    when (handler) {
-                        is DispatchSynchronously<*> -> dispatchSync(message, handler)
-                        is DispatchAsynchronously<*> -> dispatchAsync(message, handler)
-                        else -> dispatchAsync(message, handler)
-                    }
-                }
-
-                val dispatchWithErrorHandling: suspend () -> Unit =
-                    when (errorStrategy) {
-                        ErrorStrategy.FIRE_AND_FORGET -> {
-                            { fireAndForget(message, handler) { dispatch() } }
-                        }
-                        ErrorStrategy.FAIL_FAST -> dispatch
-                        ErrorStrategy.CONTINUE_AND_AGGREGATE -> {
-                            { aggregateExceptions(aggregatedExceptions) { dispatch() } }
-                        }
-                    }
-
-                when (handler) {
-                    is DispatchImmediatelyInTransaction<*> -> dispatchWithErrorHandling()
-                    is DispatchAtEndOfTransaction<*> ->
-                        unitOfWork.addSecondaryWork { dispatchWithErrorHandling() }
-                    is DispatchAfterTransaction<*> ->
-                        unitOfWork.addPostCommitWork { dispatchWithErrorHandling() }
-                    // TODO outbox
-                    else -> unitOfWork.addPostCommitWork { dispatchWithErrorHandling() }
-                }
-            }
-
-            if (aggregatedExceptions.isNotEmpty()) {
-                throw MultipleException(aggregatedExceptions)
-            }
-        }
-
-        dispatchToHandlers(finalHandler, event)
-    }
-
     suspend fun <TEvent : Event> dispatchIntegrationEvent(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             handlers.forEach { handler -> dispatchAsync(message, handler) }
+        }
+
+        dispatchToHandlers(finalHandler, event)
+    }
+
+    override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
+        event: TEvent,
+        unitOfWork: UnitOfWork<*>,
+    ) {
+        val handlers = getHandlers(event)
+        val eventErrorStrategy = errorStrategyFor(event)
+
+        val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
+            val aggregatedExceptions = mutableListOf<Exception>()
+
+            for (handler in handlers) {
+                val dispatch = dispatchSyncOrAsync(message, handler)
+
+                val dispatchWithErrorHandling =
+                    getDispatchWithErrorHandling(
+                        eventErrorStrategy,
+                        message,
+                        handler,
+                        dispatch,
+                        aggregatedExceptions,
+                    )
+
+                dispatchAtCorrectTime(dispatchWithErrorHandling, unitOfWork, handler)
+            }
+
+            if (aggregatedExceptions.isNotEmpty()) {
+                throw MultipleException(aggregatedExceptions)
+            }
         }
 
         dispatchToHandlers(finalHandler, event)
@@ -102,11 +86,63 @@ class EventDispatcher(
         execute(event)
     }
 
-    private suspend fun <TEvent : Event> dispatchSync(
-        message: TEvent,
-        handler: EventHandler<TEvent>,
+    private suspend fun dispatchAtCorrectTime(
+        dispatch: suspend () -> Unit,
+        unitOfWork: UnitOfWork<*>,
+        handler: EventHandler<DomainEvent>,
     ) {
-        handler.handle(message)
+        when (handler) {
+            is DispatchImmediatelyInTransaction<*> -> dispatch()
+            is DispatchAtEndOfTransaction<*> -> unitOfWork.addSecondaryWork { dispatch() }
+
+            is DispatchAfterTransaction<*> -> unitOfWork.addPostCommitWork { dispatch() }
+            // TODO outbox
+            else -> unitOfWork.addPostCommitWork { dispatch() }
+        }
+    }
+
+    private fun <TEvent : DomainEvent> getDispatchWithErrorHandling(
+        eventErrorStrategy: ErrorStrategy,
+        message: TEvent,
+        handler: EventHandler<DomainEvent>,
+        dispatch: suspend () -> Unit,
+        aggregatedExceptions: MutableList<Exception>,
+    ): suspend () -> Unit =
+        when (eventErrorStrategy) {
+            ErrorStrategy.FIRE_AND_FORGET -> {
+                {
+                    @Suppress("TooGenericExceptionCaught")
+                    try {
+                        dispatch()
+                    } catch (e: Exception) {
+                        handleFailure(message, handler, e)
+                    }
+                }
+            }
+            ErrorStrategy.FAIL_FAST -> dispatch
+            ErrorStrategy.CONTINUE_AND_AGGREGATE -> {
+                {
+                    @Suppress("TooGenericExceptionCaught")
+                    try {
+                        dispatch()
+                    } catch (e: Exception) {
+                        aggregatedExceptions.add(e)
+                    }
+                }
+            }
+        }
+
+    private fun <TEvent : DomainEvent> dispatchSyncOrAsync(
+        message: TEvent,
+        handler: EventHandler<DomainEvent>,
+    ): suspend () -> Unit = suspend {
+        when (handler) {
+            is DispatchSynchronously<*> -> {
+                handler.handle(message)
+            }
+            is DispatchAsynchronously<*> -> dispatchAsync(message, handler)
+            else -> dispatchAsync(message, handler)
+        }
     }
 
     private fun <TEvent : Event> dispatchAsync(message: TEvent, handler: EventHandler<TEvent>) {
@@ -117,31 +153,6 @@ class EventDispatcher(
             } catch (e: Exception) {
                 handleFailure(message, handler, e)
             }
-        }
-    }
-
-    private suspend fun <TEvent : Event> fireAndForget(
-        message: TEvent,
-        handler: EventHandler<TEvent>,
-        dispatch: suspend () -> Unit,
-    ) {
-        @Suppress("TooGenericExceptionCaught")
-        try {
-            dispatch()
-        } catch (e: Exception) {
-            handleFailure(message, handler, e)
-        }
-    }
-
-    private suspend fun aggregateExceptions(
-        exceptions: MutableList<Exception>,
-        dispatch: suspend () -> Unit,
-    ) {
-        @Suppress("TooGenericExceptionCaught")
-        try {
-            dispatch()
-        } catch (e: Exception) {
-            exceptions.add(e)
         }
     }
 

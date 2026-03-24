@@ -444,6 +444,7 @@ class EventDispatcherTest {
         assertEquals(2, results.size)
     }
 
+    // TODO this only works inside transaction???
     @Test
     fun test_ContinueAndAggregate_runs_all_handlers_then_throws_aggregate() = runTest {
         val results = mutableListOf<String>()
