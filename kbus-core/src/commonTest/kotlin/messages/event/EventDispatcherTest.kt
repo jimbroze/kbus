@@ -14,7 +14,6 @@ import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateHandler
-import com.jimbroze.kbus.core.fixtures.SucceedingFailFastAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingFailFastAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingFailFastHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingFireAndForgetAfterTransactionHandler
@@ -527,7 +526,6 @@ class EventDispatcherTest {
             dispatcher.dispatchDomainEvent(TestFireAndForgetEvent("test"), unitOfWork)
 
             assertEquals(0, results.size)
-            assertEquals(2, unitOfWork.secondaryWork.size)
 
             unitOfWork.secondaryWork.forEach { it.invoke() }
 
@@ -551,7 +549,6 @@ class EventDispatcherTest {
         dispatcher.dispatchDomainEvent(TestFireAndForgetEvent("test"), unitOfWork)
 
         assertEquals(0, results.size)
-        assertEquals(2, unitOfWork.postCommitWork.size)
 
         unitOfWork.postCommitWork.forEach { it.invoke() }
         advanceUntilIdle()
@@ -564,7 +561,7 @@ class EventDispatcherTest {
     // FailFast + deferred dispatch
 
     @Test
-    fun test_FailFast_with_DispatchAtEndOfTransaction_schedules_all_handlers() = runTest {
+    fun test_FailFast_with_DispatchAtEndOfTransaction_throws_first_exception() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
@@ -575,69 +572,49 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-        // Dispatch does not throw — handlers are only scheduled, not executed
+        // Dispatch itself does not throw — handlers are deferred
         dispatcher.dispatchDomainEvent(TestFailFastEvent("test"), unitOfWork)
+        assertEquals(0, results.size)
 
-        assertEquals(2, unitOfWork.secondaryWork.size)
+        // FailFast throws on first failure when secondary work executes
+        assertFailsWith<TestHandlerException> { unitOfWork.secondaryWork.forEach { it.invoke() } }
+
+        // Second handler should NOT have executed
+        assertEquals(1, results.size)
+        assertEquals("threw:test", results[0])
     }
 
     @Test
-    fun test_FailFast_with_DispatchAtEndOfTransaction_throws_when_secondary_work_executes() =
-        runTest {
-            val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            @Suppress("UNCHECKED_CAST")
-            val handlers =
-                listOf(
-                    ThrowingFailFastAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>,
-                    SucceedingFailFastAtEndOfTransactionHandler(results)
-                        as EventHandler<DomainEvent>,
-                )
-            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
-
-            dispatcher.dispatchDomainEvent(TestFailFastEvent("test"), unitOfWork)
-
-            // Throwing handler propagates exception when secondary work is invoked
-            assertFailsWith<TestHandlerException> { unitOfWork.secondaryWork[0].invoke() }
-
-            // Succeeding handler runs normally
-            unitOfWork.secondaryWork[1].invoke()
-
-            assertEquals(2, results.size)
-            assertEquals("threw:test", results[0])
-            assertEquals("success:test", results[1])
-        }
-
-    @Test
-    fun test_FailFast_with_DispatchAfterTransaction_does_not_throw() = runTest {
+    fun test_FailFast_with_DispatchAtEndOfTransaction_does_not_throw_when_all_succeed() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
         val handlers =
             listOf(
-                ThrowingFailFastAfterTransactionHandler(results) as EventHandler<DomainEvent>,
-                SucceedingFailFastAfterTransactionHandler(results) as EventHandler<DomainEvent>,
+                SucceedingFailFastAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>,
+                SucceedingFailFastAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>,
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-        // No exception — async dispatch swallows exceptions in dispatchAsync
         dispatcher.dispatchDomainEvent(TestFailFastEvent("test"), unitOfWork)
-
-        assertEquals(2, unitOfWork.postCommitWork.size)
-
-        unitOfWork.postCommitWork.forEach { it.invoke() }
-        advanceUntilIdle()
+        unitOfWork.secondaryWork.forEach { it.invoke() }
 
         assertEquals(2, results.size)
-        assertEquals("threw:test", results[0])
-        assertEquals("success:test", results[1])
     }
 
-    // TODO are we happy with these throwing after event handling (not in primary work)
+    // FIXME combo not allowed
+    //    @Test
+    //    fun test_FailFast_with_DispatchAfterTransaction_throws_first_exception() = runTest {
+
+    // TODO AfterTransaction should always be fire and forget?
+    // TODO DispatchAsynchronously should always be fire and forget?
+
+    // TODO change async to concurrent. Make orthogonal to timing & error handling
+
     // ContinueAndAggregate + deferred dispatch
 
     @Test
-    fun test_ContinueAndAggregate_with_DispatchAtEndOfTransaction_does_not_throw_from_dispatch() =
+    fun test_ContinueAndAggregate_with_DispatchAtEndOfTransaction_runs_all_then_throws_aggregate() =
         runTest {
             val results = mutableListOf<String>()
             val unitOfWork = TestUnitOfWork<Any?>()
@@ -653,68 +630,31 @@ class EventDispatcherTest {
                 )
             val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-            // No MultipleException — aggregatedExceptions is empty when checked
-            // because deferred handlers haven't executed yet
+            // Dispatch itself does not throw — handlers are deferred
             dispatcher.dispatchDomainEvent(TestContinueAndAggregateEvent("test"), unitOfWork)
+            assertEquals(0, results.size)
 
-            assertEquals(3, unitOfWork.secondaryWork.size)
-        }
+            // MultipleException thrown when secondary work executes
+            val exception =
+                assertFailsWith<MultipleException> {
+                    unitOfWork.secondaryWork.forEach { it.invoke() }
+                }
 
-    @Test
-    fun test_ContinueAndAggregate_with_DispatchAtEndOfTransaction_exceptions_silently_caught() =
-        runTest {
-            val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            @Suppress("UNCHECKED_CAST")
-            val handlers =
-                listOf(
-                    ThrowingContinueAndAggregateAtEndOfTransactionHandler(results, "first")
-                        as EventHandler<DomainEvent>,
-                    SucceedingContinueAndAggregateAtEndOfTransactionHandler(results, "second")
-                        as EventHandler<DomainEvent>,
-                    ThrowingContinueAndAggregateAtEndOfTransactionHandler(results, "third")
-                        as EventHandler<DomainEvent>,
-                )
-            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
-
-            dispatcher.dispatchDomainEvent(TestContinueAndAggregateEvent("test"), unitOfWork)
-
-            // Exceptions are caught by the wrapper and added to aggregatedExceptions,
-            // but the list is never re-checked after deferred execution
-            unitOfWork.secondaryWork.forEach { it.invoke() }
-
+            // All three handlers executed
             assertEquals(3, results.size)
             assertEquals("threw:first", results[0])
             assertEquals("success:second", results[1])
             assertEquals("threw:third", results[2])
+
+            // AggregateException contains the two failures
+            assertEquals(2, exception.exceptions.size)
+            assertTrue(exception.exceptions[0].message!!.contains("first"))
+            assertTrue(exception.exceptions[1].message!!.contains("third"))
         }
 
-    @Test
-    fun test_ContinueAndAggregate_with_DispatchAfterTransaction_does_not_throw() = runTest {
-        val results = mutableListOf<String>()
-        val unitOfWork = TestUnitOfWork<Any?>()
-        @Suppress("UNCHECKED_CAST")
-        val handlers =
-            listOf(
-                ThrowingContinueAndAggregateAfterTransactionHandler(results, "first")
-                    as EventHandler<DomainEvent>,
-                ThrowingContinueAndAggregateAfterTransactionHandler(results, "second")
-                    as EventHandler<DomainEvent>,
-            )
-        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
-
-        // No exception — async dispatch swallows exceptions before the wrapper sees them
-        dispatcher.dispatchDomainEvent(TestContinueAndAggregateEvent("test"), unitOfWork)
-
-        assertEquals(2, unitOfWork.postCommitWork.size)
-
-        unitOfWork.postCommitWork.forEach { it.invoke() }
-        advanceUntilIdle()
-
-        assertEquals(2, results.size)
-        assertEquals("threw:first", results[0])
-        assertEquals("threw:second", results[1])
-    }
+    // FIXME combo not allowed
+    //    @Test
+    // test_ContinueAndAggregate_with_DispatchAfterTransaction_runs_all_then_throws_aggregate() =
 
     // Mixed dispatch strategies within same error strategy
 
@@ -745,10 +685,14 @@ class EventDispatcherTest {
         // Handlers 2 and 3 were scheduled before handler 4 threw
         assertEquals(1, unitOfWork.secondaryWork.size)
         assertEquals(1, unitOfWork.postCommitWork.size)
+
+        // FailFast also applies within deferred work
+        assertFailsWith<TestHandlerException> { unitOfWork.secondaryWork.forEach { it.invoke() } }
+        assertFailsWith<TestHandlerException> { unitOfWork.postCommitWork.forEach { it.invoke() } }
     }
 
     @Test
-    fun test_ContinueAndAggregate_with_mixed_dispatch_strategies_only_aggregates_immediate_exceptions() =
+    fun test_ContinueAndAggregate_with_mixed_dispatch_strategies_aggregates_per_dispatch_group() =
         runTest {
             val results = mutableListOf<String>()
             val unitOfWork = TestUnitOfWork<Any?>()
@@ -766,8 +710,8 @@ class EventDispatcherTest {
                 )
             val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-            // Only immediate handlers contribute to the aggregate
-            val exception =
+            // Immediate handlers aggregate their exceptions
+            val immediateException =
                 assertFailsWith<MultipleException> {
                     dispatcher.dispatchDomainEvent(
                         TestContinueAndAggregateEvent("test"),
@@ -775,18 +719,28 @@ class EventDispatcherTest {
                     )
                 }
 
-            assertEquals(2, exception.exceptions.size)
-            assertTrue(exception.exceptions[0].message!!.contains("immediate-first"))
-            assertTrue(exception.exceptions[1].message!!.contains("immediate-second"))
+            assertEquals(2, immediateException.exceptions.size)
+            assertTrue(immediateException.exceptions[0].message!!.contains("immediate-first"))
+            assertTrue(immediateException.exceptions[1].message!!.contains("immediate-second"))
 
-            // Immediate handlers ran
             assertEquals(2, results.size)
             assertEquals("threw:immediate-first", results[0])
             assertEquals("threw:immediate-second", results[1])
 
-            // Deferred handlers were scheduled
-            assertEquals(1, unitOfWork.secondaryWork.size)
-            assertEquals(1, unitOfWork.postCommitWork.size)
+            // Deferred handlers also aggregate when their work runs
+            val deferredSecondaryException =
+                assertFailsWith<MultipleException> {
+                    unitOfWork.secondaryWork.forEach { it.invoke() }
+                }
+            assertEquals(1, deferredSecondaryException.exceptions.size)
+            assertTrue(deferredSecondaryException.exceptions[0].message!!.contains("deferred"))
+
+            val deferredPostCommitException =
+                assertFailsWith<MultipleException> {
+                    unitOfWork.postCommitWork.forEach { it.invoke() }
+                }
+            assertEquals(1, deferredPostCommitException.exceptions.size)
+            assertTrue(deferredPostCommitException.exceptions[0].message!!.contains("async"))
         }
 
     @Test

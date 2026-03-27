@@ -54,24 +54,23 @@ class EventDispatcher(
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             val aggregatedExceptions = mutableListOf<Exception>()
+            val lastIndex = handlers.lastIndex
 
-            for (handler in handlers) {
+            handlers.forEachIndexed { index, handler ->
+                val isLastHandler = (index == lastIndex)
                 val dispatch = dispatchSyncOrAsync(message, handler)
 
                 val dispatchWithErrorHandling =
-                    getDispatchWithErrorHandling(
+                    addErrorHandlingToDispatch(
                         eventErrorStrategy,
                         message,
                         handler,
                         dispatch,
                         aggregatedExceptions,
+                        isLastHandler,
                     )
 
                 dispatchAtCorrectTime(dispatchWithErrorHandling, unitOfWork, handler)
-            }
-
-            if (aggregatedExceptions.isNotEmpty()) {
-                throw MultipleException(aggregatedExceptions)
             }
         }
 
@@ -101,12 +100,13 @@ class EventDispatcher(
         }
     }
 
-    private fun <TEvent : DomainEvent> getDispatchWithErrorHandling(
+    private fun <TEvent : DomainEvent> addErrorHandlingToDispatch(
         eventErrorStrategy: ErrorStrategy,
         message: TEvent,
         handler: EventHandler<DomainEvent>,
         dispatch: suspend () -> Unit,
         aggregatedExceptions: MutableList<Exception>,
+        isLastHandler: Boolean,
     ): suspend () -> Unit =
         when (eventErrorStrategy) {
             ErrorStrategy.FIRE_AND_FORGET -> {
@@ -128,6 +128,8 @@ class EventDispatcher(
                     } catch (e: Exception) {
                         aggregatedExceptions.add(e)
                     }
+                    if (isLastHandler && aggregatedExceptions.isNotEmpty())
+                        throw MultipleException(aggregatedExceptions)
                 }
             }
         }
