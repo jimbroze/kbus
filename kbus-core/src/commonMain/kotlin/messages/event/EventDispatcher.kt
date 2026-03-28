@@ -66,13 +66,14 @@ class EventDispatcher(
             handlersByPhase.forEach { (phase, phaseHandlers) ->
                 val aggregatedExceptions = mutableListOf<Exception>()
 
-                val dispatchHandlersWithErrorHandling = phaseHandlers.map { handler ->
+                val dispatchHandlersWithErrorHandling = phaseHandlers.mapIndexed { index, handler ->
                     addErrorHandlingToDispatch(
                         eventErrorStrategy,
                         message,
                         handler,
                         { -> handler.handle(message) },
                         aggregatedExceptions,
+                        index == phaseHandlers.lastIndex,
                     )
                 }
 
@@ -89,8 +90,6 @@ class EventDispatcher(
                 }
 
                 dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, message, phase)
-
-                if (aggregatedExceptions.isNotEmpty()) throw MultipleException(aggregatedExceptions)
             }
         }
 
@@ -156,6 +155,7 @@ class EventDispatcher(
         handler: EventHandler<DomainEvent>,
         dispatch: suspend () -> Unit,
         aggregatedExceptions: MutableList<Exception>,
+        isLastHandler: Boolean,
     ): suspend () -> Unit =
         when (eventErrorStrategy) {
             ErrorStrategy.FIRE_AND_FORGET -> {
@@ -177,6 +177,9 @@ class EventDispatcher(
                     } catch (e: Exception) {
                         aggregatedExceptions.add(e)
                     }
+
+                    if (isLastHandler && aggregatedExceptions.isNotEmpty())
+                        throw MultipleException(aggregatedExceptions)
                 }
             }
         }

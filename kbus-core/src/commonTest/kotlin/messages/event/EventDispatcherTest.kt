@@ -678,9 +678,12 @@ class EventDispatcherTest {
         dispatcher.dispatchDomainEvent(TestContinueAndAggregateEvent("test"), unitOfWork)
         assertEquals(0, results.size)
 
-        // ContinueAndAggregate catches exceptions so deferred work completes without throwing
-        // NOTE: aggregated exceptions are not currently re-thrown for deferred handlers
-        unitOfWork.secondaryWork.forEach { it.invoke() }
+        // ContinueAndAggregate runs all handlers then throws aggregated exceptions
+        val exception =
+            assertFailsWith<MultipleException> {
+                unitOfWork.secondaryWork.forEach { it.invoke() }
+            }
+        assertEquals(2, exception.exceptions.size)
 
         // All three handlers executed despite failures
         assertEquals(3, results.size)
