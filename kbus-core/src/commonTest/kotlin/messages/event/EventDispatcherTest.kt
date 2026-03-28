@@ -4,11 +4,13 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler
-import com.jimbroze.kbus.core.fixtures.DelayingDispatchConcurrentlyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchImmediatelyHandler
-import com.jimbroze.kbus.core.fixtures.DelayingDispatchSequentiallyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingIntegrationEventHandler
+import com.jimbroze.kbus.core.fixtures.DelayingSequentialAfterTransactionHandler
+import com.jimbroze.kbus.core.fixtures.DelayingSequentialDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.DelayingSequentialEndOfTransactionHandler
+import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -19,6 +21,9 @@ import com.jimbroze.kbus.core.fixtures.SucceedingFailFastHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingFireAndForgetAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingFireAndForgetAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingFireAndForgetHandler
+import com.jimbroze.kbus.core.fixtures.SucceedingSequentialContinueAndAggregateHandler
+import com.jimbroze.kbus.core.fixtures.SucceedingSequentialFailFastHandler
+import com.jimbroze.kbus.core.fixtures.SucceedingSequentialFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.TestContinueAndAggregateEvent
 import com.jimbroze.kbus.core.fixtures.TestDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.TestDispatchAtEndOfTransactionHandler
@@ -29,6 +34,10 @@ import com.jimbroze.kbus.core.fixtures.TestFailFastEvent
 import com.jimbroze.kbus.core.fixtures.TestFireAndForgetEvent
 import com.jimbroze.kbus.core.fixtures.TestHandlerException
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.fixtures.TestSequentialContinueAndAggregateEvent
+import com.jimbroze.kbus.core.fixtures.TestSequentialDomainEvent
+import com.jimbroze.kbus.core.fixtures.TestSequentialFailFastEvent
+import com.jimbroze.kbus.core.fixtures.TestSequentialFireAndForgetEvent
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.fixtures.ThrowingContinueAndAggregateAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingContinueAndAggregateAtEndOfTransactionHandler
@@ -41,6 +50,9 @@ import com.jimbroze.kbus.core.fixtures.ThrowingFailFastHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingSequentialContinueAndAggregateHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFailFastHandler
+import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,6 +62,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
+@Suppress("LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventDispatcherTest {
     @Test
@@ -68,6 +81,8 @@ class EventDispatcherTest {
         assertEquals("string", results[0])
         assertEquals("string", results[1])
     }
+
+    // --- Dispatch phase tests ---
 
     @Test
     fun test_it_dispatches_domain_event_handler_after_transaction_by_default() = runTest {
@@ -122,32 +137,33 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun test_it_handles_multiple_domain_event_handlers_with_different_dispatch_strategies() =
-        runTest {
-            val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            @Suppress("UNCHECKED_CAST")
-            val handlers =
-                listOf(
-                    TestDomainEventHandler(results) as EventHandler<DomainEvent>,
-                    TestDispatchAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>,
-                    TestDispatchAfterTransactionHandler(results) as EventHandler<DomainEvent>,
-                    TestDispatchImmediatelyHandler(results) as EventHandler<DomainEvent>,
-                )
+    fun test_it_handles_multiple_domain_event_handlers_with_different_dispatch_phases() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                TestDomainEventHandler(results) as EventHandler<DomainEvent>,
+                TestDispatchAtEndOfTransactionHandler(results) as EventHandler<DomainEvent>,
+                TestDispatchAfterTransactionHandler(results) as EventHandler<DomainEvent>,
+                TestDispatchImmediatelyHandler(results) as EventHandler<DomainEvent>,
+            )
 
-            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-            dispatcher.dispatchDomainEvent(TestDomainEvent("mixed"), unitOfWork)
-            unitOfWork.executeAllScheduledWork()
-            advanceUntilIdle()
+        dispatcher.dispatchDomainEvent(TestDomainEvent("mixed"), unitOfWork)
+        unitOfWork.executeAllScheduledWork()
+        advanceUntilIdle()
 
-            // All handlers executed regardless of dispatch strategy
-            assertEquals(4, results.size)
-            assertEquals(listOf("mixed", "mixed", "mixed", "mixed"), results)
-        }
+        // All handlers executed regardless of dispatch phase
+        assertEquals(4, results.size)
+        assertEquals(listOf("mixed", "mixed", "mixed", "mixed"), results)
+    }
+
+    // --- Concurrency tests ---
 
     @Test
-    fun test_domain_event_handlers_are_dispatched_asynchronously_by_default() = runTest {
+    fun test_domain_events_are_dispatched_concurrently_by_default() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
@@ -164,103 +180,31 @@ class EventDispatcherTest {
         unitOfWork.executeAllScheduledWork()
         advanceUntilIdle()
 
-        // Async: shorter delay completes first regardless of dispatch order
+        // Concurrent: shorter delay completes first regardless of dispatch order
         assertEquals(2, results.size)
         assertEquals("dispatched second, no delay", results[0])
         assertEquals("dispatched first, with delay", results[1])
     }
 
     @Test
-    fun test_DispatchAfterTransaction_domain_event_handlers_are_dispatched_asynchronously() =
-        runTest {
-            val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            @Suppress("UNCHECKED_CAST")
-            val handlers =
-                listOf(
-                    DelayingDispatchAfterTransactionHandler(
-                        results,
-                        100,
-                        "dispatched first, with delay",
-                    )
-                        as EventHandler<DomainEvent>,
-                    DelayingDispatchAfterTransactionHandler(
-                        results,
-                        0,
-                        "dispatched second, no delay",
-                    )
-                        as EventHandler<DomainEvent>,
-                )
-            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
-
-            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
-
-            assertEquals(0, results.size)
-            assertEquals(2, unitOfWork.postCommitWork.size)
-
-            unitOfWork.postCommitWork.forEach { it.invoke() }
-            advanceUntilIdle()
-
-            assertEquals(2, results.size)
-            assertEquals("dispatched second, no delay", results[0])
-            assertEquals("dispatched first, with delay", results[1])
-        }
-
-    @Test
-    fun test_DispatchAtEndOfTransaction_domain_event_handlers_are_dispatched_synchronously() =
-        runTest {
-            val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            @Suppress("UNCHECKED_CAST")
-            val handlers =
-                listOf(
-                    DelayingDispatchAtEndOfTransactionHandler(
-                        results,
-                        100,
-                        "dispatched first, with delay",
-                    )
-                        as EventHandler<DomainEvent>,
-                    DelayingDispatchAtEndOfTransactionHandler(
-                        results,
-                        0,
-                        "dispatched second, no delay",
-                    )
-                        as EventHandler<DomainEvent>,
-                )
-            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
-
-            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
-
-            assertEquals(0, results.size)
-            assertEquals(2, unitOfWork.secondaryWork.size)
-
-            // Synchronous: order preserved regardless of delay
-            unitOfWork.secondaryWork[0].invoke()
-            assertEquals(1, results.size)
-            assertEquals("dispatched first, with delay", results[0])
-
-            unitOfWork.secondaryWork[1].invoke()
-            assertEquals(2, results.size)
-            assertEquals("dispatched second, no delay", results[1])
-        }
-
-    @Test
-    fun test_DispatchImmediately_domain_event_handlers_are_dispatched_synchronously() = runTest {
+    fun test_sequential_events_are_dispatched_sequentially() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
         val handlers =
             listOf(
-                DelayingDispatchImmediatelyHandler(results, 100, "dispatched first, with delay")
+                DelayingSequentialDomainEventHandler(results, 100, "dispatched first, with delay")
                     as EventHandler<DomainEvent>,
-                DelayingDispatchImmediatelyHandler(results, 0, "dispatched second, no delay")
+                DelayingSequentialDomainEventHandler(results, 0, "dispatched second, no delay")
                     as EventHandler<DomainEvent>,
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestSequentialDomainEvent("test"), unitOfWork)
+        unitOfWork.executeAllScheduledWork()
+        advanceUntilIdle()
 
-        // Synchronous: order preserved regardless of delay
+        // Sequential: order preserved regardless of delay
         assertEquals(2, results.size)
         assertEquals("dispatched first, with delay", results[0])
         assertEquals("dispatched second, no delay", results[1])
@@ -288,16 +232,67 @@ class EventDispatcherTest {
         assertEquals("dispatched first, with delay", results[1])
     }
 
+    // --- Concurrency × Dispatch phase orthogonality ---
+    // Concurrency is determined by the event, not the dispatch phase.
+
     @Test
-    fun test_DispatchSynchronously_domain_event_handlers_are_dispatched_synchronously() = runTest {
+    fun test_concurrent_event_dispatches_immediate_handlers_concurrently() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
         val handlers =
             listOf(
-                DelayingDispatchSequentiallyHandler(results, 100, "dispatched first, with delay")
+                DelayingDispatchImmediatelyHandler(results, 100, "dispatched first, with delay")
                     as EventHandler<DomainEvent>,
-                DelayingDispatchSequentiallyHandler(results, 0, "dispatched second, no delay")
+                DelayingDispatchImmediatelyHandler(results, 0, "dispatched second, no delay")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+        // Concurrent: shorter delay completes first regardless of dispatch order
+        assertEquals(2, results.size)
+        assertEquals("dispatched second, no delay", results[0])
+        assertEquals("dispatched first, with delay", results[1])
+    }
+
+    @Test
+    fun test_sequential_event_dispatches_immediate_handlers_sequentially() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingSequentialImmediateHandler(results, 100, "dispatched first, with delay")
+                    as EventHandler<DomainEvent>,
+                DelayingSequentialImmediateHandler(results, 0, "dispatched second, no delay")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestSequentialDomainEvent("test"), unitOfWork)
+
+        // Sequential: order preserved regardless of delay
+        assertEquals(2, results.size)
+        assertEquals("dispatched first, with delay", results[0])
+        assertEquals("dispatched second, no delay", results[1])
+    }
+
+    @Test
+    fun test_concurrent_event_dispatches_end_of_transaction_handlers_concurrently() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingDispatchAtEndOfTransactionHandler(
+                    results,
+                    100,
+                    "dispatched first, with delay",
+                )
+                    as EventHandler<DomainEvent>,
+                DelayingDispatchAtEndOfTransactionHandler(results, 0, "dispatched second, no delay")
                     as EventHandler<DomainEvent>,
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
@@ -305,53 +300,111 @@ class EventDispatcherTest {
         dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
         assertEquals(0, results.size)
-        assertEquals(2, unitOfWork.postCommitWork.size)
 
-        unitOfWork.postCommitWork.forEach { it.invoke() }
+        unitOfWork.secondaryWork.forEach { it.invoke() }
+        advanceUntilIdle()
 
-        // Synchronous: order preserved regardless of delay
+        // Concurrent: shorter delay completes first
+        assertEquals(2, results.size)
+        assertEquals("dispatched second, no delay", results[0])
+        assertEquals("dispatched first, with delay", results[1])
+    }
+
+    @Test
+    fun test_sequential_event_dispatches_end_of_transaction_handlers_sequentially() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingSequentialEndOfTransactionHandler(
+                    results,
+                    100,
+                    "dispatched first, with delay",
+                )
+                    as EventHandler<DomainEvent>,
+                DelayingSequentialEndOfTransactionHandler(results, 0, "dispatched second, no delay")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestSequentialDomainEvent("test"), unitOfWork)
+
+        assertEquals(0, results.size)
+
+        unitOfWork.secondaryWork.forEach { it.invoke() }
+
+        // Sequential: order preserved regardless of delay
         assertEquals(2, results.size)
         assertEquals("dispatched first, with delay", results[0])
         assertEquals("dispatched second, no delay", results[1])
     }
 
     @Test
-    fun test_DispatchAsynchronously_domain_event_handlers_are_dispatched_asynchronously() =
-        runTest {
-            val results = mutableListOf<String>()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            @Suppress("UNCHECKED_CAST")
-            val handlers =
-                listOf(
-                    DelayingDispatchConcurrentlyHandler(
-                        results,
-                        100,
-                        "dispatched first, with delay",
-                    )
-                        as EventHandler<DomainEvent>,
-                    DelayingDispatchConcurrentlyHandler(results, 0, "dispatched second, no delay")
-                        as EventHandler<DomainEvent>,
+    fun test_concurrent_event_dispatches_after_transaction_handlers_concurrently() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingDispatchAfterTransactionHandler(
+                    results,
+                    100,
+                    "dispatched first, with delay",
                 )
-            val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+                    as EventHandler<DomainEvent>,
+                DelayingDispatchAfterTransactionHandler(results, 0, "dispatched second, no delay")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
-            assertEquals(0, results.size)
-            assertEquals(2, unitOfWork.postCommitWork.size)
+        assertEquals(0, results.size)
 
-            unitOfWork.postCommitWork.forEach { it.invoke() }
-            advanceUntilIdle()
+        unitOfWork.postCommitWork.forEach { it.invoke() }
+        advanceUntilIdle()
 
-            // Async: shorter delay completes first regardless of dispatch order
-            assertEquals(2, results.size)
-            assertEquals("dispatched second, no delay", results[0])
-            assertEquals("dispatched first, with delay", results[1])
-        }
+        // Concurrent: shorter delay completes first
+        assertEquals(2, results.size)
+        assertEquals("dispatched second, no delay", results[0])
+        assertEquals("dispatched first, with delay", results[1])
+    }
+
+    @Test
+    fun test_sequential_event_dispatches_after_transaction_handlers_sequentially() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingSequentialAfterTransactionHandler(
+                    results,
+                    100,
+                    "dispatched first, with delay",
+                )
+                    as EventHandler<DomainEvent>,
+                DelayingSequentialAfterTransactionHandler(results, 0, "dispatched second, no delay")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestSequentialDomainEvent("test"), unitOfWork)
+
+        assertEquals(0, results.size)
+
+        unitOfWork.postCommitWork.forEach { it.invoke() }
+
+        // Sequential: order preserved regardless of delay
+        assertEquals(2, results.size)
+        assertEquals("dispatched first, with delay", results[0])
+        assertEquals("dispatched second, no delay", results[1])
+    }
 
     // --- Error handling strategy tests ---
 
     @Test
-    fun test_domain_events_default_to_fire_and_forget_for_async_handlers() = runTest {
+    fun test_domain_events_default_to_fire_and_forget_for_default_phase_handlers() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
@@ -374,7 +427,7 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun test_domain_events_default_to_fire_and_forget_for_sync_handlers() = runTest {
+    fun test_domain_events_default_to_fire_and_forget_for_immediate_handlers() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
@@ -385,7 +438,7 @@ class EventDispatcherTest {
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
 
-        // Plain DomainEvent — fire and forget is the default even for sync handlers
+        // Plain DomainEvent — fire and forget is the default even for immediate handlers
         dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
 
         // Both handlers executed
@@ -504,7 +557,7 @@ class EventDispatcherTest {
         assertEquals(2, results.size)
     }
 
-    // --- Error strategy + dispatch strategy combination tests ---
+    // --- Error strategy + dispatch phase combination tests ---
 
     // FireAndForget + deferred dispatch
 
@@ -602,15 +655,6 @@ class EventDispatcherTest {
         assertEquals(2, results.size)
     }
 
-    // FIXME combo not allowed
-    //    @Test
-    //    fun test_FailFast_with_DispatchAfterTransaction_throws_first_exception() = runTest {
-
-    // TODO AfterTransaction should always be fire and forget?
-    // TODO DispatchAsynchronously should always be fire and forget?
-
-    // TODO change async to concurrent. Make orthogonal to timing & error handling
-
     // ContinueAndAggregate + deferred dispatch
 
     @Test
@@ -652,14 +696,10 @@ class EventDispatcherTest {
             assertTrue(exception.exceptions[1].message!!.contains("third"))
         }
 
-    // FIXME combo not allowed
-    //    @Test
-    // test_ContinueAndAggregate_with_DispatchAfterTransaction_runs_all_then_throws_aggregate() =
-
-    // Mixed dispatch strategies within same error strategy
+    // Mixed dispatch phases within same error strategy
 
     @Test
-    fun test_FailFast_with_mixed_dispatch_strategies_throws_for_immediate_handler() = runTest {
+    fun test_FailFast_with_mixed_dispatch_phases_throws_for_immediate_handler() = runTest {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
         @Suppress("UNCHECKED_CAST")
@@ -692,7 +732,7 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun test_ContinueAndAggregate_with_mixed_dispatch_strategies_aggregates_per_dispatch_group() =
+    fun test_ContinueAndAggregate_with_mixed_dispatch_phases_aggregates_per_dispatch_group() =
         runTest {
             val results = mutableListOf<String>()
             val unitOfWork = TestUnitOfWork<Any?>()
@@ -703,7 +743,7 @@ class EventDispatcherTest {
                         as EventHandler<DomainEvent>,
                     ThrowingContinueAndAggregateAtEndOfTransactionHandler(results, "deferred")
                         as EventHandler<DomainEvent>,
-                    ThrowingContinueAndAggregateAfterTransactionHandler(results, "async")
+                    ThrowingContinueAndAggregateAfterTransactionHandler(results, "post-commit")
                         as EventHandler<DomainEvent>,
                     ThrowingContinueAndAggregateHandler(results, "immediate-second")
                         as EventHandler<DomainEvent>,
@@ -740,11 +780,93 @@ class EventDispatcherTest {
                     unitOfWork.postCommitWork.forEach { it.invoke() }
                 }
             assertEquals(1, deferredPostCommitException.exceptions.size)
-            assertTrue(deferredPostCommitException.exceptions[0].message!!.contains("async"))
+            assertTrue(deferredPostCommitException.exceptions[0].message!!.contains("post-commit"))
         }
 
+    // --- Concurrency × Error strategy orthogonality ---
+    // Error strategy behavior is the same regardless of sequential/concurrent dispatch.
+
     @Test
-    fun test_async_dispatch_is_fire_and_forget() = runTest {
+    fun test_sequential_FailFast_throws_first_exception_and_stops() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingSequentialFailFastHandler(results) as EventHandler<DomainEvent>,
+                SucceedingSequentialFailFastHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        val exception =
+            assertFailsWith<TestHandlerException> {
+                dispatcher.dispatchDomainEvent(TestSequentialFailFastEvent("test"), unitOfWork)
+            }
+
+        assertEquals("FailFast handler failed for: test", exception.message)
+        assertEquals(1, results.size)
+        assertEquals("threw:test", results[0])
+    }
+
+    @Test
+    fun test_sequential_FireAndForget_does_not_propagate_exceptions() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingSequentialFireAndForgetHandler(results) as EventHandler<DomainEvent>,
+                SucceedingSequentialFireAndForgetHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestSequentialFireAndForgetEvent("test"), unitOfWork)
+
+        // Both handlers executed despite the first one throwing
+        assertEquals(2, results.size)
+        assertEquals("threw:test", results[0])
+        assertEquals("success:test", results[1])
+    }
+
+    @Test
+    fun test_sequential_ContinueAndAggregate_runs_all_handlers_then_throws_aggregate() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingSequentialContinueAndAggregateHandler(results, "first")
+                    as EventHandler<DomainEvent>,
+                SucceedingSequentialContinueAndAggregateHandler(results, "second")
+                    as EventHandler<DomainEvent>,
+                ThrowingSequentialContinueAndAggregateHandler(results, "third")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        val exception =
+            assertFailsWith<MultipleException> {
+                dispatcher.dispatchDomainEvent(
+                    TestSequentialContinueAndAggregateEvent("test"),
+                    unitOfWork,
+                )
+            }
+
+        // All three handlers executed
+        assertEquals(3, results.size)
+        assertEquals("threw:first", results[0])
+        assertEquals("success:second", results[1])
+        assertEquals("threw:third", results[2])
+
+        assertEquals(2, exception.exceptions.size)
+        assertTrue(exception.exceptions[0].message!!.contains("first"))
+        assertTrue(exception.exceptions[1].message!!.contains("third"))
+    }
+
+    // --- Integration event tests ---
+
+    @Test
+    fun test_integration_event_dispatch_is_fire_and_forget() = runTest {
         val results = mutableListOf<String>()
         @Suppress("UNCHECKED_CAST")
         val handlers =

@@ -62,7 +62,7 @@ class EventDispatcher(
         val eventErrorStrategy = errorStrategyFor(event)
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
-            val handlersByPhase = handlers.groupBy { dispatchPhase(it) }
+            val handlersByPhase = handlers.groupBy { dispatchPhase(it, eventErrorStrategy) }
             handlersByPhase.forEach { (phase, phaseHandlers) ->
                 val aggregatedExceptions = mutableListOf<Exception>()
 
@@ -77,10 +77,9 @@ class EventDispatcher(
                 }
 
                 val dispatchHandlersWithConcurrency: suspend () -> Unit = {
-                    if (event is DispatchSequentially<*>) {
+                    if (event is DispatchSequentially) {
                         dispatchHandlersWithErrorHandling.forEach { it() }
                     } else {
-                        // concurrent
                         coroutineScope {
                             dispatchHandlersWithErrorHandling
                                 .map { dispatchHandler -> async { dispatchHandler() } }
@@ -106,13 +105,34 @@ class EventDispatcher(
         execute(event)
     }
 
-    private fun dispatchPhase(handler: EventHandler<*>): DispatchPhase =
-        when (handler) {
-            is DispatchImmediatelyInTransaction<*> -> DispatchPhase.IMMEDIATE
-            is DispatchAtEndOfTransaction<*> -> DispatchPhase.SECONDARY
-            is DispatchAfterTransaction<*> -> DispatchPhase.POST_COMMIT
-            else -> DispatchPhase.POST_COMMIT
-        }
+    private fun dispatchPhase(
+        handler: EventHandler<*>,
+        errorStrategy: ErrorStrategy,
+    ): DispatchPhase {
+        val phase =
+            when (handler) {
+                is DispatchImmediatelyInTransaction<*> -> DispatchPhase.IMMEDIATE
+                is DispatchAtEndOfTransaction<*> -> DispatchPhase.SECONDARY
+                is DispatchAfterTransaction<*> -> DispatchPhase.POST_COMMIT
+                else -> DispatchPhase.POST_COMMIT
+            }
+
+        validateDispatchPhase(phase, errorStrategy)
+
+        return phase
+    }
+
+    private fun validateDispatchPhase(phase: DispatchPhase, errorStrategy: ErrorStrategy) {
+        if (
+            phase == DispatchPhase.POST_COMMIT &&
+                errorStrategy in
+                    listOf(ErrorStrategy.FAIL_FAST, ErrorStrategy.CONTINUE_AND_AGGREGATE)
+        )
+            error(
+                "events with fail-fast or aggregate error strategies cannot be" +
+                    "dispatched outside the unit of work"
+            )
+    }
 
     private suspend fun <TEvent : DomainEvent> dispatchHandlersInPhase(
         dispatch: suspend () -> Unit,
