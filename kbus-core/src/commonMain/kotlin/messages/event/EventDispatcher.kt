@@ -7,12 +7,21 @@ import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.DomainEvent
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 private enum class ErrorStrategy {
     FIRE_AND_FORGET,
     FAIL_FAST,
     CONTINUE_AND_AGGREGATE,
+}
+
+enum class DispatchPhase {
+    IMMEDIATE,
+    SECONDARY,
+    POST_COMMIT,
 }
 
 private fun errorStrategyFor(event: DomainEvent): ErrorStrategy =
@@ -53,24 +62,36 @@ class EventDispatcher(
         val eventErrorStrategy = errorStrategyFor(event)
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
-            val aggregatedExceptions = mutableListOf<Exception>()
-            val lastIndex = handlers.lastIndex
+            val handlersByPhase = handlers.groupBy { dispatchPhase(it) }
+            handlersByPhase.forEach { (phase, phaseHandlers) ->
+                val aggregatedExceptions = mutableListOf<Exception>()
 
-            handlers.forEachIndexed { index, handler ->
-                val isLastHandler = (index == lastIndex)
-                val dispatch = dispatchSyncOrAsync(message, handler)
-
-                val dispatchWithErrorHandling =
+                val dispatchHandlersWithErrorHandling = phaseHandlers.map { handler ->
                     addErrorHandlingToDispatch(
                         eventErrorStrategy,
                         message,
                         handler,
-                        dispatch,
+                        { -> handler.handle(message) },
                         aggregatedExceptions,
-                        isLastHandler,
                     )
+                }
 
-                dispatchAtCorrectTime(dispatchWithErrorHandling, unitOfWork, handler)
+                val dispatchHandlersWithConcurrency: suspend () -> Unit = {
+                    if (event is DispatchSequentially<*>) {
+                        dispatchHandlersWithErrorHandling.forEach { it() }
+                    } else {
+                        // concurrent
+                        coroutineScope {
+                            dispatchHandlersWithErrorHandling
+                                .map { dispatchHandler -> async { dispatchHandler() } }
+                                .awaitAll()
+                        }
+                    }
+                }
+
+                dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, message, phase)
+
+                if (aggregatedExceptions.isNotEmpty()) throw MultipleException(aggregatedExceptions)
             }
         }
 
@@ -85,18 +106,27 @@ class EventDispatcher(
         execute(event)
     }
 
-    private suspend fun dispatchAtCorrectTime(
+    private fun dispatchPhase(handler: EventHandler<*>): DispatchPhase =
+        when (handler) {
+            is DispatchImmediatelyInTransaction<*> -> DispatchPhase.IMMEDIATE
+            is DispatchAtEndOfTransaction<*> -> DispatchPhase.SECONDARY
+            is DispatchAfterTransaction<*> -> DispatchPhase.POST_COMMIT
+            else -> DispatchPhase.POST_COMMIT
+        }
+
+    private suspend fun <TEvent : DomainEvent> dispatchHandlersInPhase(
         dispatch: suspend () -> Unit,
         unitOfWork: UnitOfWork<*>,
-        handler: EventHandler<DomainEvent>,
+        message: TEvent,
+        phase: DispatchPhase,
     ) {
-        when (handler) {
-            is DispatchImmediatelyInTransaction<*> -> dispatch()
-            is DispatchAtEndOfTransaction<*> -> unitOfWork.addSecondaryWork { dispatch() }
-
-            is DispatchAfterTransaction<*> -> unitOfWork.addPostCommitWork { dispatch() }
-            // TODO outbox
-            else -> unitOfWork.addPostCommitWork { dispatch() }
+        when (phase) {
+            DispatchPhase.IMMEDIATE -> dispatch()
+            DispatchPhase.SECONDARY -> unitOfWork.addSecondaryWork { dispatch() }
+            DispatchPhase.POST_COMMIT ->
+                unitOfWork.addPostCommitWork {
+                    runCatching { dispatch() }.onFailure { handleFailure(message, it) }
+                }
         }
     }
 
@@ -106,7 +136,6 @@ class EventDispatcher(
         handler: EventHandler<DomainEvent>,
         dispatch: suspend () -> Unit,
         aggregatedExceptions: MutableList<Exception>,
-        isLastHandler: Boolean,
     ): suspend () -> Unit =
         when (eventErrorStrategy) {
             ErrorStrategy.FIRE_AND_FORGET -> {
@@ -115,7 +144,7 @@ class EventDispatcher(
                     try {
                         dispatch()
                     } catch (e: Exception) {
-                        handleFailure(message, handler, e)
+                        handleFailure(message, e, handler)
                     }
                 }
             }
@@ -128,24 +157,9 @@ class EventDispatcher(
                     } catch (e: Exception) {
                         aggregatedExceptions.add(e)
                     }
-                    if (isLastHandler && aggregatedExceptions.isNotEmpty())
-                        throw MultipleException(aggregatedExceptions)
                 }
             }
         }
-
-    private fun <TEvent : DomainEvent> dispatchSyncOrAsync(
-        message: TEvent,
-        handler: EventHandler<DomainEvent>,
-    ): suspend () -> Unit = suspend {
-        when (handler) {
-            is DispatchSynchronously<*> -> {
-                handler.handle(message)
-            }
-            is DispatchAsynchronously<*> -> dispatchAsync(message, handler)
-            else -> dispatchAsync(message, handler)
-        }
-    }
 
     private fun <TEvent : Event> dispatchAsync(message: TEvent, handler: EventHandler<TEvent>) {
         dispatcherScope.launch {
@@ -153,19 +167,18 @@ class EventDispatcher(
             try {
                 handler.handle(message)
             } catch (e: Exception) {
-                handleFailure(message, handler, e)
+                handleFailure(message, e, handler)
             }
         }
     }
 
     private fun <TEvent : Event> handleFailure(
         message: TEvent,
-        handler: EventHandler<TEvent>,
-        e: Exception,
+        e: Throwable,
+        handler: EventHandler<TEvent>? = null,
     ) {
         // TODO Log the error, send to a Dead Letter Queue (DLQ)
-        println(
-            "Handler ${handler::class.simpleName} failed for event $message. Error: ${e.message}"
-        )
+        val handlerName = if (handler == null) "unknown" else handler::class.simpleName
+        println("Handler $handlerName failed for event $message. Error: ${e.message}")
     }
 }

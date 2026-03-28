@@ -9,16 +9,19 @@ abstract class DomainEventHandler<TEvent : DomainEvent> :
     abstract override suspend fun handle(message: TEvent)
 }
 
-abstract class DispatchSynchronously<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchSync<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-abstract class DispatchAsynchronously<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+abstract class DispatchAsync<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
-abstract class DispatchImmediatelyInTransaction<TEvent : DomainEvent> :
-    DispatchSynchronously<TEvent>()
+abstract class DispatchSequentially<TEvent : DomainEvent> : DomainEvent()
 
-abstract class DispatchAtEndOfTransaction<TEvent : DomainEvent> : DispatchSynchronously<TEvent>()
+abstract class DispatchConcurrently<TEvent : DomainEvent> : DomainEvent()
 
-abstract class DispatchAfterTransaction<TEvent : DomainEvent> : DispatchAsynchronously<TEvent>()
+abstract class DispatchImmediatelyInTransaction<TEvent : DomainEvent> : DispatchSync<TEvent>()
+
+abstract class DispatchAtEndOfTransaction<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
+
+abstract class DispatchAfterTransaction<TEvent : DomainEvent> : DomainEventHandler<TEvent>()
 
 /** Throws the first exception encountered immediately, stopping subsequent handlers. */
 abstract class FailFastDomainEvent : DomainEvent()

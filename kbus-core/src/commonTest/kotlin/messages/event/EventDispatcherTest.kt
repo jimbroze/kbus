@@ -3,10 +3,10 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
-import com.jimbroze.kbus.core.fixtures.DelayingDispatchAsynchronouslyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler
+import com.jimbroze.kbus.core.fixtures.DelayingDispatchConcurrentlyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchImmediatelyHandler
-import com.jimbroze.kbus.core.fixtures.DelayingDispatchSynchronouslyHandler
+import com.jimbroze.kbus.core.fixtures.DelayingDispatchSequentiallyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
@@ -295,9 +295,9 @@ class EventDispatcherTest {
         @Suppress("UNCHECKED_CAST")
         val handlers =
             listOf(
-                DelayingDispatchSynchronouslyHandler(results, 100, "dispatched first, with delay")
+                DelayingDispatchSequentiallyHandler(results, 100, "dispatched first, with delay")
                     as EventHandler<DomainEvent>,
-                DelayingDispatchSynchronouslyHandler(results, 0, "dispatched second, no delay")
+                DelayingDispatchSequentiallyHandler(results, 0, "dispatched second, no delay")
                     as EventHandler<DomainEvent>,
             )
         val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
@@ -323,13 +323,13 @@ class EventDispatcherTest {
             @Suppress("UNCHECKED_CAST")
             val handlers =
                 listOf(
-                    DelayingDispatchAsynchronouslyHandler(
+                    DelayingDispatchConcurrentlyHandler(
                         results,
                         100,
                         "dispatched first, with delay",
                     )
                         as EventHandler<DomainEvent>,
-                    DelayingDispatchAsynchronouslyHandler(results, 0, "dispatched second, no delay")
+                    DelayingDispatchConcurrentlyHandler(results, 0, "dispatched second, no delay")
                         as EventHandler<DomainEvent>,
                 )
             val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)

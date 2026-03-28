@@ -4,10 +4,10 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.core.messages.event.ContinueAndAggregateDomainEvent
 import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchAsynchronously
+import com.jimbroze.kbus.core.messages.event.DispatchAsync
 import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
 import com.jimbroze.kbus.core.messages.event.DispatchImmediatelyInTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchSynchronously
+import com.jimbroze.kbus.core.messages.event.DispatchSync
 import com.jimbroze.kbus.core.messages.event.DomainEventHandler
 import com.jimbroze.kbus.core.messages.event.FailFastDomainEvent
 import com.jimbroze.kbus.core.messages.event.FireAndForgetDomainEvent
@@ -93,22 +93,22 @@ class DelayingDispatchAtEndOfTransactionHandler(
     }
 }
 
-class DelayingDispatchSynchronouslyHandler(
+class DelayingDispatchSequentiallyHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchSynchronously<TestDomainEvent>() {
+) : DispatchSync<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
     }
 }
 
-class DelayingDispatchAsynchronouslyHandler(
+class DelayingDispatchConcurrentlyHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchAsynchronously<TestDomainEvent>() {
+) : DispatchAsync<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
