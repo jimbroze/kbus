@@ -7,6 +7,7 @@ import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchImmediatelyHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.DelayingFireAndForgetAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialDomainEventHandler
@@ -680,9 +681,7 @@ class EventDispatcherTest {
 
         // ContinueAndAggregate runs all handlers then throws aggregated exceptions
         val exception =
-            assertFailsWith<MultipleException> {
-                unitOfWork.secondaryWork.forEach { it.invoke() }
-            }
+            assertFailsWith<MultipleException> { unitOfWork.secondaryWork.forEach { it.invoke() } }
         assertEquals(2, exception.exceptions.size)
 
         // All three handlers executed despite failures
@@ -920,6 +919,95 @@ class EventDispatcherTest {
         assertEquals(2, exception.exceptions.size)
         assertTrue(exception.exceptions[0].message!!.contains("first"))
         assertTrue(exception.exceptions[1].message!!.contains("third"))
+    }
+
+    // --- Fire-and-forget post-commit dispatcher scope tests ---
+    // POST_COMMIT + FIRE_AND_FORGET handlers are launched in the dispatcher scope (true fire and
+    // forget). The post-commit work returns immediately without waiting for handlers to complete.
+
+    @Test
+    fun test_fire_and_forget_post_commit_handlers_return_immediately_without_waiting() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingFireAndForgetAfterTransactionHandler(results, 100, "handler-1")
+                    as EventHandler<DomainEvent>,
+                DelayingFireAndForgetAfterTransactionHandler(results, 100, "handler-2")
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestFireAndForgetEvent("test"), unitOfWork)
+
+        // Post-commit work was scheduled
+        assertEquals(1, unitOfWork.postCommitWork.size)
+
+        // Execute the post-commit work — it should return immediately
+        unitOfWork.postCommitWork[0].invoke()
+
+        // Handlers have NOT completed yet because they are launched in the dispatcher scope
+        assertEquals(0, results.size)
+
+        // Handlers complete after advancing the dispatcher
+        advanceUntilIdle()
+        assertEquals(2, results.size)
+    }
+
+    @Test
+    fun test_fire_and_forget_post_commit_handlers_are_concurrent_in_dispatcher_scope() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                DelayingFireAndForgetAfterTransactionHandler(
+                    results,
+                    100,
+                    "dispatched first, with delay",
+                )
+                    as EventHandler<DomainEvent>,
+                DelayingFireAndForgetAfterTransactionHandler(
+                    results,
+                    0,
+                    "dispatched second, no delay",
+                )
+                    as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestFireAndForgetEvent("test"), unitOfWork)
+        unitOfWork.postCommitWork[0].invoke()
+        advanceUntilIdle()
+
+        // Concurrent: shorter delay completes first regardless of dispatch order
+        assertEquals(2, results.size)
+        assertEquals("dispatched second, no delay", results[0])
+        assertEquals("dispatched first, with delay", results[1])
+    }
+
+    @Test
+    fun test_fire_and_forget_post_commit_errors_do_not_propagate() = runTest {
+        val results = mutableListOf<String>()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        @Suppress("UNCHECKED_CAST")
+        val handlers =
+            listOf(
+                ThrowingFireAndForgetAfterTransactionHandler(results) as EventHandler<DomainEvent>,
+                SucceedingFireAndForgetAfterTransactionHandler(results) as EventHandler<DomainEvent>,
+            )
+        val dispatcher = EventDispatcher({ handlers }, emptyList(), dispatcherScope = this)
+
+        dispatcher.dispatchDomainEvent(TestFireAndForgetEvent("test"), unitOfWork)
+
+        // Post-commit work returns without error despite throwing handler
+        unitOfWork.postCommitWork[0].invoke()
+        advanceUntilIdle()
+
+        assertEquals(2, results.size)
+        assertEquals("threw:test", results[0])
+        assertEquals("success:test", results[1])
     }
 
     // --- Integration event tests ---

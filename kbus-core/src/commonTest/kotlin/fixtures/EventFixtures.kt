@@ -288,6 +288,17 @@ class SucceedingFireAndForgetAfterTransactionHandler(private val results: Mutabl
     }
 }
 
+class DelayingFireAndForgetAfterTransactionHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DispatchAfterTransaction<TestFireAndForgetEvent>() {
+    override suspend fun handle(message: TestFireAndForgetEvent) {
+        delay(delayMs.milliseconds)
+        results.add(label)
+    }
+}
+
 // --- ContinueAndAggregate handlers (per dispatch phase) ---
 
 class ThrowingContinueAndAggregateHandler(

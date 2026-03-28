@@ -66,30 +66,40 @@ class EventDispatcher(
             handlersByPhase.forEach { (phase, phaseHandlers) ->
                 val aggregatedExceptions = mutableListOf<Exception>()
 
-                val dispatchHandlersWithErrorHandling = phaseHandlers.mapIndexed { index, handler ->
-                    addErrorHandlingToDispatch(
-                        eventErrorStrategy,
-                        message,
-                        handler,
-                        { -> handler.handle(message) },
-                        aggregatedExceptions,
-                        index == phaseHandlers.lastIndex,
-                    )
-                }
+                val dispatchHandlersWithErrorHandling =
+                    phaseHandlers.mapIndexed { index, handler ->
+                        addErrorHandlingToDispatch(
+                            eventErrorStrategy,
+                            message,
+                            handler,
+                            { -> handler.handle(message) },
+                            aggregatedExceptions,
+                            index == phaseHandlers.lastIndex,
+                        )
+                    }
 
                 val dispatchHandlersWithConcurrency: suspend () -> Unit = {
                     if (event is DispatchSequentially) {
                         dispatchHandlersWithErrorHandling.forEach { it() }
                     } else {
-                        coroutineScope {
-                            dispatchHandlersWithErrorHandling
-                                .map { dispatchHandler -> async { dispatchHandler() } }
-                                .awaitAll()
+                        if (
+                            phase === DispatchPhase.POST_COMMIT &&
+                                eventErrorStrategy === ErrorStrategy.FIRE_AND_FORGET
+                        ) {
+                            dispatchHandlersWithErrorHandling.forEach { dispatchHandler ->
+                                dispatcherScope.launch { dispatchHandler() }
+                            }
+                        } else {
+                            coroutineScope {
+                                dispatchHandlersWithErrorHandling
+                                    .map { dispatchHandler -> async { dispatchHandler() } }
+                                    .awaitAll()
+                            }
                         }
                     }
                 }
 
-                dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, message, phase)
+                dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
             }
         }
 
@@ -133,19 +143,15 @@ class EventDispatcher(
             )
     }
 
-    private suspend fun <TEvent : DomainEvent> dispatchHandlersInPhase(
+    private suspend fun dispatchHandlersInPhase(
         dispatch: suspend () -> Unit,
         unitOfWork: UnitOfWork<*>,
-        message: TEvent,
         phase: DispatchPhase,
     ) {
         when (phase) {
             DispatchPhase.IMMEDIATE -> dispatch()
             DispatchPhase.SECONDARY -> unitOfWork.addSecondaryWork { dispatch() }
-            DispatchPhase.POST_COMMIT ->
-                unitOfWork.addPostCommitWork {
-                    runCatching { dispatch() }.onFailure { handleFailure(message, it) }
-                }
+            DispatchPhase.POST_COMMIT -> unitOfWork.addPostCommitWork { dispatch() }
         }
     }
 
