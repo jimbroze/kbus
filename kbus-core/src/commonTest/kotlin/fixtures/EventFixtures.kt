@@ -234,6 +234,13 @@ class SucceedingFailFastAfterTransactionHandler(private val results: MutableList
     }
 }
 
+class DefaultPhaseFailFastHandler(private val results: MutableList<String>) :
+    DomainEventHandler<TestFailFastEvent>() {
+    override suspend fun handle(message: TestFailFastEvent) {
+        results.add("success:${message.data}")
+    }
+}
+
 // --- FireAndForget handlers (per dispatch phase) ---
 
 class ThrowingFireAndForgetHandler(private val results: MutableList<String>) :

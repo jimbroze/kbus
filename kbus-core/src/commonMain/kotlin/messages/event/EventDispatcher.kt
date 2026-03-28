@@ -129,7 +129,7 @@ class EventDispatcher(
                     listOf(ErrorStrategy.FAIL_FAST, ErrorStrategy.CONTINUE_AND_AGGREGATE)
         )
             error(
-                "events with fail-fast or aggregate error strategies cannot be" +
+                "events with fail-fast or aggregate error strategies cannot be " +
                     "dispatched outside the unit of work"
             )
     }
