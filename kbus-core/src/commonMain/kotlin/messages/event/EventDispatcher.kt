@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
@@ -20,11 +21,11 @@ class EventDispatcher(
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
 ) : DomainEventDispatcher {
-    suspend fun <TEvent : Event> dispatchIntegrationEvent(
+    suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
-        val errorStrategy = ErrorStrategy.FIRE_AND_FORGET
+        val errorStrategy = EventErrorStrategy.FIRE_AND_FORGET
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             val dispatchHandlersWithErrorHandling =
@@ -78,7 +79,7 @@ class EventDispatcher(
     private fun <TEvent : Event> dispatchHandlersWithErrorHandling(
         handlers: List<EventHandler<TEvent>>,
         message: TEvent,
-        errorStrategy: ErrorStrategy,
+        errorStrategy: EventErrorStrategy,
     ): List<suspend () -> Unit> {
         val aggregatedExceptions = mutableListOf<Exception>()
 
@@ -86,7 +87,7 @@ class EventDispatcher(
             val dispatch = suspend { handler.handle(message) }
 
             when (errorStrategy) {
-                ErrorStrategy.FIRE_AND_FORGET -> {
+                EventErrorStrategy.FIRE_AND_FORGET -> {
                     {
                         @Suppress("TooGenericExceptionCaught")
                         try {
@@ -97,8 +98,8 @@ class EventDispatcher(
                     }
                 }
 
-                ErrorStrategy.FAIL_FAST -> dispatch
-                ErrorStrategy.CONTINUE_AND_AGGREGATE -> {
+                EventErrorStrategy.FAIL_FAST -> dispatch
+                EventErrorStrategy.CONTINUE_AND_AGGREGATE -> {
                     {
                         @Suppress("TooGenericExceptionCaught")
                         try {
@@ -119,7 +120,7 @@ class EventDispatcher(
         concurrency: EventConcurrency,
         dispatchHandlersWithErrorHandling: List<suspend () -> Unit>,
         phase: DispatchPhase?,
-        errorStrategy: ErrorStrategy,
+        errorStrategy: EventErrorStrategy,
     ): suspend () -> Unit = {
         when (concurrency) {
             EventConcurrency.SEQUENTIAL -> {
@@ -133,12 +134,12 @@ class EventDispatcher(
 
     private suspend fun dispatchConcurrently(
         phase: DispatchPhase?,
-        errorStrategy: ErrorStrategy,
+        errorStrategy: EventErrorStrategy,
         handlerDispatchFunctions: List<suspend () -> Unit>,
     ) {
         if (
             phase in listOf(null, DispatchPhase.POST_COMMIT) &&
-                errorStrategy === ErrorStrategy.FIRE_AND_FORGET
+                errorStrategy === EventErrorStrategy.FIRE_AND_FORGET
         ) {
             handlerDispatchFunctions.forEach { dispatchHandler ->
                 dispatcherScope.launch { dispatchHandler() }
@@ -182,7 +183,7 @@ internal enum class DispatchPhase {
     POST_COMMIT,
 }
 
-internal enum class ErrorStrategy {
+internal enum class EventErrorStrategy {
     FIRE_AND_FORGET,
     FAIL_FAST,
     CONTINUE_AND_AGGREGATE,
@@ -193,10 +194,11 @@ internal enum class EventConcurrency {
     SEQUENTIAL,
 }
 
-private fun validateDispatchPhase(phase: DispatchPhase, errorStrategy: ErrorStrategy) {
+private fun validateDispatchPhase(phase: DispatchPhase, errorStrategy: EventErrorStrategy) {
     if (
         phase == DispatchPhase.POST_COMMIT &&
-            errorStrategy in listOf(ErrorStrategy.FAIL_FAST, ErrorStrategy.CONTINUE_AND_AGGREGATE)
+            errorStrategy in
+                listOf(EventErrorStrategy.FAIL_FAST, EventErrorStrategy.CONTINUE_AND_AGGREGATE)
     )
         error(
             "events with fail-fast or aggregate error strategies cannot be " +

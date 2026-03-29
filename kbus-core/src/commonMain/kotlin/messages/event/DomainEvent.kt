@@ -1,30 +1,30 @@
 package com.jimbroze.kbus.core.messages.event
 
+import com.jimbroze.kbus.domain.event.Concurrency
+import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
-import com.jimbroze.kbus.domain.event.DomainEventConcurrency
-import com.jimbroze.kbus.domain.event.DomainEventDispatchTiming
-import com.jimbroze.kbus.domain.event.DomainEventErrorStrategy
 import com.jimbroze.kbus.domain.event.DomainEventHandler
+import com.jimbroze.kbus.domain.event.ErrorStrategy as DomainEventErrorStrategy
 
 internal fun dispatchPhaseFor(handler: DomainEventHandler<*>): DispatchPhase {
     return when (handler.dispatchTiming) {
-        DomainEventDispatchTiming.Immediately -> DispatchPhase.IMMEDIATE
-        DomainEventDispatchTiming.AfterPrimaryWork -> DispatchPhase.SECONDARY
-        DomainEventDispatchTiming.AfterTransaction -> DispatchPhase.POST_COMMIT
+        DispatchTiming.Immediately -> DispatchPhase.IMMEDIATE
+        DispatchTiming.AfterPrimaryWork -> DispatchPhase.SECONDARY
+        DispatchTiming.AfterTransaction -> DispatchPhase.POST_COMMIT
     }
 }
 
-internal fun errorStrategyFor(event: DomainEvent): ErrorStrategy {
+internal fun errorStrategyFor(event: DomainEvent): EventErrorStrategy {
     return when (event.errorStrategy) {
-        DomainEventErrorStrategy.FireAndForget -> ErrorStrategy.FIRE_AND_FORGET
-        DomainEventErrorStrategy.FailFast -> ErrorStrategy.FAIL_FAST
-        DomainEventErrorStrategy.ContinueAndAggregate -> ErrorStrategy.CONTINUE_AND_AGGREGATE
+        DomainEventErrorStrategy.FireAndForget -> EventErrorStrategy.FIRE_AND_FORGET
+        DomainEventErrorStrategy.FailFast -> EventErrorStrategy.FAIL_FAST
+        DomainEventErrorStrategy.ContinueAndAggregate -> EventErrorStrategy.CONTINUE_AND_AGGREGATE
     }
 }
 
 internal fun concurrencyFor(event: DomainEvent): EventConcurrency {
     return when (event.concurrency) {
-        DomainEventConcurrency.Concurrent -> EventConcurrency.CONCURRENT
-        DomainEventConcurrency.Sequential -> EventConcurrency.SEQUENTIAL
+        Concurrency.Concurrent -> EventConcurrency.CONCURRENT
+        Concurrency.Sequential -> EventConcurrency.SEQUENTIAL
     }
 }

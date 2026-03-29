@@ -13,8 +13,8 @@ import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
-import com.jimbroze.kbus.domain.event.DomainEventDispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.test.external.ExternalEmpty
@@ -227,7 +227,7 @@ class TestGeneratorEvent : DomainEvent()
 @Suppress("unused")
 class TestGeneratorEventHandler(@Suppress("unused") private val clock: Clock) :
     DomainEventHandler<TestGeneratorEvent>() {
-    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+    override val dispatchTiming = DispatchTiming.Immediately
 
     override suspend fun handle(message: TestGeneratorEvent) {
         timesHandled++

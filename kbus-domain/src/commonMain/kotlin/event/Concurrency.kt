@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.domain.event
 
-enum class DomainEventConcurrency {
+enum class Concurrency {
     Concurrent,
     Sequential,
 }
