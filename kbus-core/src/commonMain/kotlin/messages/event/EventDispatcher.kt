@@ -58,16 +58,16 @@ class EventDispatcher(
             handlersByPhase.forEach { (phase, phaseHandlers) ->
                 val aggregatedExceptions = mutableListOf<Exception>()
 
-                val dispatchHandlersWithErrorHandling = phaseHandlers.mapIndexed { index, handler ->
-                    addErrorHandlingToDispatch(
-                        eventErrorStrategy,
-                        message,
-                        handler,
-                        { -> handler.handle(message) },
-                        aggregatedExceptions,
-                        index == phaseHandlers.lastIndex,
-                    )
-                }
+                val dispatchHandlersWithErrorHandling =
+                    phaseHandlers.mapIndexed { index, handler ->
+                        addErrorHandlingToDispatch(
+                            eventErrorStrategy,
+                            { error -> handleFailure(message, handler, error) },
+                            { -> handler.handle(message) },
+                            aggregatedExceptions,
+                            index == phaseHandlers.lastIndex,
+                        )
+                    }
 
                 val dispatchHandlersWithConcurrency =
                     dispatchHandlersWithConcurrency(
@@ -86,10 +86,9 @@ class EventDispatcher(
         execute(event)
     }
 
-    private fun <TEvent : Event> addErrorHandlingToDispatch(
+    private fun addErrorHandlingToDispatch(
         eventErrorStrategy: ErrorStrategy,
-        message: TEvent,
-        handler: EventHandler<TEvent>,
+        handleFailure: (Throwable) -> Unit,
         dispatch: suspend () -> Unit,
         aggregatedExceptions: MutableList<Exception>,
         isLastHandler: Boolean,
@@ -101,7 +100,7 @@ class EventDispatcher(
                     try {
                         dispatch()
                     } catch (e: Exception) {
-                        handleFailure(message, handler, e)
+                        handleFailure(e)
                     }
                 }
             }
@@ -121,8 +120,8 @@ class EventDispatcher(
             }
         }
 
-    private fun <TEvent : Event> dispatchHandlersWithConcurrency(
-        event: TEvent,
+    private fun dispatchHandlersWithConcurrency(
+        event: Event,
         dispatchHandlersWithErrorHandling: List<suspend () -> Unit>,
         phase: DispatchPhase,
         eventErrorStrategy: ErrorStrategy,
