@@ -1,7 +1,7 @@
 [versions]
 detekt = "1.23.8"
 jdk-target = "17"
-kotest = "6.0.7"
+#kotest = "6.0.7"
 kotlin = "2.1.20"
 kotlinPoet = "2.2.0"
 kotlinxCoroutinesCore = "1.10.2"
@@ -12,8 +12,8 @@ ktfmt = "0.25.0"
 maven-publish = "0.30.0"
 
 [libraries]
-kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
-kotest-framework = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
+#kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+#kotest-framework = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlin-poet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinPoet" }
 kotlin-poet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinPoet" }
@@ -28,7 +28,7 @@ symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-ap
 arturbosch-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 ncorti-ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
-kotest = { id = "io.kotest", version.ref = "kotest" }
+#kotest = { id = "io.kotest", version.ref = "kotest" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlinx-knit = { id = "org.jetbrains.kotlinx.knit", version.ref = "kotlinxKnit" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

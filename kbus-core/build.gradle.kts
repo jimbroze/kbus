@@ -4,8 +4,6 @@ plugins {
     id("kbus.multiplatform")
     id("kbus.publish")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.devtools.ksp)
-    alias(libs.plugins.kotest)
 }
 
 kotlin {
@@ -20,8 +18,6 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.kotest.framework)
-            implementation(libs.kotest.assertions)
             implementation(projects.testDoubles)
         }
     }
