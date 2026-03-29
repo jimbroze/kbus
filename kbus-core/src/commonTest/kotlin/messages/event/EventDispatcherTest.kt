@@ -55,7 +55,7 @@ import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialContinueAndAggregateHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFailFastHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
-import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

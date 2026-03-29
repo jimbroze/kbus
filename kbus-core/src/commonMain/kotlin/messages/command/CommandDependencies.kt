@@ -1,5 +1,5 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 
 data class CommandDependencies(val domainEventPublisher: DomainEventPublisher)

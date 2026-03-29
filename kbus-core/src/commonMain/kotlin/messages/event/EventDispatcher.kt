@@ -4,9 +4,9 @@ import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.uow.NonReturningUnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWork
-import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -24,16 +24,22 @@ class EventDispatcher(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
-        val unitOfWork = NonReturningUnitOfWork()
+        val errorStrategy = ErrorStrategy.FIRE_AND_FORGET
 
-        dispatchEvent(
-            event,
-            handlers.groupBy { DispatchPhase.POST_COMMIT },
-            ErrorStrategy.FIRE_AND_FORGET,
-            unitOfWork,
-        )
+        val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
+            val dispatchHandlersWithErrorHandling =
+                dispatchHandlersWithErrorHandling(handlers, message, errorStrategy)
 
-        unitOfWork.execute()
+            dispatchHandlersWithConcurrency(
+                EventConcurrency.CONCURRENT,
+                dispatchHandlersWithErrorHandling,
+                null,
+                errorStrategy,
+            )()
+        }
+
+        val execute = createMiddlewareChain(finalHandler, middlewares)
+        execute(event)
     }
 
     override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
@@ -42,105 +48,97 @@ class EventDispatcher(
     ) {
         val handlers = getHandlers(event)
 
-        val eventErrorStrategy = errorStrategyFor(event)
-        val handlersByPhase = handlers.groupBy { dispatchPhaseFor(it, eventErrorStrategy) }
+        val errorStrategy = errorStrategyFor(event)
+        val handlersByPhase =
+            handlers.groupBy { handler ->
+                dispatchPhaseFor(handler as DomainEventHandler<*>).also {
+                    validateDispatchPhase(it, errorStrategy)
+                }
+            }
 
-        dispatchEvent(event, handlersByPhase, eventErrorStrategy, unitOfWork)
-    }
-
-    private suspend fun <TEvent : Event> dispatchEvent(
-        event: TEvent,
-        handlersByPhase: Map<DispatchPhase, List<EventHandler<TEvent>>>,
-        eventErrorStrategy: ErrorStrategy,
-        unitOfWork: UnitOfWork<*>,
-    ) {
-        val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
+        val finalHandler: suspend (DomainEvent) -> Unit = { message: DomainEvent ->
             handlersByPhase.forEach { (phase, phaseHandlers) ->
-                val aggregatedExceptions = mutableListOf<Exception>()
-
                 val dispatchHandlersWithErrorHandling =
-                    phaseHandlers.mapIndexed { index, handler ->
-                        addErrorHandlingToDispatch(
-                            eventErrorStrategy,
-                            { error -> handleFailure(message, handler, error) },
-                            { -> handler.handle(message) },
-                            aggregatedExceptions,
-                            index == phaseHandlers.lastIndex,
-                        )
-                    }
+                    dispatchHandlersWithErrorHandling(phaseHandlers, message, errorStrategy)
 
                 val dispatchHandlersWithConcurrency =
                     dispatchHandlersWithConcurrency(
-                        event,
+                        concurrencyFor(event),
                         dispatchHandlersWithErrorHandling,
                         phase,
-                        eventErrorStrategy,
+                        errorStrategy,
                     )
-
                 dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
             }
         }
-
         val execute = createMiddlewareChain(finalHandler, middlewares)
-
         execute(event)
     }
 
-    private fun addErrorHandlingToDispatch(
-        eventErrorStrategy: ErrorStrategy,
-        handleFailure: (Throwable) -> Unit,
-        dispatch: suspend () -> Unit,
-        aggregatedExceptions: MutableList<Exception>,
-        isLastHandler: Boolean,
-    ): suspend () -> Unit =
-        when (eventErrorStrategy) {
-            ErrorStrategy.FIRE_AND_FORGET -> {
-                {
-                    @Suppress("TooGenericExceptionCaught")
-                    try {
-                        dispatch()
-                    } catch (e: Exception) {
-                        handleFailure(e)
+    private fun <TEvent : Event> dispatchHandlersWithErrorHandling(
+        handlers: List<EventHandler<TEvent>>,
+        message: TEvent,
+        errorStrategy: ErrorStrategy,
+    ): List<suspend () -> Unit> {
+        val aggregatedExceptions = mutableListOf<Exception>()
+
+        return handlers.mapIndexed<EventHandler<TEvent>, suspend () -> Unit> { index, handler ->
+            val dispatch = suspend { handler.handle(message) }
+
+            when (errorStrategy) {
+                ErrorStrategy.FIRE_AND_FORGET -> {
+                    {
+                        @Suppress("TooGenericExceptionCaught")
+                        try {
+                            dispatch()
+                        } catch (e: Exception) {
+                            handleFailure(message, handler, e)
+                        }
                     }
                 }
-            }
-            ErrorStrategy.FAIL_FAST -> dispatch
-            ErrorStrategy.CONTINUE_AND_AGGREGATE -> {
-                {
-                    @Suppress("TooGenericExceptionCaught")
-                    try {
-                        dispatch()
-                    } catch (e: Exception) {
-                        aggregatedExceptions.add(e)
-                    }
 
-                    if (isLastHandler && aggregatedExceptions.isNotEmpty())
-                        throw MultipleException(aggregatedExceptions)
+                ErrorStrategy.FAIL_FAST -> dispatch
+                ErrorStrategy.CONTINUE_AND_AGGREGATE -> {
+                    {
+                        @Suppress("TooGenericExceptionCaught")
+                        try {
+                            dispatch()
+                        } catch (e: Exception) {
+                            aggregatedExceptions.add(e)
+                        }
+
+                        if (index == handlers.lastIndex && aggregatedExceptions.isNotEmpty())
+                            throw MultipleException(aggregatedExceptions)
+                    }
                 }
             }
         }
+    }
 
     private fun dispatchHandlersWithConcurrency(
-        event: Event,
+        concurrency: EventConcurrency,
         dispatchHandlersWithErrorHandling: List<suspend () -> Unit>,
-        phase: DispatchPhase,
-        eventErrorStrategy: ErrorStrategy,
+        phase: DispatchPhase?,
+        errorStrategy: ErrorStrategy,
     ): suspend () -> Unit = {
-        if (event is DispatchSequentially) {
-            dispatchHandlersWithErrorHandling.forEach { dispatchHandler -> dispatchHandler() }
-        } else {
-            dispatchConcurrently(phase, eventErrorStrategy, dispatchHandlersWithErrorHandling)
+        when (concurrency) {
+            EventConcurrency.SEQUENTIAL -> {
+                dispatchHandlersWithErrorHandling.forEach { dispatchHandler -> dispatchHandler() }
+            }
+            EventConcurrency.CONCURRENT -> {
+                dispatchConcurrently(phase, errorStrategy, dispatchHandlersWithErrorHandling)
+            }
         }
     }
 
     private suspend fun dispatchConcurrently(
-        phase: DispatchPhase,
-        eventErrorStrategy: ErrorStrategy,
+        phase: DispatchPhase?,
+        errorStrategy: ErrorStrategy,
         handlerDispatchFunctions: List<suspend () -> Unit>,
     ) {
         if (
-            phase === DispatchPhase.POST_COMMIT &&
-                eventErrorStrategy === ErrorStrategy.FIRE_AND_FORGET
+            phase in listOf(null, DispatchPhase.POST_COMMIT) &&
+                errorStrategy === ErrorStrategy.FIRE_AND_FORGET
         ) {
             handlerDispatchFunctions.forEach { dispatchHandler ->
                 dispatcherScope.launch { dispatchHandler() }
@@ -178,41 +176,21 @@ class EventDispatcher(
     }
 }
 
-private enum class ErrorStrategy {
-    FIRE_AND_FORGET,
-    FAIL_FAST,
-    CONTINUE_AND_AGGREGATE,
-}
-
-enum class DispatchPhase {
+internal enum class DispatchPhase {
     IMMEDIATE,
     SECONDARY,
     POST_COMMIT,
 }
 
-private fun errorStrategyFor(event: DomainEvent): ErrorStrategy =
-    when (event) {
-        is FailFastDomainEvent -> ErrorStrategy.FAIL_FAST
-        is ContinueAndAggregateDomainEvent -> ErrorStrategy.CONTINUE_AND_AGGREGATE
-        is FireAndForgetDomainEvent -> ErrorStrategy.FIRE_AND_FORGET
-        else -> ErrorStrategy.FIRE_AND_FORGET
-    }
+internal enum class ErrorStrategy {
+    FIRE_AND_FORGET,
+    FAIL_FAST,
+    CONTINUE_AND_AGGREGATE,
+}
 
-private fun dispatchPhaseFor(
-    handler: EventHandler<*>,
-    errorStrategy: ErrorStrategy,
-): DispatchPhase {
-    val phase =
-        when (handler) {
-            is DispatchImmediatelyInTransaction<*> -> DispatchPhase.IMMEDIATE
-            is DispatchAtEndOfTransaction<*> -> DispatchPhase.SECONDARY
-            is DispatchAfterTransaction<*> -> DispatchPhase.POST_COMMIT
-            else -> DispatchPhase.POST_COMMIT
-        }
-
-    validateDispatchPhase(phase, errorStrategy)
-
-    return phase
+internal enum class EventConcurrency {
+    CONCURRENT,
+    SEQUENTIAL,
 }
 
 private fun validateDispatchPhase(phase: DispatchPhase, errorStrategy: ErrorStrategy) {

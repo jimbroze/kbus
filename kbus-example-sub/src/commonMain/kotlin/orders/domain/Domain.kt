@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.test.orders.domain
 
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 
 class Order(
     val id: String,

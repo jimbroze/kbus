@@ -32,16 +32,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 
 // TODO don't add any dependencies not in module???
-class Dependencies(private val instant: Instant, private val applicationScope: CoroutineScope) :
-    AutoLoader() {
+class Dependencies(private val instant: Instant, applicationScope: CoroutineScope) : AutoLoader() {
     override val lockingMiddleware by lazy {
         LockingMiddleware(
-            inMemoryAtomicLock(backgroundScope = applicationScope),
+            { scope: CoroutineScope -> inMemoryAtomicLock(scope) },
             5.seconds,
             30.seconds,
         )
     }
-    override val messageBus = MessageBus()
+    override val messageBus = MessageBus(rootScope = applicationScope)
 
     override val anObject: AnObject = AnObject
 

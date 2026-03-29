@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.domain.DomainEvent
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 
 class UnitOfWorkDomainEventPublisher(
     val baseDispatcher: DomainEventDispatcher?,

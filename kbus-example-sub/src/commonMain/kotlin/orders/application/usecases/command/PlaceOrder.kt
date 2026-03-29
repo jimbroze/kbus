@@ -7,7 +7,7 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.GenericFailure
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.generation.test.orders.application.OrderRepository
 import com.jimbroze.kbus.generation.test.orders.application.PaymentGateway
 import com.jimbroze.kbus.generation.test.orders.domain.Order

@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.registry
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.reflect.KClass
 
 class CompileTimeDomainEventMapper(val rawMapper: DomainEventMapper) {

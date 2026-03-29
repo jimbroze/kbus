@@ -2,16 +2,12 @@ package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.core.messages.event.ContinueAndAggregateDomainEvent
-import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchImmediatelyInTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchSequentially
-import com.jimbroze.kbus.core.messages.event.DomainEventHandler
-import com.jimbroze.kbus.core.messages.event.FailFastDomainEvent
-import com.jimbroze.kbus.core.messages.event.FireAndForgetDomainEvent
-import com.jimbroze.kbus.domain.DomainEvent
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventConcurrency
+import com.jimbroze.kbus.domain.event.DomainEventDispatchTiming
+import com.jimbroze.kbus.domain.event.DomainEventErrorStrategy
+import com.jimbroze.kbus.domain.event.DomainEventHandler
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 
@@ -19,25 +15,40 @@ import kotlinx.coroutines.delay
 
 class TestDomainEvent(val data: String) : DomainEvent()
 
-class TestSequentialDomainEvent(val data: String) : DomainEvent(), DispatchSequentially
+class TestSequentialDomainEvent(val data: String) : DomainEvent() {
+    override val concurrency = DomainEventConcurrency.Sequential
+}
 
 // --- Error strategy events ---
 
-class TestFailFastEvent(val data: String) : FailFastDomainEvent()
+class TestFailFastEvent(val data: String) : DomainEvent() {
+    override val errorStrategy = DomainEventErrorStrategy.FailFast
+}
 
-class TestFireAndForgetEvent(val data: String) : FireAndForgetDomainEvent()
+class TestFireAndForgetEvent(val data: String) : DomainEvent() {
+    override val errorStrategy = DomainEventErrorStrategy.FireAndForget
+}
 
-class TestContinueAndAggregateEvent(val data: String) : ContinueAndAggregateDomainEvent()
+class TestContinueAndAggregateEvent(val data: String) : DomainEvent() {
+    override val errorStrategy = DomainEventErrorStrategy.ContinueAndAggregate
+}
 
 // --- Error strategy + sequential concurrency events ---
 
-class TestSequentialFailFastEvent(val data: String) : FailFastDomainEvent(), DispatchSequentially
+class TestSequentialFailFastEvent(val data: String) : DomainEvent() {
+    override val concurrency = DomainEventConcurrency.Sequential
+    override val errorStrategy = DomainEventErrorStrategy.FailFast
+}
 
-class TestSequentialFireAndForgetEvent(val data: String) :
-    FireAndForgetDomainEvent(), DispatchSequentially
+class TestSequentialFireAndForgetEvent(val data: String) : DomainEvent() {
+    override val concurrency = DomainEventConcurrency.Sequential
+    override val errorStrategy = DomainEventErrorStrategy.FireAndForget
+}
 
-class TestSequentialContinueAndAggregateEvent(val data: String) :
-    ContinueAndAggregateDomainEvent(), DispatchSequentially
+class TestSequentialContinueAndAggregateEvent(val data: String) : DomainEvent() {
+    override val concurrency = DomainEventConcurrency.Sequential
+    override val errorStrategy = DomainEventErrorStrategy.ContinueAndAggregate
+}
 
 // --- Basic domain event handlers ---
 
@@ -49,14 +60,18 @@ class TestDomainEventHandler(private val results: MutableList<String>) :
 }
 
 class TestDispatchAtEndOfTransactionHandler(private val results: MutableList<String>) :
-    DispatchAtEndOfTransaction<TestDomainEvent>() {
+    DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
 }
 
 class TestDispatchAfterTransactionHandler(private val results: MutableList<String>) :
-    DispatchAfterTransaction<TestDomainEvent>() {
+    DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
@@ -71,7 +86,9 @@ class TestDomainEventPublisher : DomainEventPublisher {
 }
 
 class TestDispatchImmediatelyHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestDomainEvent>() {
+    DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
     }
@@ -94,7 +111,9 @@ class DelayingDispatchImmediatelyHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchImmediatelyInTransaction<TestDomainEvent>() {
+) : DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -105,7 +124,9 @@ class DelayingDispatchAtEndOfTransactionHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchAtEndOfTransaction<TestDomainEvent>() {
+) : DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -116,7 +137,9 @@ class DelayingDispatchAfterTransactionHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchAfterTransaction<TestDomainEvent>() {
+) : DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -140,7 +163,9 @@ class DelayingSequentialImmediateHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchImmediatelyInTransaction<TestSequentialDomainEvent>() {
+) : DomainEventHandler<TestSequentialDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -151,7 +176,9 @@ class DelayingSequentialEndOfTransactionHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchAtEndOfTransaction<TestSequentialDomainEvent>() {
+) : DomainEventHandler<TestSequentialDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestSequentialDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -162,7 +189,9 @@ class DelayingSequentialAfterTransactionHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchAfterTransaction<TestSequentialDomainEvent>() {
+) : DomainEventHandler<TestSequentialDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestSequentialDomainEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -180,7 +209,9 @@ class ThrowingDomainEventHandler(private val results: MutableList<String>) :
 }
 
 class ThrowingDispatchImmediatelyHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestDomainEvent>() {
+    DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestDomainEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("Handler failed for: ${message.data}")
@@ -190,7 +221,9 @@ class ThrowingDispatchImmediatelyHandler(private val results: MutableList<String
 // --- FailFast handlers (per dispatch phase) ---
 
 class ThrowingFailFastHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestFailFastEvent>() {
+    DomainEventHandler<TestFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestFailFastEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FailFast handler failed for: ${message.data}")
@@ -198,14 +231,18 @@ class ThrowingFailFastHandler(private val results: MutableList<String>) :
 }
 
 class SucceedingFailFastHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestFailFastEvent>() {
+    DomainEventHandler<TestFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestFailFastEvent) {
         results.add("success:${message.data}")
     }
 }
 
 class ThrowingFailFastAtEndOfTransactionHandler(private val results: MutableList<String>) :
-    DispatchAtEndOfTransaction<TestFailFastEvent>() {
+    DomainEventHandler<TestFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestFailFastEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FailFast handler failed for: ${message.data}")
@@ -213,14 +250,18 @@ class ThrowingFailFastAtEndOfTransactionHandler(private val results: MutableList
 }
 
 class SucceedingFailFastAtEndOfTransactionHandler(private val results: MutableList<String>) :
-    DispatchAtEndOfTransaction<TestFailFastEvent>() {
+    DomainEventHandler<TestFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestFailFastEvent) {
         results.add("success:${message.data}")
     }
 }
 
 class ThrowingFailFastAfterTransactionHandler(private val results: MutableList<String>) :
-    DispatchAfterTransaction<TestFailFastEvent>() {
+    DomainEventHandler<TestFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestFailFastEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FailFast handler failed for: ${message.data}")
@@ -228,7 +269,9 @@ class ThrowingFailFastAfterTransactionHandler(private val results: MutableList<S
 }
 
 class SucceedingFailFastAfterTransactionHandler(private val results: MutableList<String>) :
-    DispatchAfterTransaction<TestFailFastEvent>() {
+    DomainEventHandler<TestFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestFailFastEvent) {
         results.add("success:${message.data}")
     }
@@ -244,7 +287,9 @@ class DefaultPhaseFailFastHandler(private val results: MutableList<String>) :
 // --- FireAndForget handlers (per dispatch phase) ---
 
 class ThrowingFireAndForgetHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestFireAndForgetEvent>() {
+    DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FireAndForget handler failed for: ${message.data}")
@@ -252,14 +297,18 @@ class ThrowingFireAndForgetHandler(private val results: MutableList<String>) :
 }
 
 class SucceedingFireAndForgetHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestFireAndForgetEvent>() {
+    DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         results.add("success:${message.data}")
     }
 }
 
 class ThrowingFireAndForgetAtEndOfTransactionHandler(private val results: MutableList<String>) :
-    DispatchAtEndOfTransaction<TestFireAndForgetEvent>() {
+    DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FireAndForget handler failed for: ${message.data}")
@@ -267,14 +316,18 @@ class ThrowingFireAndForgetAtEndOfTransactionHandler(private val results: Mutabl
 }
 
 class SucceedingFireAndForgetAtEndOfTransactionHandler(private val results: MutableList<String>) :
-    DispatchAtEndOfTransaction<TestFireAndForgetEvent>() {
+    DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         results.add("success:${message.data}")
     }
 }
 
 class ThrowingFireAndForgetAfterTransactionHandler(private val results: MutableList<String>) :
-    DispatchAfterTransaction<TestFireAndForgetEvent>() {
+    DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FireAndForget handler failed for: ${message.data}")
@@ -282,7 +335,9 @@ class ThrowingFireAndForgetAfterTransactionHandler(private val results: MutableL
 }
 
 class SucceedingFireAndForgetAfterTransactionHandler(private val results: MutableList<String>) :
-    DispatchAfterTransaction<TestFireAndForgetEvent>() {
+    DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         results.add("success:${message.data}")
     }
@@ -292,7 +347,9 @@ class DelayingFireAndForgetAfterTransactionHandler(
     private val results: MutableList<String>,
     private val delayMs: Long,
     private val label: String,
-) : DispatchAfterTransaction<TestFireAndForgetEvent>() {
+) : DomainEventHandler<TestFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestFireAndForgetEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
@@ -304,7 +361,9 @@ class DelayingFireAndForgetAfterTransactionHandler(
 class ThrowingContinueAndAggregateHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchImmediatelyInTransaction<TestContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestContinueAndAggregateEvent) {
         results.add("threw:$label")
         throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
@@ -314,7 +373,9 @@ class ThrowingContinueAndAggregateHandler(
 class SucceedingContinueAndAggregateHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchImmediatelyInTransaction<TestContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestContinueAndAggregateEvent) {
         results.add("success:$label")
     }
@@ -323,7 +384,9 @@ class SucceedingContinueAndAggregateHandler(
 class ThrowingContinueAndAggregateAtEndOfTransactionHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchAtEndOfTransaction<TestContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestContinueAndAggregateEvent) {
         results.add("threw:$label")
         throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
@@ -333,7 +396,9 @@ class ThrowingContinueAndAggregateAtEndOfTransactionHandler(
 class SucceedingContinueAndAggregateAtEndOfTransactionHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchAtEndOfTransaction<TestContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterPrimaryWork
+
     override suspend fun handle(message: TestContinueAndAggregateEvent) {
         results.add("success:$label")
     }
@@ -342,7 +407,9 @@ class SucceedingContinueAndAggregateAtEndOfTransactionHandler(
 class ThrowingContinueAndAggregateAfterTransactionHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchAfterTransaction<TestContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestContinueAndAggregateEvent) {
         results.add("threw:$label")
         throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
@@ -352,16 +419,20 @@ class ThrowingContinueAndAggregateAfterTransactionHandler(
 class SucceedingContinueAndAggregateAfterTransactionHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchAfterTransaction<TestContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.AfterTransaction
+
     override suspend fun handle(message: TestContinueAndAggregateEvent) {
         results.add("success:$label")
     }
 }
 
-// --- Sequential FailFast handlers (for concurrency × error strategy orthogonality) ---
+// --- Sequential FailFast handlers (for concurrency x error strategy orthogonality) ---
 
 class ThrowingSequentialFailFastHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestSequentialFailFastEvent>() {
+    DomainEventHandler<TestSequentialFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialFailFastEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FailFast handler failed for: ${message.data}")
@@ -369,7 +440,9 @@ class ThrowingSequentialFailFastHandler(private val results: MutableList<String>
 }
 
 class SucceedingSequentialFailFastHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestSequentialFailFastEvent>() {
+    DomainEventHandler<TestSequentialFailFastEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialFailFastEvent) {
         results.add("success:${message.data}")
     }
@@ -380,7 +453,9 @@ class SucceedingSequentialFailFastHandler(private val results: MutableList<Strin
 class ThrowingSequentialContinueAndAggregateHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchImmediatelyInTransaction<TestSequentialContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestSequentialContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialContinueAndAggregateEvent) {
         results.add("threw:$label")
         throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
@@ -390,7 +465,9 @@ class ThrowingSequentialContinueAndAggregateHandler(
 class SucceedingSequentialContinueAndAggregateHandler(
     private val results: MutableList<String>,
     private val label: String,
-) : DispatchImmediatelyInTransaction<TestSequentialContinueAndAggregateEvent>() {
+) : DomainEventHandler<TestSequentialContinueAndAggregateEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialContinueAndAggregateEvent) {
         results.add("success:$label")
     }
@@ -399,7 +476,9 @@ class SucceedingSequentialContinueAndAggregateHandler(
 // --- Sequential FireAndForget handlers ---
 
 class ThrowingSequentialFireAndForgetHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestSequentialFireAndForgetEvent>() {
+    DomainEventHandler<TestSequentialFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialFireAndForgetEvent) {
         results.add("threw:${message.data}")
         throw TestHandlerException("FireAndForget handler failed for: ${message.data}")
@@ -407,7 +486,9 @@ class ThrowingSequentialFireAndForgetHandler(private val results: MutableList<St
 }
 
 class SucceedingSequentialFireAndForgetHandler(private val results: MutableList<String>) :
-    DispatchImmediatelyInTransaction<TestSequentialFireAndForgetEvent>() {
+    DomainEventHandler<TestSequentialFireAndForgetEvent>() {
+    override val dispatchTiming = DomainEventDispatchTiming.Immediately
+
     override suspend fun handle(message: TestSequentialFireAndForgetEvent) {
         results.add("success:${message.data}")
     }

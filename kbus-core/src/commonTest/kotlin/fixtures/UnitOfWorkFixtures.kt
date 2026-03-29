@@ -4,7 +4,7 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
-import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEvent
 
 class TestTransactionManager : TransactionManager {
     val executedWork = mutableListOf<Any?>()

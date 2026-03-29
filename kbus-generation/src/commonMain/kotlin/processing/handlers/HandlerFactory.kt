@@ -9,7 +9,7 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.squareup.kotlinpoet.UNIT

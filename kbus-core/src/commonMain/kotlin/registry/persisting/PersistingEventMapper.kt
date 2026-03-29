@@ -6,7 +6,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.registry.DomainEventMapper
 import com.jimbroze.kbus.core.registry.DuplicateEventHandlerException
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
-import com.jimbroze.kbus.domain.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.reflect.KClass
 
 class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
