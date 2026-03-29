@@ -162,31 +162,39 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 `CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and
 routes events through the Unit of Work.
 
-Choose a dispatch strategy by extending the appropriate *handler* base class. Each handler can have a different dispatch
-strategy, even for the same event type.
+### Event Dispatch & Error Strategy Matrix
 
-| Handler Base Class                 | When it runs                         | Sync / Async |
-|------------------------------------|--------------------------------------|--------------|
-| `DispatchImmediatelyInTransaction` | Immediately when the event is raised | Synchronous  |
-| `DispatchAtEndOfTransaction`       | After primary handler, before commit | Synchronous  |
-| `DispatchAfterTransaction`         | After the transaction commits        | Asynchronous |
-| `DomainEventHandler` (default)     | After the transaction commits        | Asynchronous |
+The safety of an error strategy depends entirely on **when** the handler executes relative to the database transaction.
 
-**Synchronous** handlers (`DispatchImmediatelyInTransaction`, `DispatchAtEndOfTransaction`) run sequentially in order —
-the next handler waits for the previous one to complete. **Asynchronous** handlers (`DispatchAfterTransaction`,
-`DomainEventHandler`) are fire-and-forget: they launch concurrently and the caller does not wait for them to finish.
+* **Pre-Commit:** You can safely throw exceptions to roll back the transaction.
+* **Post-Commit:** You lose throwing privileges and must rely on logging or Dead Letter Queues (DLQ).
+
+| Dispatch Timing                                                         | `FIRE_AND_FORGET`                                       | `FAIL_FAST`                                          | `CONTINUE_AND_AGGREGATE`                                         |
+|:------------------------------------------------------------------------|:--------------------------------------------------------|:-----------------------------------------------------|:-----------------------------------------------------------------|
+| **`DispatchImmediatelyInTransaction`**<br>*(Before main work finishes)* | ✅ **Safe**<br>Errors logged; transaction continues.     | ✅ **Standard**<br>Throws immediately; rolls back DB. | ✅ **Safe**<br>Collects all, throws at end; rolls back DB.        |
+| **`DispatchAfterPrimaryWork`**<br>*(Before DB commit)*                  | ✅ **Safe**<br>Secondary work fails quietly; DB commits. | ✅ **Safe**<br>Throws before commit; rolls back DB.   | ✅ **Safe**<br>Collects all, throws before commit; rolls back DB. |
+| **`DispatchAfterTransaction`**<br>*(After DB commit)*                   | ✅ **Standard**<br>Failures caught and sent to DLQ.      | ❌ **Dangerous**<br>Throws after transaction commits  | ❌ **Dangerous**<br>Throws after transaction commits              |
+
+### Concurrency
+
+All events can be dispatched sequentially or concurrently by applying `DispatchSequentially` or
+`DispatchConcurrently` interfaces to the event. This applies regardless of dispatch timing or error strategy. That
+is, while concurrent events will dispatch to multiple handlers at the same time, `FAIL_FAST` concurrent events will
+still throw on the first failure; meaning all running handlers for that event will cancel.
+
+### Event Defaults
 
 By default, domain event handlers that extend `DomainEventHandler` directly are dispatched **asynchronously after the
 transaction commits**. This default is intentional:
 
-- **Asynchronous by default** — All events (both domain and integration) default to async dispatch. If work must be
-  synchronous and transactional, it should be modeled as an explicit Command, not an Event. This keeps coupled
-  operations visible in the code rather than hiding them behind event handlers that appear decoupled but are
-  actually tightly bound. Synchronous event dispatch should be avoided where possible outside of infrastructure
-  concerns.
-- **After transaction by default** — Domain events default to dispatching after the transaction commits because
-  handlers typically trigger side effects (notifications, external calls) that should only happen once the primary
-  work has been persisted. Dispatching before commit risks executing side effects for work that may still be
+- **Asynchronous by default** — All events (both domain and integration) default to asynchronous, fire-and-forget
+  dispatch. If work must be synchronous and transactional, it should ideally be modeled as an explicit
+  Command, not an Event. This keeps coupled operations visible in the code rather than hiding them behind event
+  handlers that appear decoupled but are actually tightly bound. Synchronous event dispatch should be avoided where
+  possible outside of infrastructure concerns.
+- **After transaction by default** — Domain events default to dispatching after a unit of work transaction commits
+  because handlers typically trigger side effects (notifications, external calls) that should only happen once the
+  primary work has been persisted. Dispatching before commit risks executing side effects for work that may still be
   rolled back.
 
 <!--- CLEAR -->
