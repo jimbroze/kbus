@@ -5,7 +5,6 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.test.external.ExternalInterface
 
 class ExternalDependenciesCommandSub(val messageData: String) :
@@ -18,9 +17,7 @@ class ExternalDependenciesCommandHandlerSub(
     private val containsExternalEmptySub: ContainsExternalEmptySub,
     private val containsExternalNestedPrimitiveSub: ContainsExternalNestedPrimitiveSub,
     private val containsExternalNestedExternalSub: ContainsExternalNestedExternalSub,
-) :
-    CommandHandler<ExternalDependenciesCommandSub, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<ExternalDependenciesCommandSub, BusResult<Any, MessageFailure>> {
+) : CommandHandler<ExternalDependenciesCommandSub, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
         message: ExternalDependenciesCommandSub
     ): BusResult<Any, MessageFailure> {

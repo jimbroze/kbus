@@ -10,6 +10,7 @@ import com.jimbroze.kbus.contracts.middleware.LoggingMessage
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
 import com.jimbroze.kbus.core.infrastructure.logging.Logger
 
@@ -48,6 +49,8 @@ class LoggingLogCommand(val messageToLog: String, val logger: Logger) :
 
 class LoggingLogCommandHandler :
     CommandHandler<LoggingLogCommand, BusResult<Unit, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? = null
+
     override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)
         return success(Unit)

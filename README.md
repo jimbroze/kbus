@@ -417,23 +417,21 @@ val bus = MessageBus(
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
 
-And then implement `ExecuteInTransaction` on the command handlers to run within the transaction:
+Command handlers execute within a transaction by default. No additional configuration is needed:
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
 ```kotlin
-class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
-    ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>> {
+class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>() {
 
     override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
-        // This runs inside a transaction
+        // This runs inside a transaction (default behavior)
         return BusResult.success(Unit)
     }
 }
@@ -441,32 +439,46 @@ class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, Messa
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
 
-You can also provide a `TransactionManager` to individual command handlers:
+You can provide a `TransactionManager` override to individual command handlers via `TransactionConfig`:
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
 ```kotlin
 class TransferFundsHandler(
-    override val transactionManager: TransactionManager
-) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
-    ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>> {
+    transactionManager: TransactionManager
+) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? =
+        TransactionConfig(transactionManagerOverride = transactionManager)
 
     override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
-        // This runs inside a transaction
+        // This runs inside a transaction with a custom TransactionManager
         return BusResult.success(Unit)
     }
 }
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
+
+To opt out of transaction execution, set `executeInTransaction` to `null`:
+
+```kotlin
+class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? = null
+
+    override suspend fun handle(message: MyCommand): BusResult<Unit, MessageFailure> {
+        // This runs without a transaction
+        return BusResult.success(Unit)
+    }
+}
+```
 
 ## KSP Code Generation
 

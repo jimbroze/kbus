@@ -93,3 +93,7 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Unit tests should be isolated and atomic. Wherever possible, tests should avoid requiring implicit knowledge that
   other tests have checked. If one test asserts something, another test does not need to assert the same thing.
 - Use `testDoubles` for test fixtures with no dependencies on other kbus modules.
+
+## Process
+
+- Always update README.md if adding or changing features

@@ -5,6 +5,7 @@ import com.jimbroze.kbus.contracts.common.MessageHandler
 import com.jimbroze.kbus.contracts.common.ResultReturningMessage
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.result.ResultReturningMessageHandler
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import kotlin.reflect.KClass
 
 abstract class Command<TResult : KBusResult> : ResultReturningMessage<TResult> {
@@ -15,6 +16,8 @@ abstract class Command<TResult : KBusResult> : ResultReturningMessage<TResult> {
 
 abstract class CommandHandler<TCommand : Command<TResult>, TResult : KBusResult> :
     ResultReturningMessageHandler<TCommand, TResult>, CanDispatchIntegrationEvent() {
+    open val executeInTransaction: TransactionConfig? = TransactionConfig()
+
     abstract override suspend fun handle(message: TCommand): TResult
 }
 

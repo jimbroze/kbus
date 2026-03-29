@@ -9,7 +9,6 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
@@ -91,9 +90,7 @@ class NestedClassesCommandHandler(
     private val containsTypeAliases: ContainsTypeAliases,
     private val containsInterface: ContainsInterface,
     private val requiresCommandDepsContainsInterface: RequiresCommandDepsContainsInterface,
-) :
-    CommandHandler<NestedClassesCommand, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<NestedClassesCommand, BusResult<Any, MessageFailure>> {
+) : CommandHandler<NestedClassesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: NestedClassesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
@@ -109,9 +106,7 @@ class ExternalDependenciesCommandHandler(
     private val containsExternalEmpty: ContainsExternalEmpty,
     private val containsExternalNestedPrimitive: ContainsExternalNestedPrimitive,
     private val containsExternalNestedExternal: ContainsExternalNestedExternal,
-) :
-    CommandHandler<ExternalDependenciesCommand, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<ExternalDependenciesCommand, BusResult<Any, MessageFailure>> {
+) : CommandHandler<ExternalDependenciesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
         message: ExternalDependenciesCommand
     ): BusResult<Any, MessageFailure> {
@@ -127,9 +122,7 @@ class GenericClassCommandHandler(
     private val genericClassString: GenericClass<String>,
     private val genericClassListString: GenericClass<List<String>>,
     private val genericClassGenericClassString: GenericClass<GenericClass<String>>,
-) :
-    CommandHandler<GenericClassCommand, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<GenericClassCommand, BusResult<Any, MessageFailure>> {
+) : CommandHandler<GenericClassCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: GenericClassCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")
     }
@@ -244,9 +237,7 @@ class TestEventPublishingCommand : Command<BusResult<Any, MessageFailure>>()
 @Suppress("unused")
 class TestEventPublishingCommandHandler(
     private val requiresCommandDepsContainsInterface: RequiresCommandDepsContainsInterface
-) :
-    CommandHandler<TestEventPublishingCommand, BusResult<Any, MessageFailure>>(),
-    ExecuteInTransaction<TestEventPublishingCommand, BusResult<Any, MessageFailure>> {
+) : CommandHandler<TestEventPublishingCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(
         message: TestEventPublishingCommand
     ): BusResult<Any, MessageFailure> {

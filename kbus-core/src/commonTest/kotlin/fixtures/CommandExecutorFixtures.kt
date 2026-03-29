@@ -4,7 +4,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependenciesFactory
@@ -35,6 +35,8 @@ class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
 
 class DispatchingCommandHandler :
     CommandHandler<DispatchingCommand, BusResult<Unit, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? = null
+
     override suspend fun handle(message: DispatchingCommand): BusResult<Unit, MessageFailure> {
         dispatch(TestIntegrationEvent("test-event"))
         return BusResult.success(Unit)
@@ -43,9 +45,10 @@ class DispatchingCommandHandler :
 
 class TransactionCommand(val message: String) : Command<BusResult<String, MessageFailure>>()
 
-class TransactionCommandHandler(override val transactionManager: TransactionManager? = null) :
-    CommandHandler<TransactionCommand, BusResult<String, MessageFailure>>(),
-    ExecuteInTransaction<TransactionCommand, BusResult<String, MessageFailure>> {
+class TransactionCommandHandler(transactionManager: TransactionManager? = null) :
+    CommandHandler<TransactionCommand, BusResult<String, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? =
+        TransactionConfig(transactionManagerOverride = transactionManager)
 
     override suspend fun handle(message: TransactionCommand): BusResult<String, MessageFailure> {
         return BusResult.success(message.message)

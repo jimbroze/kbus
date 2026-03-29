@@ -4,17 +4,18 @@ package com.jimbroze.kbus.example.samples.exampleUnitOfWork03
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.example.fixtures.TransferFunds
 
 class TransferFundsHandler(
-    override val transactionManager: TransactionManager
-) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>(),
-    ExecuteInTransaction<TransferFunds, BusResult<Unit, MessageFailure>> {
+    transactionManager: TransactionManager
+) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? =
+        TransactionConfig(transactionManagerOverride = transactionManager)
 
     override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
-        // This runs inside a transaction
+        // This runs inside a transaction with a custom TransactionManager
         return BusResult.success(Unit)
     }
 }

@@ -11,6 +11,7 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 
 class TestBusAccess : BusAccess {
     val dispatchedEvents = mutableListOf<Event>()
@@ -32,6 +33,8 @@ sealed interface FailureCommandFailure : MessageFailure {
 
 class BrokenStateFailureCommandHandler :
     CommandHandler<FailureCommand, BusResult<String, FailureCommandFailure>>() {
+    override val executeInTransaction: TransactionConfig? = null
+
     override suspend fun handle(message: FailureCommand): BusResult<String, FailureCommandFailure> {
         return BusResult.failure(
             FailureCommandFailure.BrokenStateFailure("Illegal state in command handling")
@@ -69,6 +72,8 @@ class EventCommand(val message: String, val listStore: MutableList<String>) :
     Command<BusResult<Unit, MessageFailure>>()
 
 class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, MessageFailure>>() {
+    override val executeInTransaction: TransactionConfig? = null
+
     override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
         dispatch(StorageEvent(message.message, message.listStore))
         return BusResult.success(Unit)

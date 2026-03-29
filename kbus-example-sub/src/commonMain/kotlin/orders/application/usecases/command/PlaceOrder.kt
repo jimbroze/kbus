@@ -6,7 +6,6 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.GenericFailure
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.ExecuteInTransaction
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.generation.test.orders.application.OrderRepository
 import com.jimbroze.kbus.generation.test.orders.application.PaymentGateway
@@ -24,9 +23,7 @@ class PlaceOrderHandler(
     private val orderRepository: OrderRepository,
     private val paymentGateway: PaymentGateway,
     private val domainEventPublisher: DomainEventPublisher,
-) :
-    CommandHandler<PlaceOrder, BusResult<Order, MessageFailure>>(),
-    ExecuteInTransaction<PlaceOrder, BusResult<Order, MessageFailure>> {
+) : CommandHandler<PlaceOrder, BusResult<Order, MessageFailure>>() {
     override suspend fun handle(message: PlaceOrder): BusResult<Order, MessageFailure> {
         val total = message.items.sumOf { it.quantity * it.unitPrice }
 
