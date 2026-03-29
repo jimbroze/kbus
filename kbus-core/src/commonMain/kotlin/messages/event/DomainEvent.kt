@@ -4,7 +4,7 @@ import com.jimbroze.kbus.domain.event.Concurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
-import com.jimbroze.kbus.domain.event.ErrorStrategy as DomainEventErrorStrategy
+import com.jimbroze.kbus.domain.event.ErrorStrategy
 
 internal fun dispatchPhaseFor(handler: DomainEventHandler<*>): DispatchPhase {
     return when (handler.dispatchTiming) {
@@ -16,9 +16,9 @@ internal fun dispatchPhaseFor(handler: DomainEventHandler<*>): DispatchPhase {
 
 internal fun errorStrategyFor(event: DomainEvent): EventErrorStrategy {
     return when (event.errorStrategy) {
-        DomainEventErrorStrategy.FireAndForget -> EventErrorStrategy.FIRE_AND_FORGET
-        DomainEventErrorStrategy.FailFast -> EventErrorStrategy.FAIL_FAST
-        DomainEventErrorStrategy.ContinueAndAggregate -> EventErrorStrategy.CONTINUE_AND_AGGREGATE
+        ErrorStrategy.FireAndForget -> EventErrorStrategy.FIRE_AND_FORGET
+        ErrorStrategy.FailFast -> EventErrorStrategy.FAIL_FAST
+        ErrorStrategy.ContinueAndAggregate -> EventErrorStrategy.CONTINUE_AND_AGGREGATE
     }
 }
 

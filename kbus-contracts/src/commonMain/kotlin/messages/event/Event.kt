@@ -13,7 +13,10 @@ interface EventHandler<TEvent : Event> : VoidReturningMessageHandler<TEvent> {
     override suspend fun handle(message: TEvent)
 }
 
-abstract class IntegrationEvent : Event()
+abstract class IntegrationEvent : Event() {
+    open val concurrency: Concurrency = Concurrency.Concurrent
+    open val errorStrategy: ErrorStrategy = ErrorStrategy.FireAndForget
+}
 
 interface IntegrationEventHandler<TEvent : IntegrationEvent> : EventHandler<TEvent> {
     override suspend fun handle(message: TEvent)

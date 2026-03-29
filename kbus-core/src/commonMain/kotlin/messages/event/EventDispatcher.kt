@@ -25,14 +25,14 @@ class EventDispatcher(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
-        val errorStrategy = EventErrorStrategy.FIRE_AND_FORGET
+        val errorStrategy = errorStrategyFor(event)
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             val dispatchHandlersWithErrorHandling =
                 dispatchHandlersWithErrorHandling(handlers, message, errorStrategy)
 
             dispatchHandlersWithConcurrency(
-                EventConcurrency.CONCURRENT,
+                concurrencyFor(event),
                 dispatchHandlersWithErrorHandling,
                 null,
                 errorStrategy,
