@@ -173,15 +173,6 @@ class LockingMiddleware(
         return withContext(BusLockToken(newHeldKeys)) { nextMiddleware(message) }
     }
 
-    private fun <TMessage : Message, TResult> exitEarly(message: TMessage, error: String): TResult {
-        return if (message is ResultReturningLockAwareMessage<*>) {
-            @Suppress("UNCHECKED_CAST")
-            message.busLockedFailure(BusLockedFailure(error)) as TResult
-        } else {
-            throw BusLockedException(error)
-        }
-    }
-
     private suspend fun acquireLock(
         key: String,
         token: String,
@@ -268,4 +259,13 @@ private sealed interface WaitOutcome {
     object Timeout : WaitOutcome
 
     data class ProviderError(val exception: Throwable) : WaitOutcome
+}
+
+private fun <TMessage : Message, TResult> exitEarly(message: TMessage, error: String): TResult {
+    return if (message is ResultReturningLockAwareMessage<*>) {
+        @Suppress("UNCHECKED_CAST")
+        message.busLockedFailure(BusLockedFailure(error)) as TResult
+    } else {
+        throw BusLockedException(error)
+    }
 }
