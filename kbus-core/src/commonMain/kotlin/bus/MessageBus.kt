@@ -17,6 +17,7 @@ import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -110,7 +111,7 @@ abstract class BaseMessageBus(
 
 class MessageBus(
     handlerLocator: HandlerLocator = PersistingHandlerLocator(),
-    transactionManager: TransactionManager? = null,
+    transactionManager: TransactionManager? = EmptyTransactionManager(),
     middlewares: List<Middleware> = emptyList(),
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope)

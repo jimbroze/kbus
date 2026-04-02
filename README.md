@@ -140,8 +140,8 @@ taking a `DomainEventPublisher` as a constructor dependency. See the section on 
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.domain.DomainEvent
-import com.jimbroze.kbus.domain.DomainEventPublisher
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 -->
 
 ```kotlin
@@ -199,28 +199,36 @@ transaction commits**. This default is intentional:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.core.messages.event.DispatchImmediatelyInTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchAtEndOfTransaction
-import com.jimbroze.kbus.core.messages.event.DispatchAfterTransaction
+import com.jimbroze.kbus.domain.event.DispatchTiming
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.example.fixtures.OrderShipped
 -->
 
 ```kotlin
 // Dispatched immediately when the event is raised (synchronous)
-class NotifyWarehouse : DispatchImmediatelyInTransaction<OrderShipped>() {
-    override suspend fun handle(message: OrderShipped) { /* ... */
+class NotifyWarehouse : DomainEventHandler<OrderShipped>() {
+    override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
+
+    override suspend fun handle(message: OrderShipped) {
+        /* ... */
     }
 }
 
 // Dispatched after the primary handler completes but before transaction commit (synchronous)
-class UpdateInventory : DispatchAtEndOfTransaction<OrderShipped>() {
-    override suspend fun handle(message: OrderShipped) { /* ... */
+class UpdateInventory : DomainEventHandler<OrderShipped>() {
+    override val dispatchTiming = DispatchTiming.AtEndOfTransaction
+
+    override suspend fun handle(message: OrderShipped) {
+        /* ... */
     }
 }
 
 // Dispatched after the transaction has been committed (asynchronous)
-class SendShipmentNotification : DispatchAfterTransaction<OrderShipped>() {
-    override suspend fun handle(message: OrderShipped) { /* ... */
+class SendShipmentNotification : DomainEventHandler<OrderShipped>() {
+    override val dispatchTiming = DispatchTiming.AfterTransaction
+
+    override suspend fun handle(message: OrderShipped) {
+        /* ... */
     }
 }
 ```

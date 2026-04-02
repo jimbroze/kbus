@@ -8,8 +8,8 @@ import com.jimbroze.kbus.domain.event.ErrorStrategy
 
 internal fun dispatchPhaseFor(handler: DomainEventHandler<*>): DispatchPhase {
     return when (handler.dispatchTiming) {
-        DispatchTiming.Immediately -> DispatchPhase.IMMEDIATE
-        DispatchTiming.AfterPrimaryWork -> DispatchPhase.SECONDARY
+        DispatchTiming.ImmediatelyInTransaction -> DispatchPhase.IMMEDIATE
+        DispatchTiming.AtEndOfTransaction -> DispatchPhase.SECONDARY
         DispatchTiming.AfterTransaction -> DispatchPhase.POST_COMMIT
     }
 }

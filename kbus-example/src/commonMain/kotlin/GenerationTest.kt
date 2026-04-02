@@ -220,7 +220,7 @@ class TestGeneratorEvent : DomainEvent()
 @Suppress("unused")
 class TestGeneratorEventHandler(@Suppress("unused") private val clock: Clock) :
     DomainEventHandler<TestGeneratorEvent>() {
-    override val dispatchTiming = DispatchTiming.Immediately
+    override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
 
     override suspend fun handle(message: TestGeneratorEvent) {
         timesHandled++
