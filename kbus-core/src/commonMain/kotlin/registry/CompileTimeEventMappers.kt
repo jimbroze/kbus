@@ -13,10 +13,7 @@ class CompileTimeDomainEventMapper(val rawMapper: DomainEventMapper) {
     }
 }
 
-// TODO add more event examples
-// TODO Create another submodule. Put 'real-sounding' use-cases in both. They should include the
-// external
-// dependencies. Plus existing examples can stay in top module.
+// TODO Ensure this is in examples
 // TODO ensure that only contracts dependency in sub modules.
 class CompileTimeIntegrationEventMapper(val rawMapper: IntegrationEventMapper) {
     fun <TEvent : IntegrationEvent> addEventHandlers(

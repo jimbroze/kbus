@@ -12,7 +12,6 @@ import com.google.devtools.ksp.symbol.KSValueParameter
 import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
-import kotlin.reflect.KClass
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -172,12 +171,12 @@ private fun cannotBeDependency(
     commandDependencyProperties: CommandDependencyProperties,
 ): Boolean {
     val nonDependencyPrefixes = setOf("kotlin", "kotlinx")
-    val canBeDependency = setOf<KClass<out Any>>(Clock::class)
+    val canBeDependency = setOf(Clock::class.qualifiedName!!, "kotlinx.datetime.Clock")
 
     val disallowedByPackage =
         nonDependencyPrefixes.any { prefix ->
             parameter.packageName.asString().startsWith(prefix)
-        } && canBeDependency.none { parameter.qualifiedName!!.asString() == it.qualifiedName }
+        } && canBeDependency.none { parameter.qualifiedName!!.asString() == it }
 
     return commandDependencyProperties.contains(parameter) || disallowedByPackage
 }
