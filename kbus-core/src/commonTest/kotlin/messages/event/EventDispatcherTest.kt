@@ -61,9 +61,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 
 @Suppress("LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -658,4 +662,27 @@ class EventDispatcherTest {
 
         assertEquals(listOf("threw:test", "success:test"), env.results)
     }
+
+    // =========================================================================
+    // OBSERVER REGISTRY
+    // =========================================================================
+
+    @Test
+    fun dispatching_integration_event_emits_to_observer_registry() = runTest {
+        val registry = IntegrationEventObserverRegistry()
+        val dispatcher = EventDispatcher({ emptyList() }, emptyList(), this, registry)
+
+        val received = mutableListOf<TestIntegrationEvent>()
+        val flow = registry.observableFor(TestIntegrationEvent::class)
+        val job = launch { flow.take(1).toList(received) }
+        yield()
+
+        dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("observed"))
+        advanceUntilIdle()
+        job.join()
+
+        assertEquals("observed", received.single().name)
+    }
+
+    // TODO test observer emit is after other dispatches
 }

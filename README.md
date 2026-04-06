@@ -260,6 +260,34 @@ class SyncToExternalCRM :
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-01.kt).
 
+#### Observing Integration Events
+
+Integration events can be observed as Kotlin Flows directly from the bus. With the generated bus, only known
+events can be observed — attempting to observe an unknown event is a compile error:
+
+```kotlin
+// With the generated bus — type-safe, one method per known event
+val bus = CompileTimeLoadedMessageBus(loader, transactionManager, middleware)
+
+scope.launch {
+    bus.observeUserRegistered().collect { event ->
+        println("User registered: ${event.userId}")
+    }
+}
+
+// With the runtime bus — any IntegrationEvent can be observed
+val runtimeBus = MessageBus(handlerLocator)
+
+scope.launch {
+    runtimeBus.observe(UserRegistered::class).collect { event ->
+        println("User registered: ${event.userId}")
+    }
+}
+```
+
+Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler
+success or failure.
+
 Command handlers can dispatch integration events:
 
 <!--- CLEAR -->
@@ -553,8 +581,8 @@ The KSP processor generates:
 - **`AllDependencies`** — Interface listing all required dependencies (implement this to provide them)
 - **`AllHandlers`** — Interface with factory methods for every handler
 - **`HandlerFactory`** — Factory that creates handlers with their dependencies resolved
-- **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute` and `fetch` methods for each message
-  type
+- **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
+  each message type
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
 
 ### Using the Generated Bus

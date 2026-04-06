@@ -18,11 +18,13 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
+import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -109,9 +111,13 @@ abstract class BaseMessageBus(
     }
 }
 
+// TODO change KSP to use extension functions?
 class MessageBus(
     handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = EmptyTransactionManager(),
     middlewares: List<Middleware> = emptyList(),
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope)
+) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope) {
+    fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
+        eventDispatcher.observerRegistry.observableFor(eventClass)
+}
