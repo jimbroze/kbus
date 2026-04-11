@@ -10,7 +10,6 @@ import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
 import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
 import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
-import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
@@ -64,20 +63,8 @@ class BusGenerator(
             .filterNot { it is EventHandlerDefinition }
             .forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
 
-        val integrationEventClasses =
-            handlers
-                .filterIsInstance<EventHandlerDefinition>()
-                .filter { it.kind == EventHandlerKind.INTEGRATION }
-                .map { it.handlerData.messageClass }
-                .toSet()
-
-        integrationEventClasses.forEach { eventClass ->
-            classBuilder.addFunction(buildObserveFunction(eventClass))
-        }
-
         classBuilder.addFunction(buildDeprecatedExecute())
         classBuilder.addFunction(buildDeprecatedFetch())
-        classBuilder.addFunction(buildDeprecatedObserve())
 
         val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
@@ -188,43 +175,6 @@ class BusGenerator(
         )
 
         return functionBuilder.build()
-    }
-
-    private fun buildObserveFunction(eventClass: ClassName): FunSpec {
-        val flowClassName = ClassName("kotlinx.coroutines.flow", "Flow")
-        val flowType = flowClassName.parameterizedBy(eventClass)
-        val methodName = "observe${eventClass.simpleName}"
-
-        return FunSpec.builder(methodName)
-            .returns(flowType)
-            .addStatement(
-                "return eventDispatcher.observerRegistry.observableFor(%T::class)",
-                eventClass,
-            )
-            .build()
-    }
-
-    private fun buildDeprecatedObserve(): FunSpec {
-        val flowClassName = ClassName("kotlinx.coroutines.flow", "Flow")
-        val integrationEventClassName =
-            ClassName("com.jimbroze.kbus.contracts.messages.event", "IntegrationEvent")
-        val tEvent = TypeVariableName("TEvent", integrationEventClassName)
-
-        return FunSpec.builder("observe")
-            .addAnnotation(
-                AnnotationSpec.builder(Deprecated::class)
-                    .addMember(
-                        "message = %S",
-                        "This event has not been loaded. Are you missing a @LoadMessageHandler annotation?",
-                    )
-                    .addMember("level = %T.%L", DeprecationLevel::class, "ERROR")
-                    .build()
-            )
-            .addTypeVariable(tEvent)
-            .addParameter("eventClass", KClass::class.asClassName().parameterizedBy(tEvent))
-            .returns(flowClassName.parameterizedBy(tEvent))
-            .addStatement("error(%S)", "Should not be called directly on the compile-time bus.")
-            .build()
     }
 
     private fun buildDeprecatedExecute(): FunSpec {

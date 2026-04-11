@@ -109,6 +109,11 @@ abstract class BaseMessageBus(
 
         eventDispatcher.dispatchIntegrationEvent(event, handlers)
     }
+
+    fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
+        eventDispatcher.observerRegistry.observableFor(eventClass)
+
+    inline fun <reified T : IntegrationEvent> observe(): Flow<T> = observe(T::class)
 }
 
 // TODO change KSP to use extension functions?
@@ -117,7 +122,4 @@ class MessageBus(
     transactionManager: TransactionManager? = EmptyTransactionManager(),
     middlewares: List<Middleware> = emptyList(),
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope) {
-    fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
-        eventDispatcher.observerRegistry.observableFor(eventClass)
-}
+) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope)
