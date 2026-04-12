@@ -2,6 +2,7 @@ name: Publish Artifacts
 on:
   release:
     types: [ published ]
+  workflow_call:
 
 env:
   JAVA_VERSION: '17'
