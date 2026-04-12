@@ -23,7 +23,6 @@ jobs:
         with:
           java-version: ${{env.JAVA_VERSION}}
           distribution: ${{env.JAVA_DISTRIBUTION}}
-          cache: gradle
 
       - name: Set up XCode
         uses: maxim-lobanov/setup-xcode@v1
