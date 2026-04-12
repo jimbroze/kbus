@@ -1,0 +1,57 @@
+package com.jimbroze.kbus.core.uow
+
+import com.jimbroze.kbus.contracts.uow.TransactionManager
+
+internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TResult> {
+    private lateinit var primaryWork: suspend () -> TResult
+    private val secondaryWork: MutableList<suspend () -> Unit> = mutableListOf()
+    private val postCommitWork: MutableList<suspend () -> Unit> = mutableListOf()
+    private var transactionManager: TransactionManager = EmptyTransactionManager()
+
+    override suspend fun execute(): TResult {
+        val blockForTransaction: suspend () -> TResult = {
+            val result = primaryWork()
+            executeSecondaryWork()
+            result
+        }
+
+        val transactionManager = this.transactionManager
+        val result = transactionManager.execute(blockForTransaction)
+
+        executeAfterCommitWork()
+
+        return result
+    }
+
+    override fun setReturningWork(primaryWork: suspend () -> TResult) {
+        this.primaryWork = primaryWork
+    }
+
+    override fun addSecondaryWork(subUnitOfWork: suspend () -> Unit) {
+        secondaryWork.add(subUnitOfWork)
+    }
+
+    override fun addPostCommitWork(subUnitOfWork: suspend () -> Unit) {
+        postCommitWork.add(subUnitOfWork)
+    }
+
+    override fun useTransaction(transactionManager: TransactionManager) {
+        this.transactionManager = transactionManager
+    }
+
+    private suspend fun executeSecondaryWork() {
+        secondaryWork.forEach { it() }
+    }
+
+    private suspend fun executeAfterCommitWork() {
+        postCommitWork.forEach { it() }
+    }
+}
+
+class DefaultUnitOfWorkFactory : UnitOfWorkFactory {
+    override fun <TResult> create(): UnitOfWork<TResult> = DefaultUnitOfWork()
+}
+
+class EmptyTransactionManager : TransactionManager {
+    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult = block()
+}

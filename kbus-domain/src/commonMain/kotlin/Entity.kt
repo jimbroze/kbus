@@ -1,0 +1,17 @@
+package com.jimbroze.kbus.domain
+
+interface Identifier {
+    override fun equals(other: Any?): Boolean
+
+    override fun hashCode(): Int
+}
+
+abstract class Entity<T : Entity<T>> {
+    abstract val id: Identifier
+
+    fun hasSameIdentityAs(other: T): Boolean {
+        return id == other.id
+    }
+}
+
+abstract class AggregateRoot<T : AggregateRoot<T>> : Entity<T>()

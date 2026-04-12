@@ -1,0 +1,16 @@
+@file:OptIn(ExperimentalTime::class)
+
+package com.jimbroze.kbus.testdoubles
+
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+class AutoTickingClock(private var current: Instant) : Clock {
+    override fun now(): Instant {
+        val timeToReturn = current
+        current += 1.milliseconds
+        return timeToReturn
+    }
+}

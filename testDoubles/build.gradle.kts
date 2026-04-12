@@ -1,12 +1,3 @@
+plugins { id("kbus.multiplatform") }
 
-plugins {
-    id("kbus.multiplatform")
-}
-
-kotlin {
-    sourceSets {
-        commonMain.dependencies {
-            implementation(project(":kbus-core"))
-        }
-    }
-}
+kotlin { sourceSets { commonMain.dependencies { implementation(libs.kotlinx.coroutines.test) } } }

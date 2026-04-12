@@ -23,17 +23,16 @@ include("kotlin-library")
 
 include("testDoubles")
 
-include("kbus-annotations")
+include("kbus-contracts")
+
+include("kbus-domain")
 
 include("kbus-core")
 
-include("kbus-koin")
-
 include("kbus-generation")
 
-include(
-    "kbus-generation-test"
-)
+include("kbus-example")
 
-// includeBuild("core")
-// includeBuild("koin")
+include("kbus-example-sub")
+
+include("kbus-example-sub-two")

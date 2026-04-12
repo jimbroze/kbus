@@ -45,3 +45,4 @@ replay_pid*
 !gradle-wrapper.jar
 
 secret_key.gpg
+.aider*

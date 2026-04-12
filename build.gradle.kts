@@ -1,17 +1,20 @@
-import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
 import io.gitlab.arturbosch.detekt.Detekt
 import java.util.*
 
 description = "Kotlin message bus framework"
 
 plugins {
-    id("com.ncorti.ktfmt.gradle") version ("0.20.1")
-    id("io.gitlab.arturbosch.detekt") version ("1.23.7")
+    base
+    alias(libs.plugins.ncorti.ktfmt)
+    alias(libs.plugins.arturbosch.detekt)
+
+    kotlin("multiplatform") apply false // Required for Knit
+    alias(libs.plugins.kotlinx.knit)
 }
 
 allprojects {
     group = "com.jimbroze"
-    version = System.getenv("VERSION_OVERRIDE") ?: "0.2.4"
+    version = System.getenv("VERSION_OVERRIDE") ?: "0.3.0"
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }
@@ -37,34 +40,6 @@ if (localPropertiesFile.exists()) {
     }
 }
 
-val gitHooksDir = file(".git/hooks")
-
-tasks.register<Copy>("installGitHooks") {
-    onlyIf { gitHooksDir.exists() }
-    from(rootProject.rootDir.resolve("bin/pre-commit"))
-    into(rootProject.rootDir.resolve(".git/hooks"))
-    filePermissions {
-        user.read = true
-        user.write = true
-        user.execute = true
-        other.read = true
-        other.write = true
-        other.execute = true
-    }
-}
-
-tasks.register<KtfmtFormatTask>("ktfmtPrecommitFormat") {
-    group = "formatting"
-    description = "Runs ktfmt on kotlin files in the project"
-    source = project.fileTree(rootDir).apply { include("**/*.kt", "**/*.kts") }
-}
-
-tasks.whenTaskAdded {
-    if (name == "build") {
-        dependsOn("installGitHooks")
-    }
-}
-
 tasks.withType<Detekt>().configureEach {
     reports {
         // Enable the generation of an HTML report
@@ -76,5 +51,32 @@ tasks.withType<Detekt>().configureEach {
 
         md.required.set(true)
         md.outputLocation.set(file("build/reports/detekt.md"))
+    }
+}
+
+knit {
+    files =
+        fileTree(project.rootDir) {
+            include("**/*.md")
+            include("**/*.kt")
+            include("**/*.kts")
+
+            exclude("**/build/**")
+            exclude("**/.gradle/**")
+
+            exclude("**/.aider.chat.history.md")
+            exclude("**/.aider/**")
+        }
+}
+
+val knitTask = tasks.named("knit")
+val ktfmtTask = tasks.named("ktfmtFormat")
+
+allprojects {
+    pluginManager.withPlugin("base") {
+        tasks.named("check") {
+            dependsOn(knitTask)
+            dependsOn(ktfmtTask)
+        }
     }
 }
