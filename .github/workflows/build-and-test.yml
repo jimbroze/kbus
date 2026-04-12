@@ -64,7 +64,7 @@ jobs:
 
       - name: Build and test Apple
         if: matrix.os == 'macos-latest'
-        run: ./gradlew macosX64Test macosArm64Test iosX64Test iosArm64Test iosSimulatorArm64Test
+        run: ./gradlew macosX64Test macosArm64Test iosX64Test iosSimulatorArm64Test
 
       - name: Build and test Windows
         if: matrix.os == 'windows-latest'
