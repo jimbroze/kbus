@@ -1,9 +1,14 @@
-name: Push to all
+name: Build and Test
 
 on:
   push:
     branches:
       - '**'
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   JAVA_VERSION: '17'
@@ -22,7 +27,6 @@ jobs:
         with:
           java-version: ${{env.JAVA_VERSION}}
           distribution: ${{env.JAVA_DISTRIBUTION}}
-          cache: gradle
 
       - name: Set up XCode
         uses: maxim-lobanov/setup-xcode@v1

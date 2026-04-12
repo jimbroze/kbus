@@ -1,18 +1,23 @@
-name: Release Package Version
+name: Main Branch CI/CD Pipeline
 on:
   push:
     branches:
-      - main
+      - 'main'
 
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'corretto'
 
 jobs:
+  build-and-test:
+    uses: ./.github/workflows/build-and-test.yml
+
   release:
+    needs: build-and-test
     runs-on: ubuntu-latest
     outputs:
       tag_exists: ${{ steps.check_tag.outputs.exists }}
+      version: ${{ steps.gradle_version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,12 +51,16 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }} # PAT so that downstream actions can be triggered
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         with:
           tag_name: v${{ steps.gradle_version.outputs.version }}
           generate_release_notes: true
-  call-publish-workflow:
+
+  publish:
     needs: release
     if: needs.release.outputs.tag_exists == 'false'
     uses: ./.github/workflows/publish.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
     secrets: inherit
+
