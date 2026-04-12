@@ -1,9 +1,10 @@
-name: Push to all
+name: Build and Test
 
 on:
   push:
     branches:
       - '**'
+  workflow_call:
 
 env:
   JAVA_VERSION: '17'
