@@ -3,6 +3,11 @@ on:
   release:
     types: [ published ]
   workflow_call:
+    inputs:
+      version:
+        description: 'The version to publish'
+        required: true
+        type: string
 
 env:
   JAVA_VERSION: '17'
@@ -32,9 +37,13 @@ jobs:
 
       - name: Extract Release Version
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-        env:
-          GITHUB_REF: ${{ github.event.release.tag_name }}
+        run: |
+          RAW_VERSION="${{ inputs.version || github.event.release.tag_name }}"
+          
+          # Strip the 'v' prefix if it exists (e.g., v1.0.0 becomes 1.0.0)
+          SAFE_VERSION="${RAW_VERSION#v}"
+          
+          echo "VERSION=$SAFE_VERSION" >> $GITHUB_ENV
 
       - name: Publish To Maven Central
         env:
