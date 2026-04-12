@@ -40,7 +40,8 @@ jobs:
       - name: Check if tag exists
         id: check_tag
         run: |
-          TAG_EXISTS=$(git tag -l "v${{ steps.gradle_version.outputs.version }}")
+          TAG_EXISTS=$(git ls-remote --tags origin "refs/tags/v${{ steps.gradle_version.outputs.version }}")
+          
           if [ -z "$TAG_EXISTS" ]; then
             echo "exists=false" >> $GITHUB_OUTPUT
           else
