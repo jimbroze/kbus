@@ -17,8 +17,16 @@ env:
   XCODE_VERSION: '26.3'
 
 jobs:
-  build:
-    runs-on: macos-latest
+  build-matrix:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+          - os: windows-latest
 
     steps:
       - uses: actions/checkout@v6
@@ -29,26 +37,49 @@ jobs:
           java-version: ${{env.JAVA_VERSION}}
           distribution: ${{env.JAVA_DISTRIBUTION}}
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Cache Kotlin/Native compiler
+        uses: actions/cache@v5
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
+
       - name: Set up XCode
+        if: matrix.os == 'macos-latest'
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+      - name: Run static analysis
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew ktfmtCheck detekt
 
-      - name: Run ktfmt Checker
-        run: ./gradlew ktfmtCheck
+      - name: Build and test non-Apple
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew build -x ktfmtCheck -x detekt
 
-      - name: Run detekt
-        run: ./gradlew detekt
+      - name: Build and test Apple
+        if: matrix.os == 'macos-latest'
+        run: ./gradlew macosX64Test macosArm64Test iosX64Test iosSimulatorArm64Test
 
-      - name: Build and test
-        run: ./gradlew build
+      - name: Build and test Windows
+        if: matrix.os == 'windows-latest'
+        run: ./gradlew mingwX64Test
 
       - name: Upload build reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: build-reports
+          name: build-reports-${{ matrix.os }}
           path: '**/build/reports'
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    needs: build-matrix
+    steps:
+      - name: Report Success
+        run: echo "All matrix builds passed successfully"
