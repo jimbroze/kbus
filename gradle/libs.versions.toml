@@ -4,6 +4,7 @@ jdk-target = "17"
 #kotest = "6.0.7"
 kotlin = "2.2.21"
 kotlinPoet = "2.2.0"
+kotlinxAtomicfu = "0.32.1"
 kotlinxCoroutinesCore = "1.10.2"
 kotlinxKnit = "0.5.1"
 kotlinxSerializationJson = "1.6.3"
@@ -31,4 +32,5 @@ ncorti-ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
 #kotest = { id = "io.kotest", version.ref = "kotest" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlinx-knit = { id = "org.jetbrains.kotlinx.knit", version.ref = "kotlinxKnit" }
+kotlinx-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "kotlinxAtomicfu" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

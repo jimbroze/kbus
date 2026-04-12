@@ -4,6 +4,7 @@ plugins {
     id("kbus.multiplatform")
     id("kbus.publish")
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlinx.atomicfu)
 }
 
 kotlin {
@@ -13,6 +14,7 @@ kotlin {
             api(projects.kbusDomain)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            //            implementation(libs.kotlinx.atomicfu)
         }
 
         commonTest.dependencies {
