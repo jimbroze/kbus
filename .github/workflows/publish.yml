@@ -2,11 +2,12 @@ name: Publish Artifacts
 on:
   release:
     types: [ published ]
+  workflow_call:
 
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'corretto'
-  XCODE_VERSION: '15.3'
+  XCODE_VERSION: '26.3'
 
 jobs:
   publish:

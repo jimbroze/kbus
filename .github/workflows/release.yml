@@ -11,6 +11,8 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag_exists: ${{ steps.check_tag.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,3 +50,8 @@ jobs:
         with:
           tag_name: v${{ steps.gradle_version.outputs.version }}
           generate_release_notes: true
+  call-publish-workflow:
+    needs: release
+    if: needs.release.outputs.tag_exists == 'false'
+    uses: ./.github/workflows/publish.yml
+    secrets: inherit
