@@ -14,6 +14,8 @@ handler resolution (zero reflection).
 - **Unit of Work** — Transaction-aware command execution with domain and integration events
 - **Domain modeling** — Built-in support for Entities, Aggregate Roots, and Value Objects
 - **Result types** — Type-safe `BusResult<TValue, TMessageFailure>` with `Success` and `Failure` variants
+- **Serialization** — `MessageSerializer` interface with a `JsonMessageSerializer` implementation; KSP auto-generates a
+  `SerializersModule` and serializer map for all `@Serializable` messages
 
 ## Installation
 
@@ -584,6 +586,8 @@ The KSP processor generates:
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
+- **`KbusSerializersModule`** / **`KbusSerializerMap`** — Serialization support for all `@Serializable` messages (see
+  [Serialization](#serialization))
 
 ### Using the Generated Bus
 
@@ -628,6 +632,66 @@ ksp {
 
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
 these indexes automatically.
+
+## Serialization
+
+KBUS provides a `MessageSerializer` interface for converting messages to and from bytes, useful for persisting messages
+to a store or transmitting them over the wire.
+
+### MessageSerializer Interface
+
+```kotlin
+interface MessageSerializer {
+    fun serialize(message: Message): ByteArray
+    fun deserialize(payload: ByteArray, messageType: String): Message
+}
+```
+
+`deserialize` requires the fully qualified class name of the target message type (e.g.,
+`"com.myapp.events.OrderPlaced"`), allowing type-safe reconstruction without reflection.
+
+### JsonMessageSerializer
+
+A `kotlinx.serialization`-based JSON implementation is provided in `kbus-core`. It requires a `SerializersModule`
+that registers your message classes polymorphically under `Message::class`:
+
+```kotlin
+val module = SerializersModule {
+    polymorphic(Message::class) {
+        subclass(OrderPlaced::class)
+    }
+}
+
+val serializer = JsonMessageSerializer(module = module)
+
+val bytes = serializer.serialize(OrderPlaced("order-123"))
+val message = serializer.deserialize(bytes, "com.myapp.events.OrderPlaced")
+```
+
+You can also supply a custom `Json` instance as the first argument to override defaults (e.g.,
+`Json { prettyPrint = true }`).
+
+### KSP-Generated Serializers
+
+When using KSP code generation, the processor automatically generates a `KbusSerializers.kt` file for any message
+class that is both handled by a `@LoadMessageHandler` handler **and** annotated with
+`@kotlinx.serialization.Serializable`. Two top-level properties are generated:
+
+| Symbol                  | Type                                    | Purpose                                                                                                      |
+|-------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `KbusSerializersModule` | `SerializersModule`                     | Drop-in module for `JsonMessageSerializer` and any `kotlinx.serialization` `Json` instance                   |
+| `KbusSerializerMap`     | `Map<String, KSerializer<out Message>>` | Lookup serializers by fully qualified class name, for direct deserialization without the polymorphic wrapper |
+
+Pass the generated module directly to `JsonMessageSerializer`:
+
+```kotlin
+val serializer = JsonMessageSerializer(module = KbusSerializersModule)
+
+val bytes = serializer.serialize(CreateUserCommand("alice@example.com"))
+val message = serializer.deserialize(bytes, "com.myapp.commands.CreateUserCommand")
+```
+
+Messages that are not annotated with `@Serializable` are silently excluded from both generated artifacts.
 
 ## Domain Modeling
 
