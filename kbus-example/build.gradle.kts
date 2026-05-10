@@ -1,6 +1,7 @@
 plugins {
     id("kbus.multiplatform")
     alias(libs.plugins.devtools.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -13,6 +14,7 @@ kotlin {
             implementation(projects.kbusExampleSubTwo)
 
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
         }
 
         commonTest.dependencies {
