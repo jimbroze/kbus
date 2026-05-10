@@ -9,6 +9,7 @@ data class HandlerData(
     val messageClass: ClassName,
     val returnType: TypeName,
     val topLevelDependencies: List<Dependency>,
+    val isSerializable: Boolean = false,
 ) {
     val nameAsDependency: String
         get() = handlerClass.simpleName.replaceFirstChar { it.lowercase() }

@@ -16,6 +16,7 @@ import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.LoadedEventHandlersGenerator
+import com.jimbroze.kbus.generation.generators.SerializerModuleGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -32,6 +33,7 @@ class CodeGenerators(
     val dependencyIndexGenerator: DependencyIndexGenerator,
     val bus: BusGenerator,
     val loadedEventHandlersGenerator: LoadedEventHandlersGenerator,
+    val serializerModuleGenerator: SerializerModuleGenerator,
 )
 
 class KbusProcessor(
@@ -119,6 +121,10 @@ class KbusProcessor(
                 sourceFiles,
             )
             generators.bus.generateClass(dependencies.handlers, sourceFiles)
+            generators.serializerModuleGenerator.generateSerializerProperties(
+                dependencies.handlers,
+                sourceFiles,
+            )
         }
     }
 }

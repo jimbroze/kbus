@@ -58,6 +58,7 @@ class HandlerFactory(
                 messageClass.toClassName(),
                 UNIT,
                 constructorDependencies,
+                isSerializable(messageClass),
             ),
             kind,
         )
@@ -116,6 +117,7 @@ class HandlerFactory(
                 messageClass.toClassName(),
                 returnType.toTypeName(),
                 constructorDependencies,
+                isSerializable(messageClass),
             ),
             logger,
         )
@@ -141,6 +143,13 @@ class HandlerFactory(
             isEventHandler(it.resolve().declaration as? KSClassDeclaration ?: return@any false)
         }
     }
+
+    private fun isSerializable(classDecl: KSClassDeclaration): Boolean =
+        classDecl.annotations.any {
+            it.shortName.asString() == "Serializable" &&
+                it.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                    "kotlinx.serialization.Serializable"
+        }
 }
 
 fun createHandler(
