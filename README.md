@@ -359,7 +359,8 @@ val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something 
 ## Middleware
 
 Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next
-handler in the chain.
+handler in the chain. Every `handle` call also receives a `MiddlewareInvocationContext`, a per-invocation context
+object passed to all middleware in the chain.
 
 ### Writing Custom Middleware
 
@@ -368,6 +369,7 @@ handler in the chain.
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import kotlin.time.TimeSource
 -->
 
@@ -375,6 +377,7 @@ import kotlin.time.TimeSource
 class TimingMiddleware : Middleware {
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
+        context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         val mark = TimeSource.Monotonic.markNow()

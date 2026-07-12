@@ -6,6 +6,7 @@ import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
 import com.jimbroze.kbus.core.infrastructure.logging.Logger
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 
 class LoggingMiddleware(
     private val logger: Logger,
@@ -15,6 +16,7 @@ class LoggingMiddleware(
 ) : Middleware {
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
+        context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         if (message !is LoggingMessage) return nextMiddleware(message)
