@@ -9,7 +9,7 @@ import com.jimbroze.kbus.contracts.result.BusResult.Companion.failure
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.middleware.DefaultMiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -54,7 +54,7 @@ class NestingLockCommandHandler(private val locker: LockingMiddleware) :
         val preNestTime = TimeSource.Monotonic.markNow()
 
         val result =
-            locker.handle(message.internalCommand, DefaultMiddlewareInvocationContext) {
+            locker.handle(message.internalCommand, EmptyMiddlewareInvocationContext) {
                 c: TimeReturnCommand ->
                 TimeReturnCommandHandler().handle(c)
             }

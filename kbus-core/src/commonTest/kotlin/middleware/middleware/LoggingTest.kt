@@ -14,7 +14,7 @@ import com.jimbroze.kbus.core.fixtures.LoggingStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
-import com.jimbroze.kbus.core.middleware.DefaultMiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -32,7 +32,7 @@ class LoggingTest {
 
         logger.handle(
             StorageCommand("Testing", mutableListOf()),
-            DefaultMiddlewareInvocationContext,
+            EmptyMiddlewareInvocationContext,
         ) {
             StorageCommandHandler().handle(it)
         }
@@ -48,7 +48,7 @@ class LoggingTest {
 
         logger.handle(
             LoggingLogCommand("Testing", captureLogger),
-            DefaultMiddlewareInvocationContext,
+            EmptyMiddlewareInvocationContext,
         ) {
             LoggingLogCommandHandler().handle(it)
         }
@@ -67,7 +67,7 @@ class LoggingTest {
 
         logger.handle(
             LoggingLogCommand("Testing", captureLogger),
-            DefaultMiddlewareInvocationContext,
+            EmptyMiddlewareInvocationContext,
         ) {
             LoggingLogCommandHandler().handle(it)
         }
@@ -86,7 +86,7 @@ class LoggingTest {
 
         logger.handle(
             LoggingLogQuery("Testing", captureLogger),
-            DefaultMiddlewareInvocationContext,
+            EmptyMiddlewareInvocationContext,
         ) {
             LoggingLogQueryHandler().handle(it)
         }
@@ -104,7 +104,7 @@ class LoggingTest {
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
-            logger.handle(LoggingExceptionCommand(), DefaultMiddlewareInvocationContext) {
+            logger.handle(LoggingExceptionCommand(), EmptyMiddlewareInvocationContext) {
                 ExceptionCommandHandler().handle(it)
             }
         }
@@ -125,7 +125,7 @@ class LoggingTest {
 
         logger.handle(
             LoggingStorageEvent("Testing", mutableListOf()),
-            DefaultMiddlewareInvocationContext,
+            EmptyMiddlewareInvocationContext,
         ) {
             PrintEventHandler().handle(it)
         }
@@ -143,7 +143,7 @@ class LoggingTest {
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
-            logger.handle(LoggingExceptionEvent(), DefaultMiddlewareInvocationContext) {
+            logger.handle(LoggingExceptionEvent(), EmptyMiddlewareInvocationContext) {
                 ExceptionEventHandler().handle(it)
             }
         }

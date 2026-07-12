@@ -9,7 +9,7 @@ import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignallingLock
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
-import com.jimbroze.kbus.core.middleware.DefaultMiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,14 +50,14 @@ class InMemoryLockingTest : LockingTestBase() {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
             currentTime
         }
         val job2 = async {
-            locker.handle(ConfigurableLockingCommand("Job2"), DefaultMiddlewareInvocationContext) {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
@@ -87,14 +87,14 @@ class InMemoryLockingTest : LockingTestBase() {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
             currentTime
         }
         val job2 = async {
-            locker.handle(ReturnCommand("Job2"), DefaultMiddlewareInvocationContext) {
+            locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ReturnCommandHandler().handle(it)
             }
             currentTime

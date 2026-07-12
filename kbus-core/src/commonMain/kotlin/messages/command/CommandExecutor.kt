@@ -6,7 +6,7 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.middleware.DefaultMiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
@@ -22,7 +22,7 @@ class CommandExecutor(
     private val commandDependenciesFactory: CommandDependenciesFactory,
     private val unitOfWorkFactory: UnitOfWorkFactory = DefaultUnitOfWorkFactory(),
     private val invocationContextProvider: () -> MiddlewareInvocationContext = {
-        DefaultMiddlewareInvocationContext
+        EmptyMiddlewareInvocationContext
     },
 ) {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(

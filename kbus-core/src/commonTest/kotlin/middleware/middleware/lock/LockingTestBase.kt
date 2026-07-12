@@ -19,7 +19,7 @@ import com.jimbroze.kbus.core.fixtures.TestFailure
 import com.jimbroze.kbus.core.fixtures.TimeReturnCommand
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
-import com.jimbroze.kbus.core.middleware.DefaultMiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,7 +55,7 @@ abstract class LockingTestBase {
             val result =
                 locker.handle(
                     NestingLockCommand(LockAwareTimeReturnCommand()),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     NestingLockCommandHandler(locker).handle(it)
                 }
@@ -87,7 +87,7 @@ abstract class LockingTestBase {
             assertFailsWith<BusLockedException> {
                 locker.handle(
                     NestingLockCommand(TimeReturnCommand()),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     NestingLockCommandHandler(locker).handle(it)
                 }
@@ -105,7 +105,7 @@ abstract class LockingTestBase {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(1.seconds, "After sleep"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -114,7 +114,7 @@ abstract class LockingTestBase {
 
         // Launch job 2: It will wait for the lock to release
         val job2 = async {
-            locker.handle(ReturnCommand("After unlock"), DefaultMiddlewareInvocationContext) {
+            locker.handle(ReturnCommand("After unlock"), EmptyMiddlewareInvocationContext) {
                 ReturnCommandHandler().handle(it)
             }
             currentTime
@@ -142,7 +142,7 @@ abstract class LockingTestBase {
         val job = async {
             locker.handle(
                 LockingSleepCommand(2.seconds, "data"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 // While the handler is running, the mutex should be held
                 assertTrue(locker.busIsLocked(), "busLocked should be true while mutex is held")
@@ -161,7 +161,7 @@ abstract class LockingTestBase {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
-        locker.handle(SleepCommand(1.seconds), DefaultMiddlewareInvocationContext) {
+        locker.handle(SleepCommand(1.seconds), EmptyMiddlewareInvocationContext) {
             // A non-locking message should not report the bus as locked,
             // even though a KeyedLock entry exists in the cache for waiting purposes
             assertFalse(
@@ -177,7 +177,7 @@ abstract class LockingTestBase {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
-        locker.handle(SleepCommand(2.seconds), DefaultMiddlewareInvocationContext) {
+        locker.handle(SleepCommand(2.seconds), EmptyMiddlewareInvocationContext) {
             SleepCommandHandler().handle(it)
         }
 
@@ -197,7 +197,7 @@ abstract class LockingTestBase {
                 // Holds the lock for 5 seconds
                 locker.handle(
                     LockingSleepCommand(5.seconds, "After sleep"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -208,7 +208,7 @@ abstract class LockingTestBase {
                 assertFailsWith<BusLockedException> {
                     locker.handle(
                         ReturnCommand("After unlock"),
-                        DefaultMiddlewareInvocationContext,
+                        EmptyMiddlewareInvocationContext,
                     ) {
                         ReturnCommandHandler().handle(it)
                     }
@@ -237,7 +237,7 @@ abstract class LockingTestBase {
             // Holds the lock for 3 seconds
             locker.handle(
                 LockingSleepCommand(3.seconds, "After sleep"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -247,7 +247,7 @@ abstract class LockingTestBase {
             // Overrides lock timeout to 5 seconds via LockAwareMessage
             locker.handle(
                 ConfigurableLockingCommand("After unlock", lockTimeoutOverride = 5.seconds),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
@@ -273,7 +273,7 @@ abstract class LockingTestBase {
             // Holds for 3 seconds
             locker.handle(
                 LockingSleepCommand(3.seconds, "After sleep"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -283,7 +283,7 @@ abstract class LockingTestBase {
             // Waiting locking message overrides timeout to 1 second
             locker.handle(
                 ConfigurableLockingCommand("After unlock", lockTimeoutOverride = 1.seconds),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
@@ -317,7 +317,7 @@ abstract class LockingTestBase {
                 // Holds the lock for 5 seconds
                 locker.handle(
                     LockingSleepCommand(5.seconds, "Job1"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -326,7 +326,7 @@ abstract class LockingTestBase {
                 // Another locking message: times out after 1s, force-unlocks and proceeds
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -354,14 +354,14 @@ abstract class LockingTestBase {
             // Holds the lock for 5 seconds
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
         }
         val job2 = async {
             // Another locking message: times out after 1s, should fail
-            locker.handle(ConfigurableLockingCommand("Job2"), DefaultMiddlewareInvocationContext) {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
         }
@@ -390,7 +390,7 @@ abstract class LockingTestBase {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -399,7 +399,7 @@ abstract class LockingTestBase {
             // Override ignoreLockOnTimeout to false
             locker.handle(
                 ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
@@ -428,7 +428,7 @@ abstract class LockingTestBase {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -437,7 +437,7 @@ abstract class LockingTestBase {
             // Override shouldFailOnTimeout to true (force-unlock instead)
             locker.handle(
                 ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = true),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
@@ -460,7 +460,7 @@ abstract class LockingTestBase {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(3.seconds, "KeyA", lockChannelKey = "keyA"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -469,7 +469,7 @@ abstract class LockingTestBase {
         val job2 = async {
             locker.handle(
                 LockingSleepCommand(1.seconds, "KeyB", lockChannelKey = "keyB"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -492,7 +492,7 @@ abstract class LockingTestBase {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(1.seconds, "First", lockChannelKey = "shared"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -501,7 +501,7 @@ abstract class LockingTestBase {
         val job2 = async {
             locker.handle(
                 LockingSleepCommand(1.seconds, "Second", lockChannelKey = "shared"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -524,7 +524,7 @@ abstract class LockingTestBase {
         val job = async {
             locker.handle(
                 LockingSleepCommand(2.seconds, "data", lockChannelKey = "myKey"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 assertTrue(locker.busIsLocked("myKey"), "myKey channel should be locked")
                 assertFalse(locker.busIsLocked("otherKey"), "otherKey channel should not be locked")
@@ -550,7 +550,7 @@ abstract class LockingTestBase {
             // Lock on a specific key
             locker.handle(
                 LockingSleepCommand(3.seconds, "KeyA", lockChannelKey = "keyA"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -558,7 +558,7 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Non-locking message uses the default key (null), so should not be blocked
-            locker.handle(ReturnCommand("NoLock"), DefaultMiddlewareInvocationContext) {
+            locker.handle(ReturnCommand("NoLock"), EmptyMiddlewareInvocationContext) {
                 ReturnCommandHandler().handle(it)
             }
             currentTime
@@ -586,7 +586,7 @@ abstract class LockingTestBase {
                     LockAwareTimeReturnCommand(lockChannelKey = "inner"),
                     lockChannelKey = "outer",
                 ),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 NestingLockCommandHandler(locker).handle(it)
             }
@@ -609,7 +609,7 @@ abstract class LockingTestBase {
                     LockAwareTimeReturnCommand(lockChannelKey = "same"),
                     lockChannelKey = "same",
                 ),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 NestingLockCommandHandler(locker).handle(it)
             }
@@ -646,7 +646,7 @@ abstract class LockingTestBase {
             val job1 = async {
                 locker.handle(
                     LockingSleepCommand(5.seconds, "Job1"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -656,7 +656,7 @@ abstract class LockingTestBase {
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -666,7 +666,7 @@ abstract class LockingTestBase {
             val job3 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job3", ignoreLockOnTimeoutOverride = false),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -688,7 +688,7 @@ abstract class LockingTestBase {
             val result3 =
                 locker.handle(
                     ConfigurableLockingCommand("Job3-verify", ignoreLockOnTimeoutOverride = false),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -712,7 +712,7 @@ abstract class LockingTestBase {
             val job1 = async {
                 locker.handle(
                     LockingSleepCommand(5.seconds, "Job1"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -722,7 +722,7 @@ abstract class LockingTestBase {
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -732,7 +732,7 @@ abstract class LockingTestBase {
             // true)
             val job3 = async {
                 val result =
-                    locker.handle(ReturnCommand("Job3"), DefaultMiddlewareInvocationContext) {
+                    locker.handle(ReturnCommand("Job3"), EmptyMiddlewareInvocationContext) {
                         ReturnCommandHandler().handle(it)
                     }
                 assertEquals("Job3", result.getOrNull())
@@ -767,7 +767,7 @@ abstract class LockingTestBase {
             val job1 = async {
                 locker.handle(
                     LockingSleepCommand(3.seconds, "Job1"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -777,7 +777,7 @@ abstract class LockingTestBase {
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -786,7 +786,7 @@ abstract class LockingTestBase {
             val job3 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job3"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -819,7 +819,7 @@ abstract class LockingTestBase {
             val job1 = async {
                 locker.handle(
                     LockingSleepCommand(2.seconds, "Job1"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -829,7 +829,7 @@ abstract class LockingTestBase {
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -846,7 +846,7 @@ abstract class LockingTestBase {
             val result3 =
                 locker.handle(
                     LockingSleepCommand(1.seconds, "Job3"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -870,7 +870,7 @@ abstract class LockingTestBase {
             // Handler sleeps for 5s, but lock expires after 2s
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -878,7 +878,7 @@ abstract class LockingTestBase {
         }
         val job2 = async {
             // Waits for the lock to release; should proceed when TTL expires at 2s
-            locker.handle(ConfigurableLockingCommand("Job2"), DefaultMiddlewareInvocationContext) {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
@@ -910,7 +910,7 @@ abstract class LockingTestBase {
         val job = async {
             locker.handle(
                 LockingSleepCommand(3.seconds, "data"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -938,7 +938,7 @@ abstract class LockingTestBase {
                 // Handler finishes in 1s, well before the 5s expiry
                 locker.handle(
                     LockingSleepCommand(1.seconds, "Job1"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     LockingSleepCommandHandler().handle(it)
                 }
@@ -947,7 +947,7 @@ abstract class LockingTestBase {
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
-                    DefaultMiddlewareInvocationContext,
+                    EmptyMiddlewareInvocationContext,
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
@@ -970,7 +970,7 @@ abstract class LockingTestBase {
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(2.seconds, "A", lockChannelKey = "key1"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 // While handling key1, key2 and key3 can also be locked
                 assertTrue(locker.busIsLocked("key1"))
@@ -980,7 +980,7 @@ abstract class LockingTestBase {
         val job2 = async {
             locker.handle(
                 LockingSleepCommand(2.seconds, "B", lockChannelKey = "key2"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 assertTrue(locker.busIsLocked("key2"))
                 LockingSleepCommandHandler().handle(it)
@@ -989,7 +989,7 @@ abstract class LockingTestBase {
         val job3 = async {
             locker.handle(
                 LockingSleepCommand(2.seconds, "C", lockChannelKey = "key3"),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 assertTrue(locker.busIsLocked("key3"))
                 LockingSleepCommandHandler().handle(it)
@@ -1029,7 +1029,7 @@ abstract class LockingTestBase {
             // Holds lock for 5s, stores ignoreLockOnTimeoutOverride=true in lock data
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = true),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -1038,7 +1038,7 @@ abstract class LockingTestBase {
         val job2 = async {
             // Non-locking, no override. Inherits ignoreLockOnTimeout=true from lock data
             val result =
-                locker.handle(ReturnCommand("Job2"), DefaultMiddlewareInvocationContext) {
+                locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
                     ReturnCommandHandler().handle(it)
                 }
             assertEquals("Job2", result.getOrNull())
@@ -1069,7 +1069,7 @@ abstract class LockingTestBase {
             // Holds lock for 5s, stores ignoreLockOnTimeoutOverride=false in lock data
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = false),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -1078,7 +1078,7 @@ abstract class LockingTestBase {
         val job2 = async {
             // Non-locking, no override. Inherits ignoreLockOnTimeout=false from lock data
             assertFailsWith<BusLockedException> {
-                locker.handle(ReturnCommand("Job2"), DefaultMiddlewareInvocationContext) {
+                locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
                     ReturnCommandHandler().handle(it)
                 }
             }
@@ -1109,7 +1109,7 @@ abstract class LockingTestBase {
             // Holds lock for 2s, stores lockTimeoutOverride=3s in lock data
             locker.handle(
                 LockingSleepCommand(2.seconds, "Job1", lockTimeoutOverride = 3.seconds),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -1119,7 +1119,7 @@ abstract class LockingTestBase {
             // Non-locking, no override. Inherits 3s timeout from lock data.
             // Lock releases at 2s which is within the inherited 3s timeout, so it succeeds.
             val result =
-                locker.handle(ReturnCommand("Job2"), DefaultMiddlewareInvocationContext) {
+                locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
                     ReturnCommandHandler().handle(it)
                 }
             assertEquals("Job2", result.getOrNull())
@@ -1151,7 +1151,7 @@ abstract class LockingTestBase {
             // Holds lock for 5s, stores ignoreLockOnTimeoutOverride=true in lock data
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = true),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -1162,7 +1162,7 @@ abstract class LockingTestBase {
             // which should take priority over both lock data (true) and default (true)
             locker.handle(
                 ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
@@ -1193,7 +1193,7 @@ abstract class LockingTestBase {
             // Holds lock for 4s, stores lockTimeoutOverride=3s in lock data
             locker.handle(
                 LockingSleepCommand(4.seconds, "Job1", lockTimeoutOverride = 3.seconds),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
             }
@@ -1203,7 +1203,7 @@ abstract class LockingTestBase {
             // Overrides timeout to 1s, which takes priority over lock data's 3s
             locker.handle(
                 ConfigurableLockingCommand("Job2", lockTimeoutOverride = 1.seconds),
-                DefaultMiddlewareInvocationContext,
+                EmptyMiddlewareInvocationContext,
             ) {
                 ConfigurableLockingCommandHandler().handle(it)
             }

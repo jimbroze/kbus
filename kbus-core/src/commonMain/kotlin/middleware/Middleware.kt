@@ -15,7 +15,7 @@ interface MiddlewareInvocationContext {
     val integrationEventPublisher: IntegrationEventPublisher
 }
 
-object DefaultMiddlewareInvocationContext : MiddlewareInvocationContext {
+object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
     override val integrationEventPublisher: IntegrationEventPublisher =
         EmptyIntegrationEventPublisher
 }
@@ -31,7 +31,7 @@ interface Middleware {
 fun <TMessage : Message, TResult> createMiddlewareChain(
     finalHandler: MiddlewareHandler<TMessage, TResult>,
     middlewares: List<Middleware>,
-    context: MiddlewareInvocationContext = DefaultMiddlewareInvocationContext,
+    context: MiddlewareInvocationContext = EmptyMiddlewareInvocationContext,
 ): MiddlewareHandler<TMessage, TResult> {
     var lastHandler = finalHandler
     middlewares.reversed().forEach {
