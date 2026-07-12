@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.bus
 
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.core.fixtures.BrokenStateFailureCommandHandler
+import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
 import com.jimbroze.kbus.core.fixtures.DelayingStorageEventHandler
 import com.jimbroze.kbus.core.fixtures.EventCommand
@@ -274,4 +275,97 @@ class MessageBusTest {
 
         assertFalse(middleware.startContext!!.scope.isActive)
     }
+
+    private fun createStoresWithStorageEventHandler(): HandlerFactoryStoreCollection {
+        val stores = HandlerFactoryStoreCollection()
+        stores.eventStore.registerHandlers(
+            StorageEvent::class,
+            listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
+        )
+        return stores
+    }
+
+    @Test
+    fun test_command_middleware_context_carries_a_working_integration_event_publisher() = runTest {
+        val stores = createStoresWithStorageEventHandler()
+        stores.commandStore.registerHandlers(
+            ReturnCommand::class,
+            listOf(CommandHandlerFactory(ReturnCommandHandler::class) { ReturnCommandHandler() }),
+        )
+        val locator = PersistingHandlerLocator(stores)
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(PrintEventHandler::class),
+        )
+        val middleware = CapturingContextMiddleware()
+        val bus = MessageBus(locator, middlewares = listOf(middleware))
+
+        bus.execute(ReturnCommand("Test the bus"))
+
+        val list = mutableListOf<String>()
+        middleware.capturedContext!!
+            .integrationEventPublisher
+            .publish(listOf(StorageEvent("via-context", list)))
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        assertContains(list, "via-context")
+    }
+
+    @Test
+    fun test_query_middleware_context_carries_a_working_integration_event_publisher() = runTest {
+        val stores = createStoresWithStorageEventHandler()
+        stores.queryStore.registerHandlers(
+            StorageQuery::class,
+            listOf(QueryHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() }),
+        )
+        val locator = PersistingHandlerLocator(stores)
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(PrintEventHandler::class),
+        )
+        val middleware = CapturingContextMiddleware()
+        val bus = MessageBus(locator, middlewares = listOf(middleware))
+
+        bus.fetch(StorageQuery(0, mutableListOf("Test the bus")))
+
+        val list = mutableListOf<String>()
+        middleware.capturedContext!!
+            .integrationEventPublisher
+            .publish(listOf(StorageEvent("via-context", list)))
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        assertContains(list, "via-context")
+    }
+
+    @Test
+    fun test_event_dispatch_middleware_context_carries_a_working_integration_event_publisher() =
+        runTest {
+            val stores = createStoresWithStorageEventHandler()
+            stores.commandStore.registerHandlers(
+                EventCommand::class,
+                listOf(CommandHandlerFactory(EventCommandHandler::class) { EventCommandHandler() }),
+            )
+            val locator = PersistingHandlerLocator(stores)
+            locator.integrationEventMapper.addEventHandlers(
+                StorageEvent::class,
+                listOf(PrintEventHandler::class),
+            )
+            val middleware = CapturingContextMiddleware()
+            val bus = MessageBus(locator, middlewares = listOf(middleware))
+
+            bus.execute(EventCommand("triggering event", mutableListOf()))
+            withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+            // Middleware wraps the StorageEvent's own dispatch, not just the triggering command's.
+            val eventContext = middleware.contextFor(StorageEvent::class)
+            assertNotNull(eventContext)
+
+            val list = mutableListOf<String>()
+            eventContext.integrationEventPublisher.publish(
+                listOf(StorageEvent("via-event-context", list))
+            )
+            withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+            assertContains(list, "via-event-context")
+        }
 }

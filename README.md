@@ -360,7 +360,9 @@ val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something 
 
 Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next
 handler in the chain. Every `handle` call also receives a `MiddlewareInvocationContext`, a per-invocation context
-object passed to all middleware in the chain.
+object passed to all middleware in the chain. It currently exposes `integrationEventPublisher`, an
+`IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration
+events directly, independent of any command's `BusAccess`.
 
 ### Writing Custom Middleware
 

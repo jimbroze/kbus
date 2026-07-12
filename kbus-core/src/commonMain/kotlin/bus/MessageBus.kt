@@ -10,11 +10,13 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
+import com.jimbroze.kbus.core.messages.event.DefaultIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
@@ -56,15 +58,27 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-EventDispatcher")
         )
     protected val eventDispatcher =
-        EventDispatcher(handlerLocator::handlersFor, middlewares, eventDispatcherScope)
+        EventDispatcher(
+            handlerLocator::handlersFor,
+            middlewares,
+            eventDispatcherScope,
+            invocationContextProvider = { invocationContext },
+        )
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
             busAccess,
             DefaultCommandDependenciesFactory(eventDispatcher),
+            invocationContextProvider = { invocationContext },
         )
-    protected val queryFetcher = QueryFetcher(middlewares)
+    protected val queryFetcher =
+        QueryFetcher(middlewares, invocationContextProvider = { invocationContext })
+    private val invocationContext: MiddlewareInvocationContext =
+        object : MiddlewareInvocationContext {
+            override val integrationEventPublisher =
+                DefaultIntegrationEventPublisher(handlerLocator, eventDispatcher)
+        }
 
     init {
         middlewares.forEach { middleware ->
