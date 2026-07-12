@@ -3,7 +3,7 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.registry.HandlerLocator
 
-class DefaultIntegrationEventPublisher(
+class BusIntegrationEventPublisher(
     private val handlerLocator: HandlerLocator,
     private val eventDispatcher: EventDispatcher,
 ) : IntegrationEventPublisher {

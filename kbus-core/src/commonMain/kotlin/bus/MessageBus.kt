@@ -10,7 +10,7 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
-import com.jimbroze.kbus.core.messages.event.DefaultIntegrationEventPublisher
+import com.jimbroze.kbus.core.messages.event.BusIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
@@ -74,10 +74,11 @@ abstract class BaseMessageBus(
         )
     protected val queryFetcher =
         QueryFetcher(middlewares, invocationContextProvider = { invocationContext })
+    private val integrationEventPublisher =
+        BusIntegrationEventPublisher(handlerLocator, eventDispatcher)
     private val invocationContext: MiddlewareInvocationContext =
         object : MiddlewareInvocationContext {
-            override val integrationEventPublisher =
-                DefaultIntegrationEventPublisher(handlerLocator, eventDispatcher)
+            override val integrationEventPublisher = this@BaseMessageBus.integrationEventPublisher
         }
 
     init {
@@ -119,9 +120,7 @@ abstract class BaseMessageBus(
     }
 
     private suspend fun <TEvent : IntegrationEvent> dispatchIntegration(event: TEvent) {
-        val handlers = handlerLocator.handlersFor(event)
-
-        eventDispatcher.dispatchIntegrationEvent(event, handlers)
+        this.integrationEventPublisher.publish(listOf(event))
     }
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =

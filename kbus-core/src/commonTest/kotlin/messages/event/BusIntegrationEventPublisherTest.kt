@@ -14,13 +14,13 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DefaultIntegrationEventPublisherTest {
+class BusIntegrationEventPublisherTest {
     private fun createPublisher(
         locator: PersistingHandlerLocator,
         dispatcherScope: CoroutineScope,
-    ): DefaultIntegrationEventPublisher {
+    ): BusIntegrationEventPublisher {
         val eventDispatcher = EventDispatcher(locator::handlersFor, emptyList(), dispatcherScope)
-        return DefaultIntegrationEventPublisher(locator, eventDispatcher)
+        return BusIntegrationEventPublisher(locator, eventDispatcher)
     }
 
     @Test
