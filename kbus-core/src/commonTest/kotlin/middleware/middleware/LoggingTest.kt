@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.core.fixtures.CaptureLogger
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.ExceptionCommandHandler
 import com.jimbroze.kbus.core.fixtures.ExceptionEventHandler
 import com.jimbroze.kbus.core.fixtures.LogLevels
@@ -14,7 +15,6 @@ import com.jimbroze.kbus.core.fixtures.LoggingStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
-import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -84,10 +84,7 @@ class LoggingTest {
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(
-            LoggingLogQuery("Testing", captureLogger),
-            EmptyMiddlewareInvocationContext,
-        ) {
+        logger.handle(LoggingLogQuery("Testing", captureLogger), EmptyMiddlewareInvocationContext) {
             LoggingLogQueryHandler().handle(it)
         }
 

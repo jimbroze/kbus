@@ -9,7 +9,6 @@ import com.jimbroze.kbus.contracts.result.BusResult.Companion.failure
 import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.time.Duration
 import kotlin.time.TimeSource

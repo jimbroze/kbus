@@ -6,6 +6,7 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommand
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommandHandler
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.LockAwareTimeReturnCommand
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommand
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommandHandler
@@ -19,7 +20,6 @@ import com.jimbroze.kbus.core.fixtures.TestFailure
 import com.jimbroze.kbus.core.fixtures.TimeReturnCommand
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
-import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -206,10 +206,7 @@ abstract class LockingTestBase {
             val job2 = async {
                 // Non-locking message: throws BusLockedException on timeout
                 assertFailsWith<BusLockedException> {
-                    locker.handle(
-                        ReturnCommand("After unlock"),
-                        EmptyMiddlewareInvocationContext,
-                    ) {
+                    locker.handle(ReturnCommand("After unlock"), EmptyMiddlewareInvocationContext) {
                         ReturnCommandHandler().handle(it)
                     }
                 }

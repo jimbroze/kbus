@@ -1,7 +1,6 @@
 package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.messages.event.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 
 typealias MiddlewareHandler<TMessage, TResult> = suspend (TMessage) -> TResult
@@ -15,11 +14,6 @@ interface MiddlewareInvocationContext {
     val integrationEventPublisher: IntegrationEventPublisher
 }
 
-object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
-    override val integrationEventPublisher: IntegrationEventPublisher =
-        EmptyIntegrationEventPublisher
-}
-
 interface Middleware {
     suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
@@ -31,7 +25,7 @@ interface Middleware {
 fun <TMessage : Message, TResult> createMiddlewareChain(
     finalHandler: MiddlewareHandler<TMessage, TResult>,
     middlewares: List<Middleware>,
-    context: MiddlewareInvocationContext = EmptyMiddlewareInvocationContext,
+    context: MiddlewareInvocationContext,
 ): MiddlewareHandler<TMessage, TResult> {
     var lastHandler = finalHandler
     middlewares.reversed().forEach {

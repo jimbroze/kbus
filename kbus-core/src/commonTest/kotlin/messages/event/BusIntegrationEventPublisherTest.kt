@@ -1,5 +1,7 @@
 package com.jimbroze.kbus.core.messages.event
 
+import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
@@ -19,7 +21,13 @@ class BusIntegrationEventPublisherTest {
         locator: PersistingHandlerLocator,
         dispatcherScope: CoroutineScope,
     ): BusIntegrationEventPublisher {
-        val eventDispatcher = EventDispatcher(locator::handlersFor, emptyList(), dispatcherScope)
+        val eventDispatcher =
+            EventDispatcher(
+                locator::handlersFor,
+                emptyList(),
+                dispatcherScope,
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
         return BusIntegrationEventPublisher(locator, eventDispatcher)
     }
 

@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.middleware.middleware.lock
 
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommand
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommandHandler
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommand
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
@@ -9,7 +10,6 @@ import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignallingLock
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
-import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals

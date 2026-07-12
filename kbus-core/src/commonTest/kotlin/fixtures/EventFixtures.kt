@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.domain.event.Concurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -10,6 +11,12 @@ import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.domain.event.ErrorStrategy
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
+
+// --- Integration event publisher ---
+
+object EmptyIntegrationEventPublisher : IntegrationEventPublisher {
+    override suspend fun publish(events: List<IntegrationEvent>) = Unit
+}
 
 // --- Domain events ---
 

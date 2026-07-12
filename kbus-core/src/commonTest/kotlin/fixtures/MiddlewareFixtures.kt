@@ -8,6 +8,10 @@ import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import kotlin.reflect.KClass
 
+object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
+    override val integrationEventPublisher = EmptyIntegrationEventPublisher
+}
+
 class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycle") :
     LifecycleAwareMiddleware {
     var startContext: MiddlewareContext? = null

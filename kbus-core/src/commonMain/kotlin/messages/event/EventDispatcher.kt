@@ -3,7 +3,6 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.middleware.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
@@ -23,9 +22,7 @@ class EventDispatcher(
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
     val observerRegistry: IntegrationEventObserverRegistry = IntegrationEventObserverRegistry(),
-    private val invocationContextProvider: () -> MiddlewareInvocationContext = {
-        EmptyMiddlewareInvocationContext
-    },
+    private val invocationContextProvider: () -> MiddlewareInvocationContext,
 ) : DomainEventDispatcher {
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
@@ -58,11 +55,12 @@ class EventDispatcher(
         val handlers = getHandlers(event)
 
         val errorStrategy = errorStrategyFor(event)
-        val handlersByPhase = handlers.groupBy { handler ->
-            dispatchPhaseFor(handler as DomainEventHandler<*>).also {
-                validateDispatchPhase(it, errorStrategy)
+        val handlersByPhase =
+            handlers.groupBy { handler ->
+                dispatchPhaseFor(handler as DomainEventHandler<*>).also {
+                    validateDispatchPhase(it, errorStrategy)
+                }
             }
-        }
 
         val finalHandler: suspend (DomainEvent) -> Unit = { message: DomainEvent ->
             handlersByPhase.forEach { (phase, phaseHandlers) ->

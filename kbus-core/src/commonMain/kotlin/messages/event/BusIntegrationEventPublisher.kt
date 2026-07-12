@@ -13,7 +13,3 @@ class BusIntegrationEventPublisher(
         }
     }
 }
-
-object EmptyIntegrationEventPublisher : IntegrationEventPublisher {
-    override suspend fun publish(events: List<IntegrationEvent>) = Unit
-}

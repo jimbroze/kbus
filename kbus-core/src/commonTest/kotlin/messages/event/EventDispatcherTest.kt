@@ -13,6 +13,7 @@ import com.jimbroze.kbus.core.fixtures.DelayingSequentialAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -85,7 +86,13 @@ class EventDispatcherTest {
         fun withDomainHandlers(vararg handlers: EventHandler<*>): TestEnv {
             @Suppress("UNCHECKED_CAST")
             val castedHandlers = handlers.toList() as List<EventHandler<DomainEvent>>
-            dispatcher = EventDispatcher({ castedHandlers }, emptyList(), dispatcherScope = scope)
+            dispatcher =
+                EventDispatcher(
+                    { castedHandlers },
+                    emptyList(),
+                    dispatcherScope = scope,
+                    invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                )
             return this
         }
 
@@ -94,7 +101,13 @@ class EventDispatcherTest {
         suspend fun dispatchIntegration(event: IntegrationEvent, vararg handlers: EventHandler<*>) {
             @Suppress("UNCHECKED_CAST")
             val castedHandlers = handlers.toList() as List<EventHandler<IntegrationEvent>>
-            dispatcher = EventDispatcher({ emptyList() }, emptyList(), dispatcherScope = scope)
+            dispatcher =
+                EventDispatcher(
+                    { emptyList() },
+                    emptyList(),
+                    dispatcherScope = scope,
+                    invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                )
             dispatcher.dispatchIntegrationEvent(event, castedHandlers)
         }
 
@@ -670,7 +683,14 @@ class EventDispatcherTest {
     @Test
     fun dispatching_integration_event_emits_to_observer_registry() = runTest {
         val registry = IntegrationEventObserverRegistry()
-        val dispatcher = EventDispatcher({ emptyList() }, emptyList(), this, registry)
+        val dispatcher =
+            EventDispatcher(
+                { emptyList() },
+                emptyList(),
+                this,
+                registry,
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
 
         val received = mutableListOf<TestIntegrationEvent>()
         val flow = registry.observableFor(TestIntegrationEvent::class)
