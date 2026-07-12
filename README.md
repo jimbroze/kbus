@@ -14,6 +14,8 @@ handler resolution (zero reflection).
 - **Unit of Work** — Transaction-aware command execution with domain and integration events
 - **Domain modeling** — Built-in support for Entities, Aggregate Roots, and Value Objects
 - **Result types** — Type-safe `BusResult<TValue, TMessageFailure>` with `Success` and `Failure` variants
+- **Serialization** — `MessageSerializer` interface with a `JsonMessageSerializer` implementation; KSP auto-generates a
+  `SerializersModule` and serializer map for all `@Serializable` messages
 
 ## Installation
 
@@ -135,8 +137,10 @@ Events support multiple handlers and come in two flavors:
 
 #### Domain Events
 
-Domain events dispatch relative to the Unit of Work lifecycle. Publish them from a domain object by
-taking a `DomainEventPublisher` as a constructor dependency. See the section on // TODO
+// FIX THIS AND ADD INTEGRATION EVENTS
+
+Domain events dispatch relative to the Unit of Work lifecycle. Publish them from a domain object by taking a
+`DomainEventPublisher` as a constructor dependency. See the section on // TODO
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -159,8 +163,8 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-01.kt).
 
-`CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and
-routes events through the Unit of Work.
+`CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and routes
+events through the Unit of Work.
 
 ### Event Dispatch & Error Strategy Matrix
 
@@ -169,8 +173,8 @@ The safety of an error strategy depends entirely on **when** the handler execute
 * **Pre-Commit:** You can safely throw exceptions to roll back the transaction.
 * **Post-Commit:** You lose throwing privileges and must rely on logging or Dead Letter Queues (DLQ).
 
-| Dispatch Timing                                                         | `FIRE_AND_FORGET`                                       | `FAIL_FAST`                                          | `CONTINUE_AND_AGGREGATE`                                         |
-|:------------------------------------------------------------------------|:--------------------------------------------------------|:-----------------------------------------------------|:-----------------------------------------------------------------|
+| <sub>Dispatch Timing</sub> \ <sup>Error Policy</sup>                    | `FIRE_AND_FORGET`                                        | `FAIL_FAST`                                           | `CONTINUE_AND_AGGREGATE`                                          |
+|:------------------------------------------------------------------------|:---------------------------------------------------------|:------------------------------------------------------|:------------------------------------------------------------------|
 | **`DispatchImmediatelyInTransaction`**<br>*(Before main work finishes)* | ✅ **Safe**<br>Errors logged; transaction continues.     | ✅ **Standard**<br>Throws immediately; rolls back DB. | ✅ **Safe**<br>Collects all, throws at end; rolls back DB.        |
 | **`DispatchAfterPrimaryWork`**<br>*(Before DB commit)*                  | ✅ **Safe**<br>Secondary work fails quietly; DB commits. | ✅ **Safe**<br>Throws before commit; rolls back DB.   | ✅ **Safe**<br>Collects all, throws before commit; rolls back DB. |
 | **`DispatchAfterTransaction`**<br>*(After DB commit)*                   | ✅ **Standard**<br>Failures caught and sent to DLQ.      | ❌ **Dangerous**<br>Throws after transaction commits  | ❌ **Dangerous**<br>Throws after transaction commits              |
@@ -178,9 +182,9 @@ The safety of an error strategy depends entirely on **when** the handler execute
 ### Concurrency
 
 All events can be dispatched sequentially or concurrently by applying `DispatchSequentially` or
-`DispatchConcurrently` interfaces to the event. This applies regardless of dispatch timing or error strategy. That
-is, while concurrent events will dispatch to multiple handlers at the same time, `FAIL_FAST` concurrent events will
-still throw on the first failure; meaning all running handlers for that event will cancel.
+`DispatchConcurrently` interfaces to the event. This applies regardless of dispatch timing or error strategy. That is,
+while concurrent events will dispatch to multiple handlers at the same time, `FAIL_FAST` concurrent events will still
+throw on the first failure; meaning all running handlers for that event will cancel.
 
 ### Event Defaults
 
@@ -188,10 +192,10 @@ By default, domain event handlers that extend `DomainEventHandler` directly are 
 transaction commits**. This default is intentional:
 
 - **Asynchronous by default** — All events (both domain and integration) default to asynchronous, fire-and-forget
-  dispatch. If work must be synchronous and transactional, it should ideally be modeled as an explicit
-  Command, not an Event. This keeps coupled operations visible in the code rather than hiding them behind event
-  handlers that appear decoupled but are actually tightly bound. Synchronous event dispatch should be avoided where
-  possible outside of infrastructure concerns.
+  dispatch. If work must be synchronous and transactional, it should ideally be modeled as an explicit Command, not an
+  Event. This keeps coupled operations visible in the code rather than hiding them behind event handlers that appear
+  decoupled but are actually tightly bound. Synchronous event dispatch should be avoided where possible outside of
+  infrastructure concerns.
 - **After transaction by default** — Domain events default to dispatching after a unit of work transaction commits
   because handlers typically trigger side effects (notifications, external calls) that should only happen once the
   primary work has been persisted. Dispatching before commit risks executing side effects for work that may still be
@@ -237,8 +241,8 @@ class SendShipmentNotification : DomainEventHandler<OrderShipped>() {
 
 #### Integration Events
 
-Integration events are dispatched after the transaction commits, intended for cross-boundary communication.
-Integration events are **always dispatched asynchronously** — handlers run concurrently in a fire-and-forget manner.
+Integration events are dispatched after the transaction commits, intended for cross-boundary communication. Integration
+events are **always dispatched asynchronously** — handlers run concurrently in a fire-and-forget manner.
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -262,8 +266,8 @@ class SyncToExternalCRM :
 
 #### Observing Integration Events
 
-Integration events can be observed as Kotlin Flows directly from the bus. With the generated bus, only known
-events can be observed — attempting to observe an unknown event is a compile error:
+Integration events can be observed as Kotlin Flows directly from the bus. With the generated bus, only known events can
+be observed — attempting to observe an unknown event is a compile error:
 
 ```kotlin
 // With the generated bus — type-safe, one method per known event
@@ -285,8 +289,8 @@ scope.launch {
 }
 ```
 
-Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler
-success or failure.
+Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler success or
+failure.
 
 Command handlers can dispatch integration events:
 
@@ -518,9 +522,8 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
 
 ## KSP Code Generation
 
-For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module. This
-requires adding no annotations or coupling to anything outside your message handlers (which are already coupled
-to Kbus).
+For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module. This requires
+adding no annotations or coupling to anything outside your message handlers (which are already coupled to Kbus).
 
 ### Setup
 
@@ -584,6 +587,8 @@ The KSP processor generates:
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
+- **`KbusSerializersModule`** / **`KbusSerializerMap`** — Serialization support for all `@Serializable` messages (see
+  [Serialization](#serialization))
 
 ### Using the Generated Bus
 
@@ -609,9 +614,8 @@ val result = bus.execute(PlaceOrder(items))
 
 ### Submodules
 
-For multi-module projects, submodules can export their handler metadata for the main module to consume. You must
-provide a package name for the indexes. This prevents trying to load indexes from a dependent library that uses
-Kbus.
+For multi-module projects, submodules can export their handler metadata for the main module to consume. You must provide
+a package name for the indexes. This prevents trying to load indexes from a dependent library that uses Kbus.
 
 ```groovy
 // In the submodule's build.gradle.kts
@@ -628,6 +632,66 @@ ksp {
 
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
 these indexes automatically.
+
+## Serialization
+
+KBUS provides a `MessageSerializer` interface for converting messages to and from bytes, useful for persisting messages
+to a store or transmitting them over the wire.
+
+### MessageSerializer Interface
+
+```kotlin
+interface MessageSerializer {
+    fun serialize(message: Message): ByteArray
+    fun deserialize(payload: ByteArray, messageType: String): Message
+}
+```
+
+`deserialize` requires the fully qualified class name of the target message type (e.g.,
+`"com.myapp.events.OrderPlaced"`), allowing type-safe reconstruction without reflection.
+
+### JsonMessageSerializer
+
+A `kotlinx.serialization`-based JSON implementation is provided in `kbus-core`. It requires a `SerializersModule`
+that registers your message classes polymorphically under `Message::class`:
+
+```kotlin
+val module = SerializersModule {
+    polymorphic(Message::class) {
+        subclass(OrderPlaced::class)
+    }
+}
+
+val serializer = JsonMessageSerializer(module = module)
+
+val bytes = serializer.serialize(OrderPlaced("order-123"))
+val message = serializer.deserialize(bytes, "com.myapp.events.OrderPlaced")
+```
+
+You can also supply a custom `Json` instance as the first argument to override defaults (e.g.,
+`Json { prettyPrint = true }`).
+
+### KSP-Generated Serializers
+
+When using KSP code generation, the processor automatically generates a `KbusSerializers.kt` file for any message class
+that is both handled by a `@LoadMessageHandler` handler **and** annotated with
+`@kotlinx.serialization.Serializable`. Two top-level properties are generated:
+
+| Symbol                  | Type                                    | Purpose                                                                                                      |
+|-------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `KbusSerializersModule` | `SerializersModule`                     | Drop-in module for `JsonMessageSerializer` and any `kotlinx.serialization` `Json` instance                   |
+| `KbusSerializerMap`     | `Map<String, KSerializer<out Message>>` | Lookup serializers by fully qualified class name, for direct deserialization without the polymorphic wrapper |
+
+Pass the generated module directly to `JsonMessageSerializer`:
+
+```kotlin
+val serializer = JsonMessageSerializer(module = KbusSerializersModule)
+
+val bytes = serializer.serialize(CreateUserCommand("alice@example.com"))
+val message = serializer.deserialize(bytes, "com.myapp.commands.CreateUserCommand")
+```
+
+Messages that are not annotated with `@Serializable` are silently excluded from both generated artifacts.
 
 ## Domain Modeling
 

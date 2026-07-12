@@ -15,6 +15,7 @@ import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.LoadedEventHandlersGenerator
+import com.jimbroze.kbus.generation.generators.SerializerModuleGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
@@ -31,6 +32,7 @@ private const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
 private const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
 private const val LOADED_DOMAIN_EVENT_HANDLERS_NAME = "LoadedDomainEventHandlers"
 private const val LOADED_INTEGRATION_EVENT_HANDLERS_NAME = "LoadedIntegrationEventHandlers"
+private const val SERIALIZER_MODULE_FILE_NAME = "KbusSerializers"
 
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
 private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
@@ -50,6 +52,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
         )
     }
 
+    @Suppress("LongMethod")
     private fun createGenerators(env: SymbolProcessorEnvironment, config: KBusProcessorConfig) =
         CodeGenerators(
             ContainerInterfaceGenerator(
@@ -104,6 +107,12 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 env.logger,
                 config.moduleClassName(LOADED_DOMAIN_EVENT_HANDLERS_NAME),
                 config.moduleClassName(LOADED_INTEGRATION_EVENT_HANDLERS_NAME),
+                PACKAGE_PATH,
+            ),
+            SerializerModuleGenerator(
+                env.codeGenerator,
+                env.logger,
+                SERIALIZER_MODULE_FILE_NAME,
                 PACKAGE_PATH,
             ),
         )
