@@ -2,8 +2,7 @@ package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
-import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
-import com.jimbroze.kbus.core.messages.event.AutoPublishesIntegrationEvent
+import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -16,21 +15,22 @@ import kotlinx.coroutines.test.runTest
 class AutoPublishIntegrationEventsTest {
 
     @Test
-    fun publishes_the_integration_event_produced_by_an_auto_publishing_domain_event() = runTest {
+    fun publishes_the_integration_event_mapped_from_a_registered_domain_event() = runTest {
         val publisher = RecordingIntegrationEventPublisher()
-        val middleware = AutoPublishIntegrationEvents()
+        val middleware =
+            AutoPublishIntegrationEvents(mapOf(OrderPlaced::class to OrderPlacedIntegration("")))
 
         middleware.handle(OrderPlaced("order-1"), contextWith(publisher)) {}
 
         val published = publisher.publishedEvents.flatten()
-        assertEquals(1, published.size)
-        val event = assertIs<TestIntegrationEvent>(published.single())
-        assertEquals("order-1", event.name)
+        val event = assertIs<OrderPlacedIntegration>(published.single())
+        assertEquals("order-1", event.orderId)
     }
 
     @Test
     fun continues_the_chain_and_returns_the_next_middleware_result() = runTest {
-        val middleware = AutoPublishIntegrationEvents()
+        val middleware =
+            AutoPublishIntegrationEvents(mapOf(OrderPlaced::class to OrderPlacedIntegration("")))
         var handledMessage: OrderPlaced? = null
 
         val result =
@@ -44,9 +44,10 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun does_not_publish_for_messages_that_do_not_auto_publish() = runTest {
+    fun does_not_publish_for_domain_events_without_a_registered_mapper() = runTest {
         val publisher = RecordingIntegrationEventPublisher()
-        val middleware = AutoPublishIntegrationEvents()
+        val middleware =
+            AutoPublishIntegrationEvents(mapOf(OrderPlaced::class to OrderPlacedIntegration("")))
         var handlerCalled = false
 
         middleware.handle(TestDomainEvent("plain"), contextWith(publisher)) { handlerCalled = true }
@@ -56,22 +57,22 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun interface_publish_default_publishes_the_mapped_event_through_the_publisher() = runTest {
-        val publisher = RecordingIntegrationEventPublisher()
+    fun from_domain_event_maps_the_domain_event_to_its_integration_event() {
+        val integrationEvent = OrderPlacedIntegration("").fromDomainEvent(OrderPlaced("order-3"))
 
-        OrderPlaced("order-3").publish(publisher)
-
-        val published = publisher.publishedEvents.flatten()
-        val event = assertIs<TestIntegrationEvent>(published.single())
-        assertEquals("order-3", event.name)
+        val event = assertIs<OrderPlacedIntegration>(integrationEvent)
+        assertEquals("order-3", event.orderId)
     }
 }
 
 // --- Test doubles ---
 
-private class OrderPlaced(val orderId: String) :
-    DomainEvent(), AutoPublishesIntegrationEvent<TestIntegrationEvent> {
-    override fun toIntegrationEvent(): TestIntegrationEvent = TestIntegrationEvent(orderId)
+private class OrderPlaced(val orderId: String) : DomainEvent()
+
+private class OrderPlacedIntegration(val orderId: String) :
+    IntegrationEvent(), AutoPublishesFrom<OrderPlaced> {
+    override fun fromDomainEvent(event: OrderPlaced): OrderPlacedIntegration =
+        OrderPlacedIntegration(event.orderId)
 }
 
 private class RecordingIntegrationEventPublisher : IntegrationEventPublisher {

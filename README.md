@@ -315,6 +315,43 @@ class RegisterUserHandler :
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-02.kt).
 
+#### Auto-Publishing Integration Events from Domain Events
+
+An integration event can declare the domain event it is derived from by implementing `AutoPublishesFrom`. The
+`AutoPublishIntegrationEvents` middleware, given a map from domain event class to mapper, then publishes the
+integration event automatically whenever that domain event is dispatched — no explicit `dispatch` call needed.
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.domain.event.DomainEvent
+-->
+
+```kotlin
+class OrderPlaced(val orderId: String) : DomainEvent()
+
+class OrderPlacedIntegration(val orderId: String) :
+    IntegrationEvent(), AutoPublishesFrom<OrderPlaced> {
+
+    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
+}
+
+val busWithAutoPublish = MessageBus(
+    handlerLocator = PersistingHandlerLocator(),
+    middlewares = listOf(
+        AutoPublishIntegrationEvents(
+            mapOf(OrderPlaced::class to OrderPlacedIntegration("")),
+        ),
+    ),
+)
+```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-03.kt).
+
 ## Result Types
 
 All commands and queries return `BusResult<TValue, TMessageFailure>`:
@@ -428,6 +465,7 @@ val bus = MessageBus(
 
 - **`LoggingMiddleware`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
+- **`AutoPublishIntegrationEvents`** — Publishes the integration event mapped from a registered domain event via `AutoPublishesFrom`
 
 ## Unit of Work
 
