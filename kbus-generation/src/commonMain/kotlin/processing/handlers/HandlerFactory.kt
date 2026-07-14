@@ -12,6 +12,7 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
+import com.jimbroze.kbus.generation.utility.extendsType
 import com.squareup.kotlinpoet.UNIT
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeName
@@ -65,22 +66,14 @@ class HandlerFactory(
 
     private fun resolveEventKind(messageClass: KSClassDeclaration): EventHandlerKind {
         return when {
-            extendsType(messageClass, DomainEvent::class.qualifiedName!!) -> EventHandlerKind.DOMAIN
-            extendsType(messageClass, IntegrationEvent::class.qualifiedName!!) ->
+            messageClass.extendsType(DomainEvent::class.qualifiedName!!) -> EventHandlerKind.DOMAIN
+            messageClass.extendsType(IntegrationEvent::class.qualifiedName!!) ->
                 EventHandlerKind.INTEGRATION
             else ->
                 error(
                     "Event ${messageClass.qualifiedName?.asString()} must extend " +
                         "DomainEvent or IntegrationEvent"
                 )
-        }
-    }
-
-    private fun extendsType(decl: KSClassDeclaration, qualifiedName: String): Boolean {
-        if (decl.qualifiedName?.asString() == qualifiedName) return true
-        return decl.superTypes.any { superType ->
-            val superDecl = superType.resolve().declaration as? KSClassDeclaration
-            superDecl != null && extendsType(superDecl, qualifiedName)
         }
     }
 
