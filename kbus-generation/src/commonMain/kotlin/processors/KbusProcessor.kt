@@ -7,9 +7,11 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
+import com.jimbroze.kbus.contracts.annotations.LoadEvent
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
+import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
@@ -17,10 +19,12 @@ import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.LoadedEventHandlersGenerator
 import com.jimbroze.kbus.generation.processing.IndexParser
+import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishFactory
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
+import com.jimbroze.kbus.generation.processors.visitors.LoadEventVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
 
 @Suppress("LongParameterList")
@@ -32,12 +36,15 @@ class CodeGenerators(
     val dependencyIndexGenerator: DependencyIndexGenerator,
     val bus: BusGenerator,
     val loadedEventHandlersGenerator: LoadedEventHandlersGenerator,
+    val autoPublishRegistrationsGenerator: AutoPublishRegistrationsGenerator,
 )
 
+@Suppress("LongParameterList")
 class KbusProcessor(
     @Suppress("unused") private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
     private val indexParser: IndexParser,
+    private val autoPublishFactory: AutoPublishFactory,
     private val generators: CodeGenerators,
     private val isSubModule: Boolean,
     private val indexPackagePath: String,
@@ -55,6 +62,8 @@ class KbusProcessor(
         invalidSymbols.addAll(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
         )
+
+        invalidSymbols.addAll(processEvents(resolver))
 
         return invalidSymbols
     }
@@ -98,6 +107,18 @@ class KbusProcessor(
         return invalidLoadSymbols
     }
 
+    private fun processEvents(resolver: Resolver): List<KSAnnotated> {
+        val eventsToLoad =
+            resolver.getSymbolsWithAnnotation(LoadEvent::class.qualifiedName.toString())
+
+        val (validEventSymbols, invalidEventSymbols) = eventsToLoad.partition { it.validate() }
+        validEventSymbols.forEach {
+            it.accept(LoadEventVisitor(autoPublishFactory, logger), dependencies)
+        }
+
+        return invalidEventSymbols
+    }
+
     override fun finish() {
         if (dependencies.isEmpty()) return
 
@@ -109,6 +130,7 @@ class KbusProcessor(
             generators.dependencyIndexGenerator.generateIndexClass(
                 dependencies.allDependencies,
                 dependencies.handlers,
+                dependencies.autoPublishDefinitions,
                 sourceFiles,
             )
         } else {
@@ -119,6 +141,10 @@ class KbusProcessor(
                 sourceFiles,
             )
             generators.bus.generateClass(dependencies.handlers, sourceFiles)
+            generators.autoPublishRegistrationsGenerator.generateRegistrations(
+                dependencies.autoPublishDefinitions,
+                sourceFiles,
+            )
         }
     }
 }

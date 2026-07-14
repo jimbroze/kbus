@@ -4,11 +4,13 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
+import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
 import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
+import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
@@ -38,6 +40,7 @@ class DependencyIndexGenerator(
     fun generateIndexClass(
         dependencies: Set<DependencyWithChildren>,
         handlers: Set<HandlerDefinition>,
+        autoPublishDefinitions: Set<AutoPublishDefinition>,
         sourceFiles: List<KSFile>,
     ) {
         val classBuilder = TypeSpec.classBuilder(indexClassName)
@@ -52,13 +55,20 @@ class DependencyIndexGenerator(
                 .map { handler -> CodeBlock.of("%L", this.addHandler(handler)) }
                 .joinToCode(", ")
 
-        val indexAnnotation =
+        val indexAnnotationBuilder =
             AnnotationSpec.builder(KbusIndex::class)
                 .addMember("dependencies = [%L]", dependencyInfoSpecsBlock)
                 .addMember("handlers = [%L]", handlerInfoSpecsBlock)
-                .build()
 
-        classBuilder.addAnnotation(indexAnnotation)
+        if (autoPublishDefinitions.isNotEmpty()) {
+            val autoPublishInfoSpecsBlock =
+                autoPublishDefinitions
+                    .map { definition -> CodeBlock.of("%L", this.addAutoPublish(definition)) }
+                    .joinToCode(", ")
+            indexAnnotationBuilder.addMember("autoPublishEvents = [%L]", autoPublishInfoSpecsBlock)
+        }
+
+        classBuilder.addAnnotation(indexAnnotationBuilder.build())
 
         val file = FileSpec.builder(packagePath, indexClassName)
         file.addType(classBuilder.build())
@@ -118,6 +128,19 @@ class DependencyIndexGenerator(
             .addMember(
                 "${HandlerInfo::topLevelDependencies.name} = [%L]",
                 topLevelDependencies(handler.handlerData.topLevelDependencies),
+            )
+            .build()
+    }
+
+    private fun addAutoPublish(definition: AutoPublishDefinition): AnnotationSpec {
+        return AnnotationSpec.builder(AutoPublishInfo::class)
+            .addMember(
+                "${AutoPublishInfo::integrationEventClass.name} = %S",
+                definition.integrationEventClass.canonicalName,
+            )
+            .addMember(
+                "${AutoPublishInfo::domainEventClass.name} = %S",
+                definition.domainEventClass.canonicalName,
             )
             .build()
     }

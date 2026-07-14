@@ -39,6 +39,7 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
 
         addDependencies(kbusIndexAnnotation, data)
         addHandlers(kbusIndexAnnotation, data)
+        addAutoPublishEvents(kbusIndexAnnotation, data)
     }
 
     private fun addDependencies(kbusIndexAnnotation: KSAnnotation, data: ProcessingContext) {
@@ -90,6 +91,32 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
                 }
                 is ConflictPolicy.Result.InvalidConflict -> {
                     logger.error(result.reason, handlerInfoAnnotation)
+                }
+            }
+        }
+    }
+
+    private fun addAutoPublishEvents(kbusIndexAnnotation: KSAnnotation, data: ProcessingContext) {
+        val autoPublishEventsArg =
+            kbusIndexAnnotation.arguments.find {
+                it.name?.asString() == KbusIndex::autoPublishEvents.name
+            }
+
+        @Suppress("UNCHECKED_CAST")
+        val autoPublishInfoAnnotations =
+            autoPublishEventsArg?.value as? List<KSAnnotation> ?: emptyList()
+
+        val definitions = indexParser.createAutoPublishDefinitions(autoPublishInfoAnnotations)
+        for (definition in definitions) {
+            when (val result = data.tryAddAutoPublish(definition)) {
+                is ConflictPolicy.Result.Accept -> {
+                    // Successfully added
+                }
+                is ConflictPolicy.Result.ExactDuplicate -> {
+                    // Duplicate definition is fine
+                }
+                is ConflictPolicy.Result.InvalidConflict -> {
+                    logger.error(result.reason, autoPublishEventsArg)
                 }
             }
         }
