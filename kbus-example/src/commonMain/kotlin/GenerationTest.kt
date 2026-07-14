@@ -2,15 +2,20 @@
 
 package com.jimbroze.kbus.generation.test
 
+import com.jimbroze.kbus.contracts.annotations.LoadEvent
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -242,6 +247,63 @@ class TestEventPublishingCommandHandler(
         message: TestEventPublishingCommand
     ): BusResult<Any, MessageFailure> {
         requiresCommandDepsContainsInterface.domainEventPublisher.publish(TestGeneratorEvent())
+        return BusResult.success("published")
+    }
+}
+
+class TestShipmentEvent(val shipmentId: String) : DomainEvent()
+
+@LoadEvent
+class TestShipmentIntegration(val shipmentId: String) : IntegrationEvent() {
+    // FailFast dispatches handlers synchronously rather than fire-and-forget, so the e2e test can
+    // assert on the handler's effect without a race against a background coroutine.
+    override val errorStrategy = ErrorStrategy.FailFast
+
+    companion object : AutoPublishesFrom<TestShipmentEvent> {
+        override fun fromDomainEvent(event: TestShipmentEvent) =
+            TestShipmentIntegration(event.shipmentId)
+    }
+}
+
+// A companion implementing AutoPublishesFrom indirectly, via a generic intermediate interface,
+// to exercise type-parameter substitution during discovery.
+interface ShipmentMapper<TEvent : DomainEvent> : AutoPublishesFrom<TEvent>
+
+@LoadEvent
+class TestShipmentAnalytics(val shipmentId: String) : IntegrationEvent() {
+    companion object : ShipmentMapper<TestShipmentEvent> {
+        override fun fromDomainEvent(event: TestShipmentEvent) =
+            TestShipmentAnalytics(event.shipmentId)
+    }
+}
+
+// Known to code generation, but has no AutoPublishesFrom companion, so no registration is
+// generated for it.
+@LoadEvent class TestShipmentAudit(val shipmentId: String) : IntegrationEvent()
+
+@LoadMessageHandler
+@Suppress("unused")
+class TestShipmentIntegrationHandler : IntegrationEventHandler<TestShipmentIntegration> {
+    override suspend fun handle(message: TestShipmentIntegration) {
+        timesHandled++
+    }
+
+    companion object {
+        var timesHandled = 0
+    }
+}
+
+class TestShipmentCommand : Command<BusResult<Any, MessageFailure>>()
+
+@LoadMessageHandler
+@Suppress("unused")
+class TestShipmentCommandHandler(
+    private val requiresCommandDepsContainsInterface: RequiresCommandDepsContainsInterface
+) : CommandHandler<TestShipmentCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: TestShipmentCommand): BusResult<Any, MessageFailure> {
+        requiresCommandDepsContainsInterface.domainEventPublisher.publish(
+            TestShipmentEvent("shipment-1")
+        )
         return BusResult.success("published")
     }
 }

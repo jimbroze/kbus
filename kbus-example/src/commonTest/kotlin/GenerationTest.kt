@@ -6,13 +6,16 @@ import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
+import com.jimbroze.kbus.generated.generatedAutoPublishRegistrations
 import com.jimbroze.kbus.generated.loaded
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.ExampleWarehouseNotifier
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.InMemoryInventoryRepository
+import com.jimbroze.kbus.generation.test.orders.domain.OrderPlaced
 import com.jimbroze.kbus.generation.test.orders.infrastructure.ExampleEmailService
 import com.jimbroze.kbus.generation.test.orders.infrastructure.ExamplePaymentGateway
 import com.jimbroze.kbus.generation.test.orders.infrastructure.InMemoryOrderRepository
@@ -158,5 +161,42 @@ class GenerationTest {
         val handledBefore = TestGeneratorEventHandler.timesHandled
         bus.execute(TestEventPublishingCommand())
         assertEquals(handledBefore + 1, TestGeneratorEventHandler.timesHandled)
+    }
+
+    @Test
+    fun test_generated_auto_publish_registrations_only_contain_opted_in_events() {
+        // TestShipmentIntegration (direct AutoPublishesFrom) and TestShipmentAnalytics (indirect,
+        // via a generic intermediate interface) both opt in; TestShipmentAudit has no
+        // AutoPublishesFrom companion, so it contributes no registration.
+        val registrationsForShipmentEvent =
+            generatedAutoPublishRegistrations.count { it.eventClass == TestShipmentEvent::class }
+
+        assertEquals(2, registrationsForShipmentEvent)
+    }
+
+    @Test
+    fun test_generated_auto_publish_registrations_propagate_from_submodules() {
+        val eventClasses = generatedAutoPublishRegistrations.map { it.eventClass }
+
+        assertTrue(eventClasses.contains(OrderPlaced::class))
+    }
+
+    @Test
+    fun test_it_auto_publishes_integration_events_from_domain_events() = runTest {
+        val bus =
+            CompileTimeLoadedMessageBus(
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                EmptyTransactionManager(),
+                listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
+            )
+
+        bus.integrationEventMapper.addEventHandlers(
+            TestShipmentIntegration::class,
+            listOf(TestShipmentIntegrationHandler::class.loaded),
+        )
+
+        val handledBefore = TestShipmentIntegrationHandler.timesHandled
+        bus.execute(TestShipmentCommand())
+        assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
     }
 }
