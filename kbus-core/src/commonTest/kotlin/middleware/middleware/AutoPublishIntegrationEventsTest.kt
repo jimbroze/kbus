@@ -2,7 +2,7 @@ package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
-import com.jimbroze.kbus.core.messages.event.IntegrationEventMapper
+import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -30,16 +30,17 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun publishes_the_integration_event_mapped_by_a_companion_object_registration() = runTest {
-        val publisher = RecordingIntegrationEventPublisher()
-        val middleware = AutoPublishIntegrationEvents(autoPublish(OrderPlacedIntegration))
+    fun publishes_the_integration_event_mapped_by_an_auto_publishes_from_companion_object() =
+        runTest {
+            val publisher = RecordingIntegrationEventPublisher()
+            val middleware = AutoPublishIntegrationEvents(autoPublish(OrderPlacedIntegration))
 
-        middleware.handle(OrderPlaced("order-2"), contextWith(publisher)) {}
+            middleware.handle(OrderPlaced("order-2"), contextWith(publisher)) {}
 
-        val published = publisher.publishedEvents.flatten()
-        val event = assertIs<OrderPlacedIntegration>(published.single())
-        assertEquals("order-2", event.orderId)
-    }
+            val published = publisher.publishedEvents.flatten()
+            val event = assertIs<OrderPlacedIntegration>(published.single())
+            assertEquals("order-2", event.orderId)
+        }
 
     @Test
     fun publishes_all_integration_events_registered_for_a_domain_event_together() = runTest {
@@ -97,7 +98,7 @@ class AutoPublishIntegrationEventsTest {
 private class OrderPlaced(val orderId: String) : DomainEvent()
 
 private class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
-    companion object : IntegrationEventMapper<OrderPlaced> {
+    companion object : AutoPublishesFrom<OrderPlaced> {
         override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
     }
 }

@@ -9,8 +9,8 @@ import com.jimbroze.kbus.domain.event.DomainEvent
  * Register a mapper with the
  * [AutoPublishIntegrationEvents][com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents]
  * middleware via [autoPublish][com.jimbroze.kbus.core.middleware.middleware.autoPublish], either as
- * a lambda or by implementing this interface on the integration event's companion object to declare
- * the domain event it is derived from.
+ * a lambda or by implementing [AutoPublishesFrom] on the integration event's companion object to
+ * declare the domain event it is derived from.
  */
 fun interface IntegrationEventMapper<TDomainEvent : DomainEvent> {
     fun fromDomainEvent(event: TDomainEvent): IntegrationEvent
