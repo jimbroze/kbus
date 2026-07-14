@@ -357,6 +357,10 @@ val busWithAutoPublish = MessageBus(
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-03.kt).
 
+Registering every mapping by hand doesn't scale in a generated bus. Annotate the integration event with `@LoadEvent`
+and code generation collects every `AutoPublishesFrom` companion it finds into a generated
+`generatedAutoPublishRegistrations` list — see [Auto-Publish Registrations](#auto-publish-registrations) below.
+
 ## Result Types
 
 All commands and queries return `BusResult<TValue, TMessageFailure>`:
@@ -632,6 +636,8 @@ The KSP processor generates:
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
+- **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every `@LoadEvent`
+  integration event whose companion implements `AutoPublishesFrom` (only generated when at least one exists)
 
 ### Using the Generated Bus
 
@@ -655,6 +661,35 @@ val bus = CompileTimeLoadedMessageBus(
 val result = bus.execute(PlaceOrder(items))
 ```
 
+### Auto-Publish Registrations
+
+`@LoadEvent` makes an event known to code generation. On its own it generates nothing — but if the annotated
+integration event's companion implements `AutoPublishesFrom` (see
+[Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)), the processor also
+collects it into the generated `generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered
+by hand:
+
+<!--- CLEAR -->
+
+```kotlin
+@LoadEvent
+class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
+    companion object : AutoPublishesFrom<OrderPlaced> {
+        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
+    }
+}
+
+val bus = CompileTimeLoadedMessageBus(
+    loader = MyDependencies(),
+    transactionManager = myTransactionManager,
+    middleware = listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
+)
+```
+
+An event annotated with `@LoadEvent` whose companion does not implement `AutoPublishesFrom` (or that has no
+companion) is still known to the processor — it just contributes no registration; this is not an error, and leaves
+room for other `@LoadEvent`-driven code generation in future.
+
 ### Submodules
 
 For multi-module projects, submodules can export their handler metadata for the main module to consume. You must
@@ -675,7 +710,8 @@ ksp {
 ```
 
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
-these indexes automatically.
+these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
+module's `generatedAutoPublishRegistrations`.
 
 ## Domain Modeling
 
