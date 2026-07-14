@@ -317,16 +317,18 @@ class RegisterUserHandler :
 
 #### Auto-Publishing Integration Events from Domain Events
 
-An integration event can declare the domain event it is derived from by implementing `AutoPublishesFrom`. The
-`AutoPublishIntegrationEvents` middleware, given a map from domain event class to mapper, then publishes the
-integration event automatically whenever that domain event is dispatched — no explicit `dispatch` call needed.
+The `AutoPublishIntegrationEvents` middleware publishes integration events automatically whenever a registered domain
+event is dispatched — no explicit `dispatch` call needed. Register mappings with `autoPublish`, either as a lambda or
+by implementing `IntegrationEventMapper` on the integration event's companion object to declare the domain event it is
+derived from. A domain event may be registered multiple times to publish several integration events.
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.domain.event.DomainEvent
 -->
@@ -334,17 +336,20 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 ```kotlin
 class OrderPlaced(val orderId: String) : DomainEvent()
 
-class OrderPlacedIntegration(val orderId: String) :
-    IntegrationEvent(), AutoPublishesFrom<OrderPlaced> {
-
-    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
+class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
+    companion object : IntegrationEventMapper<OrderPlaced> {
+        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
+    }
 }
+
+class OrderPlacedAnalytics(val orderId: String) : IntegrationEvent()
 
 val busWithAutoPublish = MessageBus(
     handlerLocator = PersistingHandlerLocator(),
     middlewares = listOf(
         AutoPublishIntegrationEvents(
-            mapOf(OrderPlaced::class to OrderPlacedIntegration("")),
+            autoPublish(OrderPlacedIntegration),
+            autoPublish<OrderPlaced> { OrderPlacedAnalytics(it.orderId) },
         ),
     ),
 )
