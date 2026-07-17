@@ -17,6 +17,7 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
@@ -34,6 +35,7 @@ data class BusConfig(
     val middlewareClass: KClass<*>,
     val transactionManagerClass: KClass<*>,
     val handlerLocatorInterface: KClass<*>,
+    val outboxConfigClass: KClass<*>,
 )
 
 class BusGenerator(
@@ -55,6 +57,7 @@ class BusGenerator(
                 )
                 .addSuperclassConstructorParameter("transactionManager")
                 .addSuperclassConstructorParameter("middleware")
+                .addSuperclassConstructorParameter("outbox = outbox")
 
         buildConstructors(classBuilder, dependenciesClassName, handlerFactoryClassName)
         buildEventMapperProperties(classBuilder)
@@ -78,6 +81,14 @@ class BusGenerator(
         dependenciesClassName: ClassName,
         handlerFactoryClassName: ClassName,
     ) {
+        val outboxParameter =
+            ParameterSpec.builder(
+                    "outbox",
+                    config.outboxConfigClass.asClassName().copy(nullable = true),
+                )
+                .defaultValue("null")
+                .build()
+
         classBuilder
             .primaryConstructor(
                 FunSpec.constructorBuilder()
@@ -89,6 +100,7 @@ class BusGenerator(
                         List::class.asClassName()
                             .parameterizedBy(config.middlewareClass.asClassName()),
                     )
+                    .addParameter(outboxParameter)
                     .build()
             )
             .addProperty(
@@ -106,10 +118,12 @@ class BusGenerator(
                         List::class.asClassName()
                             .parameterizedBy(config.middlewareClass.asClassName()),
                     )
+                    .addParameter(outboxParameter)
                     .callThisConstructor(
                         CodeBlock.of("%T(loader)", handlerFactoryClassName),
                         CodeBlock.of("transactionManager"),
                         CodeBlock.of("middleware"),
+                        CodeBlock.of("outbox"),
                     )
                     .build()
             )

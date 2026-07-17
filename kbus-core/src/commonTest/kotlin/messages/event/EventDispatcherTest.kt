@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.DefaultPhaseFailFastHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler
@@ -16,6 +17,7 @@ import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
 import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateHandler
@@ -705,4 +707,51 @@ class EventDispatcherTest {
     }
 
     // TODO test observer emit is after other dispatches
+
+    // =========================================================================
+    // OUTBOX CONTEXT WIRING
+    // =========================================================================
+
+    @Test
+    fun dispatchDomainEvent_uses_the_unit_of_works_publisher_when_present() = runTest {
+        val capturingMiddleware = CapturingContextMiddleware()
+        val unitOfWorkPublisher = RecordingIntegrationEventPublisher()
+        val unitOfWork =
+            TestUnitOfWork<Any?>().apply { integrationEventPublisher = unitOfWorkPublisher }
+        val dispatcher =
+            EventDispatcher(
+                { emptyList() },
+                listOf(capturingMiddleware),
+                this,
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
+
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+        assertEquals(
+            unitOfWorkPublisher,
+            capturingMiddleware.capturedContext?.integrationEventPublisher,
+        )
+    }
+
+    @Test
+    fun dispatchDomainEvent_falls_back_to_the_provider_context_without_a_unit_of_work_publisher() =
+        runTest {
+            val capturingMiddleware = CapturingContextMiddleware()
+            val unitOfWork = TestUnitOfWork<Any?>()
+            val dispatcher =
+                EventDispatcher(
+                    { emptyList() },
+                    listOf(capturingMiddleware),
+                    this,
+                    invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                )
+
+            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+            assertEquals(
+                EmptyMiddlewareInvocationContext.integrationEventPublisher,
+                capturingMiddleware.capturedContext?.integrationEventPublisher,
+            )
+        }
 }

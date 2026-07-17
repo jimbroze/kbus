@@ -18,6 +18,14 @@ object EmptyIntegrationEventPublisher : IntegrationEventPublisher {
     override suspend fun publish(events: List<IntegrationEvent>) = Unit
 }
 
+class RecordingIntegrationEventPublisher : IntegrationEventPublisher {
+    val publishedEvents = mutableListOf<List<IntegrationEvent>>()
+
+    override suspend fun publish(events: List<IntegrationEvent>) {
+        publishedEvents.add(events)
+    }
+}
+
 // --- Domain events ---
 
 class TestDomainEvent(val data: String) : DomainEvent()

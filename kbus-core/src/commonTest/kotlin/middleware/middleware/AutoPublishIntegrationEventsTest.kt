@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
@@ -104,14 +105,6 @@ private class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
 }
 
 private class OrderPlacedAnalytics(val orderId: String) : IntegrationEvent()
-
-private class RecordingIntegrationEventPublisher : IntegrationEventPublisher {
-    val publishedEvents = mutableListOf<List<IntegrationEvent>>()
-
-    override suspend fun publish(events: List<IntegrationEvent>) {
-        publishedEvents.add(events)
-    }
-}
 
 private fun contextWith(
     publisher: IntegrationEventPublisher = RecordingIntegrationEventPublisher()

@@ -19,7 +19,11 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
+import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.core.uow.OutboxPoller
+import com.jimbroze.kbus.core.uow.TransactionOutbox
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -41,6 +46,7 @@ abstract class BaseMessageBus(
     transactionManager: TransactionManager?,
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    outbox: OutboxConfig? = null,
 ) : IMessageBus {
     private val busAccess =
         object : BusAccess {
@@ -64,22 +70,41 @@ abstract class BaseMessageBus(
             eventDispatcherScope,
             invocationContextProvider = { invocationContext },
         )
-    protected val commandExecutor =
-        CommandExecutor(
-            transactionManager,
-            middlewares,
-            busAccess,
-            DefaultCommandDependenciesFactory(eventDispatcher),
-            invocationContextProvider = { invocationContext },
-        )
-    protected val queryFetcher =
-        QueryFetcher(middlewares, invocationContextProvider = { invocationContext })
     private val integrationEventPublisher =
         BusIntegrationEventPublisher(handlerLocator, eventDispatcher)
     private val invocationContext: MiddlewareInvocationContext =
         object : MiddlewareInvocationContext {
             override val integrationEventPublisher = this@BaseMessageBus.integrationEventPublisher
         }
+    private val outboxScope =
+        CoroutineScope(
+            rootScope.coroutineContext +
+                SupervisorJob(parent = rootJob) +
+                Dispatchers.Default +
+                CoroutineName("KBus-Outbox")
+        )
+    private val outboxFactory: (() -> TransactionOutbox)? =
+        outbox?.let { config ->
+            {
+                TransactionOutbox(
+                    config.store,
+                    integrationEventPublisher,
+                    outboxScope,
+                    config.drainAfterCommit,
+                )
+            }
+        }
+    protected val commandExecutor =
+        CommandExecutor(
+            transactionManager,
+            middlewares,
+            busAccess,
+            DefaultCommandDependenciesFactory(eventDispatcher),
+            DefaultUnitOfWorkFactory(outboxFactory),
+            invocationContextProvider = { invocationContext },
+        )
+    protected val queryFetcher =
+        QueryFetcher(middlewares, invocationContextProvider = { invocationContext })
 
     init {
         middlewares.forEach { middleware ->
@@ -94,6 +119,18 @@ abstract class BaseMessageBus(
                     )
 
                 middleware.onStart(BusMiddlewareContext(middlewareScope))
+            }
+        }
+
+        if (outbox != null) {
+            outboxScope.launch {
+                OutboxPoller(
+                        outbox.store,
+                        integrationEventPublisher,
+                        outbox.batchSize,
+                        outbox.pollInterval,
+                    )
+                    .run()
             }
         }
     }
@@ -135,4 +172,5 @@ class MessageBus(
     transactionManager: TransactionManager? = EmptyTransactionManager(),
     middlewares: List<Middleware> = emptyList(),
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope)
+    outbox: OutboxConfig? = null,
+) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope, outbox)

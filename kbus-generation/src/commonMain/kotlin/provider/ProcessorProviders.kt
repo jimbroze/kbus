@@ -7,6 +7,7 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
+import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusConfig
@@ -117,6 +118,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 Middleware::class,
                 TransactionManager::class,
                 GenerationHandlerLocator::class,
+                OutboxConfig::class,
             ),
             PACKAGE_PATH,
         )

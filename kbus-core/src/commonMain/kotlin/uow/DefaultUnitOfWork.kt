@@ -1,12 +1,16 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 
-internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TResult> {
+internal class DefaultUnitOfWork<TResult>
+internal constructor(private val outbox: TransactionOutbox? = null) : UnitOfWork<TResult> {
     private lateinit var primaryWork: suspend () -> TResult
     private val secondaryWork: MutableList<suspend () -> Unit> = mutableListOf()
     private val postCommitWork: MutableList<suspend () -> Unit> = mutableListOf()
     private var transactionManager: TransactionManager = EmptyTransactionManager()
+
+    override val integrationEventPublisher: IntegrationEventPublisher? = outbox
 
     override suspend fun execute(): TResult {
         val blockForTransaction: suspend () -> TResult = {
@@ -19,6 +23,7 @@ internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TR
         val result = transactionManager.execute(blockForTransaction)
 
         executeAfterCommitWork()
+        outbox?.drain()
 
         return result
     }
@@ -48,8 +53,13 @@ internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TR
     }
 }
 
-class DefaultUnitOfWorkFactory : UnitOfWorkFactory {
-    override fun <TResult> create(): UnitOfWork<TResult> = DefaultUnitOfWork()
+class DefaultUnitOfWorkFactory
+internal constructor(private val outboxFactory: (() -> TransactionOutbox)? = null) :
+    UnitOfWorkFactory {
+    constructor() : this(outboxFactory = null)
+
+    override fun <TResult> create(): UnitOfWork<TResult> =
+        DefaultUnitOfWork(outboxFactory?.invoke())
 }
 
 class EmptyTransactionManager : TransactionManager {

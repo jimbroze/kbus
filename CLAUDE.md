@@ -75,6 +75,17 @@ Composable middleware chain wrapping handler execution. Built-in: `MessageLogger
 Commands execute in a `UnitOfWork` managing three phases: primary work → secondary work (domain events, within
 transaction) → post-commit work (integration events).
 
+### Transactional Outbox
+
+Opt-in via `OutboxConfig` on the bus constructor (a peer of `TransactionManager`, NOT middleware).
+`DefaultUnitOfWork` owns a per-command `TransactionOutbox` (installed by `DefaultUnitOfWorkFactory`):
+integration events published during a command are saved to the user's `OutboxStore` inside the
+transaction and buffered; after commit + post-commit work, the UoW triggers a fire-and-forget drain
+on a bus-owned scope. A bus-owned poller is the at-least-once delivery guarantee; the drain is only
+a latency optimisation. Both publish paths reach the outbox explicitly: `CommandExecutor` wraps the
+handler's `BusAccess` with the UoW's publisher; `EventDispatcher.dispatchDomainEvent` swaps it into
+the middleware context (AutoPublish path).
+
 ### Result Types
 
 `BusResult<TValue, TMessageFailure>` sealed class with `Success` and `Failure` subtypes. Failures use `FailureReason`
@@ -84,6 +95,24 @@ interface.
 
 Constructor parameters of `@LoadMessageHandler` classes become dependencies. Types: `PROPERTY` (direct reference),
 `FUNCTIONAL` (lambda factory), `COMMAND` (from `CommandDependencies`).
+
+## Design Philosophy
+
+- **Explicit wiring over ambient state.** Dependencies flow through constructors, factories, and
+  parameters — never through coroutine-context elements, statics, or reflection. Coroutine context
+  is reserved for middleware-internal concerns (e.g. `LockingMiddleware`'s re-entrancy token), not
+  core semantics. If a component needs per-command state, thread it through the object graph.
+- **`UnitOfWork` is the bus's transaction.** Transactional behavior (phases, outbox capture/drain)
+  belongs on or around `UnitOfWork`, configured via `UnitOfWorkFactory`. `CommandExecutor` stays a
+  thin orchestrator; don't accumulate concerns there. Middleware is for cross-cutting invocation
+  concerns (logging, locking), not transactional semantics.
+- **Integration events decouple publish from dispatch.** Publishing (durable save, in-transaction)
+  and dispatching (async delivery to handlers, post-commit) are separate steps. A command's return
+  never awaits integration handler execution; delivery is at-least-once via the outbox poller, and
+  the post-commit drain is opportunistic fire-and-forget (awaiting it can deadlock with held locks).
+- **Producers own event data; consumers own consumption policy.** Handler-side concerns
+  (domain `dispatchTiming`) sit on handlers; event-level `errorStrategy` doubles as the outbox's
+  ack semantics (`FailFast` = retry until handlers complete).
 
 ## Conventions
 

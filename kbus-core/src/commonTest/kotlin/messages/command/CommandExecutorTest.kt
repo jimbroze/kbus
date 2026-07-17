@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.core.fixtures.DispatchingCommand
 import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler
 import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
+import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestBusAccess
@@ -19,6 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class CommandExecutorTest {
@@ -56,6 +58,31 @@ class CommandExecutorTest {
 
         assertEquals(1, busAccess.dispatchedEvents.size)
         assertEquals("test-event", (busAccess.dispatchedEvents[0] as TestIntegrationEvent).name)
+    }
+
+    @Test
+    fun test_it_routes_dispatch_through_the_unit_of_works_publisher_when_present() = runTest {
+        val busAccess = TestBusAccess()
+        val outboxPublisher = RecordingIntegrationEventPublisher()
+        val unitOfWorkFactory = TestUnitOfWorkFactory(outboxPublisher)
+        val executor =
+            CommandExecutor(
+                null,
+                emptyList(),
+                busAccess,
+                TestCommandDependenciesFactory(),
+                unitOfWorkFactory,
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
+
+        executor.execute(DispatchingCommand()) { DispatchingCommandHandler() }
+
+        assertTrue(busAccess.dispatchedEvents.isEmpty())
+        assertEquals(1, outboxPublisher.publishedEvents.flatten().size)
+        assertEquals(
+            "test-event",
+            (outboxPublisher.publishedEvents.flatten().single() as TestIntegrationEvent).name,
+        )
     }
 
     @Test

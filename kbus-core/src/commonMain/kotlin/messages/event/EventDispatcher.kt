@@ -77,9 +77,19 @@ class EventDispatcher(
                 dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
             }
         }
-        val execute = createMiddlewareChain(finalHandler, middlewares, invocationContextProvider())
+        val context =
+            unitOfWork.integrationEventPublisher?.let(::outboxInvocationContext)
+                ?: invocationContextProvider()
+        val execute = createMiddlewareChain(finalHandler, middlewares, context)
         execute(event)
     }
+
+    private fun outboxInvocationContext(
+        publisher: IntegrationEventPublisher
+    ): MiddlewareInvocationContext =
+        object : MiddlewareInvocationContext {
+            override val integrationEventPublisher = publisher
+        }
 
     private fun <TEvent : Event> dispatchHandlersWithErrorHandling(
         handlers: List<EventHandler<TEvent>>,

@@ -29,7 +29,7 @@ class CommandExecutor(
         val unitOfWork = unitOfWorkFactory.create<TResult>()
         val handler = createHandler(commandDependenciesFactory.create(unitOfWork))
 
-        handler.setBus(busAccess)
+        handler.setBus(unitOfWork.integrationEventPublisher?.let(::OutboqwxBusAccess) ?: busAccess)
 
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
             executeInUnitOfWork(message, handler, unitOfWork)

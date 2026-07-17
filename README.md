@@ -568,6 +568,69 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
 }
 ```
 
+## Transactional Outbox
+
+Integration events published during a command (both the imperative `dispatch()` and the `AutoPublishIntegrationEvents`
+middleware) normally publish inside the command's transaction and dispatch to handlers immediately. This leaves two
+gaps: a **phantom event** (published, then the transaction rolls back) and a **lost event** (committed, then the
+process crashes before handlers run). A transactional outbox closes both gaps by persisting events to a durable store
+inside the transaction, then delivering them separately.
+
+The outbox is infrastructure that hangs off the Unit of Work — a peer of `TransactionManager` on the bus
+constructor, **not middleware**. Opt in by passing an `OutboxConfig`:
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.uow.OutboxConfig
+-->
+
+```kotlin
+val stores = HandlerFactoryStoreCollection()
+
+val bus = MessageBus(
+    handlerLocator = PersistingHandlerLocator(stores),
+    outbox = OutboxConfig(store = InMemoryOutboxStore()),
+)
+```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
+
+`InMemoryOutboxStore` is a reference implementation for tests and examples. For production, implement `OutboxStore`
+against a durable table. `save` is always called from inside the command's `TransactionManager.execute` block, so
+your implementation **must join the ambient transaction** (the same by-convention contract as `TransactionManager`
+itself) — otherwise a rolled-back command would leave a phantom event saved to the outbox.
+
+**Publish and dispatch are decoupled.** "Publish" is the durable save inside the transaction; "dispatch" is the async
+delivery to handlers afterward. A command's return value **never awaits** integration handler execution, whether or
+not an outbox is configured.
+
+**Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching
+unpublished entries and delivering them — this is what survives a crash between commit and delivery. After a
+command's transaction commits (and any post-commit-phase handlers finish), the Unit of Work also triggers a
+fire-and-forget drain of the events it just captured, purely as a latency optimisation; it is never awaited, and if
+it fails or is skipped the poller retries the entry on its next tick. Because the drain and the poller can overlap,
+and because multiple bus instances may run against the same store, a handler may occasionally run more than once —
+design handlers to be idempotent. `OutboxStore.fetchUnpublished` is the hook for narrowing that window (e.g. hiding
+very recently-saved or already-claimed entries).
+
+An event's `errorStrategy` doubles as the outbox's acknowledgement semantics: `FireAndForget` marks an entry
+published as soon as delivery is handed off, while `FailFast` only marks it published once every handler has
+actually completed, letting the poller retry entries whose handlers threw. Either way, a handler failure no longer
+fails the command itself — the command has already returned by the time delivery happens.
+
+A few edge cases worth knowing:
+
+- Commands with `executeInTransaction = null` still route their events through the outbox, just without the
+  atomicity of the save being part of a real transaction.
+- A detached (`FireAndForget`, post-commit) domain event handler that calls `dispatch()` itself publishes directly,
+  bypassing the outbox — only the triggering command's own events are captured.
+- Events published by `POST_COMMIT`-phase domain event handlers are saved to the outbox non-transactionally (the
+  transaction has already committed), but are still captured and drained like any other event.
+
 ## KSP Code Generation
 
 For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module. This
