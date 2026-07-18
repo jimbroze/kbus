@@ -58,10 +58,12 @@ import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialContinueAndAggregateHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFailFastHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
+import com.jimbroze.kbus.core.middleware.invocationContextOf
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.take
@@ -713,7 +715,7 @@ class EventDispatcherTest {
     // =========================================================================
 
     @Test
-    fun dispatchDomainEvent_uses_the_unit_of_works_publisher_when_present() = runTest {
+    fun dispatchDomainEvent_always_builds_context_from_the_unit_of_works_publisher() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
         val unitOfWorkPublisher = RecordingIntegrationEventPublisher()
         val unitOfWork =
@@ -735,23 +737,27 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun dispatchDomainEvent_falls_back_to_the_provider_context_without_a_unit_of_work_publisher() =
-        runTest {
-            val capturingMiddleware = CapturingContextMiddleware()
-            val unitOfWork = TestUnitOfWork<Any?>()
-            val dispatcher =
-                EventDispatcher(
-                    { emptyList() },
-                    listOf(capturingMiddleware),
-                    this,
-                    invocationContextProvider = { EmptyMiddlewareInvocationContext },
-                )
-
-            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
-
-            assertEquals(
-                EmptyMiddlewareInvocationContext.integrationEventPublisher,
-                capturingMiddleware.capturedContext?.integrationEventPublisher,
+    fun dispatchDomainEvent_never_falls_back_to_the_provider_context() = runTest {
+        val capturingMiddleware = CapturingContextMiddleware()
+        val providerOnlyPublisher = RecordingIntegrationEventPublisher()
+        val unitOfWork = TestUnitOfWork<Any?>()
+        val dispatcher =
+            EventDispatcher(
+                { emptyList() },
+                listOf(capturingMiddleware),
+                this,
+                invocationContextProvider = { invocationContextOf(providerOnlyPublisher) },
             )
-        }
+
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+
+        assertEquals(
+            unitOfWork.integrationEventPublisher,
+            capturingMiddleware.capturedContext?.integrationEventPublisher,
+        )
+        assertNotEquals(
+            providerOnlyPublisher,
+            capturingMiddleware.capturedContext?.integrationEventPublisher,
+        )
+    }
 }

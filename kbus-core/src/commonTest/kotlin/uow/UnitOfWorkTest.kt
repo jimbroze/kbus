@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.NonExecutingTransactionManager
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
@@ -22,7 +23,7 @@ private class OutboxUowTestEvent(val name: String) : IntegrationEvent()
 class UnitOfWorkTest {
     @Test
     fun test_it_executes_primary_work_without_setting_transaction_manager() = runTest {
-        val unitOfWork = DefaultUnitOfWork<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>(EmptyIntegrationEventPublisher)
         var executed = false
 
         unitOfWork.setReturningWork { executed = true }
@@ -34,7 +35,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_execute_returns_result_of_primary_work() = runTest {
-        val unitOfWork = DefaultUnitOfWork<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>(EmptyIntegrationEventPublisher)
         unitOfWork.setReturningWork { "Noice one" }
         unitOfWork.addSecondaryWork { "Failed!" }
         unitOfWork.addPostCommitWork { "Also Failed!" }
@@ -46,7 +47,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_it_executes_primary_then_secondary_then_post_commit() = runTest {
-        val unitOfWork = DefaultUnitOfWork<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>(EmptyIntegrationEventPublisher)
         val executionOrder = mutableListOf<String>()
 
         unitOfWork.addPostCommitWork { executionOrder.add("postCommit1") }
@@ -68,7 +69,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_execute_runs_primary_and_secondary_work_in_transaction() = runTest {
-        val unitOfWork = DefaultUnitOfWork<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>(EmptyIntegrationEventPublisher)
         val executedWork = mutableListOf<String>()
         unitOfWork.useTransaction(NonExecutingTransactionManager())
 
@@ -83,7 +84,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_execute_runs_post_commit_work_outside_transaction() = runTest {
-        val unitOfWork = DefaultUnitOfWork<Any?>()
+        val unitOfWork = DefaultUnitOfWork<Any?>(EmptyIntegrationEventPublisher)
         val executedWork = mutableListOf<String>()
         unitOfWork.useTransaction(NonExecutingTransactionManager())
 
@@ -99,7 +100,7 @@ class UnitOfWorkTest {
         runTest {
             val testDispatcher = TestDomainEventDispatcher()
 
-            val unitOfWork = DefaultUnitOfWork<Any?>()
+            val unitOfWork = DefaultUnitOfWork<Any?>(EmptyIntegrationEventPublisher)
             val publisher = UnitOfWorkDomainEventPublisher(testDispatcher, unitOfWork)
             val testEvent = object : DomainEvent() {}
 
@@ -123,7 +124,7 @@ class UnitOfWorkTest {
 
     @Test
     fun test_DefaultUnitOfWorkFactory_creates_new_UnitOfWork_instance() {
-        val factory = DefaultUnitOfWorkFactory()
+        val factory = DefaultUnitOfWorkFactory(EmptyIntegrationEventPublisher)
         val uow = factory.create<Any?>()
         assertIs<DefaultUnitOfWork<Any?>>(uow)
     }
@@ -177,12 +178,5 @@ class UnitOfWorkTest {
         val unitOfWork = DefaultUnitOfWork<Any?>(outbox)
 
         assertEquals(outbox, unitOfWork.integrationEventPublisher)
-    }
-
-    @Test
-    fun test_execute_has_a_null_integration_event_publisher_without_an_outbox() = runTest {
-        val unitOfWork = DefaultUnitOfWork<Any?>()
-
-        assertEquals(null, unitOfWork.integrationEventPublisher)
     }
 }

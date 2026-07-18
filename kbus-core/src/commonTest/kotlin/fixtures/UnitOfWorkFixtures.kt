@@ -26,7 +26,8 @@ class NonExecutingTransactionManager : TransactionManager {
 }
 
 class TestUnitOfWorkFactory(
-    private val integrationEventPublisher: IntegrationEventPublisher? = null
+    private val integrationEventPublisher: IntegrationEventPublisher =
+        EmptyIntegrationEventPublisher
 ) : UnitOfWorkFactory {
     lateinit var unitOfWork: TestUnitOfWork<*>
 
@@ -44,7 +45,8 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     val postCommitWork = mutableListOf<suspend () -> Unit>()
     val executedWork = mutableListOf<suspend () -> Any?>()
     var transactionManager: TransactionManager? = null
-    override var integrationEventPublisher: IntegrationEventPublisher? = null
+    override var integrationEventPublisher: IntegrationEventPublisher =
+        EmptyIntegrationEventPublisher
 
     override suspend fun execute(): TResult {
         executedWork.add(primaryWork)

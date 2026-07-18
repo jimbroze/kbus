@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -12,11 +11,13 @@ import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.BusIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.invocationContextOf
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -48,11 +49,6 @@ abstract class BaseMessageBus(
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
 ) : IMessageBus {
-    private val busAccess =
-        object : BusAccess {
-            override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) =
-                this@BaseMessageBus.dispatchIntegration(event)
-        }
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
     protected val rootScope =
         CoroutineScope(appScope.coroutineContext + rootJob + CoroutineName("KBus-Root"))
@@ -73,9 +69,7 @@ abstract class BaseMessageBus(
     private val integrationEventPublisher =
         BusIntegrationEventPublisher(handlerLocator, eventDispatcher)
     private val invocationContext: MiddlewareInvocationContext =
-        object : MiddlewareInvocationContext {
-            override val integrationEventPublisher = this@BaseMessageBus.integrationEventPublisher
-        }
+        invocationContextOf(integrationEventPublisher)
     private val outboxScope =
         CoroutineScope(
             rootScope.coroutineContext +
@@ -83,7 +77,13 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
-    private val outboxFactory: (() -> TransactionOutbox)? =
+
+    /**
+     * The bus's single source of an [IntegrationEventPublisher]: an outbox-backed one when an
+     * outbox is configured, otherwise the plain [integrationEventPublisher]. Consumers
+     * (CommandExecutor, EventDispatcher) always use this and never branch on outbox presence.
+     */
+    private val publisherFactory: () -> IntegrationEventPublisher =
         outbox?.let { config ->
             {
                 TransactionOutbox(
@@ -93,14 +93,13 @@ abstract class BaseMessageBus(
                     config.drainAfterCommit,
                 )
             }
-        }
+        } ?: { integrationEventPublisher }
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
-            busAccess,
             DefaultCommandDependenciesFactory(eventDispatcher),
-            DefaultUnitOfWorkFactory(outboxFactory),
+            DefaultUnitOfWorkFactory(publisherFactory),
             invocationContextProvider = { invocationContext },
         )
     protected val queryFetcher =
@@ -154,10 +153,6 @@ abstract class BaseMessageBus(
         }
 
         return queryFetcher.fetch(query, handlerCreator)
-    }
-
-    private suspend fun <TEvent : IntegrationEvent> dispatchIntegration(event: TEvent) {
-        this.integrationEventPublisher.publish(listOf(event))
     }
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =

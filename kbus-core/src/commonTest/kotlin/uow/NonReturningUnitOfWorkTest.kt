@@ -61,7 +61,8 @@ class NonReturningUnitOfWorkTest {
 
     @Test
     fun test_execute_succeeds_without_calling_setReturningWork() = runTest {
-        val uow = NonReturningUnitOfWork()
+        val delegate = TestUnitOfWork<Unit>().apply { setReturningWork {} }
+        val uow = NonReturningUnitOfWork(delegate)
 
         uow.execute()
     }
