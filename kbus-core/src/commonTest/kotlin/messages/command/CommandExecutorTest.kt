@@ -3,24 +3,24 @@ package com.jimbroze.kbus.core.messages.command
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.core.fixtures.DispatchingCommand
 import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler
-import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
+import com.jimbroze.kbus.core.fixtures.TestBusAccess
 import com.jimbroze.kbus.core.fixtures.TestCommandDependenciesFactory
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestTransactionManager
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.TransactionCommand
 import com.jimbroze.kbus.core.fixtures.TransactionCommandHandler
-import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class CommandExecutorTest {
@@ -30,8 +30,8 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
+                TestBusAccess(),
                 TestCommandDependenciesFactory(),
-                DefaultUnitOfWorkFactory(EmptyIntegrationEventPublisher),
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
@@ -41,13 +41,35 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_routes_handler_dispatch_through_the_unit_of_works_publisher() = runTest {
-        val publisher = RecordingIntegrationEventPublisher()
-        val unitOfWorkFactory = TestUnitOfWorkFactory(publisher)
+    fun test_it_gives_handlers_access_to_bus() = runTest {
+        val busAccess = TestBusAccess()
         val executor =
             CommandExecutor(
                 null,
                 emptyList(),
+                busAccess,
+                TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
+
+        val handler = DispatchingCommandHandler()
+
+        executor.execute(DispatchingCommand()) { handler }
+
+        assertEquals(1, busAccess.dispatchedEvents.size)
+        assertEquals("test-event", (busAccess.dispatchedEvents[0] as TestIntegrationEvent).name)
+    }
+
+    @Test
+    fun test_it_routes_dispatch_through_the_unit_of_works_publisher_when_present() = runTest {
+        val busAccess = TestBusAccess()
+        val outboxPublisher = RecordingIntegrationEventPublisher()
+        val unitOfWorkFactory = TestUnitOfWorkFactory(outboxPublisher)
+        val executor =
+            CommandExecutor(
+                null,
+                emptyList(),
+                busAccess,
                 TestCommandDependenciesFactory(),
                 unitOfWorkFactory,
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
@@ -55,10 +77,11 @@ class CommandExecutorTest {
 
         executor.execute(DispatchingCommand()) { DispatchingCommandHandler() }
 
-        assertEquals(1, publisher.publishedEvents.flatten().size)
+        assertTrue(busAccess.dispatchedEvents.isEmpty())
+        assertEquals(1, outboxPublisher.publishedEvents.flatten().size)
         assertEquals(
             "test-event",
-            (publisher.publishedEvents.flatten().single() as TestIntegrationEvent).name,
+            (outboxPublisher.publishedEvents.flatten().single() as TestIntegrationEvent).name,
         )
     }
 
@@ -69,6 +92,7 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
+                TestBusAccess(),
                 TestCommandDependenciesFactory(),
                 unitOfWorkFactory,
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
@@ -88,8 +112,8 @@ class CommandExecutorTest {
             CommandExecutor(
                 testTransactionManager,
                 emptyList(),
+                TestBusAccess(),
                 TestCommandDependenciesFactory(),
-                DefaultUnitOfWorkFactory(EmptyIntegrationEventPublisher),
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
@@ -107,8 +131,8 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
+                TestBusAccess(),
                 TestCommandDependenciesFactory(),
-                DefaultUnitOfWorkFactory(EmptyIntegrationEventPublisher),
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
@@ -125,8 +149,8 @@ class CommandExecutorTest {
             CommandExecutor(
                 defaultTransactionManager,
                 emptyList(),
+                TestBusAccess(),
                 TestCommandDependenciesFactory(),
-                DefaultUnitOfWorkFactory(EmptyIntegrationEventPublisher),
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
@@ -148,8 +172,8 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
+                TestBusAccess(),
                 TestCommandDependenciesFactory(),
-                DefaultUnitOfWorkFactory(EmptyIntegrationEventPublisher),
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
@@ -172,6 +196,7 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
+                TestBusAccess(),
                 dependenciesFactory,
                 unitOfWorkFactory,
                 invocationContextProvider = { EmptyMiddlewareInvocationContext },

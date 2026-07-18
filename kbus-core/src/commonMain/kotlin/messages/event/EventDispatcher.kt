@@ -6,7 +6,6 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.middleware.invocationContextOf
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -78,10 +77,19 @@ class EventDispatcher(
                 dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
             }
         }
-        val context = invocationContextOf(unitOfWork.integrationEventPublisher)
+        val context =
+            unitOfWork.integrationEventPublisher?.let(::outboxInvocationContext)
+                ?: invocationContextProvider()
         val execute = createMiddlewareChain(finalHandler, middlewares, context)
         execute(event)
     }
+
+    private fun outboxInvocationContext(
+        publisher: IntegrationEventPublisher
+    ): MiddlewareInvocationContext =
+        object : MiddlewareInvocationContext {
+            override val integrationEventPublisher = publisher
+        }
 
     private fun <TEvent : Event> dispatchHandlersWithErrorHandling(
         handlers: List<EventHandler<TEvent>>,

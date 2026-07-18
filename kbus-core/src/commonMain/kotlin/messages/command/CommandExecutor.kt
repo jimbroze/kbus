@@ -1,14 +1,16 @@
 package com.jimbroze.kbus.core.messages.command
 
+import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.messages.event.PublisherBusAccess
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
+import com.jimbroze.kbus.core.uow.OutboxBusAccess
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
@@ -16,8 +18,9 @@ import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 class CommandExecutor(
     private val transactionManager: TransactionManager?,
     private val middlewares: List<Middleware>,
+    private val busAccess: BusAccess,
     private val commandDependenciesFactory: CommandDependenciesFactory,
-    private val unitOfWorkFactory: UnitOfWorkFactory,
+    private val unitOfWorkFactory: UnitOfWorkFactory = DefaultUnitOfWorkFactory(),
     private val invocationContextProvider: () -> MiddlewareInvocationContext,
 ) {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -27,7 +30,7 @@ class CommandExecutor(
         val unitOfWork = unitOfWorkFactory.create<TResult>()
         val handler = createHandler(commandDependenciesFactory.create(unitOfWork))
 
-        handler.setBus(PublisherBusAccess(unitOfWork.integrationEventPublisher))
+        handler.setBus(unitOfWork.integrationEventPublisher?.let(::OutboxBusAccess) ?: busAccess)
 
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
             executeInUnitOfWork(message, handler, unitOfWork)

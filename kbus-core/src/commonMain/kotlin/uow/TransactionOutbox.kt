@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.uow
 
+import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
@@ -69,6 +70,13 @@ internal class TransactionOutbox(
 
             if (publishedIds.isNotEmpty()) store.markPublished(publishedIds)
         }
+    }
+}
+
+/** [BusAccess] that routes imperative `dispatch()` calls through a [TransactionOutbox]. */
+internal class OutboxBusAccess(private val publisher: IntegrationEventPublisher) : BusAccess {
+    override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) {
+        publisher.publish(listOf(event))
     }
 }
 

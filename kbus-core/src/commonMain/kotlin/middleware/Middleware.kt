@@ -14,12 +14,6 @@ interface MiddlewareInvocationContext {
     val integrationEventPublisher: IntegrationEventPublisher
 }
 
-/** The single factory for building a [MiddlewareInvocationContext] around a publisher. */
-fun invocationContextOf(publisher: IntegrationEventPublisher): MiddlewareInvocationContext =
-    object : MiddlewareInvocationContext {
-        override val integrationEventPublisher = publisher
-    }
-
 interface Middleware {
     suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
