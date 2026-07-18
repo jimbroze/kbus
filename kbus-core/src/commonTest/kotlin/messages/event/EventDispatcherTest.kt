@@ -60,6 +60,7 @@ import com.jimbroze.kbus.core.fixtures.ThrowingSequentialContinueAndAggregateHan
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFailFastHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
+import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -87,6 +88,7 @@ class EventDispatcherTest {
     private class TestEnv(val scope: TestScope) {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
+        val invocation = testInvocation(unitOfWork)
         lateinit var dispatcher: EventDispatcher
 
         fun withDomainHandlers(vararg handlers: EventHandler<*>): TestEnv {
@@ -102,7 +104,7 @@ class EventDispatcherTest {
             return this
         }
 
-        suspend fun dispatch(event: DomainEvent) = dispatcher.dispatchDomainEvent(event, unitOfWork)
+        suspend fun dispatch(event: DomainEvent) = dispatcher.dispatchDomainEvent(event, invocation)
 
         suspend fun dispatchIntegration(event: IntegrationEvent, vararg handlers: EventHandler<*>) {
             @Suppress("UNCHECKED_CAST")
@@ -717,11 +719,11 @@ class EventDispatcherTest {
     // =========================================================================
 
     @Test
-    fun dispatchDomainEvent_uses_the_unit_of_works_outbox_when_present() = runTest {
+    fun dispatchDomainEvent_uses_the_invocations_outbox_publisher_when_present() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, false)
-        val unitOfWork = TestUnitOfWork<Any?>().apply { transactionOutbox = outbox }
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        val invocation = testInvocation<Any?>(publisher = outbox)
         val dispatcher =
             EventDispatcher(
                 { emptyList() },
@@ -730,16 +732,16 @@ class EventDispatcherTest {
                 contextFactory = emptyContextFactory(),
             )
 
-        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), invocation)
 
         assertEquals(outbox, capturingMiddleware.capturedContext?.integrationEventPublisher)
     }
 
     @Test
-    fun dispatchDomainEvent_falls_back_to_the_base_publisher_without_a_unit_of_work_outbox() =
+    fun dispatchDomainEvent_falls_back_to_the_base_publisher_without_an_invocation_outbox() =
         runTest {
             val capturingMiddleware = CapturingContextMiddleware()
-            val unitOfWork = TestUnitOfWork<Any?>()
+            val invocation = testInvocation<Any?>()
             val dispatcher =
                 EventDispatcher(
                     { emptyList() },
@@ -748,7 +750,7 @@ class EventDispatcherTest {
                     contextFactory = emptyContextFactory(),
                 )
 
-            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), unitOfWork)
+            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), invocation)
 
             assertEquals(
                 EmptyIntegrationEventPublisher,
@@ -765,8 +767,7 @@ class EventDispatcherTest {
                 { emptyList() },
                 listOf(capturingMiddleware),
                 this,
-                contextFactory =
-                    MiddlewareInvocationContextFactory(IntegrationPublisherFactory(basePublisher)),
+                contextFactory = MiddlewareInvocationContextFactory(basePublisher),
             )
 
         dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("test"))

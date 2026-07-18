@@ -3,7 +3,7 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
-import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
+import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.uow.TransactionOutbox
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,41 +11,15 @@ import kotlinx.coroutines.test.runTest
 
 class IntegrationPublisherFactoryTest {
     @Test
-    fun publisherFor_returns_the_outbox_for_a_unit_of_work_holding_one() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(RecordingOutboxStore(), basePublisher, this, false)
-        val unitOfWork = TestUnitOfWork<Any?>().apply { transactionOutbox = outbox }
-        val factory = IntegrationPublisherFactory(basePublisher)
-
-        assertEquals(outbox, factory.publisherFor(unitOfWork))
-    }
-
-    @Test
-    fun publisherFor_returns_the_base_publisher_for_a_unit_of_work_with_a_null_outbox() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
-        val unitOfWork = TestUnitOfWork<Any?>()
-        val factory = IntegrationPublisherFactory(basePublisher)
-
-        assertEquals(basePublisher, factory.publisherFor(unitOfWork))
-    }
-
-    @Test
-    fun publisherFor_returns_the_base_publisher_for_a_null_unit_of_work() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
-        val factory = IntegrationPublisherFactory(basePublisher)
-
-        assertEquals(basePublisher, factory.publisherFor(null))
-    }
-
-    @Test
-    fun busAccessFor_dispatches_through_the_outbox_for_a_unit_of_work_holding_one() = runTest {
+    fun busAccessFor_dispatches_through_the_invocations_publisher_when_present() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, false)
-        val unitOfWork = TestUnitOfWork<Any?>().apply { transactionOutbox = outbox }
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        val invocation = testInvocation<Any?>(publisher = outbox)
         val factory = IntegrationPublisherFactory(basePublisher)
 
-        factory.busAccessFor(unitOfWork).dispatch(TestIntegrationEvent("via-outbox"))
+        factory.busAccessFor(invocation).dispatch(TestIntegrationEvent("via-outbox"))
+        outbox.flush()
 
         assertEquals(1, store.saved.size)
         assertEquals("via-outbox", (store.saved.single().event as TestIntegrationEvent).name)
@@ -53,12 +27,12 @@ class IntegrationPublisherFactoryTest {
     }
 
     @Test
-    fun busAccessFor_dispatches_through_the_base_publisher_without_an_outbox() = runTest {
+    fun busAccessFor_dispatches_through_the_base_publisher_for_an_invocation_using_it() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
-        val unitOfWork = TestUnitOfWork<Any?>()
+        val invocation = testInvocation<Any?>(publisher = basePublisher)
         val factory = IntegrationPublisherFactory(basePublisher)
 
-        factory.busAccessFor(unitOfWork).dispatch(TestIntegrationEvent("via-base"))
+        factory.busAccessFor(invocation).dispatch(TestIntegrationEvent("via-base"))
 
         assertEquals(1, basePublisher.publishedEvents.flatten().size)
         assertEquals(
@@ -68,7 +42,7 @@ class IntegrationPublisherFactoryTest {
     }
 
     @Test
-    fun busAccessFor_dispatches_through_the_base_publisher_for_a_null_unit_of_work() = runTest {
+    fun busAccessFor_dispatches_through_the_base_publisher_for_a_null_invocation() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factory = IntegrationPublisherFactory(basePublisher)
 

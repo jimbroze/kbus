@@ -78,13 +78,21 @@ transaction) → post-commit work (integration events).
 ### Transactional Outbox
 
 Opt-in via `OutboxConfig` on the bus constructor (a peer of `TransactionManager`, NOT middleware).
-`DefaultUnitOfWork` owns a per-command `TransactionOutbox` (installed by `DefaultUnitOfWorkFactory`):
-integration events published during a command are saved to the user's `OutboxStore` inside the
-transaction and buffered; after commit + post-commit work, the UoW triggers a fire-and-forget drain
-on a bus-owned scope. A bus-owned poller is the at-least-once delivery guarantee; the drain is only
-a latency optimisation. Both publish paths reach the outbox explicitly: `CommandExecutor` wraps the
-handler's `BusAccess` with the UoW's publisher; `EventDispatcher.dispatchDomainEvent` swaps it into
-the middleware context (AutoPublish path).
+`UnitOfWork` has zero knowledge of the outbox. Instead, `CommandInvocation<TResult>` (`unitOfWork` +
+`integrationEventPublisher`) is the per-command scope threaded through the dispatcher, dependency
+factory, and middleware context in the slots `UnitOfWork<*>` used to occupy. `CommandInvocationFactory`
+(bus-owned) decides once, at creation time, which publisher applies — the outbox or the base
+publisher — and, when an outbox is configured, wires it in purely through `UnitOfWork`'s generic
+phase API: `flush()` (saves buffered entries to the `OutboxStore`) is registered as the *first*
+secondary work item, so it runs inside the transaction; `drain()` (fire-and-forget delivery to
+handlers) is registered as post-commit work. `TransactionOutbox.publish` defers the actual store
+write until `flush()` runs — publishes that arrive after `flush()` (e.g. from SECONDARY/POST_COMMIT
+handlers) save immediately instead. This makes every publish path, including command-chain
+middleware (which runs before the transaction opens), rollback-safe: if primary work throws, `flush()`
+never runs and nothing is ever staged. A bus-owned poller is the at-least-once delivery guarantee;
+the drain is only a latency optimisation. Both publish paths reach the invocation's publisher
+explicitly: `CommandExecutor` wraps the handler's `BusAccess` with it; `EventDispatcher.dispatchDomainEvent`
+swaps it into the middleware context (AutoPublish path).
 
 ### Result Types
 
@@ -102,10 +110,12 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   parameters — never through coroutine-context elements, statics, or reflection. Coroutine context
   is reserved for middleware-internal concerns (e.g. `LockingMiddleware`'s re-entrancy token), not
   core semantics. If a component needs per-command state, thread it through the object graph.
-- **`UnitOfWork` is the bus's transaction.** Transactional behavior (phases, outbox capture/drain)
-  belongs on or around `UnitOfWork`, configured via `UnitOfWorkFactory`. `CommandExecutor` stays a
-  thin orchestrator; don't accumulate concerns there. Middleware is for cross-cutting invocation
-  concerns (logging, locking), not transactional semantics.
+- **`UnitOfWork` is the bus's transaction; phases are its only extension surface.** It knows
+  primary/secondary/post-commit ordering and nothing else — no outbox, no publisher. Per-command
+  wiring (which publisher applies, outbox flush/drain) lives on `CommandInvocation` and is composed
+  by `CommandInvocationFactory` via the generic `addSecondaryWork`/`addPostCommitWork` API.
+  `CommandExecutor` stays a thin orchestrator; don't accumulate concerns there. Middleware is for
+  cross-cutting invocation concerns (logging, locking), not transactional semantics.
 - **Integration events decouple publish from dispatch.** Publishing (durable save, in-transaction)
   and dispatching (async delivery to handlers, post-commit) are separate steps. A command's return
   never awaits integration handler execution; delivery is at-least-once via the outbox poller, and

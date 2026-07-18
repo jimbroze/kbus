@@ -1,8 +1,9 @@
 package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.uow.TransactionOutbox
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -25,13 +26,11 @@ class NonExecutingTransactionManager : TransactionManager {
     }
 }
 
-class TestUnitOfWorkFactory(private val transactionOutbox: TransactionOutbox? = null) :
-    UnitOfWorkFactory {
+class TestUnitOfWorkFactory : UnitOfWorkFactory {
     lateinit var unitOfWork: TestUnitOfWork<*>
 
     override fun <TResult> create(): UnitOfWork<TResult> {
         val unitOfWork = TestUnitOfWork<TResult>()
-        unitOfWork.transactionOutbox = transactionOutbox
         this.unitOfWork = unitOfWork
         return unitOfWork
     }
@@ -43,7 +42,6 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     val postCommitWork = mutableListOf<suspend () -> Unit>()
     val executedWork = mutableListOf<suspend () -> Any?>()
     var transactionManager: TransactionManager? = null
-    override var transactionOutbox: TransactionOutbox? = null
 
     override suspend fun execute(): TResult {
         executedWork.add(primaryWork)
@@ -73,13 +71,19 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     }
 }
 
+/** Builds a [CommandInvocation] for tests, defaulting to a fresh [TestUnitOfWork]. */
+fun <TResult> testInvocation(
+    unitOfWork: UnitOfWork<TResult> = TestUnitOfWork(),
+    publisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
+): CommandInvocation<TResult> = CommandInvocation(unitOfWork, publisher)
+
 class TestDomainEventDispatcher : DomainEventDispatcher {
-    val dispatchedEvents = mutableListOf<Pair<DomainEvent, UnitOfWork<*>>>()
+    val dispatchedEvents = mutableListOf<Pair<DomainEvent, CommandInvocation<*>>>()
 
     override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
         event: TEvent,
-        unitOfWork: UnitOfWork<*>,
+        invocation: CommandInvocation<*>,
     ) {
-        dispatchedEvents.add(Pair(event, unitOfWork))
+        dispatchedEvents.add(Pair(event, invocation))
     }
 }

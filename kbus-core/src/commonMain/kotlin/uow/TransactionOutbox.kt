@@ -27,10 +27,14 @@ class OutboxConfig(
 )
 
 /**
- * Captures integration events published during a command into [store] (inside the command's
- * transaction), then, after commit, drains the buffered entries to [realPublisher] on [drainScope]
- * as a fire-and-forget background task. The [drain] is a latency optimisation only — a bus-owned
- * poller is the at-least-once delivery guarantee; failed or skipped drains are picked up there.
+ * Captures integration events published during a command, deferring the store write until [flush]
+ * is called (registered by
+ * [CommandInvocationFactory][com.jimbroze.kbus.core.messages.command.CommandInvocationFactory] as
+ * secondary work, so it runs inside the command's transaction). Publishes that arrive after [flush]
+ * has already run (e.g. from SECONDARY/POST_COMMIT-phase handlers) are saved immediately. After
+ * commit, [drain] delivers the buffered entries to [realPublisher] on [drainScope] as a
+ * fire-and-forget background task — a latency optimisation only. A bus-owned poller is the
+ * at-least-once delivery guarantee; failed or skipped drains are picked up there.
  */
 @OptIn(ExperimentalUuidApi::class)
 class TransactionOutbox
@@ -38,22 +42,37 @@ internal constructor(
     private val store: OutboxStore,
     private val realPublisher: IntegrationEventPublisher,
     private val drainScope: CoroutineScope,
-    private val drainAfterCommit: Boolean,
 ) : IntegrationEventPublisher {
     private val mutex = Mutex()
     private val buffer = mutableListOf<OutboxEntry>()
+    private val pendingSave = mutableListOf<OutboxEntry>()
+    private var flushed = false
 
     override suspend fun publish(events: List<IntegrationEvent>) {
         val entries = events.map { OutboxEntry(Uuid.random().toString(), it) }
 
-        store.save(entries)
+        val alreadyFlushed =
+            mutex.withLock {
+                buffer.addAll(entries)
+                if (!flushed) pendingSave.addAll(entries)
+                flushed
+            }
 
-        mutex.withLock { buffer.addAll(entries) }
+        if (alreadyFlushed) store.save(entries)
+    }
+
+    /** Saves everything published so far and marks the outbox flushed. Runs as secondary work. */
+    internal suspend fun flush() {
+        val toSave =
+            mutex.withLock {
+                flushed = true
+                pendingSave.toList().also { pendingSave.clear() }
+            }
+
+        if (toSave.isNotEmpty()) store.save(toSave)
     }
 
     internal fun drain() {
-        if (!drainAfterCommit) return
-
         drainScope.launch {
             val entries = mutex.withLock { buffer.toList().also { buffer.clear() } }
 

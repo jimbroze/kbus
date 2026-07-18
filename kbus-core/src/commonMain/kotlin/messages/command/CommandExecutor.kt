@@ -9,10 +9,8 @@ import com.jimbroze.kbus.core.messages.event.IntegrationPublisherFactory
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
+import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
-import com.jimbroze.kbus.core.uow.UnitOfWorkDomainEventPublisher
-import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 
 class CommandExecutor(
     private val transactionManager: TransactionManager?,
@@ -20,23 +18,23 @@ class CommandExecutor(
     private val publisherFactory: IntegrationPublisherFactory,
     private val contextFactory: MiddlewareInvocationContextFactory,
     private val commandDependenciesFactory: CommandDependenciesFactory,
-    private val unitOfWorkFactory: UnitOfWorkFactory = DefaultUnitOfWorkFactory(),
+    private val invocationFactory: CommandInvocationFactory,
 ) {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
     ): TResult {
-        val unitOfWork = unitOfWorkFactory.create<TResult>()
-        val handler = createHandler(commandDependenciesFactory.create(unitOfWork))
+        val invocation = invocationFactory.create<TResult>()
+        val handler = createHandler(commandDependenciesFactory.create(invocation))
 
-        handler.setBus(publisherFactory.busAccessFor(unitOfWork))
+        handler.setBus(publisherFactory.busAccessFor(invocation))
 
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
-            executeInUnitOfWork(message, handler, unitOfWork)
+            executeInUnitOfWork(message, handler, invocation.unitOfWork)
         }
 
         val execute =
-            createMiddlewareChain(finalHandler, middlewares, contextFactory.contextFor(unitOfWork))
+            createMiddlewareChain(finalHandler, middlewares, contextFactory.contextFor(invocation))
 
         return execute(command)
     }
@@ -62,14 +60,14 @@ class CommandExecutor(
 }
 
 interface CommandDependenciesFactory {
-    fun create(unitOfWork: UnitOfWork<*>): CommandDependencies
+    fun create(invocation: CommandInvocation<*>): CommandDependencies
 }
 
 class DefaultCommandDependenciesFactory(private val domainEventDispatcher: DomainEventDispatcher?) :
     CommandDependenciesFactory {
-    override fun create(unitOfWork: UnitOfWork<*>): CommandDependencies {
+    override fun create(invocation: CommandInvocation<*>): CommandDependencies {
         return CommandDependencies(
-            UnitOfWorkDomainEventPublisher(domainEventDispatcher, unitOfWork)
+            InvocationDomainEventPublisher(domainEventDispatcher, invocation)
         )
     }
 }

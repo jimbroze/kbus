@@ -8,20 +8,21 @@ import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependenciesFactory
+import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
 class TestCommandDependenciesFactory : CommandDependenciesFactory {
     var unitOfWork: UnitOfWork<*>? = null
     var commandDependencies: CommandDependencies? = null
 
-    override fun create(unitOfWork: UnitOfWork<*>): CommandDependencies {
+    override fun create(invocation: CommandInvocation<*>): CommandDependencies {
         if (this.unitOfWork !== null) {
             error("Unit of work has already been set")
         }
 
         val commandDependencies = CommandDependencies(TestDomainEventPublisher())
 
-        this.unitOfWork = unitOfWork
+        this.unitOfWork = invocation.unitOfWork
         this.commandDependencies = commandDependencies
 
         return commandDependencies
@@ -29,7 +30,7 @@ class TestCommandDependenciesFactory : CommandDependenciesFactory {
 }
 
 fun <TResult> testCommandDependencies() =
-    TestCommandDependenciesFactory().create(TestUnitOfWork<TResult>())
+    TestCommandDependenciesFactory().create(testInvocation<TResult>())
 
 class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
 

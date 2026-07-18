@@ -66,7 +66,8 @@ class MessageBusOutboxTest {
 
     @Test
     fun commit_dispatches_the_autopublished_event_via_the_outbox() = runTest {
-        val store = InMemoryOutboxStore()
+        val store = RollbackSimulatingOutboxStore()
+        val transactionManager = RollbackSimulatingTransactionManager(store)
         val stores = HandlerFactoryStoreCollection()
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
@@ -76,6 +77,7 @@ class MessageBusOutboxTest {
         val bus =
             MessageBus(
                 locator,
+                transactionManager = transactionManager,
                 middlewares = listOf(middleware),
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
@@ -86,6 +88,37 @@ class MessageBusOutboxTest {
         realDelay(150)
 
         assertEquals(listOf("via-autopublish"), received)
+        assertEquals(1, store.markedPublished.size)
+        assertTrue(store.fetchUnpublished(10).isEmpty())
+    }
+
+    @Test
+    fun rollback_discards_the_autopublished_event_so_nothing_is_saved_or_delivered() = runTest {
+        val store = RollbackSimulatingOutboxStore()
+        val transactionManager = RollbackSimulatingTransactionManager(store)
+        val stores = HandlerFactoryStoreCollection()
+        val received = mutableListOf<String>()
+        val locator = PersistingHandlerLocator(stores)
+        registerFailingDomainCommand(stores, locator, received)
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEvent))
+
+        val bus =
+            MessageBus(
+                locator,
+                transactionManager = transactionManager,
+                middlewares = listOf(middleware),
+                rootScope = backgroundScope,
+                outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
+            )
+        realDelay(50)
+
+        assertFailsWith<IllegalStateException> {
+            bus.execute(OutboxDomainCommand("should-not-be-saved"))
+        }
+        realDelay(150)
+
+        assertTrue(received.isEmpty())
+        assertTrue(store.fetchUnpublished(10).isEmpty())
     }
 
     @Test
@@ -151,19 +184,58 @@ class MessageBusOutboxTest {
             assertEquals(listOf("via-middleware"), received)
         }
 
+    @Test
+    fun middleware_published_event_on_a_successful_command_is_saved_in_transaction_and_delivered() =
+        runTest {
+            val store = RollbackSimulatingOutboxStore()
+            val transactionManager = RollbackSimulatingTransactionManager(store)
+            val stores = HandlerFactoryStoreCollection()
+            val received = mutableListOf<String>()
+            val locator = PersistingHandlerLocator(stores)
+            registerImperativeHandlerOnly(stores, locator, received)
+            stores.commandStore.registerHandlers(
+                OutboxNoopCommand::class,
+                listOf(
+                    CommandHandlerFactory(OutboxNoopCommandHandler::class) {
+                        OutboxNoopCommandHandler()
+                    }
+                ),
+            )
+            val middleware =
+                PublishingViaContextMiddleware(OutboxImperativeEvent("via-middleware-success"))
+
+            val bus =
+                MessageBus(
+                    locator,
+                    transactionManager = transactionManager,
+                    middlewares = listOf(middleware),
+                    rootScope = backgroundScope,
+                    outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
+                )
+            realDelay(50)
+
+            bus.execute(OutboxNoopCommand())
+            realDelay(150)
+
+            assertEquals(listOf("via-middleware-success"), received)
+            assertEquals(1, store.markedPublished.size)
+        }
+
     /**
      * Middleware wraps the whole command execution, strictly outside `transactionManager.execute()`
-     * — so a middleware-published event can never literally participate in the command's SQL
-     * transaction/rollback. What the fix does guarantee: the event goes to the outbox (captured in
-     * the store, not delivered) instead of the base publisher (delivered immediately,
-     * unconditionally). Because a failed command never reaches `outbox?.drain()`, that captured
-     * entry sits undelivered — available for the poller, not lost — rather than having already
-     * reached handlers before the failure surfaced.
+     * — but the outbox now defers its store write until `flush()`, which `CommandInvocationFactory`
+     * registers as the *first* secondary work item on the command's unit of work. `flush()` only
+     * runs once primary work completes without throwing, so a middleware-published event for a
+     * command whose handler fails is never flushed to the store: it lived only in the outbox's
+     * in-memory buffer, which is discarded along with the rest of that never-completed unit of
+     * work. Nothing is ever staged, so there's nothing to roll back and nothing left for the poller
+     * to find — the event is genuinely rollback-safe, not merely captured-but-undelivered.
      */
     @Test
-    fun middleware_published_event_is_captured_but_not_delivered_when_the_command_fails() =
+    fun middleware_published_event_is_rolled_back_and_never_delivered_when_the_command_fails() =
         runTest {
-            val store = InMemoryOutboxStore()
+            val store = RollbackSimulatingOutboxStore()
+            val transactionManager = RollbackSimulatingTransactionManager(store)
             val stores = HandlerFactoryStoreCollection()
             val received = mutableListOf<String>()
             val locator = PersistingHandlerLocator(stores)
@@ -182,6 +254,7 @@ class MessageBusOutboxTest {
             val bus =
                 MessageBus(
                     locator,
+                    transactionManager = transactionManager,
                     middlewares = listOf(middleware),
                     rootScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
@@ -191,11 +264,8 @@ class MessageBusOutboxTest {
             assertFailsWith<IllegalStateException> { bus.execute(OutboxNoopCommand()) }
             realDelay(150)
 
-            assertTrue(received.isEmpty(), "Not delivered: the failed command's drain never runs")
-            assertEquals(
-                listOf("via-middleware-failing"),
-                store.fetchUnpublished(10).map { (it.event as OutboxImperativeEvent).name },
-            )
+            assertTrue(received.isEmpty(), "Never delivered: nothing was ever flushed to the store")
+            assertTrue(store.fetchUnpublished(10).isEmpty(), "Rollback-safe: nothing staged")
         }
 
     @Test
@@ -364,6 +434,33 @@ class MessageBusOutboxTest {
         )
     }
 
+    private fun registerFailingDomainCommand(
+        stores: HandlerFactoryStoreCollection,
+        locator: PersistingHandlerLocator,
+        received: MutableList<String>,
+    ) {
+        stores.commandStore.registerHandlers(
+            OutboxDomainCommand::class,
+            listOf(
+                CommandHandlerFactory(OutboxFailingDomainCommandHandler::class) { deps ->
+                    OutboxFailingDomainCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+        stores.eventStore.registerHandlers(
+            OutboxAutoPublishedEvent::class,
+            listOf(
+                EventHandlerFactory(RecordingOutboxAutoPublishedEventHandler::class) {
+                    RecordingOutboxAutoPublishedEventHandler(received)
+                }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            OutboxAutoPublishedEvent::class,
+            listOf(RecordingOutboxAutoPublishedEventHandler::class),
+        )
+    }
+
     private fun registerFlakyImperativeCommand(
         stores: HandlerFactoryStoreCollection,
         locator: PersistingHandlerLocator,
@@ -473,6 +570,15 @@ private class OutboxDomainCommandHandler(private val domainEventPublisher: Domai
     override suspend fun handle(message: OutboxDomainCommand): BusResult<Unit, MessageFailure> {
         domainEventPublisher.publish(OutboxDomainEvent(message.message))
         return BusResult.success(Unit)
+    }
+}
+
+private class OutboxFailingDomainCommandHandler(
+    private val domainEventPublisher: DomainEventPublisher
+) : CommandHandler<OutboxDomainCommand, BusResult<Unit, MessageFailure>>() {
+    override suspend fun handle(message: OutboxDomainCommand): BusResult<Unit, MessageFailure> {
+        domainEventPublisher.publish(OutboxDomainEvent(message.message))
+        error("handler failed after publishing domain event")
     }
 }
 

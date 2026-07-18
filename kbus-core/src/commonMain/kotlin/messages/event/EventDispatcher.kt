@@ -3,6 +3,7 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
@@ -51,7 +52,7 @@ class EventDispatcher(
 
     override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
         event: TEvent,
-        unitOfWork: UnitOfWork<*>,
+        invocation: CommandInvocation<*>,
     ) {
         val handlers = getHandlers(event)
 
@@ -75,11 +76,15 @@ class EventDispatcher(
                         phase,
                         errorStrategy,
                     )
-                dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
+                dispatchHandlersInPhase(
+                    dispatchHandlersWithConcurrency,
+                    invocation.unitOfWork,
+                    phase,
+                )
             }
         }
         val execute =
-            createMiddlewareChain(finalHandler, middlewares, contextFactory.contextFor(unitOfWork))
+            createMiddlewareChain(finalHandler, middlewares, contextFactory.contextFor(invocation))
         execute(event)
     }
 

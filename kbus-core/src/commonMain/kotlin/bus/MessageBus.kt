@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
+import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.BusIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
@@ -63,7 +64,7 @@ abstract class BaseMessageBus(
     private val publisherFactory: IntegrationPublisherFactory =
         IntegrationPublisherFactory(integrationEventPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
-        MiddlewareInvocationContextFactory(publisherFactory)
+        MiddlewareInvocationContextFactory(integrationEventPublisher)
     protected val eventDispatcher: EventDispatcher =
         EventDispatcher(
             handlerLocator::handlersFor,
@@ -80,14 +81,7 @@ abstract class BaseMessageBus(
         )
     private val outboxFactory: (() -> TransactionOutbox)? =
         outbox?.let { config ->
-            {
-                TransactionOutbox(
-                    config.store,
-                    integrationEventPublisher,
-                    outboxScope,
-                    config.drainAfterCommit,
-                )
-            }
+            { TransactionOutbox(config.store, integrationEventPublisher, outboxScope) }
         }
     protected val commandExecutor =
         CommandExecutor(
@@ -96,7 +90,12 @@ abstract class BaseMessageBus(
             publisherFactory,
             contextFactory,
             DefaultCommandDependenciesFactory(eventDispatcher),
-            DefaultUnitOfWorkFactory(outboxFactory),
+            CommandInvocationFactory(
+                DefaultUnitOfWorkFactory(),
+                integrationEventPublisher,
+                outboxFactory,
+                outbox?.drainAfterCommit ?: true,
+            ),
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
 

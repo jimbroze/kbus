@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.IntegrationPublisherFactory
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
@@ -9,22 +10,24 @@ import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import kotlin.reflect.KClass
 
 object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
     override val integrationEventPublisher = EmptyIntegrationEventPublisher
 }
 
-/** Bundles the two bus-owned factories over the same base publisher, for test wiring. */
+/** Bundles the bus-owned factories over the same base publisher, for test wiring. */
 class TestPublisherFactories(
     basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
 ) {
     val publisherFactory = IntegrationPublisherFactory(basePublisher)
-    val contextFactory = MiddlewareInvocationContextFactory(publisherFactory)
+    val contextFactory = MiddlewareInvocationContextFactory(basePublisher)
+    val invocationFactory = CommandInvocationFactory(DefaultUnitOfWorkFactory(), basePublisher)
 }
 
 fun emptyContextFactory(): MiddlewareInvocationContextFactory =
-    MiddlewareInvocationContextFactory(IntegrationPublisherFactory(EmptyIntegrationEventPublisher))
+    MiddlewareInvocationContextFactory(EmptyIntegrationEventPublisher)
 
 class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycle") :
     LifecycleAwareMiddleware {

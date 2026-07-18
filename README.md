@@ -576,8 +576,9 @@ gaps: a **phantom event** (published, then the transaction rolls back) and a **l
 process crashes before handlers run). A transactional outbox closes both gaps by persisting events to a durable store
 inside the transaction, then delivering them separately.
 
-The outbox is infrastructure that hangs off the Unit of Work — a peer of `TransactionManager` on the bus
-constructor, **not middleware**. Opt in by passing an `OutboxConfig`:
+The outbox hangs off `CommandInvocation`, the bus's per-command scope — a peer of `TransactionManager` on the bus
+constructor, **not middleware**. The Unit of Work itself has no knowledge of the outbox; it only exposes the generic
+secondary-work/post-commit-work phases that the outbox hooks into. Opt in by passing an `OutboxConfig`:
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -600,9 +601,13 @@ val bus = MessageBus(
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
 
 `InMemoryOutboxStore` is a reference implementation for tests and examples. For production, implement `OutboxStore`
-against a durable table. `save` is always called from inside the command's `TransactionManager.execute` block, so
-your implementation **must join the ambient transaction** (the same by-convention contract as `TransactionManager`
-itself) — otherwise a rolled-back command would leave a phantom event saved to the outbox.
+against a durable table. The outbox defers the actual store write until an internal flush, registered as the *first*
+secondary-work item on the command's Unit of Work — so `save` runs inside the command's `TransactionManager.execute`
+block, and your implementation **must join the ambient transaction** (the same by-convention contract as
+`TransactionManager` itself) — otherwise a rolled-back command would leave a phantom event saved to the outbox. This
+deferral is also what makes command-chain middleware publishes rollback-safe even though middleware runs *before* the
+transaction opens: a middleware-published event sits in memory only until the flush runs, so if the handler
+subsequently fails, the flush never happens and nothing is ever saved.
 
 **Publish and dispatch are decoupled.** "Publish" is the durable save inside the transaction; "dispatch" is the async
 delivery to handlers afterward. A command's return value **never awaits** integration handler execution, whether or
@@ -610,9 +615,9 @@ not an outbox is configured.
 
 **Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching
 unpublished entries and delivering them — this is what survives a crash between commit and delivery. After a
-command's transaction commits (and any post-commit-phase handlers finish), the Unit of Work also triggers a
-fire-and-forget drain of the events it just captured, purely as a latency optimisation; it is never awaited, and if
-it fails or is skipped the poller retries the entry on its next tick. Because the drain and the poller can overlap,
+command's transaction commits (and any post-commit-phase handlers finish), a fire-and-forget drain of the events just
+captured also runs — registered as post-commit work by the invocation factory — purely as a latency optimisation; it
+is never awaited, and if it fails or is skipped the poller retries the entry on its next tick. Because the drain and the poller can overlap,
 and because multiple bus instances may run against the same store, a handler may occasionally run more than once —
 design handlers to be idempotent. `OutboxStore.fetchUnpublished` is the hook for narrowing that window (e.g. hiding
 very recently-saved or already-claimed entries).

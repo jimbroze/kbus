@@ -36,6 +36,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
+                factories.invocationFactory,
             )
 
         val result = executor.execute(ReturnCommand("Wassup")) { ReturnCommandHandler() }
@@ -54,6 +55,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
+                factories.invocationFactory,
             )
 
         val handler = DispatchingCommandHandler()
@@ -68,12 +70,14 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_routes_dispatch_through_the_unit_of_works_outbox_when_present() = runTest {
+    fun test_it_routes_dispatch_through_the_invocations_outbox_when_present() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, false)
-        val unitOfWorkFactory = TestUnitOfWorkFactory(outbox)
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        val unitOfWorkFactory = TestUnitOfWorkFactory()
+        val invocationFactory =
+            CommandInvocationFactory(unitOfWorkFactory, basePublisher, outboxFactory = { outbox })
         val executor =
             CommandExecutor(
                 null,
@@ -81,10 +85,11 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
-                unitOfWorkFactory,
+                invocationFactory,
             )
 
         executor.execute(DispatchingCommand()) { DispatchingCommandHandler() }
+        unitOfWorkFactory.unitOfWork.executeAllScheduledWork()
 
         assertTrue(basePublisher.publishedEvents.isEmpty())
         assertEquals(1, store.saved.size)
@@ -92,11 +97,14 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_the_commands_middleware_context_resolves_to_the_unit_of_works_outbox() = runTest {
-        val factories = TestPublisherFactories()
+    fun test_the_commands_middleware_context_resolves_to_the_invocations_outbox() = runTest {
+        val basePublisher = RecordingIntegrationEventPublisher()
+        val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, false)
-        val unitOfWorkFactory = TestUnitOfWorkFactory(outbox)
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        val unitOfWorkFactory = TestUnitOfWorkFactory()
+        val invocationFactory =
+            CommandInvocationFactory(unitOfWorkFactory, basePublisher, outboxFactory = { outbox })
         val capturingMiddleware = CapturingContextMiddleware()
         val executor =
             CommandExecutor(
@@ -105,7 +113,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
-                unitOfWorkFactory,
+                invocationFactory,
             )
 
         executor.execute(ReturnCommand("test")) { ReturnCommandHandler() }
@@ -117,6 +125,8 @@ class CommandExecutorTest {
     fun test_it_executes_handler_in_unit_of_work() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val factories = TestPublisherFactories()
+        val invocationFactory =
+            CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher())
         val executor =
             CommandExecutor(
                 null,
@@ -124,7 +134,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
-                unitOfWorkFactory,
+                invocationFactory,
             )
 
         executor.execute(ReturnCommand("Primary")) { ReturnCommandHandler() }
@@ -145,6 +155,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
+                factories.invocationFactory,
             )
 
         executor.execute(TransactionCommand("Transaction")) { TransactionCommandHandler() }
@@ -165,6 +176,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
+                factories.invocationFactory,
             )
 
         assertFailsWith<IllegalStateException> {
@@ -184,6 +196,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
+                factories.invocationFactory,
             )
 
         val command = TransactionCommand("HandlerTransaction")
@@ -208,6 +221,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
+                factories.invocationFactory,
             )
 
         val command = TransactionCommand("Transaction")
@@ -226,6 +240,8 @@ class CommandExecutorTest {
         var testDependencies: CommandDependencies? = null
         val dependenciesFactory = TestCommandDependenciesFactory()
         val factories = TestPublisherFactories()
+        val invocationFactory =
+            CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher())
         val executor =
             CommandExecutor(
                 null,
@@ -233,7 +249,7 @@ class CommandExecutorTest {
                 factories.publisherFactory,
                 factories.contextFactory,
                 dependenciesFactory,
-                unitOfWorkFactory,
+                invocationFactory,
             )
         val createHandler: (CommandDependencies) -> ReturnCommandHandler = { commandDependencies ->
             testDependencies = commandDependencies

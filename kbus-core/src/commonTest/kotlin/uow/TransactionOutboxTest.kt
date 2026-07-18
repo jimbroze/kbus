@@ -20,21 +20,20 @@ private class OutboxTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionOutboxTest {
     @Test
-    fun publish_savesEntriesToTheStoreWithUniqueIds() = runTest {
+    fun publish_doesNotTouchTheStoreBeforeFlush() = runTest {
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, true)
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
 
         outbox.publish(listOf(OutboxTestEvent("a"), OutboxTestEvent("b")))
 
-        assertEquals(2, store.saved.size)
-        assertEquals(2, store.saved.map { it.id }.toSet().size)
+        assertTrue(store.saved.isEmpty())
     }
 
     @Test
     fun publish_doesNotTouchTheRealPublisher() = runTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(store, realPublisher, this, true)
+        val outbox = TransactionOutbox(store, realPublisher, this)
 
         outbox.publish(listOf(OutboxTestEvent("a")))
 
@@ -42,23 +41,71 @@ class TransactionOutboxTest {
     }
 
     @Test
-    fun publish_propagatesStoreSaveFailures() = runTest {
-        val store = RecordingOutboxStore().apply { saveFailure = IllegalStateException("db down") }
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, true)
+    fun flush_savesEntriesToTheStoreWithUniqueIds() = runTest {
+        val store = RecordingOutboxStore()
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        outbox.publish(listOf(OutboxTestEvent("a"), OutboxTestEvent("b")))
 
-        assertFailsWith<IllegalStateException> { outbox.publish(listOf(OutboxTestEvent("a"))) }
+        outbox.flush()
+
+        assertEquals(2, store.saved.size)
+        assertEquals(2, store.saved.map { it.id }.toSet().size)
     }
 
     @Test
-    fun publish_isSafeUnderConcurrentCalls() = runTest {
+    fun flush_isANoOpWhenNothingWasPublished() = runTest {
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, true)
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+
+        outbox.flush()
+
+        assertTrue(store.saved.isEmpty())
+    }
+
+    @Test
+    fun flush_propagatesStoreSaveFailures() = runTest {
+        val store = RecordingOutboxStore().apply { saveFailure = IllegalStateException("db down") }
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        outbox.publish(listOf(OutboxTestEvent("a")))
+
+        assertFailsWith<IllegalStateException> { outbox.flush() }
+    }
+
+    @Test
+    fun publish_afterFlush_savesToTheStoreImmediately() = runTest {
+        val store = RecordingOutboxStore()
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        outbox.flush()
+
+        outbox.publish(listOf(OutboxTestEvent("late")))
+
+        assertEquals(1, store.saved.size)
+        assertEquals("late", (store.saved.single().event as OutboxTestEvent).name)
+    }
+
+    @Test
+    fun publish_beforeFlush_isNotSavedTwiceByASubsequentFlush() = runTest {
+        val store = RecordingOutboxStore()
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        outbox.publish(listOf(OutboxTestEvent("a")))
+        outbox.flush()
+
+        outbox.flush()
+
+        assertEquals(1, store.saved.size)
+    }
+
+    @Test
+    fun publish_isSafeUnderConcurrentCallsBeforeFlush() = runTest {
+        val store = RecordingOutboxStore()
+        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
 
         coroutineScope {
             (1..10)
                 .map { i -> async { outbox.publish(listOf(OutboxTestEvent("event-$i"))) } }
                 .awaitAll()
         }
+        outbox.flush()
 
         assertEquals(10, store.saved.size)
         assertEquals(10, store.saved.map { it.id }.toSet().size)
@@ -68,7 +115,7 @@ class TransactionOutboxTest {
     fun drain_publishesBufferedEntriesInOrderViaTheRealPublisher() = runTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(store, realPublisher, this, true)
+        val outbox = TransactionOutbox(store, realPublisher, this)
         outbox.publish(listOf(OutboxTestEvent("a")))
         outbox.publish(listOf(OutboxTestEvent("b")))
 
@@ -84,8 +131,9 @@ class TransactionOutboxTest {
     fun drain_marksPublishedEntriesInTheStore() = runTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(store, realPublisher, this, true)
+        val outbox = TransactionOutbox(store, realPublisher, this)
         outbox.publish(listOf(OutboxTestEvent("a")))
+        outbox.flush()
         val entryId = store.saved.single().id
 
         outbox.drain()
@@ -110,7 +158,7 @@ class TransactionOutboxTest {
                     }
                 }
             }
-        val outbox = TransactionOutbox(store, flakyPublisher, this, true)
+        val outbox = TransactionOutbox(store, flakyPublisher, this)
         outbox.publish(listOf(OutboxTestEvent("a")))
         outbox.publish(listOf(OutboxTestEvent("b")))
 
@@ -124,7 +172,7 @@ class TransactionOutboxTest {
     fun drain_clearsTheBufferAfterDraining() = runTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(store, realPublisher, this, true)
+        val outbox = TransactionOutbox(store, realPublisher, this)
         outbox.publish(listOf(OutboxTestEvent("a")))
 
         outbox.drain()
@@ -133,18 +181,5 @@ class TransactionOutboxTest {
         advanceUntilIdle()
 
         assertEquals(1, realPublisher.publishedEvents.flatten().size)
-    }
-
-    @Test
-    fun drain_isANoOpWhenDrainAfterCommitIsFalse() = runTest {
-        val store = RecordingOutboxStore()
-        val realPublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(store, realPublisher, this, false)
-        outbox.publish(listOf(OutboxTestEvent("a")))
-
-        outbox.drain()
-        advanceUntilIdle()
-
-        assertTrue(realPublisher.publishedEvents.isEmpty())
     }
 }
