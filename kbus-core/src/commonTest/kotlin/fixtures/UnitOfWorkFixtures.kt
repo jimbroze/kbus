@@ -2,7 +2,7 @@ package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.core.uow.TransactionOutbox
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -25,14 +25,13 @@ class NonExecutingTransactionManager : TransactionManager {
     }
 }
 
-class TestUnitOfWorkFactory(
-    private val integrationEventPublisher: IntegrationEventPublisher? = null
-) : UnitOfWorkFactory {
+class TestUnitOfWorkFactory(private val transactionOutbox: TransactionOutbox? = null) :
+    UnitOfWorkFactory {
     lateinit var unitOfWork: TestUnitOfWork<*>
 
     override fun <TResult> create(): UnitOfWork<TResult> {
         val unitOfWork = TestUnitOfWork<TResult>()
-        unitOfWork.integrationEventPublisher = integrationEventPublisher
+        unitOfWork.transactionOutbox = transactionOutbox
         this.unitOfWork = unitOfWork
         return unitOfWork
     }
@@ -44,7 +43,7 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     val postCommitWork = mutableListOf<suspend () -> Unit>()
     val executedWork = mutableListOf<suspend () -> Any?>()
     var transactionManager: TransactionManager? = null
-    override var integrationEventPublisher: IntegrationEventPublisher? = null
+    override var transactionOutbox: TransactionOutbox? = null
 
     override suspend fun execute(): TResult {
         executedWork.add(primaryWork)

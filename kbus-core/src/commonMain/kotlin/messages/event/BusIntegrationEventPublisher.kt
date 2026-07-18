@@ -5,11 +5,11 @@ import com.jimbroze.kbus.core.registry.HandlerLocator
 
 class BusIntegrationEventPublisher(
     private val handlerLocator: HandlerLocator,
-    private val eventDispatcher: EventDispatcher,
+    private val eventDispatcher: () -> EventDispatcher,
 ) : IntegrationEventPublisher {
     override suspend fun publish(events: List<IntegrationEvent>) {
         events.forEach { event ->
-            eventDispatcher.dispatchIntegrationEvent(event, handlerLocator.handlersFor(event))
+            eventDispatcher().dispatchIntegrationEvent(event, handlerLocator.handlersFor(event))
         }
     }
 }

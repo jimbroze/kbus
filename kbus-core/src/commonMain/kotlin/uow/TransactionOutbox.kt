@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.uow
 
-import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
@@ -34,7 +33,8 @@ class OutboxConfig(
  * poller is the at-least-once delivery guarantee; failed or skipped drains are picked up there.
  */
 @OptIn(ExperimentalUuidApi::class)
-internal class TransactionOutbox(
+class TransactionOutbox
+internal constructor(
     private val store: OutboxStore,
     private val realPublisher: IntegrationEventPublisher,
     private val drainScope: CoroutineScope,
@@ -51,7 +51,7 @@ internal class TransactionOutbox(
         mutex.withLock { buffer.addAll(entries) }
     }
 
-    fun drain() {
+    internal fun drain() {
         if (!drainAfterCommit) return
 
         drainScope.launch {
@@ -70,13 +70,6 @@ internal class TransactionOutbox(
 
             if (publishedIds.isNotEmpty()) store.markPublished(publishedIds)
         }
-    }
-}
-
-/** [BusAccess] that routes imperative `dispatch()` calls through a [TransactionOutbox]. */
-internal class OutboxBusAccess(private val publisher: IntegrationEventPublisher) : BusAccess {
-    override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) {
-        publisher.publish(listOf(event))
     }
 }
 

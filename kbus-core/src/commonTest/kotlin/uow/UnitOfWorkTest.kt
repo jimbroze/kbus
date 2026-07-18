@@ -171,18 +171,18 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_execute_exposes_the_outbox_as_the_integration_event_publisher() = runTest {
+    fun test_execute_exposes_the_outbox_as_the_transactionOutbox() = runTest {
         val store = RecordingOutboxStore()
         val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, true)
         val unitOfWork = DefaultUnitOfWork<Any?>(outbox)
 
-        assertEquals(outbox, unitOfWork.integrationEventPublisher)
+        assertEquals(outbox, unitOfWork.transactionOutbox)
     }
 
     @Test
-    fun test_execute_has_a_null_integration_event_publisher_without_an_outbox() = runTest {
+    fun test_execute_has_a_null_transactionOutbox_without_an_outbox() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
 
-        assertEquals(null, unitOfWork.integrationEventPublisher)
+        assertEquals(null, unitOfWork.transactionOutbox)
     }
 }

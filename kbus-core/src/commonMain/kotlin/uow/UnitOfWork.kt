@@ -1,11 +1,10 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 
 interface UnitOfWork<TResult> {
-    /** Non-null when a transactional outbox is configured; routes publishes through it. */
-    val integrationEventPublisher: IntegrationEventPublisher?
+    /** The command's outbox when one is configured; routes publishes through it. */
+    val transactionOutbox: TransactionOutbox?
         get() = null
 
     suspend fun execute(): TResult

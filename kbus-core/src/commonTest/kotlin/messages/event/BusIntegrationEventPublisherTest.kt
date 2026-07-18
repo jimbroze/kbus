@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
-import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -26,9 +26,9 @@ class BusIntegrationEventPublisherTest {
                 locator::handlersFor,
                 emptyList(),
                 dispatcherScope,
-                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                contextFactory = emptyContextFactory(),
             )
-        return BusIntegrationEventPublisher(locator, eventDispatcher)
+        return BusIntegrationEventPublisher(locator) { eventDispatcher }
     }
 
     @Test
