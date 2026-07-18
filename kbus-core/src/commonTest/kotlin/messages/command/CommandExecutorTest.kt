@@ -3,6 +3,7 @@ package com.jimbroze.kbus.core.messages.command
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.core.fixtures.DispatchingCommand
 import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestBusAccess
@@ -24,7 +25,13 @@ class CommandExecutorTest {
     @Test
     fun test_it_invokes_handler_and_returns_result() = runTest {
         val executor =
-            CommandExecutor(null, emptyList(), TestBusAccess(), TestCommandDependenciesFactory())
+            CommandExecutor(
+                null,
+                emptyList(),
+                TestBusAccess(),
+                TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
 
         val result = executor.execute(ReturnCommand("Wassup")) { ReturnCommandHandler() }
 
@@ -35,7 +42,13 @@ class CommandExecutorTest {
     fun test_it_gives_handlers_access_to_bus() = runTest {
         val busAccess = TestBusAccess()
         val executor =
-            CommandExecutor(null, emptyList(), busAccess, TestCommandDependenciesFactory())
+            CommandExecutor(
+                null,
+                emptyList(),
+                busAccess,
+                TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
 
         val handler = DispatchingCommandHandler()
 
@@ -55,6 +68,7 @@ class CommandExecutorTest {
                 TestBusAccess(),
                 TestCommandDependenciesFactory(),
                 unitOfWorkFactory,
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
         executor.execute(ReturnCommand("Primary")) { ReturnCommandHandler() }
@@ -73,6 +87,7 @@ class CommandExecutorTest {
                 emptyList(),
                 TestBusAccess(),
                 TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
         executor.execute(TransactionCommand("Transaction")) { TransactionCommandHandler() }
@@ -86,7 +101,13 @@ class CommandExecutorTest {
     @Test
     fun test_it_errors_for_executeInTransaction_if_no_transaction_manager() = runTest {
         val executor =
-            CommandExecutor(null, emptyList(), TestBusAccess(), TestCommandDependenciesFactory())
+            CommandExecutor(
+                null,
+                emptyList(),
+                TestBusAccess(),
+                TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
 
         assertFailsWith<IllegalStateException> {
             executor.execute(TransactionCommand("Transaction")) { TransactionCommandHandler() }
@@ -103,6 +124,7 @@ class CommandExecutorTest {
                 emptyList(),
                 TestBusAccess(),
                 TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
 
         val command = TransactionCommand("HandlerTransaction")
@@ -120,7 +142,13 @@ class CommandExecutorTest {
     fun test_default_transaction_manager_can_be_null_if_handler_manager_is_provided() = runTest {
         val handlerTransactionManager = TestTransactionManager()
         val executor =
-            CommandExecutor(null, emptyList(), TestBusAccess(), TestCommandDependenciesFactory())
+            CommandExecutor(
+                null,
+                emptyList(),
+                TestBusAccess(),
+                TestCommandDependenciesFactory(),
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+            )
 
         val command = TransactionCommand("Transaction")
 
@@ -144,6 +172,7 @@ class CommandExecutorTest {
                 TestBusAccess(),
                 dependenciesFactory,
                 unitOfWorkFactory,
+                invocationContextProvider = { EmptyMiddlewareInvocationContext },
             )
         val createHandler: (CommandDependencies) -> ReturnCommandHandler = { commandDependencies ->
             testDependencies = commandDependencies

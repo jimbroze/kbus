@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.core.fixtures.CaptureLogger
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.ExceptionCommandHandler
 import com.jimbroze.kbus.core.fixtures.ExceptionEventHandler
 import com.jimbroze.kbus.core.fixtures.LogLevels
@@ -29,7 +30,10 @@ class LoggingTest {
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(StorageCommand("Testing", mutableListOf())) {
+        logger.handle(
+            StorageCommand("Testing", mutableListOf()),
+            EmptyMiddlewareInvocationContext,
+        ) {
             StorageCommandHandler().handle(it)
         }
 
@@ -42,7 +46,10 @@ class LoggingTest {
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingLogCommand("Testing", captureLogger)) {
+        logger.handle(
+            LoggingLogCommand("Testing", captureLogger),
+            EmptyMiddlewareInvocationContext,
+        ) {
             LoggingLogCommandHandler().handle(it)
         }
 
@@ -58,7 +65,10 @@ class LoggingTest {
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingLogCommand("Testing", captureLogger)) {
+        logger.handle(
+            LoggingLogCommand("Testing", captureLogger),
+            EmptyMiddlewareInvocationContext,
+        ) {
             LoggingLogCommandHandler().handle(it)
         }
 
@@ -74,7 +84,7 @@ class LoggingTest {
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingLogQuery("Testing", captureLogger)) {
+        logger.handle(LoggingLogQuery("Testing", captureLogger), EmptyMiddlewareInvocationContext) {
             LoggingLogQueryHandler().handle(it)
         }
 
@@ -91,7 +101,9 @@ class LoggingTest {
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
-            logger.handle(LoggingExceptionCommand()) { ExceptionCommandHandler().handle(it) }
+            logger.handle(LoggingExceptionCommand(), EmptyMiddlewareInvocationContext) {
+                ExceptionCommandHandler().handle(it)
+            }
         }
 
         val allLogs = captureLogger.logs.joinToString(" | ")
@@ -108,7 +120,10 @@ class LoggingTest {
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
-        logger.handle(LoggingStorageEvent("Testing", mutableListOf())) {
+        logger.handle(
+            LoggingStorageEvent("Testing", mutableListOf()),
+            EmptyMiddlewareInvocationContext,
+        ) {
             PrintEventHandler().handle(it)
         }
 
@@ -125,7 +140,9 @@ class LoggingTest {
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
 
         assertFailsWith<Exception> {
-            logger.handle(LoggingExceptionEvent()) { ExceptionEventHandler().handle(it) }
+            logger.handle(LoggingExceptionEvent(), EmptyMiddlewareInvocationContext) {
+                ExceptionEventHandler().handle(it)
+            }
         }
 
         val allLogs = captureLogger.logs.joinToString(" | ")

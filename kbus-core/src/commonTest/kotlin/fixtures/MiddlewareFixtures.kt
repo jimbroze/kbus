@@ -5,6 +5,12 @@ import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import kotlin.reflect.KClass
+
+object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
+    override val integrationEventPublisher = EmptyIntegrationEventPublisher
+}
 
 class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycle") :
     LifecycleAwareMiddleware {
@@ -24,6 +30,7 @@ class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycl
 
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
+        context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult = nextMiddleware(message)
 
@@ -33,6 +40,26 @@ class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycl
 class PassthroughMiddleware : Middleware {
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
+        context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult = nextMiddleware(message)
+}
+
+class CapturingContextMiddleware : Middleware {
+    private val capturedContexts = mutableListOf<Pair<KClass<*>, MiddlewareInvocationContext>>()
+
+    val capturedContext: MiddlewareInvocationContext?
+        get() = capturedContexts.lastOrNull()?.second
+
+    fun contextFor(messageClass: KClass<*>): MiddlewareInvocationContext? =
+        capturedContexts.firstOrNull { it.first == messageClass }?.second
+
+    override suspend fun <TMessage : Message, TResult> handle(
+        message: TMessage,
+        context: MiddlewareInvocationContext,
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult {
+        capturedContexts.add(message::class to context)
+        return nextMiddleware(message)
+    }
 }

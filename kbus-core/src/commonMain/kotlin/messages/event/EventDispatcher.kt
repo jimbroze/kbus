@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -21,6 +22,7 @@ class EventDispatcher(
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
     val observerRegistry: IntegrationEventObserverRegistry = IntegrationEventObserverRegistry(),
+    private val invocationContextProvider: () -> MiddlewareInvocationContext,
 ) : DomainEventDispatcher {
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
@@ -42,7 +44,7 @@ class EventDispatcher(
             observerRegistry.emit(event)
         }
 
-        val execute = createMiddlewareChain(finalHandler, middlewares)
+        val execute = createMiddlewareChain(finalHandler, middlewares, invocationContextProvider())
         execute(event)
     }
 
@@ -75,7 +77,7 @@ class EventDispatcher(
                 dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
             }
         }
-        val execute = createMiddlewareChain(finalHandler, middlewares)
+        val execute = createMiddlewareChain(finalHandler, middlewares, invocationContextProvider())
         execute(event)
     }
 

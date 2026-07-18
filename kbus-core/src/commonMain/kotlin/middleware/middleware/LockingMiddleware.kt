@@ -9,6 +9,7 @@ import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
@@ -53,6 +54,7 @@ class LockingMiddleware(
 
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
+        context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         val lockAware = message as? LockAwareMessage

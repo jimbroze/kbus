@@ -315,6 +315,52 @@ class RegisterUserHandler :
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-02.kt).
 
+#### Auto-Publishing Integration Events from Domain Events
+
+The `AutoPublishIntegrationEvents` middleware publishes integration events automatically whenever a registered domain
+event is dispatched — no explicit `dispatch` call needed. Register mappings with `autoPublish`, either as a lambda or
+by implementing `AutoPublishesFrom` on the integration event's companion object to declare the domain event it is
+derived from. A domain event may be registered multiple times to publish several integration events.
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.middleware.autoPublish
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.domain.event.DomainEvent
+-->
+
+```kotlin
+class OrderPlaced(val orderId: String) : DomainEvent()
+
+class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
+    companion object : AutoPublishesFrom<OrderPlaced> {
+        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
+    }
+}
+
+class OrderPlacedAnalytics(val orderId: String) : IntegrationEvent()
+
+val busWithAutoPublish = MessageBus(
+    handlerLocator = PersistingHandlerLocator(),
+    middlewares = listOf(
+        AutoPublishIntegrationEvents(
+            autoPublish(OrderPlacedIntegration),
+            autoPublish<OrderPlaced> { OrderPlacedAnalytics(it.orderId) },
+        ),
+    ),
+)
+```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-03.kt).
+
+Registering every mapping by hand doesn't scale in a generated bus. Annotate the integration event with `@LoadEvent`
+and code generation collects every `AutoPublishesFrom` companion it finds into a generated
+`generatedAutoPublishRegistrations` list — see [Auto-Publish Registrations](#auto-publish-registrations) below.
+
 ## Result Types
 
 All commands and queries return `BusResult<TValue, TMessageFailure>`:
@@ -359,7 +405,10 @@ val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something 
 ## Middleware
 
 Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next
-handler in the chain.
+handler in the chain. Every `handle` call also receives a `MiddlewareInvocationContext`, a per-invocation context
+object passed to all middleware in the chain. It currently exposes `integrationEventPublisher`, an
+`IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration
+events directly, independent of any command's `BusAccess`.
 
 ### Writing Custom Middleware
 
@@ -368,6 +417,7 @@ handler in the chain.
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import kotlin.time.TimeSource
 -->
 
@@ -375,6 +425,7 @@ import kotlin.time.TimeSource
 class TimingMiddleware : Middleware {
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
+        context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult {
         val mark = TimeSource.Monotonic.markNow()
@@ -423,6 +474,7 @@ val bus = MessageBus(
 
 - **`LoggingMiddleware`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
+- **`AutoPublishIntegrationEvents`** — Publishes the integration event mapped from a registered domain event via `AutoPublishesFrom`
 
 ## Unit of Work
 
@@ -584,6 +636,8 @@ The KSP processor generates:
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
+- **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every `@LoadEvent`
+  integration event whose companion implements `AutoPublishesFrom` (only generated when at least one exists)
 
 ### Using the Generated Bus
 
@@ -607,6 +661,35 @@ val bus = CompileTimeLoadedMessageBus(
 val result = bus.execute(PlaceOrder(items))
 ```
 
+### Auto-Publish Registrations
+
+`@LoadEvent` makes an event known to code generation. On its own it generates nothing — but if the annotated
+integration event's companion implements `AutoPublishesFrom` (see
+[Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)), the processor also
+collects it into the generated `generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered
+by hand:
+
+<!--- CLEAR -->
+
+```kotlin
+@LoadEvent
+class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
+    companion object : AutoPublishesFrom<OrderPlaced> {
+        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
+    }
+}
+
+val bus = CompileTimeLoadedMessageBus(
+    loader = MyDependencies(),
+    transactionManager = myTransactionManager,
+    middleware = listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
+)
+```
+
+An event annotated with `@LoadEvent` whose companion does not implement `AutoPublishesFrom` (or that has no
+companion) is still known to the processor — it just contributes no registration; this is not an error, and leaves
+room for other `@LoadEvent`-driven code generation in future.
+
 ### Submodules
 
 For multi-module projects, submodules can export their handler metadata for the main module to consume. You must
@@ -627,7 +710,8 @@ ksp {
 ```
 
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
-these indexes automatically.
+these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
+module's `generatedAutoPublishRegistrations`.
 
 ## Domain Modeling
 

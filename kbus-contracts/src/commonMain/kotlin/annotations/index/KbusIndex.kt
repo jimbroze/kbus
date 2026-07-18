@@ -19,6 +19,7 @@ enum class HandlerType {
 annotation class KbusIndex(
     val dependencies: Array<DependencyInfo>,
     val handlers: Array<HandlerInfo>,
+    val autoPublishEvents: Array<AutoPublishInfo> = [],
 )
 
 @Target()
@@ -41,3 +42,7 @@ annotation class HandlerInfo(
     val returnType: String,
     val topLevelDependencies: Array<String>,
 )
+
+@Target()
+@Retention(AnnotationRetention.BINARY)
+annotation class AutoPublishInfo(val integrationEventClass: String, val domainEventClass: String)

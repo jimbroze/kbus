@@ -53,7 +53,8 @@ class NestingLockCommandHandler(private val locker: LockingMiddleware) :
         val preNestTime = TimeSource.Monotonic.markNow()
 
         val result =
-            locker.handle(message.internalCommand) { c: TimeReturnCommand ->
+            locker.handle(message.internalCommand, EmptyMiddlewareInvocationContext) {
+                c: TimeReturnCommand ->
                 TimeReturnCommandHandler().handle(c)
             }
 

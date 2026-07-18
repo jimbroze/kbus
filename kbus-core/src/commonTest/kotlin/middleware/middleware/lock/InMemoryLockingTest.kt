@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.middleware.middleware.lock
 
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommand
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommandHandler
+import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommand
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
@@ -47,13 +48,16 @@ class InMemoryLockingTest : LockingTestBase() {
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
+            locker.handle(
+                LockingSleepCommand(5.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
                 LockingSleepCommandHandler().handle(it)
             }
             currentTime
         }
         val job2 = async {
-            locker.handle(ConfigurableLockingCommand("Job2")) {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
             currentTime
@@ -81,13 +85,18 @@ class InMemoryLockingTest : LockingTestBase() {
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            locker.handle(LockingSleepCommand(5.seconds, "Job1")) {
+            locker.handle(
+                LockingSleepCommand(5.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
                 LockingSleepCommandHandler().handle(it)
             }
             currentTime
         }
         val job2 = async {
-            locker.handle(ReturnCommand("Job2")) { ReturnCommandHandler().handle(it) }
+            locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                ReturnCommandHandler().handle(it)
+            }
             currentTime
         }
 
