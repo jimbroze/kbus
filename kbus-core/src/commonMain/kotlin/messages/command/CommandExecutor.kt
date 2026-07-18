@@ -10,6 +10,7 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
+import com.jimbroze.kbus.core.uow.OutboxBusAccess
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
@@ -29,7 +30,7 @@ class CommandExecutor(
         val unitOfWork = unitOfWorkFactory.create<TResult>()
         val handler = createHandler(commandDependenciesFactory.create(unitOfWork))
 
-        handler.setBus(unitOfWork.integrationEventPublisher?.let(::OutboqwxBusAccess) ?: busAccess)
+        handler.setBus(unitOfWork.integrationEventPublisher?.let(::OutboxBusAccess) ?: busAccess)
 
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
             executeInUnitOfWork(message, handler, unitOfWork)
