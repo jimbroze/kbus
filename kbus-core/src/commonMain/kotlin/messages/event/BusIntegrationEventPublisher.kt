@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.registry.HandlerLocator
 
 class BusIntegrationEventPublisher(

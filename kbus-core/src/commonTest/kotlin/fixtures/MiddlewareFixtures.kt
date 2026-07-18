@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.IntegrationPublisherFactory
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware

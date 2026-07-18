@@ -2,7 +2,7 @@ package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.domain.event.Concurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -71,6 +71,15 @@ class TestDomainEventHandler(private val results: MutableList<String>) :
     DomainEventHandler<TestDomainEvent>() {
     override suspend fun handle(message: TestDomainEvent) {
         results.add(message.data)
+    }
+}
+
+/** Publishes an integration event via the [DomainEventHandler] mixin, synchronously. */
+class PublishingDomainEventHandler : DomainEventHandler<TestDomainEvent>() {
+    override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
+
+    override suspend fun handle(message: TestDomainEvent) {
+        publish(TestIntegrationEvent(message.data))
     }
 }
 

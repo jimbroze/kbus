@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.uow.TransactionOutbox
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
@@ -18,22 +18,18 @@ class CommandInvocation<TResult>(
 /**
  * Bus-owned: answers "which publisher applies to this command?" once, at invocation creation time,
  * instead of re-deriving it from the unit of work wherever it's needed. When an outbox is
- * configured, wires its [TransactionOutbox.flush] and [TransactionOutbox.drain] into the unit of
- * work's generic phase API — the unit of work itself stays unaware of the outbox.
+ * configured, [outboxFactory] receives the unit of work so the [TransactionOutbox] can self-wire
+ * its flush/drain into it — this factory doesn't touch the unit of work's phase API itself.
  */
 class CommandInvocationFactory(
     private val unitOfWorkFactory: UnitOfWorkFactory,
     private val basePublisher: IntegrationEventPublisher,
-    private val outboxFactory: (() -> TransactionOutbox)? = null,
-    private val drainAfterCommit: Boolean = true,
+    private val outboxFactory: ((UnitOfWork<*>) -> TransactionOutbox)? = null,
 ) {
     fun <TResult> create(): CommandInvocation<TResult> {
         val unitOfWork = unitOfWorkFactory.create<TResult>()
-        val outbox = outboxFactory?.invoke() ?: return CommandInvocation(unitOfWork, basePublisher)
+        val outbox = outboxFactory?.invoke(unitOfWork)
 
-        unitOfWork.addSecondaryWork { outbox.flush() }
-        if (drainAfterCommit) unitOfWork.addPostCommitWork { outbox.drain() }
-
-        return CommandInvocation(unitOfWork, outbox)
+        return CommandInvocation(unitOfWork, outbox ?: basePublisher)
     }
 }

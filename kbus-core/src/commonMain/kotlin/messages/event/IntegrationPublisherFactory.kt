@@ -1,22 +1,14 @@
 package com.jimbroze.kbus.core.messages.event
 
-import com.jimbroze.kbus.contracts.bus.BusAccess
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 
 /**
- * The bus's single answer to "which publisher applies to this invocation?" for imperative
- * `dispatch()` calls. Returns the invocation's publisher when there is one, otherwise the base
- * publisher.
+ * The bus's single answer to "which publisher applies to this invocation?" for handlers using
+ * [CanPublishIntegrationEvent][com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent].
+ * Returns the invocation's publisher when there is one, otherwise the base publisher.
  */
 class IntegrationPublisherFactory(private val basePublisher: IntegrationEventPublisher) {
-    fun busAccessFor(invocation: CommandInvocation<*>?): BusAccess =
-        PublisherBusAccess(invocation?.integrationEventPublisher ?: basePublisher)
-}
-
-/** [BusAccess] that routes imperative `dispatch()` calls through whichever publisher applies. */
-internal class PublisherBusAccess(private val publisher: IntegrationEventPublisher) : BusAccess {
-    override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) {
-        publisher.publish(listOf(event))
-    }
+    fun publisherFor(invocation: CommandInvocation<*>?): IntegrationEventPublisher =
+        invocation?.integrationEventPublisher ?: basePublisher
 }

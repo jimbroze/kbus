@@ -59,7 +59,9 @@ class EventDispatcher(
         val errorStrategy = errorStrategyFor(event)
         val handlersByPhase =
             handlers.groupBy { handler ->
-                dispatchPhaseFor(handler as DomainEventHandler<*>).also {
+                val domainEventHandler = handler as DomainEventHandler<*>
+                domainEventHandler.setPublisher(invocation.integrationEventPublisher)
+                dispatchPhaseFor(domainEventHandler).also {
                     validateDispatchPhase(it, errorStrategy)
                 }
             }

@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.DefaultPhaseFailFastHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
@@ -17,6 +18,7 @@ import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PublishingDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -85,10 +87,13 @@ class EventDispatcherTest {
     // TEST FIXTURE
     // Abstracts setup, state (results/UoW), and type-erasure casting.
     // =========================================================================
-    private class TestEnv(val scope: TestScope) {
+    private class TestEnv(
+        val scope: TestScope,
+        publisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
+    ) {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
-        val invocation = testInvocation(unitOfWork)
+        val invocation = testInvocation(unitOfWork, publisher = publisher)
         lateinit var dispatcher: EventDispatcher
 
         fun withDomainHandlers(vararg handlers: EventHandler<*>): TestEnv {
@@ -722,7 +727,13 @@ class EventDispatcherTest {
     fun dispatchDomainEvent_uses_the_invocations_outbox_publisher_when_present() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
+        val outbox =
+            TransactionOutbox(
+                store,
+                RecordingIntegrationEventPublisher(),
+                this,
+                TestUnitOfWork<Any?>(),
+            )
         val invocation = testInvocation<Any?>(publisher = outbox)
         val dispatcher =
             EventDispatcher(
@@ -773,5 +784,22 @@ class EventDispatcherTest {
         dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("test"))
 
         assertEquals(basePublisher, capturingMiddleware.capturedContext?.integrationEventPublisher)
+    }
+
+    // =========================================================================
+    // DOMAIN HANDLER INTEGRATION PUBLISHING
+    // =========================================================================
+
+    @Test
+    fun dispatchDomainEvent_wires_the_invocations_publisher_into_domain_event_handlers() = runTest {
+        val recordingPublisher = RecordingIntegrationEventPublisher()
+        val env = TestEnv(this, recordingPublisher)
+        env.withDomainHandlers(PublishingDomainEventHandler())
+
+        env.dispatch(TestDomainEvent("via-domain-handler"))
+
+        val published = recordingPublisher.publishedEvents.flatten()
+        assertEquals(1, published.size)
+        assertEquals("via-domain-handler", (published.single() as TestIntegrationEvent).name)
     }
 }

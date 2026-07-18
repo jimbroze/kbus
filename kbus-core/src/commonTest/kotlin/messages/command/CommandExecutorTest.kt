@@ -74,10 +74,11 @@ class CommandExecutorTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, basePublisher, outboxFactory = { outbox })
+            CommandInvocationFactory(unitOfWorkFactory, basePublisher) { unitOfWork ->
+                TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            }
         val executor =
             CommandExecutor(
                 null,
@@ -101,10 +102,13 @@ class CommandExecutorTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
-        val outbox = TransactionOutbox(store, RecordingIntegrationEventPublisher(), this)
         val unitOfWorkFactory = TestUnitOfWorkFactory()
+        lateinit var outbox: TransactionOutbox
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, basePublisher, outboxFactory = { outbox })
+            CommandInvocationFactory(unitOfWorkFactory, basePublisher) { unitOfWork ->
+                TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+                    .also { outbox = it }
+            }
         val capturingMiddleware = CapturingContextMiddleware()
         val executor =
             CommandExecutor(

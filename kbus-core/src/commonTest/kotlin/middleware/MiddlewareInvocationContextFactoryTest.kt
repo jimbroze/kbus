@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.uow.TransactionOutbox
 import kotlin.test.Test
@@ -13,7 +14,8 @@ class MiddlewareInvocationContextFactoryTest {
     @Test
     fun contextFor_an_invocation_with_an_outbox_publisher_exposes_that_outbox() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(RecordingOutboxStore(), basePublisher, this)
+        val outbox =
+            TransactionOutbox(RecordingOutboxStore(), basePublisher, this, TestUnitOfWork<Any?>())
         val invocation = testInvocation<Any?>(publisher = outbox)
         val factory = MiddlewareInvocationContextFactory(basePublisher)
 
@@ -40,7 +42,8 @@ class MiddlewareInvocationContextFactoryTest {
     @Test
     fun resolution_is_per_call_not_cached() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
-        val outbox = TransactionOutbox(RecordingOutboxStore(), basePublisher, this)
+        val outbox =
+            TransactionOutbox(RecordingOutboxStore(), basePublisher, this, TestUnitOfWork<Any?>())
         val invocationWithOutbox = testInvocation<Any?>(publisher = outbox)
         val invocationWithoutOutbox = testInvocation<Any?>(publisher = basePublisher)
         val factory = MiddlewareInvocationContextFactory(basePublisher)

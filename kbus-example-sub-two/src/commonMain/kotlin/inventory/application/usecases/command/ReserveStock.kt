@@ -33,7 +33,7 @@ class ReserveStockHandler(
 
         val reservation = inventoryRepository.reserve(message.productId, message.quantity)
 
-        dispatch(
+        publish(
             StockReserved(
                 reservationId = reservation.reservationId,
                 productId = reservation.productId,

@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.core.fixtures
 
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent

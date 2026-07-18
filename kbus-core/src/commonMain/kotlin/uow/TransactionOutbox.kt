@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
@@ -28,11 +28,11 @@ class OutboxConfig(
 
 /**
  * Captures integration events published during a command, deferring the store write until [flush]
- * is called (registered by
- * [CommandInvocationFactory][com.jimbroze.kbus.core.messages.command.CommandInvocationFactory] as
- * secondary work, so it runs inside the command's transaction). Publishes that arrive after [flush]
- * has already run (e.g. from SECONDARY/POST_COMMIT-phase handlers) are saved immediately. After
- * commit, [drain] delivers the buffered entries to [realPublisher] on [drainScope] as a
+ * runs. Self-registers into [unitOfWork] at construction time: [flush] as the *first* secondary
+ * work item (so it runs inside the command's transaction, ahead of anything registered while
+ * handling the command), and, if [drainAfterCommit] is true, [drain] as post-commit work. Publishes
+ * that arrive after [flush] has already run (e.g. from SECONDARY/POST_COMMIT-phase handlers) are
+ * saved immediately. [drain] delivers the buffered entries to [realPublisher] on [drainScope] as a
  * fire-and-forget background task — a latency optimisation only. A bus-owned poller is the
  * at-least-once delivery guarantee; failed or skipped drains are picked up there.
  */
@@ -42,11 +42,18 @@ internal constructor(
     private val store: OutboxStore,
     private val realPublisher: IntegrationEventPublisher,
     private val drainScope: CoroutineScope,
+    unitOfWork: UnitOfWork<*>,
+    drainAfterCommit: Boolean = true,
 ) : IntegrationEventPublisher {
     private val mutex = Mutex()
     private val buffer = mutableListOf<OutboxEntry>()
     private val pendingSave = mutableListOf<OutboxEntry>()
     private var flushed = false
+
+    init {
+        unitOfWork.addSecondaryWork { flush() }
+        if (drainAfterCommit) unitOfWork.addPostCommitWork { drain() }
+    }
 
     override suspend fun publish(events: List<IntegrationEvent>) {
         val entries = events.map { OutboxEntry(Uuid.random().toString(), it) }
@@ -62,7 +69,7 @@ internal constructor(
     }
 
     /** Saves everything published so far and marks the outbox flushed. Runs as secondary work. */
-    internal suspend fun flush() {
+    private suspend fun flush() {
         val toSave =
             mutex.withLock {
                 flushed = true
@@ -72,7 +79,7 @@ internal constructor(
         if (toSave.isNotEmpty()) store.save(toSave)
     }
 
-    internal fun drain() {
+    private fun drain() {
         drainScope.launch {
             val entries = mutex.withLock { buffer.toList().also { buffer.clear() } }
 

@@ -39,7 +39,7 @@ class DispatchingCommandHandler :
     override val executeInTransaction: TransactionConfig? = null
 
     override suspend fun handle(message: DispatchingCommand): BusResult<Unit, MessageFailure> {
-        dispatch(TestIntegrationEvent("test-event"))
+        publish(TestIntegrationEvent("test-event"))
         return BusResult.success(Unit)
     }
 }

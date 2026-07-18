@@ -534,7 +534,7 @@ private class OutboxImperativeCommand(val message: String) :
 private class OutboxImperativeCommandHandler :
     CommandHandler<OutboxImperativeCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: OutboxImperativeCommand): BusResult<Unit, MessageFailure> {
-        dispatch(OutboxImperativeEvent(message.message))
+        publish(OutboxImperativeEvent(message.message))
         return BusResult.success(Unit)
     }
 }
@@ -542,7 +542,7 @@ private class OutboxImperativeCommandHandler :
 private class OutboxFailingCommandHandler :
     CommandHandler<OutboxImperativeCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: OutboxImperativeCommand): BusResult<Unit, MessageFailure> {
-        dispatch(OutboxImperativeEvent(message.message))
+        publish(OutboxImperativeEvent(message.message))
         error("handler failed after dispatching")
     }
 }
@@ -599,7 +599,7 @@ private class OutboxFlakyCommand(val message: String) : Command<BusResult<Unit, 
 private class OutboxFlakyCommandHandler :
     CommandHandler<OutboxFlakyCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: OutboxFlakyCommand): BusResult<Unit, MessageFailure> {
-        dispatch(OutboxFlakyEvent(message.message))
+        publish(OutboxFlakyEvent(message.message))
         return BusResult.success(Unit)
     }
 }

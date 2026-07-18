@@ -65,7 +65,7 @@ class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, Message
     override val executeInTransaction: TransactionConfig? = null
 
     override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
-        dispatch(StorageEvent(message.message, message.listStore))
+        publish(StorageEvent(message.message, message.listStore))
         return BusResult.success(Unit)
     }
 }

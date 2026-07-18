@@ -27,7 +27,7 @@ class CommandExecutor(
         val invocation = invocationFactory.create<TResult>()
         val handler = createHandler(commandDependenciesFactory.create(invocation))
 
-        handler.setBus(publisherFactory.busAccessFor(invocation))
+        handler.setPublisher(publisherFactory.publisherFor(invocation))
 
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
             executeInUnitOfWork(message, handler, invocation.unitOfWork)

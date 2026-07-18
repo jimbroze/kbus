@@ -25,6 +25,7 @@ import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxPoller
 import com.jimbroze.kbus.core.uow.TransactionOutbox
+import com.jimbroze.kbus.core.uow.UnitOfWork
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -79,9 +80,17 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
-    private val outboxFactory: (() -> TransactionOutbox)? =
+    private val outboxFactory: ((UnitOfWork<*>) -> TransactionOutbox)? =
         outbox?.let { config ->
-            { TransactionOutbox(config.store, integrationEventPublisher, outboxScope) }
+            { unitOfWork ->
+                TransactionOutbox(
+                    config.store,
+                    integrationEventPublisher,
+                    outboxScope,
+                    unitOfWork,
+                    config.drainAfterCommit,
+                )
+            }
         }
     protected val commandExecutor =
         CommandExecutor(
@@ -94,7 +103,6 @@ abstract class BaseMessageBus(
                 DefaultUnitOfWorkFactory(),
                 integrationEventPublisher,
                 outboxFactory,
-                outbox?.drainAfterCommit ?: true,
             ),
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
