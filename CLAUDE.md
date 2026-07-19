@@ -93,7 +93,7 @@ transaction opens), rollback-safe: if primary work throws, `flush()` never runs 
 staged. A bus-owned poller is the at-least-once delivery guarantee; the drain is only a latency
 optimisation. Both command handlers and domain event handlers reach the invocation's publisher
 through the same `CanPublishIntegrationEvent` mixin (`setPublisher`/`publish`): `CommandExecutor`
-calls `handler.setPublisher(publisherFactory.publisherFor(invocation))`;
+calls `handler.setPublisher(invocation.integrationEventPublisher)`;
 `EventDispatcher.dispatchDomainEvent` does the same for each domain event handler before dispatch,
 and separately swaps the publisher into the middleware context (AutoPublish path).
 

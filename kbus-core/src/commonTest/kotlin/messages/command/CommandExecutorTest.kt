@@ -33,7 +33,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
@@ -52,7 +51,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
@@ -83,7 +81,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 invocationFactory,
@@ -114,7 +111,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 listOf(capturingMiddleware),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 invocationFactory,
@@ -135,7 +131,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 invocationFactory,
@@ -156,7 +151,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 testTransactionManager,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
@@ -177,7 +171,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
@@ -197,7 +190,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 defaultTransactionManager,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
@@ -222,7 +214,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
@@ -250,7 +241,6 @@ class CommandExecutorTest {
             CommandExecutor(
                 null,
                 emptyList(),
-                factories.publisherFactory,
                 factories.contextFactory,
                 dependenciesFactory,
                 invocationFactory,

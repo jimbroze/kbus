@@ -3,7 +3,6 @@ package com.jimbroze.kbus.core.fixtures
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
-import com.jimbroze.kbus.core.messages.event.IntegrationPublisherFactory
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
@@ -21,7 +20,6 @@ object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
 class TestPublisherFactories(
     basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
 ) {
-    val publisherFactory = IntegrationPublisherFactory(basePublisher)
     val contextFactory = MiddlewareInvocationContextFactory(basePublisher)
     val invocationFactory = CommandInvocationFactory(DefaultUnitOfWorkFactory(), basePublisher)
 }

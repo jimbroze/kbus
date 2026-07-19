@@ -12,7 +12,6 @@ import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.BusIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
-import com.jimbroze.kbus.core.messages.event.IntegrationPublisherFactory
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
@@ -62,8 +61,6 @@ abstract class BaseMessageBus(
         )
     private val integrationEventPublisher: BusIntegrationEventPublisher =
         BusIntegrationEventPublisher(handlerLocator) { eventDispatcher }
-    private val publisherFactory: IntegrationPublisherFactory =
-        IntegrationPublisherFactory(integrationEventPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
         MiddlewareInvocationContextFactory(integrationEventPublisher)
     protected val eventDispatcher: EventDispatcher =
@@ -96,7 +93,6 @@ abstract class BaseMessageBus(
         CommandExecutor(
             transactionManager,
             middlewares,
-            publisherFactory,
             contextFactory,
             DefaultCommandDependenciesFactory(eventDispatcher),
             CommandInvocationFactory(
