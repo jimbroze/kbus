@@ -3,9 +3,13 @@ package com.jimbroze.kbus.core.messages.command
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
+import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.TransactionOutbox
-import com.jimbroze.kbus.core.uow.UnitOfWork
+import com.jimbroze.kbus.core.uow.TransactionOutboxFactory
 import kotlin.test.Test
+import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,7 +20,11 @@ class CommandInvocationFactoryTest {
     @Test
     fun create_without_an_outbox_uses_the_base_publisher() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
-        val factory = CommandInvocationFactory(TestUnitOfWorkFactory(), basePublisher)
+        val factory =
+            CommandInvocationFactory(
+                TestUnitOfWorkFactory(),
+                noOutboxPublisherFactory(basePublisher),
+            )
 
         val invocation = factory.create<Any?>()
 
@@ -26,8 +34,7 @@ class CommandInvocationFactoryTest {
     @Test
     fun create_without_an_outbox_registers_no_phase_hooks() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        val factory =
-            CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher())
+        val factory = CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory())
 
         factory.create<Any?>()
 
@@ -38,43 +45,43 @@ class CommandInvocationFactoryTest {
     @Test
     fun create_with_an_outbox_uses_the_outbox_as_the_publisher() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        lateinit var outbox: TransactionOutbox
         val factory =
-            CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher()) {
-                unitOfWork ->
-                TransactionOutbox(
-                        RecordingOutboxStore(),
+            CommandInvocationFactory(
+                unitOfWorkFactory,
+                IntegrationEventPublisherFactory(
+                    TransactionOutboxFactory(
+                        OutboxConfig(RecordingOutboxStore()),
                         RecordingIntegrationEventPublisher(),
                         this,
-                        unitOfWork,
-                    )
-                    .also { outbox = it }
-            }
+                    ),
+                    RecordingIntegrationEventPublisher(),
+                ),
+            )
 
         val invocation = factory.create<Any?>()
 
-        assertSame(outbox, invocation.integrationEventPublisher)
+        assertIs<TransactionOutbox>(invocation.integrationEventPublisher)
     }
 
     @Test
-    fun create_with_an_outbox_passes_the_invocations_unit_of_work_to_the_outbox_factory() =
-        runTest {
-            val unitOfWorkFactory = TestUnitOfWorkFactory()
-            var receivedUnitOfWork: UnitOfWork<*>? = null
-            val factory =
-                CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher()) {
-                    unitOfWork ->
-                    receivedUnitOfWork = unitOfWork
-                    TransactionOutbox(
-                        RecordingOutboxStore(),
+    fun create_with_an_outbox_passes_the_invocations_unit_of_work_to_the_outbox() = runTest {
+        val unitOfWorkFactory = TestUnitOfWorkFactory()
+        val factory =
+            CommandInvocationFactory(
+                unitOfWorkFactory,
+                IntegrationEventPublisherFactory(
+                    TransactionOutboxFactory(
+                        OutboxConfig(RecordingOutboxStore()),
                         RecordingIntegrationEventPublisher(),
                         this,
-                        unitOfWork,
-                    )
-                }
+                    ),
+                    RecordingIntegrationEventPublisher(),
+                ),
+            )
 
-            val invocation = factory.create<Any?>()
+        val invocation = factory.create<Any?>()
 
-            assertSame(invocation.unitOfWork, receivedUnitOfWork)
-        }
+        assertTrue(unitOfWorkFactory.unitOfWork === invocation.unitOfWork)
+        assertTrue(unitOfWorkFactory.unitOfWork.secondaryWork.isNotEmpty())
+    }
 }

@@ -62,6 +62,7 @@ import com.jimbroze.kbus.core.fixtures.ThrowingSequentialContinueAndAggregateHan
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFailFastHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
+import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionOutbox
@@ -778,7 +779,8 @@ class EventDispatcherTest {
                 { emptyList() },
                 listOf(capturingMiddleware),
                 this,
-                contextFactory = MiddlewareInvocationContextFactory(basePublisher),
+                contextFactory =
+                    MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher)),
             )
 
         dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("test"))

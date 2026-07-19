@@ -99,6 +99,24 @@ internal constructor(
     }
 }
 
+class TransactionOutboxFactory(
+    private val config: OutboxConfig?,
+    private val basePublisher: IntegrationEventPublisher,
+    private val outboxScope: CoroutineScope,
+) {
+    fun create(unitOfWork: UnitOfWork<*>): TransactionOutbox? {
+        return config?.let { config ->
+            TransactionOutbox(
+                config.store,
+                basePublisher,
+                outboxScope,
+                unitOfWork,
+                config.drainAfterCommit,
+            )
+        }
+    }
+}
+
 /**
  * The transactional outbox's at-least-once delivery guarantee. Runs forever once started: polls
  * [store] for unpublished entries, delivers them via [publisher], and marks the successes. Never

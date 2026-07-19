@@ -12,6 +12,7 @@ import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.event.BusIntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
@@ -23,8 +24,7 @@ import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxPoller
-import com.jimbroze.kbus.core.uow.TransactionOutbox
-import com.jimbroze.kbus.core.uow.UnitOfWork
+import com.jimbroze.kbus.core.uow.TransactionOutboxFactory
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -59,17 +59,6 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-EventDispatcher")
         )
-    private val integrationEventPublisher: BusIntegrationEventPublisher =
-        BusIntegrationEventPublisher(handlerLocator) { eventDispatcher }
-    private val contextFactory: MiddlewareInvocationContextFactory =
-        MiddlewareInvocationContextFactory(integrationEventPublisher)
-    protected val eventDispatcher: EventDispatcher =
-        EventDispatcher(
-            handlerLocator::handlersFor,
-            middlewares,
-            eventDispatcherScope,
-            contextFactory = contextFactory,
-        )
     private val outboxScope =
         CoroutineScope(
             rootScope.coroutineContext +
@@ -77,29 +66,29 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
-    private val outboxFactory: ((UnitOfWork<*>) -> TransactionOutbox)? =
-        outbox?.let { config ->
-            { unitOfWork ->
-                TransactionOutbox(
-                    config.store,
-                    integrationEventPublisher,
-                    outboxScope,
-                    unitOfWork,
-                    config.drainAfterCommit,
-                )
-            }
-        }
+    private val baseIntegrationEventPublisher: BusIntegrationEventPublisher =
+        BusIntegrationEventPublisher(handlerLocator) { eventDispatcher }
+    private val integrationEventPublisherFactory =
+        IntegrationEventPublisherFactory(
+            TransactionOutboxFactory(outbox, baseIntegrationEventPublisher, outboxScope),
+            baseIntegrationEventPublisher,
+        )
+    private val contextFactory: MiddlewareInvocationContextFactory =
+        MiddlewareInvocationContextFactory(integrationEventPublisherFactory)
+    protected val eventDispatcher: EventDispatcher =
+        EventDispatcher(
+            handlerLocator::handlersFor,
+            middlewares,
+            eventDispatcherScope,
+            contextFactory = contextFactory,
+        )
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
             contextFactory,
             DefaultCommandDependenciesFactory(eventDispatcher),
-            CommandInvocationFactory(
-                DefaultUnitOfWorkFactory(),
-                integrationEventPublisher,
-                outboxFactory,
-            ),
+            CommandInvocationFactory(DefaultUnitOfWorkFactory(), integrationEventPublisherFactory),
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
 
@@ -120,10 +109,11 @@ abstract class BaseMessageBus(
         }
 
         if (outbox != null) {
+            // FIXME should this be in Outbox class?
             outboxScope.launch {
                 OutboxPoller(
                         outbox.store,
-                        integrationEventPublisher,
+                        baseIntegrationEventPublisher,
                         outbox.batchSize,
                         outbox.pollInterval,
                     )

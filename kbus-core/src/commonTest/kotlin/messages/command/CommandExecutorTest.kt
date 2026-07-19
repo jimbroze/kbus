@@ -15,11 +15,16 @@ import com.jimbroze.kbus.core.fixtures.TestTransactionManager
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.TransactionCommand
 import com.jimbroze.kbus.core.fixtures.TransactionCommandHandler
+import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.TransactionOutbox
+import com.jimbroze.kbus.core.uow.TransactionOutboxFactory
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -74,9 +79,17 @@ class CommandExecutorTest {
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, basePublisher) { unitOfWork ->
-                TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
-            }
+            CommandInvocationFactory(
+                unitOfWorkFactory,
+                IntegrationEventPublisherFactory(
+                    TransactionOutboxFactory(
+                        OutboxConfig(store),
+                        RecordingIntegrationEventPublisher(),
+                        this,
+                    ),
+                    basePublisher,
+                ),
+            )
         val executor =
             CommandExecutor(
                 null,
@@ -100,12 +113,18 @@ class CommandExecutorTest {
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        lateinit var outbox: TransactionOutbox
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, basePublisher) { unitOfWork ->
-                TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
-                    .also { outbox = it }
-            }
+            CommandInvocationFactory(
+                unitOfWorkFactory,
+                IntegrationEventPublisherFactory(
+                    TransactionOutboxFactory(
+                        OutboxConfig(store),
+                        RecordingIntegrationEventPublisher(),
+                        this,
+                    ),
+                    basePublisher,
+                ),
+            )
         val capturingMiddleware = CapturingContextMiddleware()
         val executor =
             CommandExecutor(
@@ -118,7 +137,7 @@ class CommandExecutorTest {
 
         executor.execute(ReturnCommand("test")) { ReturnCommandHandler() }
 
-        assertEquals(outbox, capturingMiddleware.capturedContext?.integrationEventPublisher)
+        assertIs<TransactionOutbox>(capturingMiddleware.capturedContext?.integrationEventPublisher)
     }
 
     @Test
@@ -126,7 +145,7 @@ class CommandExecutorTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val factories = TestPublisherFactories()
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher())
+            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory())
         val executor =
             CommandExecutor(
                 null,
@@ -236,7 +255,7 @@ class CommandExecutorTest {
         val dependenciesFactory = TestCommandDependenciesFactory()
         val factories = TestPublisherFactories()
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, RecordingIntegrationEventPublisher())
+            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory())
         val executor =
             CommandExecutor(
                 null,

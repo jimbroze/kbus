@@ -3,6 +3,7 @@ package com.jimbroze.kbus.core.fixtures
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
+import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
@@ -10,7 +11,11 @@ import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
+import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.core.uow.TransactionOutboxFactory
 import kotlin.reflect.KClass
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 
 object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
     override val integrationEventPublisher = EmptyIntegrationEventPublisher
@@ -18,14 +23,32 @@ object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
 
 /** Bundles the bus-owned factories over the same base publisher, for test wiring. */
 class TestPublisherFactories(
-    basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
+    basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
+    outboxConfig: OutboxConfig? = null,
+    outboxScope: CoroutineScope = CoroutineScope(Job()),
 ) {
-    val contextFactory = MiddlewareInvocationContextFactory(basePublisher)
-    val invocationFactory = CommandInvocationFactory(DefaultUnitOfWorkFactory(), basePublisher)
+    private val publisherFactory =
+        IntegrationEventPublisherFactory(
+            TransactionOutboxFactory(outboxConfig, basePublisher, outboxScope),
+            basePublisher,
+        )
+    val contextFactory = MiddlewareInvocationContextFactory(publisherFactory)
+    val invocationFactory = CommandInvocationFactory(DefaultUnitOfWorkFactory(), publisherFactory)
 }
 
+/**
+ * An [IntegrationEventPublisherFactory] with no outbox configured, always yielding [basePublisher].
+ */
+fun noOutboxPublisherFactory(
+    basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
+): IntegrationEventPublisherFactory =
+    IntegrationEventPublisherFactory(
+        TransactionOutboxFactory(null, basePublisher, CoroutineScope(Job())),
+        basePublisher,
+    )
+
 fun emptyContextFactory(): MiddlewareInvocationContextFactory =
-    MiddlewareInvocationContextFactory(EmptyIntegrationEventPublisher)
+    MiddlewareInvocationContextFactory(noOutboxPublisherFactory())
 
 class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycle") :
     LifecycleAwareMiddleware {

@@ -3,6 +3,7 @@ package com.jimbroze.kbus.core.middleware
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
+import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.uow.TransactionOutbox
 import kotlin.test.Test
@@ -17,7 +18,7 @@ class MiddlewareInvocationContextFactoryTest {
         val outbox =
             TransactionOutbox(RecordingOutboxStore(), basePublisher, this, TestUnitOfWork<Any?>())
         val invocation = testInvocation<Any?>(publisher = outbox)
-        val factory = MiddlewareInvocationContextFactory(basePublisher)
+        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
 
         assertEquals(outbox, factory.contextFor(invocation).integrationEventPublisher)
     }
@@ -26,7 +27,7 @@ class MiddlewareInvocationContextFactoryTest {
     fun contextFor_an_invocation_using_the_base_publisher_exposes_it() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val invocation = testInvocation<Any?>(publisher = basePublisher)
-        val factory = MiddlewareInvocationContextFactory(basePublisher)
+        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
 
         assertEquals(basePublisher, factory.contextFor(invocation).integrationEventPublisher)
     }
@@ -34,7 +35,7 @@ class MiddlewareInvocationContextFactoryTest {
     @Test
     fun contextFor_null_exposes_the_base_publisher() = runTest {
         val basePublisher = RecordingIntegrationEventPublisher()
-        val factory = MiddlewareInvocationContextFactory(basePublisher)
+        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
 
         assertEquals(basePublisher, factory.contextFor(null).integrationEventPublisher)
     }
@@ -46,7 +47,7 @@ class MiddlewareInvocationContextFactoryTest {
             TransactionOutbox(RecordingOutboxStore(), basePublisher, this, TestUnitOfWork<Any?>())
         val invocationWithOutbox = testInvocation<Any?>(publisher = outbox)
         val invocationWithoutOutbox = testInvocation<Any?>(publisher = basePublisher)
-        val factory = MiddlewareInvocationContextFactory(basePublisher)
+        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
 
         val firstPublisher = factory.contextFor(invocationWithOutbox).integrationEventPublisher
         val secondPublisher = factory.contextFor(invocationWithoutOutbox).integrationEventPublisher
