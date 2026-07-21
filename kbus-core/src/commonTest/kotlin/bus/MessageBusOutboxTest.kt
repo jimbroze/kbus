@@ -325,7 +325,7 @@ class MessageBusOutboxTest {
                     OutboxConfig(
                         store = store,
                         pollInterval = 300.milliseconds,
-                        drainAfterCommit = false,
+                        opportunisticDrain = false,
                     ),
             )
         realDelay(20)

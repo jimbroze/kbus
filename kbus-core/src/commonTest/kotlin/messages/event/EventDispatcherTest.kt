@@ -19,6 +19,7 @@ import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PublishingDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.PublishingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -65,7 +66,7 @@ import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.uow.TransactionOutbox
+import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -729,7 +730,7 @@ class EventDispatcherTest {
         val capturingMiddleware = CapturingContextMiddleware()
         val store = RecordingOutboxStore()
         val outbox =
-            TransactionOutbox(
+            TransactionalOutbox(
                 store,
                 RecordingIntegrationEventPublisher(),
                 this,
@@ -804,4 +805,30 @@ class EventDispatcherTest {
         assertEquals(1, published.size)
         assertEquals("via-domain-handler", (published.single() as TestIntegrationEvent).name)
     }
+
+    @Test
+    fun dispatchIntegrationEvent_wires_the_contexts_publisher_into_integration_event_handlers() =
+        runTest {
+            val recordingPublisher = RecordingIntegrationEventPublisher()
+            val dispatcher =
+                EventDispatcher(
+                    { emptyList() },
+                    emptyList(),
+                    this,
+                    contextFactory =
+                        MiddlewareInvocationContextFactory(
+                            noOutboxPublisherFactory(recordingPublisher)
+                        ),
+                )
+
+            dispatcher.dispatchIntegrationEvent(
+                TestIntegrationEvent("test"),
+                listOf(PublishingIntegrationEventHandler()),
+            )
+            advanceUntilIdle()
+
+            val published = recordingPublisher.publishedEvents.flatten()
+            assertEquals(1, published.size)
+            assertEquals("published-by-test", (published.single() as TestIntegrationEvent).name)
+        }
 }

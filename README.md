@@ -615,6 +615,21 @@ subsequently fails, the flush never happens and nothing is ever saved.
 delivery to handlers afterward. A command's return value **never awaits** integration handler execution, whether or
 not an outbox is configured.
 
+**When an outbox is configured, *every* integration publish routes through it** — not just command-scoped ones.
+Query middleware, `AutoPublishIntegrationEvents` outside a command, and integration event handlers that publish
+further events all get a durable, at-least-once-delivered publish too. Command-scoped publishes get the
+transactional save-then-flush behaviour described above; everything else gets "save immediately, then drain
+opportunistically" — there's no transaction to defer the save to, so the save happens up front and delivery follows
+the same fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever
+surrounding work triggered them, but events are never silently lost, and the same retry/DLQ policy applies
+uniformly across every publish path. Integration event handlers can themselves publish further events by extending
+`CanPublishIntegrationEvent`, the same mixin command handlers and domain event handlers use — the dispatcher wires
+each handler's publisher before dispatch, so these publishes are outbox-durable too.
+
+A publish call's failure semantics differ slightly by path: on the transactional (command-scoped) path, `publish`
+only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the
+*store save* fails. Either way, delivery failures never propagate to the caller — they're the poller's problem.
+
 **Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching
 unpublished entries and delivering them — this is what survives a crash between commit and delivery. After a
 command's transaction commits (and any post-commit-phase handlers finish), a fire-and-forget drain of the events just
@@ -633,8 +648,10 @@ A few edge cases worth knowing:
 
 - Commands with `executeInTransaction = null` still route their events through the outbox, just without the
   atomicity of the save being part of a real transaction.
-- A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself publishes directly,
-  bypassing the outbox — only the triggering command's own events are captured.
+- A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself still publishes
+  through the outbox, via its already-flushed path (saved immediately, no atomicity with the original command) —
+  it does not bypass the outbox, but delivery for that event now depends on the poller rather than the command's
+  own drain.
 - Events published by `POST_COMMIT`-phase domain event handlers are saved to the outbox non-transactionally (the
   transaction has already committed), but are still captured and drained like any other event.
 

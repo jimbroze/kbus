@@ -82,20 +82,35 @@ Opt-in via `OutboxConfig` on the bus constructor (a peer of `TransactionManager`
 `integrationEventPublisher`) is the per-command scope threaded through the dispatcher, dependency
 factory, and middleware context in the slots `UnitOfWork<*>` used to occupy. `CommandInvocationFactory`
 (bus-owned) decides once, at creation time, which publisher applies — the outbox or the base
-publisher — and, when an outbox is configured, passes the unit of work to `TransactionOutbox`'s
+publisher — and, when an outbox is configured, passes the unit of work to `TransactionalOutbox`'s
 constructor, which self-registers into `UnitOfWork`'s generic phase API: `flush()` (saves buffered
 entries to the `OutboxStore`) is registered as the *first* secondary work item, so it runs inside
 the transaction; `drain()` (fire-and-forget delivery to handlers) is registered as post-commit
-work. `TransactionOutbox.publish` defers the actual store write until `flush()` runs — publishes
-that arrive after `flush()` (e.g. from SECONDARY/POST_COMMIT handlers) save immediately instead.
-This makes every publish path, including command-chain middleware (which runs before the
-transaction opens), rollback-safe: if primary work throws, `flush()` never runs and nothing is ever
-staged. A bus-owned poller is the at-least-once delivery guarantee; the drain is only a latency
-optimisation. Both command handlers and domain event handlers reach the invocation's publisher
-through the same `CanPublishIntegrationEvent` mixin (`setPublisher`/`publish`): `CommandExecutor`
-calls `handler.setPublisher(invocation.integrationEventPublisher)`;
+work, gated by `OutboxConfig.opportunisticDrain`. `TransactionalOutbox.publish` defers the actual
+store write until `flush()` runs — publishes that arrive after `flush()` (e.g. from
+SECONDARY/POST_COMMIT handlers) save immediately instead. This makes every publish path, including
+command-chain middleware (which runs before the transaction opens), rollback-safe: if primary work
+throws, `flush()` never runs and nothing is ever staged. A bus-owned poller is the at-least-once
+delivery guarantee; the drain is only a latency optimisation.
+
+When an outbox is configured, **every** integration publish routes through it, not just
+command-scoped ones. `IntegrationEventPublisherFactory.create(unitOfWork)` returns a
+`TransactionalOutbox` when given a unit of work, and otherwise falls back to
+`TransactionalOutboxFactory.immediatePublisher` — a stateless, long-lived `ImmediateOutboxPublisher`
+that saves to the `OutboxStore` immediately (no transaction to defer to) and opportunistically
+drains, sharing the same `deliverAndMark` delivery loop as `TransactionalOutbox.drain` and
+`OutboxPoller.pollOnce`. This covers query middleware and `EventDispatcher.dispatchIntegrationEvent`
+(previously fire-and-forget with no durability). Only when no outbox is configured does
+`create` fall through to the base publisher.
+
+Command handlers, domain event handlers, and integration event handlers all reach the relevant
+publisher through the same `CanPublishIntegrationEvent` mixin (`setPublisher`/`publish`):
+`CommandExecutor` calls `handler.setPublisher(invocation.integrationEventPublisher)`;
 `EventDispatcher.dispatchDomainEvent` does the same for each domain event handler before dispatch,
-and separately swaps the publisher into the middleware context (AutoPublish path).
+and separately swaps the publisher into the middleware context (AutoPublish path);
+`EventDispatcher.dispatchIntegrationEvent` resolves the context once and sets its publisher on
+every handler implementing `CanPublishIntegrationEvent`, making integration-event publish chains
+possible and outbox-durable end to end.
 
 ### Result Types
 
@@ -109,6 +124,9 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 
 ## Design Philosophy
 
+- **Pre-V1: no backwards-compatibility obligations.** Don't hold back on refactors or breaking
+  changes when they are better — clearer, more readable, more maintainable — or better suit the
+  framework's goals and design intents.
 - **Explicit wiring over ambient state.** Dependencies flow through constructors, factories, and
   parameters — never through coroutine-context elements, statics, or reflection. Coroutine context
   is reserved for middleware-internal concerns (e.g. `LockingMiddleware`'s re-entrancy token), not
@@ -116,7 +134,7 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - **`UnitOfWork` is the bus's transaction; phases are its only extension surface.** It knows
   primary/secondary/post-commit ordering and nothing else — no outbox, no publisher. Per-command
   wiring (which publisher applies) lives on `CommandInvocation`, composed by
-  `CommandInvocationFactory`; outbox flush/drain registration is `TransactionOutbox`'s own
+  `CommandInvocationFactory`; outbox flush/drain registration is `TransactionalOutbox`'s own
   responsibility, done via the `UnitOfWork` passed into its constructor, through the same generic
   `addSecondaryWork`/`addPostCommitWork` API. `CommandExecutor` stays a thin orchestrator; don't
   accumulate concerns there. Middleware is for cross-cutting invocation concerns (logging,

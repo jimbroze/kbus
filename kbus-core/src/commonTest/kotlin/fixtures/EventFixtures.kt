@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.fixtures
 
+import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
@@ -530,6 +531,14 @@ class DelayingIntegrationEventHandler(
     override suspend fun handle(message: TestIntegrationEvent) {
         delay(delayMs.milliseconds)
         results.add(label)
+    }
+}
+
+/** Publishes an integration event via the [CanPublishIntegrationEvent] mixin. */
+class PublishingIntegrationEventHandler :
+    CanPublishIntegrationEvent(), IntegrationEventHandler<TestIntegrationEvent> {
+    override suspend fun handle(message: TestIntegrationEvent) {
+        publish(TestIntegrationEvent("published-by-${message.name}"))
     }
 }
 

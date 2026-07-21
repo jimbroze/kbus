@@ -18,8 +18,8 @@ import com.jimbroze.kbus.core.fixtures.TransactionCommandHandler
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
-import com.jimbroze.kbus.core.uow.TransactionOutbox
-import com.jimbroze.kbus.core.uow.TransactionOutboxFactory
+import com.jimbroze.kbus.core.uow.TransactionalOutbox
+import com.jimbroze.kbus.core.uow.TransactionalOutboxFactory
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -82,7 +82,7 @@ class CommandExecutorTest {
             CommandInvocationFactory(
                 unitOfWorkFactory,
                 IntegrationEventPublisherFactory(
-                    TransactionOutboxFactory(
+                    TransactionalOutboxFactory(
                         OutboxConfig(store),
                         RecordingIntegrationEventPublisher(),
                         this,
@@ -117,7 +117,7 @@ class CommandExecutorTest {
             CommandInvocationFactory(
                 unitOfWorkFactory,
                 IntegrationEventPublisherFactory(
-                    TransactionOutboxFactory(
+                    TransactionalOutboxFactory(
                         OutboxConfig(store),
                         RecordingIntegrationEventPublisher(),
                         this,
@@ -137,7 +137,9 @@ class CommandExecutorTest {
 
         executor.execute(ReturnCommand("test")) { ReturnCommandHandler() }
 
-        assertIs<TransactionOutbox>(capturingMiddleware.capturedContext?.integrationEventPublisher)
+        assertIs<TransactionalOutbox>(
+            capturingMiddleware.capturedContext?.integrationEventPublisher
+        )
     }
 
     @Test

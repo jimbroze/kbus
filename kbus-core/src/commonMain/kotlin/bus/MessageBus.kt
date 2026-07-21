@@ -24,7 +24,7 @@ import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxPoller
-import com.jimbroze.kbus.core.uow.TransactionOutboxFactory
+import com.jimbroze.kbus.core.uow.TransactionalOutboxFactory
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -70,7 +70,7 @@ abstract class BaseMessageBus(
         BusIntegrationEventPublisher(handlerLocator) { eventDispatcher }
     private val integrationEventPublisherFactory =
         IntegrationEventPublisherFactory(
-            TransactionOutboxFactory(outbox, baseIntegrationEventPublisher, outboxScope),
+            TransactionalOutboxFactory(outbox, baseIntegrationEventPublisher, outboxScope),
             baseIntegrationEventPublisher,
         )
     private val contextFactory: MiddlewareInvocationContextFactory =

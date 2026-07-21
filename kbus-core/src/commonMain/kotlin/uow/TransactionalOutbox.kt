@@ -23,27 +23,27 @@ class OutboxConfig(
     val store: OutboxStore,
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
-    val drainAfterCommit: Boolean = true,
+    val opportunisticDrain: Boolean = true,
 )
 
 /**
  * Captures integration events published during a command, deferring the store write until [flush]
  * runs. Self-registers into [unitOfWork] at construction time: [flush] as the *first* secondary
  * work item (so it runs inside the command's transaction, ahead of anything registered while
- * handling the command), and, if [drainAfterCommit] is true, [drain] as post-commit work. Publishes
- * that arrive after [flush] has already run (e.g. from SECONDARY/POST_COMMIT-phase handlers) are
- * saved immediately. [drain] delivers the buffered entries to [realPublisher] on [drainScope] as a
- * fire-and-forget background task — a latency optimisation only. A bus-owned poller is the
- * at-least-once delivery guarantee; failed or skipped drains are picked up there.
+ * handling the command), and, if [opportunisticDrain] is true, [drain] as post-commit work.
+ * Publishes that arrive after [flush] has already run (e.g. from SECONDARY/POST_COMMIT-phase
+ * handlers) are saved immediately. [drain] delivers the buffered entries to [realPublisher] on
+ * [drainScope] as a fire-and-forget background task — a latency optimisation only. A bus-owned
+ * poller is the at-least-once delivery guarantee; failed or skipped drains are picked up there.
  */
 @OptIn(ExperimentalUuidApi::class)
-class TransactionOutbox
+class TransactionalOutbox
 internal constructor(
     private val store: OutboxStore,
     private val realPublisher: IntegrationEventPublisher,
     private val drainScope: CoroutineScope,
     unitOfWork: UnitOfWork<*>,
-    drainAfterCommit: Boolean = true,
+    opportunisticDrain: Boolean = true,
 ) : IntegrationEventPublisher {
     private val mutex = Mutex()
     private val buffer = mutableListOf<OutboxEntry>()
@@ -52,7 +52,7 @@ internal constructor(
 
     init {
         unitOfWork.addSecondaryWork { flush() }
-        if (drainAfterCommit) unitOfWork.addPostCommitWork { drain() }
+        if (opportunisticDrain) unitOfWork.addPostCommitWork { drain() }
     }
 
     override suspend fun publish(events: List<IntegrationEvent>) {
@@ -82,36 +82,76 @@ internal constructor(
     private fun drain() {
         drainScope.launch {
             val entries = mutex.withLock { buffer.toList().also { buffer.clear() } }
-
-            val publishedIds = mutableListOf<String>()
-            for (entry in entries) {
-                @Suppress("TooGenericExceptionCaught", "SwallowedException")
-                try {
-                    realPublisher.publish(listOf(entry.event))
-                    publishedIds.add(entry.id)
-                } catch (e: Exception) {
-                    // Left unpublished; the outbox poller will retry it.
-                }
-            }
-
-            if (publishedIds.isNotEmpty()) store.markPublished(publishedIds)
+            deliverAndMark(entries, realPublisher, store)
         }
     }
 }
 
-class TransactionOutboxFactory(
+/**
+ * Delivers each entry via [publisher] and marks the successes in [store]. A per-entry failure
+ * leaves that entry unpublished for the outbox poller to retry; it never stops delivery of the
+ * remaining entries.
+ */
+internal suspend fun deliverAndMark(
+    entries: List<OutboxEntry>,
+    publisher: IntegrationEventPublisher,
+    store: OutboxStore,
+) {
+    val publishedIds = mutableListOf<String>()
+    for (entry in entries) {
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        try {
+            publisher.publish(listOf(entry.event))
+            publishedIds.add(entry.id)
+        } catch (e: Exception) {
+            // Left unpublished; the outbox poller will retry it.
+        }
+    }
+
+    if (publishedIds.isNotEmpty()) store.markPublished(publishedIds)
+}
+
+/**
+ * Outbox-backed publish with no transaction to coordinate with: saves durably first, then delivers
+ * opportunistically. Stateless — safe to share as a single long-lived instance. This is the
+ * null-[UnitOfWork] counterpart to [TransactionalOutbox]: with nothing to flush on, "publish"
+ * collapses to exactly the already-flushed path — save then drain — so it needs no buffer, mutex,
+ * or flush bookkeeping.
+ */
+@OptIn(ExperimentalUuidApi::class)
+class ImmediateOutboxPublisher
+internal constructor(
+    private val store: OutboxStore,
+    private val realPublisher: IntegrationEventPublisher,
+    private val drainScope: CoroutineScope,
+    private val opportunisticDrain: Boolean = true,
+) : IntegrationEventPublisher {
+    override suspend fun publish(events: List<IntegrationEvent>) {
+        val entries = events.map { OutboxEntry(Uuid.random().toString(), it) }
+
+        store.save(entries)
+        if (opportunisticDrain) drainScope.launch { deliverAndMark(entries, realPublisher, store) }
+    }
+}
+
+class TransactionalOutboxFactory(
     private val config: OutboxConfig?,
     private val basePublisher: IntegrationEventPublisher,
     private val outboxScope: CoroutineScope,
 ) {
-    fun create(unitOfWork: UnitOfWork<*>): TransactionOutbox? {
+    val immediatePublisher: IntegrationEventPublisher? =
+        config?.let {
+            ImmediateOutboxPublisher(it.store, basePublisher, outboxScope, it.opportunisticDrain)
+        }
+
+    fun create(unitOfWork: UnitOfWork<*>): TransactionalOutbox? {
         return config?.let { config ->
-            TransactionOutbox(
+            TransactionalOutbox(
                 config.store,
                 basePublisher,
                 outboxScope,
                 unitOfWork,
-                config.drainAfterCommit,
+                config.opportunisticDrain,
             )
         }
     }
@@ -138,19 +178,7 @@ internal class OutboxPoller(
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private suspend fun pollOnce() {
         try {
-            val entries = store.fetchUnpublished(batchSize)
-
-            val publishedIds = mutableListOf<String>()
-            for (entry in entries) {
-                try {
-                    publisher.publish(listOf(entry.event))
-                    publishedIds.add(entry.id)
-                } catch (e: Exception) {
-                    // Left unpublished; retried on the next poll.
-                }
-            }
-
-            if (publishedIds.isNotEmpty()) store.markPublished(publishedIds)
+            deliverAndMark(store.fetchUnpublished(batchSize), publisher, store)
         } catch (e: Exception) {
             // Never crash the polling loop; retried on the next poll.
         }

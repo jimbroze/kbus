@@ -18,18 +18,18 @@ import kotlinx.coroutines.test.runTest
 private class OutboxTestEvent(val name: String) : IntegrationEvent()
 
 /**
- * [TransactionOutbox.flush] and [TransactionOutbox.drain] are private, self-registered into the
+ * [TransactionalOutbox.flush] and [TransactionalOutbox.drain] are private, self-registered into the
  * [UnitOfWork] passed to the constructor — so these tests drive the outbox through a real
  * [DefaultUnitOfWorkFactory]-created unit of work rather than calling them directly.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class TransactionOutboxTest {
+class TransactionalOutboxTest {
     @Test
     fun publish_doesNotTouchTheStoreBeforeCommit() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
 
         outbox.publish(listOf(OutboxTestEvent("a"), OutboxTestEvent("b")))
 
@@ -41,7 +41,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        val outbox = TransactionOutbox(store, realPublisher, this, unitOfWork)
+        val outbox = TransactionalOutbox(store, realPublisher, this, unitOfWork)
 
         outbox.publish(listOf(OutboxTestEvent("a")))
 
@@ -53,7 +53,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
         unitOfWork.setReturningWork {
             outbox.publish(listOf(OutboxTestEvent("a"), OutboxTestEvent("b")))
         }
@@ -68,7 +68,7 @@ class TransactionOutboxTest {
     fun commit_isANoOpFlushWhenNothingWasPublished() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+        TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
         unitOfWork.setReturningWork {}
 
         unitOfWork.execute()
@@ -81,7 +81,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore().apply { saveFailure = IllegalStateException("db down") }
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
         unitOfWork.setReturningWork { outbox.publish(listOf(OutboxTestEvent("a"))) }
 
         assertFailsWith<IllegalStateException> { unitOfWork.execute() }
@@ -92,7 +92,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
         unitOfWork.setReturningWork {}
         unitOfWork.execute()
 
@@ -107,7 +107,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
 
         coroutineScope {
             (1..10)
@@ -126,7 +126,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        val outbox = TransactionOutbox(store, realPublisher, this, unitOfWork)
+        val outbox = TransactionalOutbox(store, realPublisher, this, unitOfWork)
         unitOfWork.setReturningWork {
             outbox.publish(listOf(OutboxTestEvent("a")))
             outbox.publish(listOf(OutboxTestEvent("b")))
@@ -145,7 +145,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        val outbox = TransactionOutbox(store, realPublisher, this, unitOfWork)
+        val outbox = TransactionalOutbox(store, realPublisher, this, unitOfWork)
         unitOfWork.setReturningWork { outbox.publish(listOf(OutboxTestEvent("a"))) }
 
         unitOfWork.execute()
@@ -155,12 +155,12 @@ class TransactionOutboxTest {
     }
 
     @Test
-    fun drainAfterCommit_false_flushesButNeverDrains() = runTest {
+    fun opportunisticDrain_false_flushesButNeverDrains() = runTest {
         val store = RecordingOutboxStore()
         val realPublisher = RecordingIntegrationEventPublisher()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, realPublisher, this, unitOfWork, drainAfterCommit = false)
+            TransactionalOutbox(store, realPublisher, this, unitOfWork, opportunisticDrain = false)
         unitOfWork.setReturningWork { outbox.publish(listOf(OutboxTestEvent("a"))) }
 
         unitOfWork.execute()
@@ -189,7 +189,7 @@ class TransactionOutboxTest {
                     }
                 }
             val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-            val outbox = TransactionOutbox(store, flakyPublisher, this, unitOfWork)
+            val outbox = TransactionalOutbox(store, flakyPublisher, this, unitOfWork)
             unitOfWork.setReturningWork {
                 outbox.publish(listOf(OutboxTestEvent("a")))
                 outbox.publish(listOf(OutboxTestEvent("b")))
@@ -207,7 +207,7 @@ class TransactionOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
         unitOfWork.setReturningWork {
             outbox.publish(listOf(OutboxTestEvent("a")))
             error("primary work failed")
