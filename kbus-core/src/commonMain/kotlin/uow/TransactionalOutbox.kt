@@ -9,6 +9,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -134,15 +135,27 @@ internal constructor(
     }
 }
 
-class TransactionalOutboxFactory(
+/**
+ * Owns everything the outbox needs beyond a single command's scope: the [immediatePublisher] and
+ * per-command [create] used by
+ * [IntegrationEventPublisherFactory][com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory],
+ * and the bus-wide poller — the outbox's at-least-once delivery guarantee — started explicitly via
+ * [startPolling] rather than from a constructor.
+ */
+class OutboxCoordinator(
     private val config: OutboxConfig?,
     private val basePublisher: IntegrationEventPublisher,
     private val outboxScope: CoroutineScope,
 ) {
+    val isEnabled: Boolean
+        get() = config != null
+
     val immediatePublisher: IntegrationEventPublisher? =
         config?.let {
             ImmediateOutboxPublisher(it.store, basePublisher, outboxScope, it.opportunisticDrain)
         }
+
+    private var pollerJob: Job? = null
 
     fun create(unitOfWork: UnitOfWork<*>): TransactionalOutbox? {
         return config?.let { config ->
@@ -154,6 +167,16 @@ class TransactionalOutboxFactory(
                 config.opportunisticDrain,
             )
         }
+    }
+
+    /** Idempotent; a no-op when no outbox is configured. */
+    fun startPolling() {
+        if (config == null || pollerJob != null) return
+        pollerJob =
+            outboxScope.launch {
+                OutboxPoller(config.store, basePublisher, config.batchSize, config.pollInterval)
+                    .run()
+            }
     }
 }
 

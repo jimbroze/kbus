@@ -568,6 +568,34 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
 }
 ```
 
+## Bus Lifecycle
+
+A bus with background work — an outbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) — must be
+explicitly started before it dispatches messages:
+
+```kotlin
+val bus = MessageBus(/* ... */)
+bus.start()
+```
+
+`start()` runs each `LifecycleAwareMiddleware`'s `onStart` and, if an outbox is configured, launches its poller.
+It's idempotent — calling it again is a no-op — and a bus with neither an outbox nor lifecycle-aware middleware
+needs no `start()` call at all; `execute`/`fetch` work immediately, at zero ceremony.
+
+Calling `execute`/`fetch` on a bus that *does* have background work, before `start()`, throws
+`IllegalStateException` rather than silently running with that work never having started (e.g. an outbox that
+never polls).
+
+`stop()` is `suspend`: it calls each middleware's `onStop()`, then cancels the bus's root job and waits for that
+cancellation to complete, so shutdown is deterministic in tests and at application exit.
+
+```kotlin
+bus.stop()
+```
+
+Restart is unsupported — cancelling the root job is terminal, so a `stop()`ped bus cannot be `start()`ed again.
+`stop()` before `start()` is a no-op.
+
 ## Transactional Outbox
 
 Integration events published during a command (both the imperative `publish()` and the `AutoPublishIntegrationEvents`
@@ -596,10 +624,13 @@ val stores = HandlerFactoryStoreCollection()
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
-)
+).apply { start() }
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
+
+An outbox is background work, so the bus must be [started](#bus-lifecycle) before it dispatches
+messages — `start()` is what launches the poller.
 
 `InMemoryOutboxStore` is a reference implementation for tests and examples. For production, implement `OutboxStore`
 against a durable table. The outbox defers the actual store write until an internal flush, self-registered as the
@@ -631,7 +662,8 @@ only fails if the *buffering* itself fails (essentially never); on every other p
 *store save* fails. Either way, delivery failures never propagate to the caller — they're the poller's problem.
 
 **Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching
-unpublished entries and delivering them — this is what survives a crash between commit and delivery. After a
+unpublished entries and delivering them — this is what survives a crash between commit and delivery. The poller is
+started by [`bus.start()`](#bus-lifecycle), not by construction. After a
 command's transaction commits (and any post-commit-phase handlers finish), a fire-and-forget drain of the events just
 captured also runs — self-registered as post-commit work by the outbox itself — purely as a latency optimisation; it
 is never awaited, and if it fails or is skipped the poller retries the entry on its next tick. Because the drain and the poller can overlap,

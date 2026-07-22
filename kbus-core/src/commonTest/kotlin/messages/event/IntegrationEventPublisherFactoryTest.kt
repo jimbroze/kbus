@@ -5,8 +5,8 @@ import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.uow.ImmediateOutboxPublisher
 import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
-import com.jimbroze.kbus.core.uow.TransactionalOutboxFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -19,11 +19,7 @@ class IntegrationEventPublisherFactoryTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                TransactionalOutboxFactory(
-                    OutboxConfig(RecordingOutboxStore()),
-                    basePublisher,
-                    this,
-                ),
+                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), basePublisher, this),
                 basePublisher,
             )
 
@@ -35,7 +31,7 @@ class IntegrationEventPublisherFactoryTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                TransactionalOutboxFactory(null, basePublisher, this),
+                OutboxCoordinator(null, basePublisher, this),
                 basePublisher,
             )
 
@@ -47,11 +43,7 @@ class IntegrationEventPublisherFactoryTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                TransactionalOutboxFactory(
-                    OutboxConfig(RecordingOutboxStore()),
-                    basePublisher,
-                    this,
-                ),
+                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), basePublisher, this),
                 basePublisher,
             )
 
@@ -63,7 +55,7 @@ class IntegrationEventPublisherFactoryTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                TransactionalOutboxFactory(null, basePublisher, this),
+                OutboxCoordinator(null, basePublisher, this),
                 basePublisher,
             )
 
@@ -75,11 +67,7 @@ class IntegrationEventPublisherFactoryTest {
         val basePublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                TransactionalOutboxFactory(
-                    OutboxConfig(RecordingOutboxStore()),
-                    basePublisher,
-                    this,
-                ),
+                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), basePublisher, this),
                 basePublisher,
             )
 

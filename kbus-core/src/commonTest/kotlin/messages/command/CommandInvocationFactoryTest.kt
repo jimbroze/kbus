@@ -6,8 +6,8 @@ import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
-import com.jimbroze.kbus.core.uow.TransactionalOutboxFactory
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertSame
@@ -49,7 +49,7 @@ class CommandInvocationFactoryTest {
             CommandInvocationFactory(
                 unitOfWorkFactory,
                 IntegrationEventPublisherFactory(
-                    TransactionalOutboxFactory(
+                    OutboxCoordinator(
                         OutboxConfig(RecordingOutboxStore()),
                         RecordingIntegrationEventPublisher(),
                         this,
@@ -70,7 +70,7 @@ class CommandInvocationFactoryTest {
             CommandInvocationFactory(
                 unitOfWorkFactory,
                 IntegrationEventPublisherFactory(
-                    TransactionalOutboxFactory(
+                    OutboxCoordinator(
                         OutboxConfig(RecordingOutboxStore()),
                         RecordingIntegrationEventPublisher(),
                         this,

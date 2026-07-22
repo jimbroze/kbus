@@ -12,4 +12,4 @@ val stores = HandlerFactoryStoreCollection()
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
-)
+).apply { start() }

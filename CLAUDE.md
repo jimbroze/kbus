@@ -91,12 +91,15 @@ store write until `flush()` runs — publishes that arrive after `flush()` (e.g.
 SECONDARY/POST_COMMIT handlers) save immediately instead. This makes every publish path, including
 command-chain middleware (which runs before the transaction opens), rollback-safe: if primary work
 throws, `flush()` never runs and nothing is ever staged. A bus-owned poller is the at-least-once
-delivery guarantee; the drain is only a latency optimisation.
+delivery guarantee; the drain is only a latency optimisation. The poller is owned end to end by
+`OutboxCoordinator` (bus-owned, one per bus): its `startPolling()` is called from `BaseMessageBus.start()`,
+not from any constructor — no background work ever begins before the application explicitly starts
+the bus.
 
 When an outbox is configured, **every** integration publish routes through it, not just
 command-scoped ones. `IntegrationEventPublisherFactory.create(unitOfWork)` returns a
 `TransactionalOutbox` when given a unit of work, and otherwise falls back to
-`TransactionalOutboxFactory.immediatePublisher` — a stateless, long-lived `ImmediateOutboxPublisher`
+`OutboxCoordinator.immediatePublisher` — a stateless, long-lived `ImmediateOutboxPublisher`
 that saves to the `OutboxStore` immediately (no transaction to defer to) and opportunistically
 drains, sharing the same `deliverAndMark` delivery loop as `TransactionalOutbox.drain` and
 `OutboxPoller.pollOnce`. This covers query middleware and `EventDispatcher.dispatchIntegrationEvent`
@@ -146,6 +149,10 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns
   (domain `dispatchTiming`) sit on handlers; event-level `errorStrategy` doubles as the outbox's
   ack semantics (`FailFast` = retry until handlers complete).
+- **No background work starts from a constructor.** A bus with an outbox and/or
+  `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop()`
+  is `suspend` and deterministic (cancels and joins the bus's root job). Buses with neither need no
+  `start()` call — dispatch works immediately, at zero ceremony.
 
 ## Conventions
 

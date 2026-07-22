@@ -23,16 +23,15 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
-import com.jimbroze.kbus.core.uow.OutboxPoller
-import com.jimbroze.kbus.core.uow.TransactionalOutboxFactory
+import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -68,11 +67,10 @@ abstract class BaseMessageBus(
         )
     private val baseIntegrationEventPublisher: BusIntegrationEventPublisher =
         BusIntegrationEventPublisher(handlerLocator) { eventDispatcher }
+    private val outboxCoordinator =
+        OutboxCoordinator(outbox, baseIntegrationEventPublisher, outboxScope)
     private val integrationEventPublisherFactory =
-        IntegrationEventPublisherFactory(
-            TransactionalOutboxFactory(outbox, baseIntegrationEventPublisher, outboxScope),
-            baseIntegrationEventPublisher,
-        )
+        IntegrationEventPublisherFactory(outboxCoordinator, baseIntegrationEventPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
         MiddlewareInvocationContextFactory(integrationEventPublisherFactory)
     protected val eventDispatcher: EventDispatcher =
@@ -92,7 +90,28 @@ abstract class BaseMessageBus(
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
 
-    init {
+    private enum class Lifecycle {
+        NEW,
+        STARTED,
+        STOPPED,
+    }
+
+    private var lifecycle = Lifecycle.NEW
+
+    /** True when this bus has background work that only [start] can set running. */
+    private val requiresStart: Boolean
+        get() = outboxCoordinator.isEnabled || middlewares.any { it is LifecycleAwareMiddleware }
+
+    /**
+     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then the
+     * outbox poller if one is configured. A no-op on a bus with neither. Idempotent — calling this
+     * more than once has no further effect. Must be called before [execute]/[fetch] on a bus with
+     * background work (see [requiresStart]); there is no restart after [stop].
+     */
+    fun start() {
+        if (lifecycle != Lifecycle.NEW) return
+        lifecycle = Lifecycle.STARTED
+
         middlewares.forEach { middleware ->
             if (middleware is LifecycleAwareMiddleware) {
                 val middlewareName = middleware::class.simpleName ?: "Unknown"
@@ -108,23 +127,36 @@ abstract class BaseMessageBus(
             }
         }
 
-        if (outbox != null) {
-            // FIXME should this be in Outbox class?
-            outboxScope.launch {
-                OutboxPoller(
-                        outbox.store,
-                        baseIntegrationEventPublisher,
-                        outbox.batchSize,
-                        outbox.pollInterval,
-                    )
-                    .run()
-            }
-        }
+        outboxCoordinator.startPolling()
     }
+
+    /**
+     * Stops this bus: calls each [LifecycleAwareMiddleware]'s
+     * [onStop][LifecycleAwareMiddleware.onStop], then cancels [rootJob] (and, with it, the outbox
+     * poller and every scope derived from it) and suspends until that cancellation completes. A
+     * no-op if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     */
+    suspend fun stop() {
+        if (lifecycle != Lifecycle.STARTED) return
+        lifecycle = Lifecycle.STOPPED
+
+        middlewares.forEach { middleware ->
+            if (middleware is LifecycleAwareMiddleware) middleware.onStop()
+        }
+
+        rootJob.cancelAndJoin()
+    }
+
+    private fun checkStarted() =
+        check(!requiresStart || lifecycle == Lifecycle.STARTED) {
+            "This bus has background work (an outbox and/or lifecycle-aware middleware) and must " +
+                "be started with start() before dispatching messages."
+        }
 
     override suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand
     ): TResult {
+        checkStarted()
         val handlerCreator = { commandDependencies: CommandDependencies ->
             (handlerLocator.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
@@ -136,6 +168,7 @@ abstract class BaseMessageBus(
     override suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(
         query: TQuery
     ): TResult {
+        checkStarted()
         val handlerCreator = {
             (handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
         }

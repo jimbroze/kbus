@@ -12,7 +12,7 @@ import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
-import com.jimbroze.kbus.core.uow.TransactionalOutboxFactory
+import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -29,7 +29,7 @@ class TestPublisherFactories(
 ) {
     private val publisherFactory =
         IntegrationEventPublisherFactory(
-            TransactionalOutboxFactory(outboxConfig, basePublisher, outboxScope),
+            OutboxCoordinator(outboxConfig, basePublisher, outboxScope),
             basePublisher,
         )
     val contextFactory = MiddlewareInvocationContextFactory(publisherFactory)
@@ -43,7 +43,7 @@ fun noOutboxPublisherFactory(
     basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
 ): IntegrationEventPublisherFactory =
     IntegrationEventPublisherFactory(
-        TransactionalOutboxFactory(null, basePublisher, CoroutineScope(Job())),
+        OutboxCoordinator(null, basePublisher, CoroutineScope(Job())),
         basePublisher,
     )
 

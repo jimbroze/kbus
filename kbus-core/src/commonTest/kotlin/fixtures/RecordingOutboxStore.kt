@@ -6,7 +6,9 @@ import com.jimbroze.kbus.contracts.outbox.OutboxStore
 class RecordingOutboxStore : OutboxStore {
     val saved = mutableListOf<OutboxEntry>()
     val markedPublished = mutableListOf<String>()
+    val fetchLimits = mutableListOf<Int>()
     var saveFailure: Throwable? = null
+    var fetchFailure: Throwable? = null
 
     override suspend fun save(entries: List<OutboxEntry>) {
         saveFailure?.let { throw it }
@@ -14,6 +16,8 @@ class RecordingOutboxStore : OutboxStore {
     }
 
     override suspend fun fetchUnpublished(limit: Int): List<OutboxEntry> {
+        fetchLimits.add(limit)
+        fetchFailure?.let { throw it }
         val publishedIds = markedPublished.toSet()
         return saved.filterNot { it.id in publishedIds }.take(limit)
     }

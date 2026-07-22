@@ -54,6 +54,7 @@ class MessageBusOutboxTest {
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
+        bus.start()
         // Let the poller's immediate first (empty) pass settle into its long sleep.
         realDelay(50)
 
@@ -82,6 +83,7 @@ class MessageBusOutboxTest {
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
+        bus.start()
         realDelay(50)
 
         bus.execute(OutboxDomainCommand("via-autopublish"))
@@ -110,6 +112,7 @@ class MessageBusOutboxTest {
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
+        bus.start()
         realDelay(50)
 
         assertFailsWith<IllegalStateException> {
@@ -137,6 +140,7 @@ class MessageBusOutboxTest {
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
+        bus.start()
         realDelay(50)
 
         assertFailsWith<IllegalStateException> {
@@ -173,6 +177,7 @@ class MessageBusOutboxTest {
                     rootScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 )
+            bus.start()
             realDelay(50)
 
             bus.execute(OutboxNoopCommand())
@@ -212,6 +217,7 @@ class MessageBusOutboxTest {
                     rootScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 )
+            bus.start()
             realDelay(50)
 
             bus.execute(OutboxNoopCommand())
@@ -259,6 +265,7 @@ class MessageBusOutboxTest {
                     rootScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 )
+            bus.start()
             realDelay(50)
 
             assertFailsWith<IllegalStateException> { bus.execute(OutboxNoopCommand()) }
@@ -277,11 +284,13 @@ class MessageBusOutboxTest {
         val locator = PersistingHandlerLocator(stores)
         registerImperativeHandlerOnly(stores, locator, received)
 
-        MessageBus(
-            locator,
-            rootScope = backgroundScope,
-            outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
-        )
+        val bus =
+            MessageBus(
+                locator,
+                rootScope = backgroundScope,
+                outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
+            )
+        bus.start()
         realDelay(150)
 
         assertEquals(listOf("from-before-crash"), received)
@@ -301,6 +310,7 @@ class MessageBusOutboxTest {
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
             )
+        bus.start()
         realDelay(30)
 
         bus.execute(OutboxFlakyCommand("flaky"))
@@ -328,6 +338,7 @@ class MessageBusOutboxTest {
                         opportunisticDrain = false,
                     ),
             )
+        bus.start()
         realDelay(20)
 
         bus.execute(OutboxImperativeCommand("poller-only"))
