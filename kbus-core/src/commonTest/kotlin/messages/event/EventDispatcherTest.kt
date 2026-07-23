@@ -2,6 +2,8 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.DefaultPhaseFailFastHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler
@@ -13,9 +15,13 @@ import com.jimbroze.kbus.core.fixtures.DelayingSequentialAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
-import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
+import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.PublishingDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.PublishingIntegrationEventHandler
+import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateAtEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.SucceedingContinueAndAggregateHandler
@@ -56,6 +62,11 @@ import com.jimbroze.kbus.core.fixtures.ThrowingFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialContinueAndAggregateHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFailFastHandler
 import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
+import com.jimbroze.kbus.core.fixtures.emptyContextFactory
+import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
+import com.jimbroze.kbus.core.fixtures.testInvocation
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -78,9 +89,13 @@ class EventDispatcherTest {
     // TEST FIXTURE
     // Abstracts setup, state (results/UoW), and type-erasure casting.
     // =========================================================================
-    private class TestEnv(val scope: TestScope) {
+    private class TestEnv(
+        val scope: TestScope,
+        publisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
+    ) {
         val results = mutableListOf<String>()
         val unitOfWork = TestUnitOfWork<Any?>()
+        val invocation = testInvocation(unitOfWork, publisher = publisher)
         lateinit var dispatcher: EventDispatcher
 
         fun withDomainHandlers(vararg handlers: EventHandler<*>): TestEnv {
@@ -91,12 +106,12 @@ class EventDispatcherTest {
                     { castedHandlers },
                     emptyList(),
                     dispatcherScope = scope,
-                    invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                    contextFactory = emptyContextFactory(),
                 )
             return this
         }
 
-        suspend fun dispatch(event: DomainEvent) = dispatcher.dispatchDomainEvent(event, unitOfWork)
+        suspend fun dispatch(event: DomainEvent) = dispatcher.dispatchDomainEvent(event, invocation)
 
         suspend fun dispatchIntegration(event: IntegrationEvent, vararg handlers: EventHandler<*>) {
             @Suppress("UNCHECKED_CAST")
@@ -106,7 +121,7 @@ class EventDispatcherTest {
                     { emptyList() },
                     emptyList(),
                     dispatcherScope = scope,
-                    invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                    contextFactory = emptyContextFactory(),
                 )
             dispatcher.dispatchIntegrationEvent(event, castedHandlers)
         }
@@ -689,7 +704,7 @@ class EventDispatcherTest {
                 emptyList(),
                 this,
                 registry,
-                invocationContextProvider = { EmptyMiddlewareInvocationContext },
+                contextFactory = emptyContextFactory(),
             )
 
         val received = mutableListOf<TestIntegrationEvent>()
@@ -705,4 +720,115 @@ class EventDispatcherTest {
     }
 
     // TODO test observer emit is after other dispatches
+
+    // =========================================================================
+    // OUTBOX CONTEXT WIRING
+    // =========================================================================
+
+    @Test
+    fun dispatchDomainEvent_uses_the_invocations_outbox_publisher_when_present() = runTest {
+        val capturingMiddleware = CapturingContextMiddleware()
+        val store = RecordingOutboxStore()
+        val outbox =
+            TransactionalOutbox(
+                store,
+                RecordingIntegrationEventPublisher(),
+                this,
+                TestUnitOfWork<Any?>(),
+            )
+        val invocation = testInvocation<Any?>(publisher = outbox)
+        val dispatcher =
+            EventDispatcher(
+                { emptyList() },
+                listOf(capturingMiddleware),
+                this,
+                contextFactory = emptyContextFactory(),
+            )
+
+        dispatcher.dispatchDomainEvent(TestDomainEvent("test"), invocation)
+
+        assertEquals(outbox, capturingMiddleware.capturedContext?.integrationEventPublisher)
+    }
+
+    @Test
+    fun dispatchDomainEvent_falls_back_to_the_base_publisher_without_an_invocation_outbox() =
+        runTest {
+            val capturingMiddleware = CapturingContextMiddleware()
+            val invocation = testInvocation<Any?>()
+            val dispatcher =
+                EventDispatcher(
+                    { emptyList() },
+                    listOf(capturingMiddleware),
+                    this,
+                    contextFactory = emptyContextFactory(),
+                )
+
+            dispatcher.dispatchDomainEvent(TestDomainEvent("test"), invocation)
+
+            assertEquals(
+                EmptyIntegrationEventPublisher,
+                capturingMiddleware.capturedContext?.integrationEventPublisher,
+            )
+        }
+
+    @Test
+    fun dispatchIntegrationEvent_uses_the_base_publisher_context() = runTest {
+        val capturingMiddleware = CapturingContextMiddleware()
+        val basePublisher = RecordingIntegrationEventPublisher()
+        val dispatcher =
+            EventDispatcher(
+                { emptyList() },
+                listOf(capturingMiddleware),
+                this,
+                contextFactory =
+                    MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher)),
+            )
+
+        dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("test"))
+
+        assertEquals(basePublisher, capturingMiddleware.capturedContext?.integrationEventPublisher)
+    }
+
+    // =========================================================================
+    // DOMAIN HANDLER INTEGRATION PUBLISHING
+    // =========================================================================
+
+    @Test
+    fun dispatchDomainEvent_wires_the_invocations_publisher_into_domain_event_handlers() = runTest {
+        val recordingPublisher = RecordingIntegrationEventPublisher()
+        val env = TestEnv(this, recordingPublisher)
+        env.withDomainHandlers(PublishingDomainEventHandler())
+
+        env.dispatch(TestDomainEvent("via-domain-handler"))
+
+        val published = recordingPublisher.publishedEvents.flatten()
+        assertEquals(1, published.size)
+        assertEquals("via-domain-handler", (published.single() as TestIntegrationEvent).name)
+    }
+
+    @Test
+    fun dispatchIntegrationEvent_wires_the_contexts_publisher_into_integration_event_handlers() =
+        runTest {
+            val recordingPublisher = RecordingIntegrationEventPublisher()
+            val dispatcher =
+                EventDispatcher(
+                    { emptyList() },
+                    emptyList(),
+                    this,
+                    contextFactory =
+                        MiddlewareInvocationContextFactory(
+                            noOutboxPublisherFactory(recordingPublisher)
+                        ),
+                )
+
+            dispatcher.dispatchIntegrationEvent(
+                TestIntegrationEvent("test"),
+                listOf(PublishingIntegrationEventHandler()),
+            )
+            advanceUntilIdle()
+
+            val published = recordingPublisher.publishedEvents.flatten()
+            assertEquals(1, published.size)
+            assertEquals("published-by-test", (published.single() as TestIntegrationEvent).name)
+        }
 }

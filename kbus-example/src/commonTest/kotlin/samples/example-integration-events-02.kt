@@ -13,7 +13,7 @@ class RegisterUserHandler :
     override suspend fun handle(message: RegisterUser): BusResult<String, MessageFailure> {
         val userId = "generated-id"
 
-        dispatch(UserRegistered(userId))
+        publish(UserRegistered(userId))
 
         return BusResult.success(userId)
     }

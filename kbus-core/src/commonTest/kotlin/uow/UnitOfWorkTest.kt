@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.core.fixtures.NonExecutingTransactionManager
 import com.jimbroze.kbus.core.fixtures.TestDomainEventDispatcher
+import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -86,18 +87,18 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_UnitOfWorkDomainEventPublisher_publishes_to_base_dispatcher_with_unit_of_work() =
+    fun test_InvocationDomainEventPublisher_publishes_to_base_dispatcher_with_invocation() =
         runTest {
             val testDispatcher = TestDomainEventDispatcher()
 
-            val unitOfWork = DefaultUnitOfWork<Any?>()
-            val publisher = UnitOfWorkDomainEventPublisher(testDispatcher, unitOfWork)
+            val invocation = testInvocation<Any?>()
+            val publisher = InvocationDomainEventPublisher(testDispatcher, invocation)
             val testEvent = object : DomainEvent() {}
 
             publisher.publish(testEvent)
 
             assertContentEquals(
-                listOf(Pair(testEvent, unitOfWork)),
+                listOf(Pair(testEvent, invocation)),
                 testDispatcher.dispatchedEvents,
             )
         }

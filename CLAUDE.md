@@ -75,6 +75,46 @@ Composable middleware chain wrapping handler execution. Built-in: `MessageLogger
 Commands execute in a `UnitOfWork` managing three phases: primary work → secondary work (domain events, within
 transaction) → post-commit work (integration events).
 
+### Transactional Outbox
+
+Opt-in via `OutboxConfig` on the bus constructor (a peer of `TransactionManager`, NOT middleware).
+`UnitOfWork` has zero knowledge of the outbox. Instead, `CommandInvocation<TResult>` (`unitOfWork` +
+`integrationEventPublisher`) is the per-command scope threaded through the dispatcher, dependency
+factory, and middleware context in the slots `UnitOfWork<*>` used to occupy. `CommandInvocationFactory`
+(bus-owned) decides once, at creation time, which publisher applies — the outbox or the base
+publisher — and, when an outbox is configured, passes the unit of work to `TransactionalOutbox`'s
+constructor, which self-registers into `UnitOfWork`'s generic phase API: `flush()` (saves buffered
+entries to the `OutboxStore`) is registered as the *first* secondary work item, so it runs inside
+the transaction; `drain()` (fire-and-forget delivery to handlers) is registered as post-commit
+work, gated by `OutboxConfig.opportunisticDrain`. `TransactionalOutbox.publish` defers the actual
+store write until `flush()` runs — publishes that arrive after `flush()` (e.g. from
+SECONDARY/POST_COMMIT handlers) save immediately instead. This makes every publish path, including
+command-chain middleware (which runs before the transaction opens), rollback-safe: if primary work
+throws, `flush()` never runs and nothing is ever staged. A bus-owned poller is the at-least-once
+delivery guarantee; the drain is only a latency optimisation. The poller is owned end to end by
+`OutboxCoordinator` (bus-owned, one per bus): its `startPolling()` is called from `BaseMessageBus.start()`,
+not from any constructor — no background work ever begins before the application explicitly starts
+the bus.
+
+When an outbox is configured, **every** integration publish routes through it, not just
+command-scoped ones. `IntegrationEventPublisherFactory.create(unitOfWork)` returns a
+`TransactionalOutbox` when given a unit of work, and otherwise falls back to
+`OutboxCoordinator.immediatePublisher` — a stateless, long-lived `ImmediateOutboxPublisher`
+that saves to the `OutboxStore` immediately (no transaction to defer to) and opportunistically
+drains, sharing the same `deliverAndMark` delivery loop as `TransactionalOutbox.drain` and
+`OutboxPoller.pollOnce`. This covers query middleware and `EventDispatcher.dispatchIntegrationEvent`
+(previously fire-and-forget with no durability). Only when no outbox is configured does
+`create` fall through to the base publisher.
+
+Command handlers, domain event handlers, and integration event handlers all reach the relevant
+publisher through the same `CanPublishIntegrationEvent` mixin (`setPublisher`/`publish`):
+`CommandExecutor` calls `handler.setPublisher(invocation.integrationEventPublisher)`;
+`EventDispatcher.dispatchDomainEvent` does the same for each domain event handler before dispatch,
+and separately swaps the publisher into the middleware context (AutoPublish path);
+`EventDispatcher.dispatchIntegrationEvent` resolves the context once and sets its publisher on
+every handler implementing `CanPublishIntegrationEvent`, making integration-event publish chains
+possible and outbox-durable end to end.
+
 ### Result Types
 
 `BusResult<TValue, TMessageFailure>` sealed class with `Success` and `Failure` subtypes. Failures use `FailureReason`
@@ -84,6 +124,35 @@ interface.
 
 Constructor parameters of `@LoadMessageHandler` classes become dependencies. Types: `PROPERTY` (direct reference),
 `FUNCTIONAL` (lambda factory), `COMMAND` (from `CommandDependencies`).
+
+## Design Philosophy
+
+- **Pre-V1: no backwards-compatibility obligations.** Don't hold back on refactors or breaking
+  changes when they are better — clearer, more readable, more maintainable — or better suit the
+  framework's goals and design intents.
+- **Explicit wiring over ambient state.** Dependencies flow through constructors, factories, and
+  parameters — never through coroutine-context elements, statics, or reflection. Coroutine context
+  is reserved for middleware-internal concerns (e.g. `LockingMiddleware`'s re-entrancy token), not
+  core semantics. If a component needs per-command state, thread it through the object graph.
+- **`UnitOfWork` is the bus's transaction; phases are its only extension surface.** It knows
+  primary/secondary/post-commit ordering and nothing else — no outbox, no publisher. Per-command
+  wiring (which publisher applies) lives on `CommandInvocation`, composed by
+  `CommandInvocationFactory`; outbox flush/drain registration is `TransactionalOutbox`'s own
+  responsibility, done via the `UnitOfWork` passed into its constructor, through the same generic
+  `addSecondaryWork`/`addPostCommitWork` API. `CommandExecutor` stays a thin orchestrator; don't
+  accumulate concerns there. Middleware is for cross-cutting invocation concerns (logging,
+  locking), not transactional semantics.
+- **Integration events decouple publish from dispatch.** Publishing (durable save, in-transaction)
+  and dispatching (async delivery to handlers, post-commit) are separate steps. A command's return
+  never awaits integration handler execution; delivery is at-least-once via the outbox poller, and
+  the post-commit drain is opportunistic fire-and-forget (awaiting it can deadlock with held locks).
+- **Producers own event data; consumers own consumption policy.** Handler-side concerns
+  (domain `dispatchTiming`) sit on handlers; event-level `errorStrategy` doubles as the outbox's
+  ack semantics (`FailFast` = retry until handlers complete).
+- **No background work starts from a constructor.** A bus with an outbox and/or
+  `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop()`
+  is `suspend` and deterministic (cancels and joins the bus's root job). Buses with neither need no
+  `start()` call — dispatch works immediately, at zero ceremony.
 
 ## Conventions
 

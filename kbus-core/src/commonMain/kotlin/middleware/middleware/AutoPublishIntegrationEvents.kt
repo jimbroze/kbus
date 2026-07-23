@@ -44,8 +44,8 @@ inline fun <reified TDomainEvent : DomainEvent> autoPublish(
  * continues the chain.
  *
  * A domain event may have multiple registrations; all of its integration events are published in a
- * single [publish][com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher.publish] call.
- * Registrations match the domain event's exact class, not its subclasses.
+ * single [publish][com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher.publish]
+ * call. Registrations match the domain event's exact class, not its subclasses.
  */
 class AutoPublishIntegrationEvents(registrations: List<AutoPublishRegistration<*>>) : Middleware {
     constructor(vararg registrations: AutoPublishRegistration<*>) : this(registrations.toList())

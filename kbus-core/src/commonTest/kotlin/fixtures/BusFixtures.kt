@@ -1,25 +1,15 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.bus.BusAccess
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.TransactionConfig
-
-class TestBusAccess : BusAccess {
-    val dispatchedEvents = mutableListOf<Event>()
-
-    override suspend fun <TEvent : IntegrationEvent> dispatch(event: TEvent) {
-        dispatchedEvents.add(event)
-    }
-}
 
 open class FailureCommand : Command<BusResult<String, FailureCommandFailure>>()
 
@@ -75,7 +65,7 @@ class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, Message
     override val executeInTransaction: TransactionConfig? = null
 
     override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
-        dispatch(StorageEvent(message.message, message.listStore))
+        publish(StorageEvent(message.message, message.listStore))
         return BusResult.success(Unit)
     }
 }

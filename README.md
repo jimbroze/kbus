@@ -288,7 +288,7 @@ scope.launch {
 Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler
 success or failure.
 
-Command handlers can dispatch integration events:
+Command handlers can publish integration events:
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -306,7 +306,7 @@ class RegisterUserHandler :
     override suspend fun handle(message: RegisterUser): BusResult<String, MessageFailure> {
         val userId = "generated-id"
 
-        dispatch(UserRegistered(userId))
+        publish(UserRegistered(userId))
 
         return BusResult.success(userId)
     }
@@ -318,7 +318,7 @@ class RegisterUserHandler :
 #### Auto-Publishing Integration Events from Domain Events
 
 The `AutoPublishIntegrationEvents` middleware publishes integration events automatically whenever a registered domain
-event is dispatched — no explicit `dispatch` call needed. Register mappings with `autoPublish`, either as a lambda or
+event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or
 by implementing `AutoPublishesFrom` on the integration event's companion object to declare the domain event it is
 derived from. A domain event may be registered multiple times to publish several integration events.
 
@@ -408,7 +408,7 @@ Middleware wraps handler execution in a composable pipeline. Each middleware can
 handler in the chain. Every `handle` call also receives a `MiddlewareInvocationContext`, a per-invocation context
 object passed to all middleware in the chain. It currently exposes `integrationEventPublisher`, an
 `IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration
-events directly, independent of any command's `BusAccess`.
+events directly, independent of any command handler's own publishing.
 
 ### Writing Custom Middleware
 
@@ -567,6 +567,125 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
     }
 }
 ```
+
+## Bus Lifecycle
+
+A bus with background work — an outbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) — must be
+explicitly started before it dispatches messages:
+
+```kotlin
+val bus = MessageBus(/* ... */)
+bus.start()
+```
+
+`start()` runs each `LifecycleAwareMiddleware`'s `onStart` and, if an outbox is configured, launches its poller.
+It's idempotent — calling it again is a no-op — and a bus with neither an outbox nor lifecycle-aware middleware
+needs no `start()` call at all; `execute`/`fetch` work immediately, at zero ceremony.
+
+Calling `execute`/`fetch` on a bus that *does* have background work, before `start()`, throws
+`IllegalStateException` rather than silently running with that work never having started (e.g. an outbox that
+never polls).
+
+`stop()` is `suspend`: it calls each middleware's `onStop()`, then cancels the bus's root job and waits for that
+cancellation to complete, so shutdown is deterministic in tests and at application exit.
+
+```kotlin
+bus.stop()
+```
+
+Restart is unsupported — cancelling the root job is terminal, so a `stop()`ped bus cannot be `start()`ed again.
+`stop()` before `start()` is a no-op.
+
+## Transactional Outbox
+
+Integration events published during a command (both the imperative `publish()` and the `AutoPublishIntegrationEvents`
+middleware) normally publish inside the command's transaction and dispatch to handlers immediately. This leaves two
+gaps: a **phantom event** (published, then the transaction rolls back) and a **lost event** (committed, then the
+process crashes before handlers run). A transactional outbox closes both gaps by persisting events to a durable store
+inside the transaction, then delivering them separately.
+
+The outbox hangs off `CommandInvocation`, the bus's per-command scope — a peer of `TransactionManager` on the bus
+constructor, **not middleware**. The Unit of Work itself has no knowledge of the outbox; the outbox instead receives
+the command's Unit of Work at construction time and self-registers into its generic secondary-work/post-commit-work
+phases. Opt in by passing an `OutboxConfig`:
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.uow.OutboxConfig
+-->
+
+```kotlin
+val stores = HandlerFactoryStoreCollection()
+
+val bus = MessageBus(
+    handlerLocator = PersistingHandlerLocator(stores),
+    outbox = OutboxConfig(store = InMemoryOutboxStore()),
+).apply { start() }
+```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
+
+An outbox is background work, so the bus must be [started](#bus-lifecycle) before it dispatches
+messages — `start()` is what launches the poller.
+
+`InMemoryOutboxStore` is a reference implementation for tests and examples. For production, implement `OutboxStore`
+against a durable table. The outbox defers the actual store write until an internal flush, self-registered as the
+*first* secondary-work item on the command's Unit of Work when the outbox is constructed — so `save` runs inside the
+command's `TransactionManager.execute` block, and your implementation **must join the ambient transaction** (the same
+by-convention contract as `TransactionManager` itself) — otherwise a rolled-back command would leave a phantom event
+saved to the outbox. This
+deferral is also what makes command-chain middleware publishes rollback-safe even though middleware runs *before* the
+transaction opens: a middleware-published event sits in memory only until the flush runs, so if the handler
+subsequently fails, the flush never happens and nothing is ever saved.
+
+**Publish and dispatch are decoupled.** "Publish" is the durable save inside the transaction; "dispatch" is the async
+delivery to handlers afterward. A command's return value **never awaits** integration handler execution, whether or
+not an outbox is configured.
+
+**When an outbox is configured, *every* integration publish routes through it** — not just command-scoped ones.
+Query middleware, `AutoPublishIntegrationEvents` outside a command, and integration event handlers that publish
+further events all get a durable, at-least-once-delivered publish too. Command-scoped publishes get the
+transactional save-then-flush behaviour described above; everything else gets "save immediately, then drain
+opportunistically" — there's no transaction to defer the save to, so the save happens up front and delivery follows
+the same fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever
+surrounding work triggered them, but events are never silently lost, and the same retry/DLQ policy applies
+uniformly across every publish path. Integration event handlers can themselves publish further events by extending
+`CanPublishIntegrationEvent`, the same mixin command handlers and domain event handlers use — the dispatcher wires
+each handler's publisher before dispatch, so these publishes are outbox-durable too.
+
+A publish call's failure semantics differ slightly by path: on the transactional (command-scoped) path, `publish`
+only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the
+*store save* fails. Either way, delivery failures never propagate to the caller — they're the poller's problem.
+
+**Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching
+unpublished entries and delivering them — this is what survives a crash between commit and delivery. The poller is
+started by [`bus.start()`](#bus-lifecycle), not by construction. After a
+command's transaction commits (and any post-commit-phase handlers finish), a fire-and-forget drain of the events just
+captured also runs — self-registered as post-commit work by the outbox itself — purely as a latency optimisation; it
+is never awaited, and if it fails or is skipped the poller retries the entry on its next tick. Because the drain and the poller can overlap,
+and because multiple bus instances may run against the same store, a handler may occasionally run more than once —
+design handlers to be idempotent. `OutboxStore.fetchUnpublished` is the hook for narrowing that window (e.g. hiding
+very recently-saved or already-claimed entries).
+
+An event's `errorStrategy` doubles as the outbox's acknowledgement semantics: `FireAndForget` marks an entry
+published as soon as delivery is handed off, while `FailFast` only marks it published once every handler has
+actually completed, letting the poller retry entries whose handlers threw. Either way, a handler failure no longer
+fails the command itself — the command has already returned by the time delivery happens.
+
+A few edge cases worth knowing:
+
+- Commands with `executeInTransaction = null` still route their events through the outbox, just without the
+  atomicity of the save being part of a real transaction.
+- A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself still publishes
+  through the outbox, via its already-flushed path (saved immediately, no atomicity with the original command) —
+  it does not bypass the outbox, but delivery for that event now depends on the poller rather than the command's
+  own drain.
+- Events published by `POST_COMMIT`-phase domain event handlers are saved to the outbox non-transactionally (the
+  transaction has already committed), but are still captured and drained like any other event.
 
 ## KSP Code Generation
 

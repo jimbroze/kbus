@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 
 typealias MiddlewareHandler<TMessage, TResult> = suspend (TMessage) -> TResult
 

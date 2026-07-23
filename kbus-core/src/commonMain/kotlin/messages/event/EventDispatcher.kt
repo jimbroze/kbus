@@ -1,10 +1,12 @@
 package com.jimbroze.kbus.core.messages.event
 
+import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -22,13 +24,17 @@ class EventDispatcher(
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
     val observerRegistry: IntegrationEventObserverRegistry = IntegrationEventObserverRegistry(),
-    private val invocationContextProvider: () -> MiddlewareInvocationContext,
+    private val contextFactory: MiddlewareInvocationContextFactory,
 ) : DomainEventDispatcher {
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
     ) {
         val errorStrategy = errorStrategyFor(event)
+        val context = contextFactory.contextFor(null)
+        handlers.forEach {
+            (it as? CanPublishIntegrationEvent)?.setPublisher(context.integrationEventPublisher)
+        }
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             val dispatchHandlersWithErrorHandling =
@@ -44,20 +50,22 @@ class EventDispatcher(
             observerRegistry.emit(event)
         }
 
-        val execute = createMiddlewareChain(finalHandler, middlewares, invocationContextProvider())
+        val execute = createMiddlewareChain(finalHandler, middlewares, context)
         execute(event)
     }
 
     override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
         event: TEvent,
-        unitOfWork: UnitOfWork<*>,
+        invocation: CommandInvocation<*>,
     ) {
         val handlers = getHandlers(event)
 
         val errorStrategy = errorStrategyFor(event)
         val handlersByPhase =
             handlers.groupBy { handler ->
-                dispatchPhaseFor(handler as DomainEventHandler<*>).also {
+                val domainEventHandler = handler as DomainEventHandler<*>
+                domainEventHandler.setPublisher(invocation.integrationEventPublisher)
+                dispatchPhaseFor(domainEventHandler).also {
                     validateDispatchPhase(it, errorStrategy)
                 }
             }
@@ -74,10 +82,15 @@ class EventDispatcher(
                         phase,
                         errorStrategy,
                     )
-                dispatchHandlersInPhase(dispatchHandlersWithConcurrency, unitOfWork, phase)
+                dispatchHandlersInPhase(
+                    dispatchHandlersWithConcurrency,
+                    invocation.unitOfWork,
+                    phase,
+                )
             }
         }
-        val execute = createMiddlewareChain(finalHandler, middlewares, invocationContextProvider())
+        val execute =
+            createMiddlewareChain(finalHandler, middlewares, contextFactory.contextFor(invocation))
         execute(event)
     }
 
