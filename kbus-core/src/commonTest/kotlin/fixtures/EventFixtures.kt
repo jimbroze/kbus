@@ -1,6 +1,8 @@
 package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.EventDestination
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
@@ -24,6 +26,24 @@ class RecordingIntegrationEventPublisher : IntegrationEventPublisher {
 
     override suspend fun publish(events: List<IntegrationEvent>) {
         publishedEvents.add(events)
+    }
+}
+
+// --- Event destinations / router ---
+
+/**
+ * Records delivered envelopes, one entry per [deliver] call. Accepts everything unless [failure] is
+ * set.
+ */
+class RecordingDestination(override val name: String = "recording") : EventDestination {
+    val delivered = mutableListOf<EventEnvelope>()
+    var failure: Throwable? = null
+
+    override fun accepts(event: IntegrationEvent): Boolean = true
+
+    override suspend fun deliver(envelopes: List<EventEnvelope>) {
+        failure?.let { throw it }
+        delivered.addAll(envelopes)
     }
 }
 

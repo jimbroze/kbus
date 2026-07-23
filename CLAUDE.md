@@ -75,26 +75,53 @@ Composable middleware chain wrapping handler execution. Built-in: `MessageLogger
 Commands execute in a `UnitOfWork` managing three phases: primary work → secondary work (domain events, within
 transaction) → post-commit work (integration events).
 
+### Event Routing
+
+The seam between publish and dispatch, so dispatch is what happens on the far side of a route rather
+than part of publishing itself. `EventRouter` (bus-owned, `kbus-core`) owns the
+`IntegrationEventObserverRegistry` (moved off `EventDispatcher`, which no longer emits) and a list of
+`EventDestination`s (contracts, like `OutboxStore` — the extension point external transports and
+per-module inboxes will implement). `route(envelopes: List<EventEnvelope>)` emits each event to
+`observe()` collectors exactly once, before fan-out, then attempts delivery to *every* accepting
+destination — collecting failures into a thrown `MultipleException` rather than stopping at the
+first one, so healthy destinations still get the event immediately. `EventEnvelope(id, event)`
+(contracts, `messages.event` package, replacing `OutboxEntry`) is what survives every hand-off from
+publish through routing to delivery; its id — minted once, at the ingress boundary, via
+`EventEnvelope.of` — is what an at-least-once consumer (the outbox poller, later an inbox) dedupes on.
+
+`LocalDestination` (replacing `BusIntegrationEventPublisher`) is the only destination today: it
+dispatches to this bus's own handlers via `HandlerLocator` + `EventDispatcher`. `DirectPublisher` is
+the no-outbox `IntegrationEventPublisher` ingress — it mints envelopes and calls `router.route`
+immediately, with no durability. Bus wiring (`BaseMessageBus`): `LocalDestination` → `EventRouter` →
+`DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
+`router.observerRegistry`, not `EventDispatcher`. A destination that throws is not acknowledged — with
+an outbox configured, that leaves the entry unpublished for the poller to retry; this is the whole ack
+mechanism, and routing has no dependency on the outbox otherwise — every publish path, with or without
+one, goes through the router.
+
 ### Transactional Outbox
 
 Opt-in via `OutboxConfig` on the bus constructor (a peer of `TransactionManager`, NOT middleware).
 `UnitOfWork` has zero knowledge of the outbox. Instead, `CommandInvocation<TResult>` (`unitOfWork` +
 `integrationEventPublisher`) is the per-command scope threaded through the dispatcher, dependency
 factory, and middleware context in the slots `UnitOfWork<*>` used to occupy. `CommandInvocationFactory`
-(bus-owned) decides once, at creation time, which publisher applies — the outbox or the base
+(bus-owned) decides once, at creation time, which publisher applies — the outbox or the direct
 publisher — and, when an outbox is configured, passes the unit of work to `TransactionalOutbox`'s
 constructor, which self-registers into `UnitOfWork`'s generic phase API: `flush()` (saves buffered
 entries to the `OutboxStore`) is registered as the *first* secondary work item, so it runs inside
-the transaction; `drain()` (fire-and-forget delivery to handlers) is registered as post-commit
-work, gated by `OutboxConfig.opportunisticDrain`. `TransactionalOutbox.publish` defers the actual
-store write until `flush()` runs — publishes that arrive after `flush()` (e.g. from
+the transaction; `drain()` (fire-and-forget delivery via the `EventRouter`) is registered as
+post-commit work, gated by `OutboxConfig.opportunisticDrain`. `TransactionalOutbox.publish` defers the
+actual store write until `flush()` runs — publishes that arrive after `flush()` (e.g. from
 SECONDARY/POST_COMMIT handlers) save immediately instead. This makes every publish path, including
 command-chain middleware (which runs before the transaction opens), rollback-safe: if primary work
 throws, `flush()` never runs and nothing is ever staged. A bus-owned poller is the at-least-once
 delivery guarantee; the drain is only a latency optimisation. The poller is owned end to end by
 `OutboxCoordinator` (bus-owned, one per bus): its `startPolling()` is called from `BaseMessageBus.start()`,
 not from any constructor — no background work ever begins before the application explicitly starts
-the bus.
+the bus. `TransactionalOutbox`, `ImmediateOutboxPublisher`, `OutboxCoordinator`, and `OutboxPoller` all
+hold an `EventRouter` (not a bare `IntegrationEventPublisher`); `deliverAndMark` calls
+`router.route(listOf(envelope))` per entry, so the router's all-or-nothing-per-entry ack semantics are
+what leaves an entry unpublished for the poller to retry.
 
 When an outbox is configured, **every** integration publish routes through it, not just
 command-scoped ones. `IntegrationEventPublisherFactory.create(unitOfWork)` returns a
@@ -102,9 +129,9 @@ command-scoped ones. `IntegrationEventPublisherFactory.create(unitOfWork)` retur
 `OutboxCoordinator.immediatePublisher` — a stateless, long-lived `ImmediateOutboxPublisher`
 that saves to the `OutboxStore` immediately (no transaction to defer to) and opportunistically
 drains, sharing the same `deliverAndMark` delivery loop as `TransactionalOutbox.drain` and
-`OutboxPoller.pollOnce`. This covers query middleware and `EventDispatcher.dispatchIntegrationEvent`
+`OutboxPoller.pollOnce`. This covers query middleware and every other non-command publish path
 (previously fire-and-forget with no durability). Only when no outbox is configured does
-`create` fall through to the base publisher.
+`create` fall through to the direct publisher.
 
 Command handlers, domain event handlers, and integration event handlers all reach the relevant
 publisher through the same `CanPublishIntegrationEvent` mixin (`setPublisher`/`publish`):
@@ -142,10 +169,13 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   `addSecondaryWork`/`addPostCommitWork` API. `CommandExecutor` stays a thin orchestrator; don't
   accumulate concerns there. Middleware is for cross-cutting invocation concerns (logging,
   locking), not transactional semantics.
-- **Integration events decouple publish from dispatch.** Publishing (durable save, in-transaction)
-  and dispatching (async delivery to handlers, post-commit) are separate steps. A command's return
-  never awaits integration handler execution; delivery is at-least-once via the outbox poller, and
-  the post-commit drain is opportunistic fire-and-forget (awaiting it can deadlock with held locks).
+- **Integration events decouple publish from dispatch — and routing is the seam between them.**
+  Publish → route → dispatch is three stages, not two: publishing (durable save, in-transaction) and
+  dispatching (async delivery to handlers, post-commit) are separate steps, and every publish path —
+  with or without an outbox — hands off through `EventRouter` before a destination ever dispatches.
+  A command's return never awaits integration handler execution; delivery is at-least-once via the
+  outbox poller, and the post-commit drain is opportunistic fire-and-forget (awaiting it can
+  deadlock with held locks).
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns
   (domain `dispatchTiming`) sit on handlers; event-level `errorStrategy` doubles as the outbox's
   ack semantics (`FailFast` = retry until handlers complete).

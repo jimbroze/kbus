@@ -1,9 +1,10 @@
 package com.jimbroze.kbus.core.uow
 
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
-import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.messages.event.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -22,7 +23,8 @@ class OutboxCoordinatorTest {
     @Test
     fun startPolling_withNoConfig_launchesNothing() = runTest {
         val scope = CoroutineScope(Job())
-        val coordinator = OutboxCoordinator(null, RecordingIntegrationEventPublisher(), scope)
+        val coordinator =
+            OutboxCoordinator(null, EventRouter(listOf(RecordingDestination())), scope)
 
         coordinator.startPolling()
 
@@ -32,12 +34,14 @@ class OutboxCoordinatorTest {
     @Test
     fun startPolling_deliversPreExistingUnpublishedEntries() = runTest {
         val store = RecordingOutboxStore()
-        store.save(listOf(OutboxEntry("seeded-1", OutboxCoordinatorTestEvent("from-before-crash"))))
-        val realPublisher = RecordingIntegrationEventPublisher()
+        store.save(
+            listOf(EventEnvelope("seeded-1", OutboxCoordinatorTestEvent("from-before-crash")))
+        )
+        val destination = RecordingDestination()
         val coordinator =
             OutboxCoordinator(
                 OutboxConfig(store, pollInterval = 10.milliseconds),
-                realPublisher,
+                EventRouter(listOf(destination)),
                 backgroundScope,
             )
 
@@ -54,7 +58,7 @@ class OutboxCoordinatorTest {
         val coordinator =
             OutboxCoordinator(
                 OutboxConfig(store, pollInterval = 10.milliseconds),
-                RecordingIntegrationEventPublisher(),
+                EventRouter(listOf(RecordingDestination())),
                 backgroundScope,
             )
 
@@ -72,7 +76,7 @@ class OutboxCoordinatorTest {
         val coordinator =
             OutboxCoordinator(
                 OutboxConfig(store, pollInterval = 10.milliseconds),
-                RecordingIntegrationEventPublisher(),
+                EventRouter(listOf(RecordingDestination())),
                 backgroundScope,
             )
 

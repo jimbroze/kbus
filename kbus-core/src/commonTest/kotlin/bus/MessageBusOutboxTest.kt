@@ -4,9 +4,9 @@ import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
@@ -278,7 +278,7 @@ class MessageBusOutboxTest {
     @Test
     fun preexisting_unpublished_entries_are_delivered_on_the_pollers_first_pass() = runTest {
         val store = InMemoryOutboxStore()
-        store.save(listOf(OutboxEntry("seeded-1", OutboxImperativeEvent("from-before-crash"))))
+        store.save(listOf(EventEnvelope("seeded-1", OutboxImperativeEvent("from-before-crash"))))
         val stores = HandlerFactoryStoreCollection()
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
@@ -624,8 +624,8 @@ private class AlwaysThrowingOutboxEventHandler(private val attempts: MutableList
 }
 
 private class RollbackSimulatingOutboxStore : OutboxStore {
-    private val committed = mutableListOf<OutboxEntry>()
-    private var staged: MutableList<OutboxEntry>? = null
+    private val committed = mutableListOf<EventEnvelope>()
+    private var staged: MutableList<EventEnvelope>? = null
     val markedPublished = mutableListOf<String>()
 
     fun beginTransaction() {
@@ -641,12 +641,12 @@ private class RollbackSimulatingOutboxStore : OutboxStore {
         staged = null
     }
 
-    override suspend fun save(entries: List<OutboxEntry>) {
+    override suspend fun save(entries: List<EventEnvelope>) {
         val target = staged
         if (target != null) target.addAll(entries) else committed.addAll(entries)
     }
 
-    override suspend fun fetchUnpublished(limit: Int): List<OutboxEntry> {
+    override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> {
         val published = markedPublished.toSet()
         return committed.filterNot { it.id in published }.take(limit)
     }

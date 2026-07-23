@@ -3,6 +3,7 @@ package com.jimbroze.kbus.core.fixtures
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
+import com.jimbroze.kbus.core.messages.event.EventRouter
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
@@ -21,30 +22,32 @@ object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
     override val integrationEventPublisher = EmptyIntegrationEventPublisher
 }
 
-/** Bundles the bus-owned factories over the same base publisher, for test wiring. */
+/** Bundles the bus-owned factories over the same direct publisher, for test wiring. */
 class TestPublisherFactories(
-    basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
+    directPublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
     outboxConfig: OutboxConfig? = null,
+    router: EventRouter = EventRouter(emptyList()),
     outboxScope: CoroutineScope = CoroutineScope(Job()),
 ) {
     private val publisherFactory =
         IntegrationEventPublisherFactory(
-            OutboxCoordinator(outboxConfig, basePublisher, outboxScope),
-            basePublisher,
+            OutboxCoordinator(outboxConfig, router, outboxScope),
+            directPublisher,
         )
     val contextFactory = MiddlewareInvocationContextFactory(publisherFactory)
     val invocationFactory = CommandInvocationFactory(DefaultUnitOfWorkFactory(), publisherFactory)
 }
 
 /**
- * An [IntegrationEventPublisherFactory] with no outbox configured, always yielding [basePublisher].
+ * An [IntegrationEventPublisherFactory] with no outbox configured, always yielding
+ * [directPublisher].
  */
 fun noOutboxPublisherFactory(
-    basePublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
+    directPublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
 ): IntegrationEventPublisherFactory =
     IntegrationEventPublisherFactory(
-        OutboxCoordinator(null, basePublisher, CoroutineScope(Job())),
-        basePublisher,
+        OutboxCoordinator(null, EventRouter(emptyList()), CoroutineScope(Job())),
+        directPublisher,
     )
 
 fun emptyContextFactory(): MiddlewareInvocationContextFactory =

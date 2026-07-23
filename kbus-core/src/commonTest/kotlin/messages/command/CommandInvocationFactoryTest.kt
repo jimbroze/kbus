@@ -1,9 +1,11 @@
 package com.jimbroze.kbus.core.messages.command
 
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
+import com.jimbroze.kbus.core.messages.event.EventRouter
 import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
@@ -51,7 +53,7 @@ class CommandInvocationFactoryTest {
                 IntegrationEventPublisherFactory(
                     OutboxCoordinator(
                         OutboxConfig(RecordingOutboxStore()),
-                        RecordingIntegrationEventPublisher(),
+                        EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
                     RecordingIntegrationEventPublisher(),
@@ -72,7 +74,7 @@ class CommandInvocationFactoryTest {
                 IntegrationEventPublisherFactory(
                     OutboxCoordinator(
                         OutboxConfig(RecordingOutboxStore()),
-                        RecordingIntegrationEventPublisher(),
+                        EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
                     RecordingIntegrationEventPublisher(),

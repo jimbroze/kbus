@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.messages.event
 
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -16,11 +17,11 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class BusIntegrationEventPublisherTest {
-    private fun createPublisher(
+class LocalDestinationTest {
+    private fun createDestination(
         locator: PersistingHandlerLocator,
         dispatcherScope: CoroutineScope,
-    ): BusIntegrationEventPublisher {
+    ): LocalDestination {
         val eventDispatcher =
             EventDispatcher(
                 locator::handlersFor,
@@ -28,11 +29,11 @@ class BusIntegrationEventPublisherTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(),
             )
-        return BusIntegrationEventPublisher(locator) { eventDispatcher }
+        return LocalDestination(locator) { eventDispatcher }
     }
 
     @Test
-    fun publishing_a_list_of_events_dispatches_each_to_its_registered_handlers_in_order() =
+    fun delivering_a_list_of_envelopes_dispatches_each_to_its_registered_handlers_in_order() =
         runTest {
             val stores = HandlerFactoryStoreCollection()
             val locator = PersistingHandlerLocator(stores)
@@ -47,10 +48,13 @@ class BusIntegrationEventPublisherTest {
                 listOf(PrintEventHandler::class),
             )
 
-            val publisher = createPublisher(locator, this)
+            val destination = createDestination(locator, this)
 
-            publisher.publish(
-                listOf(StorageEvent("first", results), StorageEvent("second", results))
+            destination.deliver(
+                listOf(
+                    EventEnvelope.of(StorageEvent("first", results)),
+                    EventEnvelope.of(StorageEvent("second", results)),
+                )
             )
             advanceUntilIdle()
 
@@ -58,20 +62,20 @@ class BusIntegrationEventPublisherTest {
         }
 
     @Test
-    fun publishing_an_event_with_no_registered_handlers_does_nothing() = runTest {
+    fun delivering_an_event_with_no_registered_handlers_does_nothing() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val publisher = createPublisher(locator, this)
+        val destination = createDestination(locator, this)
 
-        publisher.publish(listOf(TestIntegrationEvent("unhandled")))
+        destination.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("unhandled"))))
         advanceUntilIdle()
     }
 
     @Test
-    fun publishing_an_empty_list_does_nothing() = runTest {
+    fun delivering_an_empty_list_does_nothing() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val publisher = createPublisher(locator, this)
+        val destination = createDestination(locator, this)
 
-        publisher.publish(emptyList())
+        destination.deliver(emptyList())
         advanceUntilIdle()
     }
 

@@ -1,9 +1,11 @@
 package com.jimbroze.kbus.core.uow
 
+import com.jimbroze.kbus.contracts.messages.event.EventDestination
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.messages.event.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -29,7 +31,12 @@ class TransactionalOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(RecordingDestination())),
+                this,
+                unitOfWork,
+            )
 
         outbox.publish(listOf(OutboxTestEvent("a"), OutboxTestEvent("b")))
 
@@ -37,15 +44,15 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun publish_doesNotTouchTheRealPublisher() = runTest {
+    fun publish_doesNotTouchTheRouter() = runTest {
         val store = RecordingOutboxStore()
-        val realPublisher = RecordingIntegrationEventPublisher()
+        val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        val outbox = TransactionalOutbox(store, realPublisher, this, unitOfWork)
+        val outbox = TransactionalOutbox(store, EventRouter(listOf(destination)), this, unitOfWork)
 
         outbox.publish(listOf(OutboxTestEvent("a")))
 
-        assertTrue(realPublisher.publishedEvents.isEmpty())
+        assertTrue(destination.delivered.isEmpty())
     }
 
     @Test
@@ -53,7 +60,12 @@ class TransactionalOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(RecordingDestination())),
+                this,
+                unitOfWork,
+            )
         unitOfWork.setReturningWork {
             outbox.publish(listOf(OutboxTestEvent("a"), OutboxTestEvent("b")))
         }
@@ -68,7 +80,7 @@ class TransactionalOutboxTest {
     fun commit_isANoOpFlushWhenNothingWasPublished() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+        TransactionalOutbox(store, EventRouter(listOf(RecordingDestination())), this, unitOfWork)
         unitOfWork.setReturningWork {}
 
         unitOfWork.execute()
@@ -81,7 +93,12 @@ class TransactionalOutboxTest {
         val store = RecordingOutboxStore().apply { saveFailure = IllegalStateException("db down") }
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(RecordingDestination())),
+                this,
+                unitOfWork,
+            )
         unitOfWork.setReturningWork { outbox.publish(listOf(OutboxTestEvent("a"))) }
 
         assertFailsWith<IllegalStateException> { unitOfWork.execute() }
@@ -92,7 +109,12 @@ class TransactionalOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(RecordingDestination())),
+                this,
+                unitOfWork,
+            )
         unitOfWork.setReturningWork {}
         unitOfWork.execute()
 
@@ -107,7 +129,12 @@ class TransactionalOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(RecordingDestination())),
+                this,
+                unitOfWork,
+            )
 
         coroutineScope {
             (1..10)
@@ -122,11 +149,11 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun commit_drainsAndDeliversBufferedEntriesPostCommitViaTheRealPublisher() = runTest {
+    fun commit_drainsAndDeliversBufferedEntriesPostCommitViaTheRouter() = runTest {
         val store = RecordingOutboxStore()
-        val realPublisher = RecordingIntegrationEventPublisher()
+        val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        val outbox = TransactionalOutbox(store, realPublisher, this, unitOfWork)
+        val outbox = TransactionalOutbox(store, EventRouter(listOf(destination)), this, unitOfWork)
         unitOfWork.setReturningWork {
             outbox.publish(listOf(OutboxTestEvent("a")))
             outbox.publish(listOf(OutboxTestEvent("b")))
@@ -135,17 +162,16 @@ class TransactionalOutboxTest {
         unitOfWork.execute()
         advanceUntilIdle()
 
-        val publishedNames =
-            realPublisher.publishedEvents.flatten().map { (it as OutboxTestEvent).name }
-        assertEquals(listOf("a", "b"), publishedNames)
+        val deliveredNames = destination.delivered.map { (it.event as OutboxTestEvent).name }
+        assertEquals(listOf("a", "b"), deliveredNames)
     }
 
     @Test
     fun commit_marksDrainedEntriesAsPublishedInTheStore() = runTest {
         val store = RecordingOutboxStore()
-        val realPublisher = RecordingIntegrationEventPublisher()
+        val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-        val outbox = TransactionalOutbox(store, realPublisher, this, unitOfWork)
+        val outbox = TransactionalOutbox(store, EventRouter(listOf(destination)), this, unitOfWork)
         unitOfWork.setReturningWork { outbox.publish(listOf(OutboxTestEvent("a"))) }
 
         unitOfWork.execute()
@@ -157,17 +183,23 @@ class TransactionalOutboxTest {
     @Test
     fun opportunisticDrain_false_flushesButNeverDrains() = runTest {
         val store = RecordingOutboxStore()
-        val realPublisher = RecordingIntegrationEventPublisher()
+        val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, realPublisher, this, unitOfWork, opportunisticDrain = false)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(destination)),
+                this,
+                unitOfWork,
+                opportunisticDrain = false,
+            )
         unitOfWork.setReturningWork { outbox.publish(listOf(OutboxTestEvent("a"))) }
 
         unitOfWork.execute()
         advanceUntilIdle()
 
         assertEquals(1, store.saved.size, "flush still runs")
-        assertTrue(realPublisher.publishedEvents.isEmpty(), "drain is never registered")
+        assertTrue(destination.delivered.isEmpty(), "drain is never registered")
         assertTrue(store.markedPublished.isEmpty())
     }
 
@@ -176,20 +208,24 @@ class TransactionalOutboxTest {
         runTest {
             val store = RecordingOutboxStore()
             var callCount = 0
-            val flakyPublisher =
-                object : IntegrationEventPublisher {
-                    val published = mutableListOf<IntegrationEvent>()
+            val flakyDestination =
+                object : EventDestination {
+                    override val name = "flaky"
+                    val delivered = mutableListOf<EventEnvelope>()
 
-                    override suspend fun publish(events: List<IntegrationEvent>) {
-                        events.forEach { event ->
+                    override fun accepts(event: IntegrationEvent) = true
+
+                    override suspend fun deliver(envelopes: List<EventEnvelope>) {
+                        envelopes.forEach { envelope ->
                             callCount++
                             if (callCount == 1) error("delivery failed")
-                            published.add(event)
+                            delivered.add(envelope)
                         }
                     }
                 }
             val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
-            val outbox = TransactionalOutbox(store, flakyPublisher, this, unitOfWork)
+            val outbox =
+                TransactionalOutbox(store, EventRouter(listOf(flakyDestination)), this, unitOfWork)
             unitOfWork.setReturningWork {
                 outbox.publish(listOf(OutboxTestEvent("a")))
                 outbox.publish(listOf(OutboxTestEvent("b")))
@@ -198,7 +234,10 @@ class TransactionalOutboxTest {
             unitOfWork.execute()
             advanceUntilIdle()
 
-            assertEquals(listOf("b"), flakyPublisher.published.map { (it as OutboxTestEvent).name })
+            assertEquals(
+                listOf("b"),
+                flakyDestination.delivered.map { (it.event as OutboxTestEvent).name },
+            )
             assertEquals(1, store.markedPublished.size, "the failed entry is left for the poller")
         }
 
@@ -207,7 +246,12 @@ class TransactionalOutboxTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
-            TransactionalOutbox(store, RecordingIntegrationEventPublisher(), this, unitOfWork)
+            TransactionalOutbox(
+                store,
+                EventRouter(listOf(RecordingDestination())),
+                this,
+                unitOfWork,
+            )
         unitOfWork.setReturningWork {
             outbox.publish(listOf(OutboxTestEvent("a")))
             error("primary work failed")

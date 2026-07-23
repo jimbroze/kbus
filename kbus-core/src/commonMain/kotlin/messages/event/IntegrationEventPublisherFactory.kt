@@ -6,10 +6,10 @@ import com.jimbroze.kbus.core.uow.UnitOfWork
 
 class IntegrationEventPublisherFactory(
     private val outboxCoordinator: OutboxCoordinator,
-    private val basePublisher: IntegrationEventPublisher,
+    private val directPublisher: IntegrationEventPublisher,
 ) {
     fun create(unitOfWork: UnitOfWork<*>?): IntegrationEventPublisher =
         unitOfWork?.let { outboxCoordinator.create(it) }
             ?: outboxCoordinator.immediatePublisher
-            ?: basePublisher
+            ?: directPublisher
 }

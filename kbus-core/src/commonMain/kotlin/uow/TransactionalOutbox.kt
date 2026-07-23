@@ -1,13 +1,12 @@
 package com.jimbroze.kbus.core.uow
 
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
+import com.jimbroze.kbus.core.messages.event.EventRouter
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,22 +32,21 @@ class OutboxConfig(
  * work item (so it runs inside the command's transaction, ahead of anything registered while
  * handling the command), and, if [opportunisticDrain] is true, [drain] as post-commit work.
  * Publishes that arrive after [flush] has already run (e.g. from SECONDARY/POST_COMMIT-phase
- * handlers) are saved immediately. [drain] delivers the buffered entries to [realPublisher] on
+ * handlers) are saved immediately. [drain] routes the buffered entries through [router] on
  * [drainScope] as a fire-and-forget background task — a latency optimisation only. A bus-owned
  * poller is the at-least-once delivery guarantee; failed or skipped drains are picked up there.
  */
-@OptIn(ExperimentalUuidApi::class)
 class TransactionalOutbox
 internal constructor(
     private val store: OutboxStore,
-    private val realPublisher: IntegrationEventPublisher,
+    private val router: EventRouter,
     private val drainScope: CoroutineScope,
     unitOfWork: UnitOfWork<*>,
     opportunisticDrain: Boolean = true,
 ) : IntegrationEventPublisher {
     private val mutex = Mutex()
-    private val buffer = mutableListOf<OutboxEntry>()
-    private val pendingSave = mutableListOf<OutboxEntry>()
+    private val buffer = mutableListOf<EventEnvelope>()
+    private val pendingSave = mutableListOf<EventEnvelope>()
     private var flushed = false
 
     init {
@@ -57,7 +55,7 @@ internal constructor(
     }
 
     override suspend fun publish(events: List<IntegrationEvent>) {
-        val entries = events.map { OutboxEntry(Uuid.random().toString(), it) }
+        val entries = events.map { EventEnvelope.of(it) }
 
         val alreadyFlushed =
             mutex.withLock {
@@ -83,26 +81,26 @@ internal constructor(
     private fun drain() {
         drainScope.launch {
             val entries = mutex.withLock { buffer.toList().also { buffer.clear() } }
-            deliverAndMark(entries, realPublisher, store)
+            deliverAndMark(entries, router, store)
         }
     }
 }
 
 /**
- * Delivers each entry via [publisher] and marks the successes in [store]. A per-entry failure
- * leaves that entry unpublished for the outbox poller to retry; it never stops delivery of the
- * remaining entries.
+ * Routes each entry via [router] and marks the successes in [store]. A per-entry failure leaves
+ * that entry unpublished for the outbox poller to retry; it never stops delivery of the remaining
+ * entries.
  */
 internal suspend fun deliverAndMark(
-    entries: List<OutboxEntry>,
-    publisher: IntegrationEventPublisher,
+    entries: List<EventEnvelope>,
+    router: EventRouter,
     store: OutboxStore,
 ) {
     val publishedIds = mutableListOf<String>()
     for (entry in entries) {
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         try {
-            publisher.publish(listOf(entry.event))
+            router.route(listOf(entry))
             publishedIds.add(entry.id)
         } catch (e: Exception) {
             // Left unpublished; the outbox poller will retry it.
@@ -119,19 +117,18 @@ internal suspend fun deliverAndMark(
  * collapses to exactly the already-flushed path — save then drain — so it needs no buffer, mutex,
  * or flush bookkeeping.
  */
-@OptIn(ExperimentalUuidApi::class)
 class ImmediateOutboxPublisher
 internal constructor(
     private val store: OutboxStore,
-    private val realPublisher: IntegrationEventPublisher,
+    private val router: EventRouter,
     private val drainScope: CoroutineScope,
     private val opportunisticDrain: Boolean = true,
 ) : IntegrationEventPublisher {
     override suspend fun publish(events: List<IntegrationEvent>) {
-        val entries = events.map { OutboxEntry(Uuid.random().toString(), it) }
+        val entries = events.map { EventEnvelope.of(it) }
 
         store.save(entries)
-        if (opportunisticDrain) drainScope.launch { deliverAndMark(entries, realPublisher, store) }
+        if (opportunisticDrain) drainScope.launch { deliverAndMark(entries, router, store) }
     }
 }
 
@@ -144,7 +141,7 @@ internal constructor(
  */
 class OutboxCoordinator(
     private val config: OutboxConfig?,
-    private val basePublisher: IntegrationEventPublisher,
+    private val router: EventRouter,
     private val outboxScope: CoroutineScope,
 ) {
     val isEnabled: Boolean
@@ -152,7 +149,7 @@ class OutboxCoordinator(
 
     val immediatePublisher: IntegrationEventPublisher? =
         config?.let {
-            ImmediateOutboxPublisher(it.store, basePublisher, outboxScope, it.opportunisticDrain)
+            ImmediateOutboxPublisher(it.store, router, outboxScope, it.opportunisticDrain)
         }
 
     private var pollerJob: Job? = null
@@ -161,7 +158,7 @@ class OutboxCoordinator(
         return config?.let { config ->
             TransactionalOutbox(
                 config.store,
-                basePublisher,
+                router,
                 outboxScope,
                 unitOfWork,
                 config.opportunisticDrain,
@@ -174,20 +171,19 @@ class OutboxCoordinator(
         if (config == null || pollerJob != null) return
         pollerJob =
             outboxScope.launch {
-                OutboxPoller(config.store, basePublisher, config.batchSize, config.pollInterval)
-                    .run()
+                OutboxPoller(config.store, router, config.batchSize, config.pollInterval).run()
             }
     }
 }
 
 /**
  * The transactional outbox's at-least-once delivery guarantee. Runs forever once started: polls
- * [store] for unpublished entries, delivers them via [publisher], and marks the successes. Never
- * throws — a failing batch is simply retried on the next tick.
+ * [store] for unpublished entries, routes them via [router], and marks the successes. Never throws
+ * — a failing batch is simply retried on the next tick.
  */
 internal class OutboxPoller(
     private val store: OutboxStore,
-    private val publisher: IntegrationEventPublisher,
+    private val router: EventRouter,
     private val batchSize: Int,
     private val pollInterval: Duration,
 ) {
@@ -201,7 +197,7 @@ internal class OutboxPoller(
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private suspend fun pollOnce() {
         try {
-            deliverAndMark(store.fetchUnpublished(batchSize), publisher, store)
+            deliverAndMark(store.fetchUnpublished(batchSize), router, store)
         } catch (e: Exception) {
             // Never crash the polling loop; retried on the next poll.
         }

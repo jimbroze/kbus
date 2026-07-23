@@ -23,7 +23,6 @@ class EventDispatcher(
     val getHandlers: GetHandlers<DomainEvent>,
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
-    val observerRegistry: IntegrationEventObserverRegistry = IntegrationEventObserverRegistry(),
     private val contextFactory: MiddlewareInvocationContextFactory,
 ) : DomainEventDispatcher {
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
@@ -46,8 +45,6 @@ class EventDispatcher(
                 null,
                 errorStrategy,
             )()
-
-            observerRegistry.emit(event)
         }
 
         val execute = createMiddlewareChain(finalHandler, middlewares, context)

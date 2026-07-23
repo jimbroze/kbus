@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.messages.event
 
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
@@ -16,59 +17,58 @@ import kotlinx.coroutines.test.runTest
 class IntegrationEventPublisherFactoryTest {
     @Test
     fun create_withUnitOfWork_andAnOutboxConfigured_returnsATransactionalOutbox() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val router = EventRouter(listOf(RecordingDestination()))
+        val directPublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), basePublisher, this),
-                basePublisher,
+                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
+                directPublisher,
             )
 
         assertIs<TransactionalOutbox>(factory.create(TestUnitOfWork<Any?>()))
     }
 
     @Test
-    fun create_withUnitOfWork_andNoOutboxConfigured_returnsTheBasePublisher() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+    fun create_withUnitOfWork_andNoOutboxConfigured_returnsTheDirectPublisher() = runTest {
+        val router = EventRouter(listOf(RecordingDestination()))
+        val directPublisher = RecordingIntegrationEventPublisher()
         val factory =
-            IntegrationEventPublisherFactory(
-                OutboxCoordinator(null, basePublisher, this),
-                basePublisher,
-            )
+            IntegrationEventPublisherFactory(OutboxCoordinator(null, router, this), directPublisher)
 
-        assertEquals(basePublisher, factory.create(TestUnitOfWork<Any?>()))
+        assertEquals(directPublisher, factory.create(TestUnitOfWork<Any?>()))
     }
 
     @Test
     fun create_withNull_andAnOutboxConfigured_returnsTheImmediateOutboxPublisher() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val router = EventRouter(listOf(RecordingDestination()))
+        val directPublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), basePublisher, this),
-                basePublisher,
+                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
+                directPublisher,
             )
 
         assertIs<ImmediateOutboxPublisher>(factory.create(null))
     }
 
     @Test
-    fun create_withNull_andNoOutboxConfigured_returnsTheBasePublisher() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+    fun create_withNull_andNoOutboxConfigured_returnsTheDirectPublisher() = runTest {
+        val router = EventRouter(listOf(RecordingDestination()))
+        val directPublisher = RecordingIntegrationEventPublisher()
         val factory =
-            IntegrationEventPublisherFactory(
-                OutboxCoordinator(null, basePublisher, this),
-                basePublisher,
-            )
+            IntegrationEventPublisherFactory(OutboxCoordinator(null, router, this), directPublisher)
 
-        assertEquals(basePublisher, factory.create(null))
+        assertEquals(directPublisher, factory.create(null))
     }
 
     @Test
     fun create_withNull_returnsTheSameImmediateInstanceAcrossCalls() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val router = EventRouter(listOf(RecordingDestination()))
+        val directPublisher = RecordingIntegrationEventPublisher()
         val factory =
             IntegrationEventPublisherFactory(
-                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), basePublisher, this),
-                basePublisher,
+                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
+                directPublisher,
             )
 
         assertSame(factory.create(null), factory.create(null))

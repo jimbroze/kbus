@@ -1,9 +1,6 @@
 package com.jimbroze.kbus.contracts.outbox
 
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-
-/** A durable, transactional-outbox record: a stable [id] paired with the [event] to deliver. */
-class OutboxEntry(val id: String, val event: IntegrationEvent)
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 
 /**
  * User-supplied durable storage for the transactional outbox.
@@ -19,14 +16,14 @@ interface OutboxStore {
      * Called inside the command's `TransactionManager.execute` block. Must join the ambient
      * transaction.
      */
-    suspend fun save(entries: List<OutboxEntry>)
+    suspend fun save(entries: List<EventEnvelope>)
 
     /**
      * Oldest-first, up to [limit] entries. Implementations may hide entries that are in-flight or
      * too fresh, to shrink the window in which the drain and the poller could both deliver the same
      * entry.
      */
-    suspend fun fetchUnpublished(limit: Int): List<OutboxEntry>
+    suspend fun fetchUnpublished(limit: Int): List<EventEnvelope>
 
     /**
      * Marks the given entries as delivered. Implementations may delete them instead of flagging.
