@@ -1,7 +1,9 @@
 package com.jimbroze.kbus.core.messages.event
 
+import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
@@ -74,5 +76,10 @@ class IntegrationEventPublisherFactoryTest {
             )
 
         assertSame(factory.create(null), factory.create(null))
+    }
+
+    @Test
+    fun empty_integration_event_publisher_publish_is_a_no_op() = runTest {
+        EmptyIntegrationEventPublisher.publish(listOf(TestIntegrationEvent("ignored")))
     }
 }

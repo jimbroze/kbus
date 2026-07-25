@@ -1,13 +1,11 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.module
 
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
-import com.jimbroze.kbus.core.messages.event.routing.LocalDestination
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -19,11 +17,11 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class LocalDestinationTest {
-    private fun createDestination(
+class BoundedContextTest {
+    private fun createContext(
         locator: PersistingHandlerLocator,
         dispatcherScope: CoroutineScope,
-    ): LocalDestination {
+    ): BoundedContext {
         val eventDispatcher =
             EventDispatcher(
                 locator::handlersFor,
@@ -31,7 +29,7 @@ class LocalDestinationTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(),
             )
-        return LocalDestination(locator) { eventDispatcher }
+        return BoundedContext("default", locator) { eventDispatcher }
     }
 
     @Test
@@ -50,9 +48,9 @@ class LocalDestinationTest {
                 listOf(PrintEventHandler::class),
             )
 
-            val destination = createDestination(locator, this)
+            val context = createContext(locator, this)
 
-            destination.deliver(
+            context.deliver(
                 listOf(
                     EventEnvelope.of(StorageEvent("first", results)),
                     EventEnvelope.of(StorageEvent("second", results)),
@@ -66,23 +64,18 @@ class LocalDestinationTest {
     @Test
     fun delivering_an_event_with_no_registered_handlers_does_nothing() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val destination = createDestination(locator, this)
+        val context = createContext(locator, this)
 
-        destination.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("unhandled"))))
+        context.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("unhandled"))))
         advanceUntilIdle()
     }
 
     @Test
     fun delivering_an_empty_list_does_nothing() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val destination = createDestination(locator, this)
+        val context = createContext(locator, this)
 
-        destination.deliver(emptyList())
+        context.deliver(emptyList())
         advanceUntilIdle()
-    }
-
-    @Test
-    fun empty_integration_event_publisher_publish_is_a_no_op() = runTest {
-        EmptyIntegrationEventPublisher.publish(listOf(TestIntegrationEvent("ignored")))
     }
 }

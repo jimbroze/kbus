@@ -14,12 +14,12 @@ import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.messages.event.routing.LocalDestination
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -67,9 +67,9 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
-    private val localDestination: LocalDestination =
-        LocalDestination(handlerLocator) { eventDispatcher }
-    private val router = EventRouter(listOf(localDestination))
+    private val defaultContext: BoundedContext =
+        BoundedContext("default", handlerLocator) { eventDispatcher }
+    private val router = EventRouter(listOf(defaultContext))
     private val directPublisher = DirectPublisher(router)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
     private val integrationEventPublisherFactory =

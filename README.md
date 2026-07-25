@@ -326,7 +326,7 @@ derived from. A domain event may be registered multiple times to publish several
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -602,8 +602,9 @@ Between publish and dispatch sits a third stage: routing. Every integration publ
 `publish()`, `AutoPublishIntegrationEvents`, query middleware, and integration event handlers that publish further
 events — hands its events to an `EventRouter`, whether or not an outbox is configured. The router emits each event to
 `observe()` collectors once per routing attempt, before fan-out, then attempts delivery to every `EventDestination`
-that applies to the event. Today there is exactly one destination, `LocalDestination`, which dispatches to this bus's
-own handlers; external transports and per-module inboxes are additional destinations the router seam exists to support.
+that applies to the event. Today there is exactly one destination: a single implicit `"default"` `BoundedContext`, the
+local-dispatch destination that owns this bus's handlers and dispatches to them. Splitting it into one `BoundedContext`
+per bounded context, plus external transports and per-module inboxes, is what the router seam exists to support.
 
 Observation is at-least-once, not exactly-once: the router re-emits each time an event is routed, and a failed
 destination is re-routed by the outbox poller, so observers see a retried event again. Exactly-once observation would
