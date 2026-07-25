@@ -79,7 +79,7 @@ transaction) → post-commit work (integration events).
 
 The `kbus-core` event code is split into three sub-packages under `messages.event`, mirroring the
 three stages: `publish` (`DirectPublisher`, `IntegrationEventPublisherFactory`, `AutoPublishesFrom`),
-`routing` (`EventRouter`, `LocalDestination`, `AggregateException`), and `dispatch` (`EventDispatcher`,
+`routing` (`EventRouter`, `AggregateException`), and `dispatch` (`EventDispatcher`,
 `DomainEventDispatcher`, `IntegrationEventMapper`, `IntegrationEventObserverRegistry`,
 `ObservableEventMapper`). The message-type definitions (`IntegrationEvent`, `DomainEvent`) stay at the
 `messages.event` root. Contracts (`kbus-contracts`) keep a flat `messages.event` package.
@@ -100,10 +100,13 @@ poller, so observers see a retried event again; exactly-once would require dedup
 publish through routing to delivery; its id — minted once, at the ingress boundary, via
 `EventEnvelope.of` — is what an at-least-once consumer (the outbox poller, later an inbox) dedupes on.
 
-`LocalDestination` (replacing `BusIntegrationEventPublisher`) is the only destination today: it
-dispatches to this bus's own handlers via `HandlerLocator` + `EventDispatcher`. `DirectPublisher` is
+`BoundedContext` (`kbus-core`, package `com.jimbroze.kbus.core.module`) is the local-dispatch
+`EventDestination` and the only destination today: it owns a handler slice and dispatches to it via
+`HandlerLocator` + `EventDispatcher`. A bus currently holds a single implicit `"default"` bounded
+context wrapping all of its handlers (`appliesTo` accepts everything); later stages split it per
+bounded context with derived subscription sets. `DirectPublisher` is
 the no-outbox `IntegrationEventPublisher` ingress — it mints envelopes and calls `router.route`
-immediately, with no durability. Bus wiring (`BaseMessageBus`): `LocalDestination` → `EventRouter` →
+immediately, with no durability. Bus wiring (`BaseMessageBus`): `BoundedContext` → `EventRouter` →
 `DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
 `router.observerRegistry`, not `EventDispatcher`. A destination that throws is not acknowledged — with
 an outbox configured, that leaves the entry unpublished for the poller to retry; this is the whole ack
