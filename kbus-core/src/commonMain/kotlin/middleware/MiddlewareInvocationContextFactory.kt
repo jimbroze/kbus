@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 
 /** The single place a [MiddlewareInvocationContext] is created. */
 class MiddlewareInvocationContextFactory(

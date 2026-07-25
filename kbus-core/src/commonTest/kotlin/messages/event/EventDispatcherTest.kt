@@ -66,6 +66,10 @@ import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
+import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.routing.AggregateException
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -409,7 +413,7 @@ class EventDispatcherTest {
             ThrowingContinueAndAggregateHandler(env.results, "third"),
         )
         val exception =
-            assertFailsWith<MultipleException> {
+            assertFailsWith<AggregateException> {
                 env.dispatch(TestContinueAndAggregateEvent("test"))
             }
 
@@ -468,7 +472,7 @@ class EventDispatcherTest {
             ThrowingSequentialContinueAndAggregateHandler(env.results, "third"),
         )
         val exception =
-            assertFailsWith<MultipleException> {
+            assertFailsWith<AggregateException> {
                 env.dispatch(TestSequentialContinueAndAggregateEvent("test"))
             }
 
@@ -566,7 +570,7 @@ class EventDispatcherTest {
             )
 
             val immediateException =
-                assertFailsWith<MultipleException> {
+                assertFailsWith<AggregateException> {
                     env.dispatch(TestContinueAndAggregateEvent("test"))
                 }
 
@@ -743,7 +747,7 @@ class EventDispatcherTest {
     @Test
     fun dispatchIntegrationEvent_uses_the_base_publisher_context() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val basePublisher = DirectPublisher(EventRouter(emptyList()))
         val dispatcher =
             EventDispatcher(
                 { emptyList() },
@@ -778,7 +782,7 @@ class EventDispatcherTest {
     @Test
     fun dispatchIntegrationEvent_wires_the_contexts_publisher_into_integration_event_handlers() =
         runTest {
-            val recordingPublisher = RecordingIntegrationEventPublisher()
+            val destination = RecordingDestination()
             val dispatcher =
                 EventDispatcher(
                     { emptyList() },
@@ -786,7 +790,9 @@ class EventDispatcherTest {
                     this,
                     contextFactory =
                         MiddlewareInvocationContextFactory(
-                            noOutboxPublisherFactory(recordingPublisher)
+                            noOutboxPublisherFactory(
+                                DirectPublisher(EventRouter(listOf(destination)))
+                            )
                         ),
                 )
 
@@ -796,7 +802,7 @@ class EventDispatcherTest {
             )
             advanceUntilIdle()
 
-            val published = recordingPublisher.publishedEvents.flatten()
+            val published = destination.delivered.map { it.event }
             assertEquals(1, published.size)
             assertEquals("published-by-test", (published.single() as TestIntegrationEvent).name)
         }

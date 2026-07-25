@@ -39,7 +39,7 @@ class RecordingDestination(override val name: String = "recording") : EventDesti
     val delivered = mutableListOf<EventEnvelope>()
     var failure: Throwable? = null
 
-    override fun accepts(event: IntegrationEvent): Boolean = true
+    override fun appliesTo(event: IntegrationEvent): Boolean = true
 
     override suspend fun deliver(envelopes: List<EventEnvelope>) {
         failure?.let { throw it }

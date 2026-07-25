@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
-import com.jimbroze.kbus.core.messages.event.EventRouter
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
@@ -24,7 +24,7 @@ object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
 
 /** Bundles the bus-owned factories over the same direct publisher, for test wiring. */
 class TestPublisherFactories(
-    directPublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
+    directPublisher: DirectPublisher = DirectPublisher(EventRouter(emptyList())),
     outboxConfig: OutboxConfig? = null,
     router: EventRouter = EventRouter(emptyList()),
     outboxScope: CoroutineScope = CoroutineScope(Job()),
@@ -43,7 +43,7 @@ class TestPublisherFactories(
  * [directPublisher].
  */
 fun noOutboxPublisherFactory(
-    directPublisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher
+    directPublisher: DirectPublisher = DirectPublisher(EventRouter(emptyList()))
 ): IntegrationEventPublisherFactory =
     IntegrationEventPublisherFactory(
         OutboxCoordinator(null, EventRouter(emptyList()), CoroutineScope(Job())),

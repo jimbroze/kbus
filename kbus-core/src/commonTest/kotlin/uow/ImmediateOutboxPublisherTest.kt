@@ -5,7 +5,7 @@ import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
-import com.jimbroze.kbus.core.messages.event.EventRouter
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -52,7 +52,7 @@ class ImmediateOutboxPublisherTest {
             object : EventDestination {
                 override val name = "flaky"
 
-                override fun accepts(event: IntegrationEvent) = true
+                override fun appliesTo(event: IntegrationEvent) = true
 
                 override suspend fun deliver(envelopes: List<EventEnvelope>) {
                     error("delivery failed")

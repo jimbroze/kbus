@@ -4,7 +4,7 @@ import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
-import com.jimbroze.kbus.core.messages.event.EventRouter
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope

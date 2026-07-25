@@ -1,9 +1,11 @@
 package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
-import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.uow.ImmediateOutboxPublisher
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
@@ -18,7 +20,7 @@ class IntegrationEventPublisherFactoryTest {
     @Test
     fun create_withUnitOfWork_andAnOutboxConfigured_returnsATransactionalOutbox() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = RecordingIntegrationEventPublisher()
+        val directPublisher = DirectPublisher(router)
         val factory =
             IntegrationEventPublisherFactory(
                 OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
@@ -31,7 +33,7 @@ class IntegrationEventPublisherFactoryTest {
     @Test
     fun create_withUnitOfWork_andNoOutboxConfigured_returnsTheDirectPublisher() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = RecordingIntegrationEventPublisher()
+        val directPublisher = DirectPublisher(router)
         val factory =
             IntegrationEventPublisherFactory(OutboxCoordinator(null, router, this), directPublisher)
 
@@ -41,7 +43,7 @@ class IntegrationEventPublisherFactoryTest {
     @Test
     fun create_withNull_andAnOutboxConfigured_returnsTheImmediateOutboxPublisher() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = RecordingIntegrationEventPublisher()
+        val directPublisher = DirectPublisher(router)
         val factory =
             IntegrationEventPublisherFactory(
                 OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
@@ -54,7 +56,7 @@ class IntegrationEventPublisherFactoryTest {
     @Test
     fun create_withNull_andNoOutboxConfigured_returnsTheDirectPublisher() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = RecordingIntegrationEventPublisher()
+        val directPublisher = DirectPublisher(router)
         val factory =
             IntegrationEventPublisherFactory(OutboxCoordinator(null, router, this), directPublisher)
 
@@ -64,7 +66,7 @@ class IntegrationEventPublisherFactoryTest {
     @Test
     fun create_withNull_returnsTheSameImmediateInstanceAcrossCalls() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = RecordingIntegrationEventPublisher()
+        val directPublisher = DirectPublisher(router)
         val factory =
             IntegrationEventPublisherFactory(
                 OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),

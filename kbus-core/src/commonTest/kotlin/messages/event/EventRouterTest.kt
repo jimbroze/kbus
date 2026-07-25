@@ -4,6 +4,8 @@ import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
+import com.jimbroze.kbus.core.messages.event.routing.AggregateException
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -35,13 +37,32 @@ class EventRouterTest {
     }
 
     @Test
+    fun route_reRoutingTheSameEnvelope_reEmitsToObservers_soObserveIsAtLeastOnce() = runTest {
+        // A failed destination leaves the entry unpublished and the poller re-routes it, so the
+        // same envelope reaches observers again. Observation is at-least-once, not exactly-once.
+        val router = EventRouter(listOf(RecordingDestination()))
+        val received = mutableListOf<RouterTestEvent>()
+        val flow = router.observerRegistry.observableFor(RouterTestEvent::class)
+        val job = launch { flow.take(2).toList(received) }
+        yield()
+
+        val envelope = EventEnvelope.of(RouterTestEvent("retried"))
+        router.route(listOf(envelope))
+        router.route(listOf(envelope))
+        advanceUntilIdle()
+        job.join()
+
+        assertEquals(listOf("retried", "retried"), received.map { it.name })
+    }
+
+    @Test
     fun route_deliversOnlyToAcceptingDestinations() = runTest {
         val accepting = RecordingDestination()
         val rejecting =
             object : EventDestination {
                 override val name = "rejecting"
 
-                override fun accepts(event: IntegrationEvent) = false
+                override fun appliesTo(event: IntegrationEvent) = false
 
                 override suspend fun deliver(envelopes: List<EventEnvelope>) {
                     error("should never be called")
@@ -72,7 +93,7 @@ class EventRouterTest {
         val sick = RecordingDestination().apply { failure = IllegalStateException("sick") }
         val router = EventRouter(listOf(sick, healthy))
 
-        assertFailsWith<MultipleException> {
+        assertFailsWith<AggregateException> {
             router.route(listOf(EventEnvelope.of(RouterTestEvent("test"))))
         }
 

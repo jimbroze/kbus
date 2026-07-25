@@ -77,14 +77,25 @@ transaction) → post-commit work (integration events).
 
 ### Event Routing
 
+The `kbus-core` event code is split into three sub-packages under `messages.event`, mirroring the
+three stages: `publish` (`DirectPublisher`, `IntegrationEventPublisherFactory`, `AutoPublishesFrom`),
+`routing` (`EventRouter`, `LocalDestination`, `AggregateException`), and `dispatch` (`EventDispatcher`,
+`DomainEventDispatcher`, `IntegrationEventMapper`, `IntegrationEventObserverRegistry`,
+`ObservableEventMapper`). The message-type definitions (`IntegrationEvent`, `DomainEvent`) stay at the
+`messages.event` root. Contracts (`kbus-contracts`) keep a flat `messages.event` package.
+
 The seam between publish and dispatch, so dispatch is what happens on the far side of a route rather
 than part of publishing itself. `EventRouter` (bus-owned, `kbus-core`) owns the
 `IntegrationEventObserverRegistry` (moved off `EventDispatcher`, which no longer emits) and a list of
 `EventDestination`s (contracts, like `OutboxStore` — the extension point external transports and
 per-module inboxes will implement). `route(envelopes: List<EventEnvelope>)` emits each event to
-`observe()` collectors exactly once, before fan-out, then attempts delivery to *every* accepting
-destination — collecting failures into a thrown `MultipleException` rather than stopping at the
-first one, so healthy destinations still get the event immediately. `EventEnvelope(id, event)`
+`observe()` collectors once per routing attempt, before fan-out, then attempts delivery to *every*
+accepting destination — collecting failures into a thrown `AggregateException` rather than stopping
+at the first one, so healthy destinations still get the event immediately. Observation is
+**at-least-once**: `route` re-emits on every call and a failed destination is re-routed by the
+poller, so observers see a retried event again; exactly-once would require deduping on
+`EventEnvelope.id` against a durable store (the same id-keyed machinery a consuming inbox will need).
+`EventEnvelope(id, event)`
 (contracts, `messages.event` package, replacing `OutboxEntry`) is what survives every hand-off from
 publish through routing to delivery; its id — minted once, at the ingress boundary, via
 `EventEnvelope.of` — is what an at-least-once consumer (the outbox poller, later an inbox) dedupes on.

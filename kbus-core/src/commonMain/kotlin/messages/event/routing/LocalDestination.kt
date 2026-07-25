@@ -1,8 +1,9 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.routing
 
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.registry.HandlerLocator
 
 /**
@@ -14,7 +15,7 @@ class LocalDestination(
 ) : EventDestination {
     override val name: String = "local"
 
-    override fun accepts(event: IntegrationEvent): Boolean = true
+    override fun appliesTo(event: IntegrationEvent): Boolean = true
 
     override suspend fun deliver(envelopes: List<EventEnvelope>) {
         envelopes.forEach { envelope ->

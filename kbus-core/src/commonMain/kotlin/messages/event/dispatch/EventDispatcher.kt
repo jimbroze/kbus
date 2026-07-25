@@ -1,10 +1,14 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.event.concurrencyFor
+import com.jimbroze.kbus.core.messages.event.dispatchPhaseFor
+import com.jimbroze.kbus.core.messages.event.errorStrategyFor
+import com.jimbroze.kbus.core.messages.event.routing.AggregateException
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
@@ -124,7 +128,7 @@ class EventDispatcher(
                         }
 
                         if (index == handlers.lastIndex && aggregatedExceptions.isNotEmpty())
-                            throw MultipleException(aggregatedExceptions)
+                            throw AggregateException(aggregatedExceptions)
                     }
                 }
             }

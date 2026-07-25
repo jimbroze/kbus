@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventObserverRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame

@@ -3,6 +3,8 @@ package com.jimbroze.kbus.core.messages.event
 import com.jimbroze.kbus.contracts.messages.event.Concurrency
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.messages.event.dispatch.EventConcurrency
+import com.jimbroze.kbus.core.messages.event.dispatch.EventErrorStrategy
 
 internal fun errorStrategyFor(event: IntegrationEvent): EventErrorStrategy {
     return when (event.errorStrategy) {

@@ -10,11 +10,11 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
-import com.jimbroze.kbus.core.messages.event.DirectPublisher
-import com.jimbroze.kbus.core.messages.event.EventDispatcher
-import com.jimbroze.kbus.core.messages.event.EventRouter
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
-import com.jimbroze.kbus.core.messages.event.LocalDestination
+import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.core.messages.event.routing.LocalDestination
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
