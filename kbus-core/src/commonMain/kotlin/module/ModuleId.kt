@@ -13,8 +13,8 @@ import kotlin.jvm.JvmInline
 value class ModuleId(val value: String) {
     companion object {
         /**
-         * The context every handler belongs to until a module identity assigns it elsewhere — also
-         * the single context of a bus configured with none.
+         * The context every handler belongs to until a bounded context identity assigns it
+         * elsewhere — also the single context of a bus configured with none.
          */
         val DEFAULT = ModuleId("default")
     }

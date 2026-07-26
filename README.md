@@ -604,7 +604,7 @@ Between publish and dispatch sits a third stage: routing. Every integration publ
 events — hands its events to an `EventRouter`, whether or not an outbox is configured. The router emits each event to
 `observe()` collectors once per routing attempt, before fan-out, then attempts delivery to every `EventDestination`
 that applies to the event. The local-dispatch destination is a `BoundedContext` — a module runtime that owns a slice of
-handlers and dispatches to them. A bus holds one per module identity:
+handlers and dispatches to them. A bus holds one per identity:
 
 ```kotlin
 val bus = MessageBus(
@@ -878,13 +878,13 @@ module's `generatedAutoPublishRegistrations`.
 ### Bounded Context identity
 
 A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,
-`billing-infrastructure` are three submodules but one context). `kbus.moduleIdentity` names the context, and is
-orthogonal to `kbus.subModuleName`:
+`billing-infrastructure` are three submodules but one context). `kbus.boundedContextIdentity` names the context, and
+is orthogonal to `kbus.subModuleName`:
 
 ```groovy
 ksp {
     arg("kbus.subModuleName", project.name)
-    arg("kbus.moduleIdentity", "billing")
+    arg("kbus.boundedContextIdentity", "billing")
     arg("kbus.indexPackage", "com.example.myApp.indexes")
 }
 ```

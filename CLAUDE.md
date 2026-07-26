@@ -61,16 +61,17 @@ when at least one `@LoadEvent`/`AutoPublishesFrom` opt-in exists) `generatedAuto
 Submodules (`isSubModule=true`) generate only a `DependencyIndex` with `@KbusIndex` metadata (including any
 auto-publish opt-ins) instead of full code.
 
-**Module identity.** `kbus.moduleIdentity` is a per-Gradle-module KSP build arg, orthogonal to
-`kbus.subModuleName` (a bounded context spans several Gradle modules — several `subModuleName`s, one
-`moduleIdentity`). It is stamped onto every `HandlerData` the producing module's KSP run creates,
-round-trips through `HandlerInfo.module` on `@KbusIndex`, and is **never inferred by the consumer** —
-that invariant is what would make a later `@KbusModule("…")` annotation a drop-in override rather than
-a rewrite. `""` means unassigned (folded into the default context) and is deliberately distinct from a
-context literally named `"default"`; `DependencyIndexGenerator` therefore always emits `module`,
-because `IndexParser.findArgument` errors on a missing *or* null value. Identity does not participate
-in `HandlerConflictPolicy` — cross-module command ownership is a later stage. `BusGenerator` groups
-`INTEGRATION` event handlers by identity and emits one `GenerationHandlerLocator` per context (all
+**Bounded context identity.** `kbus.boundedContextIdentity` is a per-Gradle-module KSP build arg,
+orthogonal to `kbus.subModuleName` (a bounded context spans several Gradle modules — several
+`subModuleName`s, one `boundedContextIdentity`). It is stamped onto every `HandlerData` the producing
+module's KSP run creates, round-trips through `HandlerInfo.module` on `@KbusIndex`, and is **never
+inferred by the consumer** — that invariant is what would make a later `@KbusModule("…")` annotation a
+drop-in override rather than a rewrite. `""` means unassigned (folded into the default context) and is
+deliberately distinct from a context literally named `"default"`; `DependencyIndexGenerator` therefore
+always emits `module`, because `IndexParser.findArgument` errors on a missing *or* null value. Identity
+does not participate in `HandlerConflictPolicy` — cross-module command ownership is a later stage.
+`BusGenerator` groups `INTEGRATION` event handlers by identity and emits one `GenerationHandlerLocator`
+per context (all
 sharing the one `HandlerFactory`), passes them as `contexts` to the super-constructor, and exposes one
 `CompileTimeIntegrationEventMapper` accessor per context — `bus.orders`, `bus.default`. The bus-wide
 `integrationEventMapper` is **gone** (ambiguous with N contexts); `domainEventMapper` stays.
