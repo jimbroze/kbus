@@ -32,6 +32,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -152,14 +153,33 @@ class MessageBusOutboxTest {
         assertTrue(store.fetchUnpublished(10).isEmpty())
     }
 
+    /**
+     * The default `FireAndForget` error strategy dispatches handlers via an unawaited
+     * `dispatcherScope.launch`, so nothing about `bus.execute()` returning happens-before the
+     * handler running — asserting "not yet delivered" against wall-clock timing alone would race
+     * that launch. Gating the handler on a [CompletableDeferred] makes the assertion deterministic:
+     * it cannot have recorded anything until the test releases it.
+     */
     @Test
     fun middleware_published_event_is_captured_by_the_outbox_and_not_delivered_before_commit() =
         runTest {
             val store = InMemoryOutboxStore()
             val stores = HandlerFactoryStoreCollection()
             val received = mutableListOf<String>()
+            val gate = CompletableDeferred<Unit>()
             val locator = PersistingHandlerLocator(stores)
-            registerImperativeHandlerOnly(stores, locator, received)
+            stores.eventStore.registerHandlers(
+                OutboxImperativeEvent::class,
+                listOf(
+                    EventHandlerFactory(GatedOutboxEventHandler::class) {
+                        GatedOutboxEventHandler(received, gate)
+                    }
+                ),
+            )
+            locator.integrationEventMapper.addEventHandlers(
+                OutboxImperativeEvent::class,
+                listOf(GatedOutboxEventHandler::class),
+            )
             stores.commandStore.registerHandlers(
                 OutboxNoopCommand::class,
                 listOf(
@@ -184,6 +204,7 @@ class MessageBusOutboxTest {
 
             assertTrue(received.isEmpty(), "Should not be delivered before commit")
 
+            gate.complete(Unit)
             realDelay(150)
 
             assertEquals(listOf("via-middleware"), received)
@@ -561,6 +582,17 @@ private class OutboxFailingCommandHandler :
 private class RecordingOutboxEventHandler(private val received: MutableList<String>) :
     IntegrationEventHandler<OutboxImperativeEvent> {
     override suspend fun handle(message: OutboxImperativeEvent) {
+        received.add(message.name)
+    }
+}
+
+/** Suspends until [gate] completes, so a test can deterministically observe pre-delivery state. */
+private class GatedOutboxEventHandler(
+    private val received: MutableList<String>,
+    private val gate: CompletableDeferred<Unit>,
+) : IntegrationEventHandler<OutboxImperativeEvent> {
+    override suspend fun handle(message: OutboxImperativeEvent) {
+        gate.await()
         received.add(message.name)
     }
 }
