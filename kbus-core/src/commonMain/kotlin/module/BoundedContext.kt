@@ -13,14 +13,14 @@ import com.jimbroze.kbus.core.registry.HandlerLocator
  * destinations). A bus holds one per identity — each with its own [handlerLocator] slice — and
  * [appliesTo] is the real subscription set derived from that slice, so a handler in one context
  * never fires for another context's event. A bus configured with no contexts holds a single
- * implicit [ModuleId.DEFAULT] context over all of its handlers.
+ * implicit [BoundedContextId.DEFAULT] context over all of its handlers.
  *
  * **Scope:** in this stage [handlerLocator] is used only for integration-event lookup
  * ([HandlerLocator.handlersFor] / [HandlerLocator.hasHandlersFor]). Commands, queries and domain
  * events still resolve through the bus's own shared locator — that is deliberate, not an oversight.
  */
 class BoundedContext(
-    val id: ModuleId,
+    val id: BoundedContextId,
     private val subscriptions: Subscriptions,
     private val handlerLocator: HandlerLocator,
     private val eventDispatcher: () -> EventDispatcher,

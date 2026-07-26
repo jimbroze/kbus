@@ -6,7 +6,7 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.core.module.ModuleId
+import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
 import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
 import com.jimbroze.kbus.core.registry.EventMapperProvider
@@ -129,8 +129,8 @@ class BusGenerator(
         // bus-wide `integrationEventMapper`: with N contexts, "which context?" has no answer.
         contexts.forEach { context ->
             val key =
-                if (context == DEFAULT_CONTEXT) CodeBlock.of("%T.DEFAULT", ModuleId::class)
-                else CodeBlock.of("%T(%S)", ModuleId::class, context)
+                if (context == DEFAULT_CONTEXT) CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
+                else CodeBlock.of("%T(%S)", BoundedContextId::class, context)
 
             classBuilder.addProperty(
                 PropertySpec.builder(
@@ -248,13 +248,13 @@ private class BusConstructorGenerator(private val config: BusConfig) {
                 if (context == DEFAULT_CONTEXT) {
                     CodeBlock.of(
                         "%T.DEFAULT to %T(handlerFactory)",
-                        ModuleId::class,
+                        BoundedContextId::class,
                         GenerationHandlerLocator::class,
                     )
                 } else {
                     CodeBlock.of(
                         "%T(%S) to %T(handlerFactory)",
-                        ModuleId::class,
+                        BoundedContextId::class,
                         context,
                         GenerationHandlerLocator::class,
                     )
@@ -280,7 +280,7 @@ private class BusConstructorGenerator(private val config: BusConfig) {
     private fun contextLocatorsType() =
         Map::class.asClassName()
             .parameterizedBy(
-                ModuleId::class.asClassName(),
+                BoundedContextId::class.asClassName(),
                 GenerationHandlerLocator::class.asClassName(),
             )
 

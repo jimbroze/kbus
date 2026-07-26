@@ -610,8 +610,8 @@ handlers and dispatches to them. A bus holds one per identity:
 val bus = MessageBus(
     handlerLocator,
     contexts = mapOf(
-        ModuleId("orders") to ordersLocator,
-        ModuleId("inventory") to inventoryLocator,
+        BoundedContextId("orders") to ordersLocator,
+        BoundedContextId("inventory") to inventoryLocator,
     ),
 )
 ```
@@ -878,8 +878,8 @@ module's `generatedAutoPublishRegistrations`.
 ### Bounded Context identity
 
 A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,
-`billing-infrastructure` are three submodules but one context). `kbus.boundedContextIdentity` names the context, and
-is orthogonal to `kbus.subModuleName`:
+`billing-infrastructure` are three submodules but one context). `kbus.boundedContextIdentity` names the context, and is
+orthogonal to `kbus.subModuleName`:
 
 ```groovy
 ksp {
