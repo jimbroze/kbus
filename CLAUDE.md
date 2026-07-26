@@ -134,9 +134,13 @@ A context with no [inbox](#per-context-inbox) still has this behaviour: one flak
 unpublished, so the poller re-routes to *every* context and healthy ones re-dispatch each cycle
 (`MessageBusMultiContextTest.aFailingContextLeavesTheEntryUnpublished_andHealthyContextsReDispatchOnRetry` pins it). A
 per-context inbox is the fix — see `### Per-Context Inbox`.
-`DirectPublisher` is the no-outbox `IntegrationEventPublisher` ingress — it mints envelopes and calls `router.route`
-immediately, with no durability. Bus wiring (`BaseMessageBus`): `BoundedContext` → `EventRouter` →
-`DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
+`DirectPublisher` is the no-outbox `IntegrationEventPublisher` ingress and the one caller-facing integration-publish
+path — the inbox pump, the outbox poller and the outbox drain are all background coroutines nobody awaits. It mints
+envelopes and partitions the batch by each event's own `errorStrategy` (not per event, or `observe()`/`EventInbox
+.deliver` would be multiplied): a `FireAndForget` group is launched on its scope (`MessageBus` wires in
+`eventDispatcherScope`) so the caller doesn't wait on it, every other group is routed and awaited so a destination
+failure still propagates to the publisher. No durability either way. Bus wiring (`BaseMessageBus`): `BoundedContext` →
+`EventRouter` → `DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
 `router.observerRegistry`, not `EventDispatcher`. A destination that throws is not acknowledged — with an outbox
 configured, that leaves the entry unpublished for the poller to retry; this is the whole ack mechanism, and routing has
 no dependency on the outbox otherwise — every publish path, with or without one, goes through the router.
@@ -221,13 +225,25 @@ redelivery slips back in as a genuine duplicate.
 racing a scheduled pump tick for the same inbox — both call `pollOnce`, so the loser blocks rather than double-fetching.
 Per-process only; cross-process overlap is `InboxStore.fetchPending`'s problem, exactly as for the outbox.
 
-`errorStrategy` becomes that context's own inbox ack semantics, independent of every other context: `FailFast` retries
-until every handler completes; `ContinueAndAggregate` retries the whole batch (re-running successes) on any failure;
-`FireAndForget` always acks regardless of handler outcome. The sharp edge: `FireAndForget` + the `IntegrationEvent`
-default `Concurrency.Concurrent` acks **before a single handler has run** (handlers are `launch`ed, `deliver` returns
-immediately) — a crash in that window loses the event permanently, since the id is already a tombstone. Not a new
-durability hole (the outbox already considered such entries delivered at hand-off) but the inbox can make durability
-*look* stronger than it is; `Concurrency.Sequential` awaits handlers first and doesn't have this gap.
+Two axes, not one: `errorStrategy` (on the event) decides whether a handler exception ever reaches the relay —
+`FailFast`/`ContinueAndAggregate` retry on failure, `FireAndForget` swallows it into `handleFailure` so the envelope is
+acked regardless — while `concurrency` only ever decided *timing*, and integration dispatch (`EventDispatcher
+.dispatchConcurrently`'s detach narrowed to `phase == POST_COMMIT` only, which integration events never are) now always
+awaits its handlers before returning, for every `errorStrategy` and every `concurrency`. So `errorStrategy` becomes
+that context's own inbox ack semantics, independent of every other context: `FailFast` retries until every handler
+completes; `ContinueAndAggregate` retries the whole batch (re-running successes) on any failure; `FireAndForget` still
+runs every handler to completion first, then acks regardless of the outcome — a failing handler is never retried, but
+it is no longer a crash-window durability hole, since the tombstone is written only after dispatch returns.
+
+`InboxConfig.ackPolicy` (`InboxAckPolicy`, `core.module.inbox`) is the fix for `FireAndForget`'s "never retried" edge,
+applied per bus rather than per event: `HonourEventStrategy` (default) is the table above; `RequireHandlerSuccess` maps
+`FireAndForget` → `ContinueAndAggregate` before dispatch, so a handler failure leaves the envelope pending like
+`FailFast`/`ContinueAndAggregate` already do (those two pass through untouched — they don't need the override). The
+mapping is expressed on the public `ErrorStrategy` contract type, not the dispatcher-internal `EventErrorStrategy`, so
+it can sit on `BoundedContext`'s public constructor and `EventDispatcher.dispatchIntegrationEvent`'s public trailing
+parameter without an internal type leaking into public API. `BoundedContext.withAckStrategy` (`internal`, applied only
+by `InboxCoordinator`, only to contexts with a configured store) returns a copy carrying the override function; a
+context with no inbox is never overridden.
 
 `EventInbox` stays `internal constructor`, built only by `InboxCoordinator` — opening it to wrap an arbitrary
 `EventDestination` (e.g. a future external transport) is cheap to do later and impossible to undo once public.
@@ -261,16 +277,21 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   Publish → route → dispatch is three stages, not two: publishing (durable save, in-transaction) and dispatching (async
   delivery to handlers, post-commit) are separate steps, and every publish path — with or without an outbox — hands off
   through `EventRouter` before a destination ever dispatches. A command's return never awaits integration handler
-  execution; delivery is at-least-once via the outbox poller, and the post-commit drain is opportunistic fire-and-forget
-  (awaiting it can deadlock with held locks).
+  execution; delivery is at-least-once via the outbox poller. The *launching* of a dispatch stays fire-and-forget from
+  the triggering caller's point of view (the outbox's post-commit drain, `DirectPublisher`'s routing of a
+  `FireAndForget` batch) — awaiting it there can deadlock with held locks — but once launched, dispatch itself always
+  awaits its own handlers before returning, which is what lets an inboxed context ack only after they complete.
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns (domain `dispatchTiming`) sit on
   handlers; event-level `errorStrategy` doubles as ack semantics for whatever is doing the acking — the outbox for a
   context with no inbox (`FailFast` = retry until handlers complete), or that context's own inbox once it has one,
-  independent of every other context.
+  independent of every other context. `InboxConfig.ackPolicy` (`InboxAckPolicy.RequireHandlerSuccess`) is the explicit,
+  opt-in override when a consumer wants stronger guarantees than a producer's declared `FireAndForget` — never implicit,
+  never inferred from context shape.
 - **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
-  `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop()`
-  is `suspend` and deterministic (cancels and joins the bus's root job). Buses with none of these need no
-  `start()` call — dispatch works immediately, at zero ceremony.
+  `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop(gracePeriod)` is
+  `suspend` and deterministic — it awaits in-flight dispatch up to a bounded grace period, then cancels and joins the
+  bus's root job regardless. Buses with none of these need no `start()` call — dispatch works immediately, at zero
+  ceremony.
 
 ## Conventions
 
