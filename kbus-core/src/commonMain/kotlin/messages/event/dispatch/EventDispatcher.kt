@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -8,6 +9,7 @@ import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.concurrencyFor
 import com.jimbroze.kbus.core.messages.event.dispatchPhaseFor
 import com.jimbroze.kbus.core.messages.event.errorStrategyFor
+import com.jimbroze.kbus.core.messages.event.mapErrorStrategy
 import com.jimbroze.kbus.core.messages.event.routing.AggregateException
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
@@ -30,11 +32,21 @@ class EventDispatcher(
     private val dispatcherScope: CoroutineScope,
     private val contextFactory: MiddlewareInvocationContextFactory,
 ) : DomainEventDispatcher {
+    /**
+     * [errorStrategyOverride] lets a consumer (an inboxed [BoundedContext][com.jimbroze.kbus.core
+     * .module.BoundedContext] via its ack policy) require stronger delivery guarantees than the
+     * event declared — e.g. treating [ErrorStrategy.FireAndForget] as
+     * [ErrorStrategy.ContinueAndAggregate] so a handler failure is never silently acked. It carries
+     * the public [ErrorStrategy] type rather than the dispatcher-internal [EventErrorStrategy],
+     * since this method is itself public API.
+     */
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
         handlers: List<EventHandler<TEvent>> = emptyList(),
+        errorStrategyOverride: ErrorStrategy? = null,
     ) {
-        val errorStrategy = errorStrategyFor(event)
+        val errorStrategy =
+            errorStrategyOverride?.let(::mapErrorStrategy) ?: errorStrategyFor(event)
         val context = contextFactory.contextFor(null)
         handlers.forEach {
             (it as? CanPublishIntegrationEvent)?.setPublisher(context.integrationEventPublisher)

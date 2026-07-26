@@ -96,7 +96,7 @@ abstract class BaseMessageBus(
         contexts
             .ifEmpty { mapOf(BoundedContextId.DEFAULT to handlerLocator) }
             .map { (id, locator) ->
-                BoundedContext(id, LocatorSubscriptions(locator), locator) { eventDispatcher }
+                BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
             }
 
     private val inboxCoordinator = InboxCoordinator(inbox, boundedContexts, inboxScope)

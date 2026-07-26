@@ -586,4 +586,12 @@ class PublishingIntegrationEventHandler :
     }
 }
 
+class ThrowingIntegrationEventHandler(private val attempts: MutableList<String>) :
+    IntegrationEventHandler<TestIntegrationEvent> {
+    override suspend fun handle(message: TestIntegrationEvent) {
+        attempts.add(message.name)
+        throw TestHandlerException("Integration handler failed for: ${message.name}")
+    }
+}
+
 class TestHandlerException(message: String) : Exception(message)

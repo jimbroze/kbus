@@ -3,12 +3,14 @@ package com.jimbroze.kbus.core.module.inbox
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.LocatorSubscriptions
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,7 +36,7 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(),
             )
-        return BoundedContext(id, LocatorSubscriptions(locator), locator) { eventDispatcher }
+        return BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
     }
 
     @Test
@@ -145,5 +147,69 @@ class InboxCoordinatorTest {
         runCurrent()
 
         assertEquals(1, store.markedConsumed.size)
+    }
+
+    private fun throwingContext(
+        id: BoundedContextId,
+        attempts: MutableList<String>,
+        dispatcherScope: CoroutineScope,
+    ): BoundedContext {
+        val stores = HandlerFactoryStoreCollection()
+        stores.eventStore.registerHandlers(
+            TestIntegrationEvent::class,
+            listOf(
+                EventHandlerFactory(ThrowingIntegrationEventHandler::class) {
+                    ThrowingIntegrationEventHandler(attempts)
+                }
+            ),
+        )
+        val locator = PersistingHandlerLocator(stores)
+        locator.integrationEventMapper.addEventHandlers(
+            TestIntegrationEvent::class,
+            listOf(ThrowingIntegrationEventHandler::class),
+        )
+        val eventDispatcher =
+            EventDispatcher(
+                locator::handlersFor,
+                emptyList(),
+                dispatcherScope,
+                contextFactory = emptyContextFactory(),
+            )
+        return BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
+    }
+
+    @Test
+    fun ackPolicyOverride_isAppliedOnlyToContextsThatHaveAConfiguredStore() = runTest {
+        val alphaAttempts = mutableListOf<String>()
+        val betaAttempts = mutableListOf<String>()
+        val alpha = throwingContext(BoundedContextId("alpha"), alphaAttempts, backgroundScope)
+        val beta = throwingContext(BoundedContextId("beta"), betaAttempts, backgroundScope)
+
+        val alphaStore = RecordingInboxStore()
+        val config =
+            InboxConfig(
+                stores = mapOf(BoundedContextId("alpha") to alphaStore),
+                ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
+            )
+        val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
+
+        // alpha has a store: RequireHandlerSuccess overrides FireAndForget, so a failing handler
+        // leaves the envelope pending rather than acked.
+        alphaStore.save(listOf(EventEnvelope.of(TestIntegrationEvent("via-alpha"))))
+        (coordinator.destinations[0] as EventInbox).drain()
+
+        assertEquals(listOf("via-alpha"), alphaAttempts)
+        assertTrue(
+            alphaStore.markedConsumed.isEmpty(),
+            "RequireHandlerSuccess must not ack a failed handler",
+        )
+
+        // beta has no store, so it is never wrapped or overridden: the plain context still honours
+        // the event's own FireAndForget and swallows the failure.
+        coordinator.destinations[1].deliver(
+            listOf(EventEnvelope.of(TestIntegrationEvent("via-beta")))
+        )
+
+        assertEquals(listOf("via-beta"), betaAttempts)
     }
 }

@@ -12,6 +12,7 @@ import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -133,6 +134,18 @@ private class GatedInboxHandler(
     override suspend fun handle(message: GatedInboxEvent) {
         gate.await()
         received.add(message.name)
+    }
+}
+
+/** Suspends until [gate] completes, then always fails — for exercising ack-policy retries. */
+private class ThrowingGatedInboxHandler(
+    private val attempts: MutableList<String>,
+    private val gate: CompletableDeferred<Unit>,
+) : IntegrationEventHandler<GatedInboxEvent> {
+    override suspend fun handle(message: GatedInboxEvent) {
+        gate.await()
+        attempts.add(message.name)
+        error("handler failed")
     }
 }
 
@@ -569,4 +582,63 @@ class MessageBusInboxTest {
         assertEquals(listOf("event"), received)
         assertEquals(1, inboxStore.markedConsumed.size)
     }
+
+    @Test
+    fun requireHandlerSuccess_leavesAFailedDefaultSettingsEventPending_andRetriesOnTheNextTick() =
+        runTest {
+            val stores = HandlerFactoryStoreCollection()
+            val busLocator = PersistingHandlerLocator(stores)
+            stores.commandStore.registerHandlers(
+                PublishGatedInboxCommand::class,
+                listOf(
+                    CommandHandlerFactory(PublishGatedInboxCommandHandler::class) {
+                        PublishGatedInboxCommandHandler()
+                    }
+                ),
+            )
+
+            val attempts = mutableListOf<String>()
+            val gate = CompletableDeferred<Unit>()
+            val locator = PersistingHandlerLocator(stores)
+            stores.eventStore.registerHandlers(
+                GatedInboxEvent::class,
+                listOf(
+                    EventHandlerFactory(ThrowingGatedInboxHandler::class) {
+                        ThrowingGatedInboxHandler(attempts, gate)
+                    }
+                ),
+            )
+            locator.integrationEventMapper.addEventHandlers(
+                GatedInboxEvent::class,
+                listOf(ThrowingGatedInboxHandler::class),
+            )
+
+            val inboxStore = RecordingInboxStore()
+            val bus =
+                MessageBus(
+                    busLocator,
+                    rootScope = backgroundScope,
+                    contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
+                    inbox =
+                        InboxConfig(
+                            stores = mapOf(BoundedContextId("healthy") to inboxStore),
+                            pollInterval = 100.milliseconds,
+                            ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
+                        ),
+                )
+            bus.start()
+
+            bus.execute(PublishGatedInboxCommand("event"))
+            gate.complete(Unit)
+            realDelay(350)
+
+            assertTrue(
+                inboxStore.markedConsumed.isEmpty(),
+                "a failed handler must leave the envelope pending, not acked",
+            )
+            assertTrue(
+                attempts.size >= 2,
+                "expected the pump to retry the still-pending envelope: $attempts",
+            )
+        }
 }

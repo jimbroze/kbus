@@ -1,18 +1,22 @@
 package com.jimbroze.kbus.core.module
 
+import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.OtherStorageEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.routing.AggregateException
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
@@ -33,9 +37,12 @@ class BoundedContextTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(),
             )
-        return BoundedContext(BoundedContextId.DEFAULT, LocatorSubscriptions(locator), locator) {
-            eventDispatcher
-        }
+        return BoundedContext(
+            BoundedContextId.DEFAULT,
+            LocatorSubscriptions(locator),
+            locator,
+            { eventDispatcher },
+        )
     }
 
     @Test
@@ -156,5 +163,42 @@ class BoundedContextTest {
 
         assertTrue(context.appliesTo(StorageEvent("any", mutableListOf())))
         assertFalse(context.appliesTo(OtherStorageEvent("any", mutableListOf())))
+    }
+
+    @Test
+    fun withAckStrategy_overridesDispatchOnTheCopyOnly_theOriginalIsUnmutated() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        val attempts = mutableListOf<String>()
+        stores.eventStore.registerHandlers(
+            TestIntegrationEvent::class,
+            listOf(
+                EventHandlerFactory(ThrowingIntegrationEventHandler::class) {
+                    ThrowingIntegrationEventHandler(attempts)
+                }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            TestIntegrationEvent::class,
+            listOf(ThrowingIntegrationEventHandler::class),
+        )
+
+        val context = createContext(locator, this)
+        val overridden =
+            context.withAckStrategy { strategy ->
+                if (strategy == ErrorStrategy.FireAndForget) ErrorStrategy.ContinueAndAggregate
+                else strategy
+            }
+
+        // The original honours the event's own FireAndForget: the failure is swallowed silently.
+        context.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("first"))))
+        advanceUntilIdle()
+        assertEquals(listOf("first"), attempts)
+
+        // The overridden copy forces ContinueAndAggregate, so the failure now surfaces.
+        assertFailsWith<AggregateException> {
+            overridden.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("second"))))
+        }
+        assertEquals(listOf("first", "second"), attempts)
     }
 }

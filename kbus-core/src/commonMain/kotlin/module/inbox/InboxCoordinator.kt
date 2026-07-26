@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.module.inbox
 
 import com.jimbroze.kbus.contracts.inbox.InboxStore
+import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
@@ -11,15 +12,47 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
+ * Consumer-side ack policy for an inboxed context — independent of every other context's, and
+ * independent of the event's own [ErrorStrategy] declaration. Producers own event data; consumers
+ * own consumption policy.
+ */
+sealed interface InboxAckPolicy {
+    /** Ack exactly as the event's own [ErrorStrategy] dictates. Today's behaviour. */
+    data object HonourEventStrategy : InboxAckPolicy
+
+    /**
+     * Refuses a producer's "don't care": an [ErrorStrategy.FireAndForget] event is dispatched as if
+     * it were [ErrorStrategy.ContinueAndAggregate], so a handler failure leaves the envelope
+     * pending and the next pump tick retries it. [ErrorStrategy.FailFast] and
+     * [ErrorStrategy.ContinueAndAggregate] events are unaffected — they already retry on failure.
+     */
+    data object RequireHandlerSuccess : InboxAckPolicy
+}
+
+/** `null` for [InboxAckPolicy.HonourEventStrategy]: no override, dispatch exactly as declared. */
+internal val InboxAckPolicy.errorStrategyOverride: ((ErrorStrategy) -> ErrorStrategy)?
+    get() =
+        when (this) {
+            InboxAckPolicy.HonourEventStrategy -> null
+            InboxAckPolicy.RequireHandlerSuccess -> { strategy ->
+                    if (strategy == ErrorStrategy.FireAndForget) ErrorStrategy.ContinueAndAggregate
+                    else strategy
+                }
+        }
+
+/**
  * Opt-in, per-[BoundedContextId] durable inbox configuration. Each context in [stores] gets its own
  * [InboxStore] instance — structural isolation, so one context's pump cannot see another context's
- * rows. A context absent from [stores] keeps today's synchronous dispatch.
+ * rows. A context absent from [stores] keeps today's synchronous dispatch. [ackPolicy] applies only
+ * to the contexts that have a configured store — it is meaningless without a durable ack to make
+ * stronger.
  */
 class InboxConfig(
     val stores: Map<BoundedContextId, InboxStore>,
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
     val opportunisticDispatch: Boolean = true,
+    val ackPolicy: InboxAckPolicy = InboxAckPolicy.HonourEventStrategy,
 ) {
     init {
         require(stores.isNotEmpty()) {
@@ -43,7 +76,7 @@ class InboxCoordinator(
         contexts.map { context ->
             config?.stores?.get(context.id)?.let { store ->
                 EventInbox(
-                    context,
+                    context.withAckStrategy(config.ackPolicy.errorStrategyOverride),
                     store,
                     inboxScope,
                     config.batchSize,
