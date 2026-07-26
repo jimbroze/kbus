@@ -10,12 +10,12 @@ import kotlin.jvm.JvmInline
  * is the join key between a producing module's KSP run and the contexts a generated bus builds.
  */
 @JvmInline
-value class ModuleId(val value: String) {
+value class BoundedContextId(val value: String) {
     companion object {
         /**
          * The context every handler belongs to until a bounded context identity assigns it
          * elsewhere — also the single context of a bus configured with none.
          */
-        val DEFAULT = ModuleId("default")
+        val DEFAULT = BoundedContextId("default")
     }
 }

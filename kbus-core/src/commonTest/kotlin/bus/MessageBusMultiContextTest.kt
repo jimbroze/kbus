@@ -9,7 +9,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.module.ModuleId
+import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
@@ -163,8 +163,8 @@ class MessageBusMultiContextTest {
                 rootScope = backgroundScope,
                 contexts =
                     mapOf(
-                        ModuleId("alpha") to alphaLocator as HandlerLocator,
-                        ModuleId("beta") to betaLocator,
+                        BoundedContextId("alpha") to alphaLocator as HandlerLocator,
+                        BoundedContextId("beta") to betaLocator,
                     ),
             )
 
@@ -197,8 +197,8 @@ class MessageBusMultiContextTest {
                 rootScope = backgroundScope,
                 contexts =
                     mapOf(
-                        ModuleId("alpha") to alphaLocator as HandlerLocator,
-                        ModuleId("beta") to betaLocator,
+                        BoundedContextId("alpha") to alphaLocator as HandlerLocator,
+                        BoundedContextId("beta") to betaLocator,
                     ),
             )
 
@@ -221,7 +221,7 @@ class MessageBusMultiContextTest {
             MessageBus(
                 busLocator,
                 rootScope = backgroundScope,
-                contexts = mapOf(ModuleId("beta") to betaLocator as HandlerLocator),
+                contexts = mapOf(BoundedContextId("beta") to betaLocator as HandlerLocator),
             )
 
         val observed = mutableListOf<AlphaEvent>()
@@ -249,7 +249,7 @@ class MessageBusMultiContextTest {
                 busLocator,
                 rootScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
-                contexts = mapOf(ModuleId("beta") to betaLocator as HandlerLocator),
+                contexts = mapOf(BoundedContextId("beta") to betaLocator as HandlerLocator),
             )
         bus.start()
         realDelay(50)
@@ -293,8 +293,8 @@ class MessageBusMultiContextTest {
                 outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
                 contexts =
                     mapOf(
-                        ModuleId("healthy") to healthyLocator as HandlerLocator,
-                        ModuleId("failing") to failingLocator,
+                        BoundedContextId("healthy") to healthyLocator as HandlerLocator,
+                        BoundedContextId("failing") to failingLocator,
                     ),
             )
         bus.start()

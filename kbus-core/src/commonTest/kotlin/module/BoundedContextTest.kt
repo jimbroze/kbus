@@ -33,7 +33,7 @@ class BoundedContextTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(),
             )
-        return BoundedContext(ModuleId.DEFAULT, LocatorSubscriptions(locator), locator) {
+        return BoundedContext(BoundedContextId.DEFAULT, LocatorSubscriptions(locator), locator) {
             eventDispatcher
         }
     }
