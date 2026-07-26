@@ -3,6 +3,7 @@ package com.jimbroze.kbus.core.messages.event.routing
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventObserverRegistry
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The seam between publish and dispatch: every integration event, from every publish path, passes
@@ -18,7 +19,10 @@ import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventObserverRe
  * failures rather than stopping at the first one — healthy destinations get the event immediately
  * and only dedupe a duplicate on retry, instead of waiting for a sick one to recover. If any
  * destination failed, throws [AggregateException] so the caller (the outbox) leaves the entry
- * unpublished for the poller to retry.
+ * unpublished for the poller to retry. A [CancellationException] from a destination is rethrown
+ * immediately rather than collected — dispatch now commonly runs inside a cancellable coroutine (a
+ * launched publish, an inbox pump), and wrapping a cancellation into an [AggregateException] would
+ * turn a normal shutdown signal into a genuine, uncaught error.
  */
 class EventRouter(
     private val destinations: List<EventDestination>,
@@ -35,6 +39,8 @@ class EventRouter(
             @Suppress("TooGenericExceptionCaught")
             try {
                 destination.deliver(acceptedEnvelopes)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 failures.add(e)
             }

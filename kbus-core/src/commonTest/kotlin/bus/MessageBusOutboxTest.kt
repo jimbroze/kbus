@@ -154,11 +154,13 @@ class MessageBusOutboxTest {
     }
 
     /**
-     * The default `FireAndForget` error strategy dispatches handlers via an unawaited
-     * `dispatcherScope.launch`, so nothing about `bus.execute()` returning happens-before the
-     * handler running — asserting "not yet delivered" against wall-clock timing alone would race
-     * that launch. Gating the handler on a [CompletableDeferred] makes the assertion deterministic:
-     * it cannot have recorded anything until the test releases it.
+     * The post-commit drain is registered as `unitOfWork.addPostCommitWork { drain() }`, and
+     * `drain` itself is an unawaited `outboxScope.launch` — so nothing about `bus.execute()`
+     * returning happens-before the handler running, even though dispatch itself now awaits its
+     * handlers (it just does so on `outboxScope`, not on the command's calling coroutine).
+     * Asserting "not yet delivered" against wall-clock timing alone would race that launch. Gating
+     * the handler on a [CompletableDeferred] makes the assertion deterministic: it cannot have
+     * recorded anything until the test releases it.
      */
     @Test
     fun middleware_published_event_is_captured_by_the_outbox_and_not_delivered_before_commit() =

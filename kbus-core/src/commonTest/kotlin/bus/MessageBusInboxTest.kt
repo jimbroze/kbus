@@ -24,6 +24,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -98,6 +100,39 @@ private class NonAckingOutboxStore : OutboxStore {
     override suspend fun markPublished(ids: List<String>) {
         // Never acks: simulates a producer that can't mark entries published, so every poll
         // re-routes the same envelope.
+    }
+}
+
+/**
+ * Default settings: [com.jimbroze.kbus.contracts.messages.event.Concurrency.Concurrent] +
+ * FireAndForget.
+ */
+private class GatedInboxEvent(val name: String) : IntegrationEvent()
+
+private class PublishGatedInboxCommand(val name: String) :
+    Command<BusResult<Unit, MessageFailure>>()
+
+private class PublishGatedInboxCommandHandler :
+    CommandHandler<PublishGatedInboxCommand, BusResult<Unit, MessageFailure>>() {
+    override suspend fun handle(
+        message: PublishGatedInboxCommand
+    ): BusResult<Unit, MessageFailure> {
+        publish(GatedInboxEvent(message.name))
+        return BusResult.success(Unit)
+    }
+}
+
+/**
+ * Suspends until [gate] completes, so a test can observe pre-completion ack state
+ * deterministically.
+ */
+private class GatedInboxHandler(
+    private val received: MutableList<String>,
+    private val gate: CompletableDeferred<Unit>,
+) : IntegrationEventHandler<GatedInboxEvent> {
+    override suspend fun handle(message: GatedInboxEvent) {
+        gate.await()
+        received.add(message.name)
     }
 }
 
@@ -477,5 +512,61 @@ class MessageBusInboxTest {
         realDelay(50)
 
         assertEquals(listOf("healthy:from-before-crash"), healthyReceived)
+    }
+
+    /** Regression test for the early-ack durability gap the FireAndForget detach used to open. */
+    @Test
+    fun aDefaultSettingsEventIsNotAckedUntilItsHandlerCompletes() = runTest {
+        val outboxStore = RecordingOutboxStore()
+        val stores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(stores)
+        stores.commandStore.registerHandlers(
+            PublishGatedInboxCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishGatedInboxCommandHandler::class) {
+                    PublishGatedInboxCommandHandler()
+                }
+            ),
+        )
+
+        val received = mutableListOf<String>()
+        val gate = CompletableDeferred<Unit>()
+        val locator = PersistingHandlerLocator(stores)
+        stores.eventStore.registerHandlers(
+            GatedInboxEvent::class,
+            listOf(
+                EventHandlerFactory(GatedInboxHandler::class) { GatedInboxHandler(received, gate) }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            GatedInboxEvent::class,
+            listOf(GatedInboxHandler::class),
+        )
+
+        val inboxStore = RecordingInboxStore()
+        val bus =
+            MessageBus(
+                busLocator,
+                rootScope = backgroundScope,
+                outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
+                contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
+                inbox = InboxConfig(stores = mapOf(BoundedContextId("healthy") to inboxStore)),
+            )
+        bus.start()
+
+        bus.execute(PublishGatedInboxCommand("event"))
+        realDelay(100)
+
+        assertTrue(received.isEmpty(), "the handler is still suspended on the gate")
+        assertTrue(
+            inboxStore.markedConsumed.isEmpty(),
+            "must not ack while the handler is still running",
+        )
+
+        gate.complete(Unit)
+        realDelay(150)
+
+        assertEquals(listOf("event"), received)
+        assertEquals(1, inboxStore.markedConsumed.size)
     }
 }

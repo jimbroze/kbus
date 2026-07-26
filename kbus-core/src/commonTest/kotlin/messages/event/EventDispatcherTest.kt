@@ -225,16 +225,19 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun it_dispatches_integration_events_asynchronously_as_fire_and_forget() = runTest {
+    fun it_awaits_a_fire_and_forget_integration_events_handlers_before_returning() = runTest {
         val env = TestEnv(this)
         env.dispatchIntegration(
             TestIntegrationEvent("test"),
             DelayingIntegrationEventHandler(env.results, 100, "delayed handler"),
         )
 
-        assertEquals(0, env.results.size, "Dispatch returns before handlers complete")
-        advanceUntilIdle()
-        assertEquals(listOf("delayed handler"), env.results)
+        assertEquals(
+            listOf("delayed handler"),
+            env.results,
+            "The detach moved to the publish boundary; dispatch itself now awaits handlers " +
+                "so an inboxed context only acks after they complete",
+        )
     }
 
     @Test
@@ -809,7 +812,7 @@ class EventDispatcherTest {
                     contextFactory =
                         MiddlewareInvocationContextFactory(
                             noOutboxPublisherFactory(
-                                DirectPublisher(EventRouter(listOf(destination)))
+                                DirectPublisher(EventRouter(listOf(destination)), this)
                             )
                         ),
                 )

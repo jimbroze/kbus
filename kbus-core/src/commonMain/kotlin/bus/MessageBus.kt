@@ -95,7 +95,7 @@ abstract class BaseMessageBus(
 
     private val inboxCoordinator = InboxCoordinator(inbox, boundedContexts, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
-    private val directPublisher = DirectPublisher(router)
+    private val directPublisher = DirectPublisher(router, eventDispatcherScope)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
     private val integrationEventPublisherFactory =
         IntegrationEventPublisherFactory(outboxCoordinator, directPublisher)

@@ -30,8 +30,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CommandExecutorTest {
     @Test
     fun test_it_invokes_handler_and_returns_result() = runTest {
@@ -53,7 +56,8 @@ class CommandExecutorTest {
     @Test
     fun test_it_gives_handlers_access_to_bus() = runTest {
         val destination = RecordingDestination()
-        val factories = TestPublisherFactories(DirectPublisher(EventRouter(listOf(destination))))
+        val factories =
+            TestPublisherFactories(DirectPublisher(EventRouter(listOf(destination)), this))
         val executor =
             CommandExecutor(
                 null,
@@ -66,6 +70,7 @@ class CommandExecutorTest {
         val handler = DispatchingCommandHandler()
 
         executor.execute(DispatchingCommand()) { handler }
+        advanceUntilIdle()
 
         assertEquals(1, destination.delivered.size)
         assertEquals("test-event", (destination.delivered[0].event as TestIntegrationEvent).name)
