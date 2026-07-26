@@ -15,6 +15,7 @@ import com.jimbroze.kbus.core.middleware.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -95,14 +96,18 @@ class EventDispatcher(
         execute(event)
     }
 
+    /**
+     * Each returned closure reports its own outcome instead of writing into a closure-shared list —
+     * only [EventErrorStrategy.CONTINUE_AND_AGGREGATE]'s result is ever inspected (by
+     * [dispatchHandlersWithConcurrency]), but a uniform return type lets all three strategies share
+     * the same concurrent/sequential dispatch machinery.
+     */
     private fun <TEvent : Event> dispatchHandlersWithErrorHandling(
         handlers: List<EventHandler<TEvent>>,
         message: TEvent,
         errorStrategy: EventErrorStrategy,
-    ): List<suspend () -> Unit> {
-        val aggregatedExceptions = mutableListOf<Exception>()
-
-        return handlers.mapIndexed<EventHandler<TEvent>, suspend () -> Unit> { index, handler ->
+    ): List<suspend () -> Exception?> {
+        return handlers.map { handler ->
             val dispatch = suspend { handler.handle(message) }
 
             when (errorStrategy) {
@@ -114,55 +119,72 @@ class EventDispatcher(
                         } catch (e: Exception) {
                             handleFailure(message, handler, e)
                         }
+                        null
                     }
                 }
 
-                EventErrorStrategy.FAIL_FAST -> dispatch
+                EventErrorStrategy.FAIL_FAST -> {
+                    {
+                        dispatch()
+                        null
+                    }
+                }
+
                 EventErrorStrategy.CONTINUE_AND_AGGREGATE -> {
                     {
                         @Suppress("TooGenericExceptionCaught")
                         try {
                             dispatch()
+                            null
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
-                            aggregatedExceptions.add(e)
+                            e
                         }
-
-                        if (index == handlers.lastIndex && aggregatedExceptions.isNotEmpty())
-                            throw AggregateException(aggregatedExceptions)
                     }
                 }
             }
         }
     }
 
+    /**
+     * Aggregation happens here, once, after every handler has run — not via a last-index sentinel
+     * inside the per-handler closures, which raced under [EventConcurrency.CONCURRENT] (the
+     * lexically-last handler can finish before an earlier one throws, and a shared mutable list is
+     * unsafe across concurrently-running coroutines).
+     */
     private fun dispatchHandlersWithConcurrency(
         concurrency: EventConcurrency,
-        dispatchHandlersWithErrorHandling: List<suspend () -> Unit>,
+        handlerDispatchFunctions: List<suspend () -> Exception?>,
         phase: DispatchPhase?,
         errorStrategy: EventErrorStrategy,
     ): suspend () -> Unit = {
-        when (concurrency) {
-            EventConcurrency.SEQUENTIAL -> {
-                dispatchHandlersWithErrorHandling.forEach { dispatchHandler -> dispatchHandler() }
+        val exceptions =
+            when (concurrency) {
+                EventConcurrency.SEQUENTIAL -> handlerDispatchFunctions.map { it() }
+                EventConcurrency.CONCURRENT ->
+                    dispatchConcurrently(phase, errorStrategy, handlerDispatchFunctions)
             }
-            EventConcurrency.CONCURRENT -> {
-                dispatchConcurrently(phase, errorStrategy, dispatchHandlersWithErrorHandling)
-            }
+
+        if (errorStrategy == EventErrorStrategy.CONTINUE_AND_AGGREGATE) {
+            val aggregated = exceptions.filterNotNull()
+            if (aggregated.isNotEmpty()) throw AggregateException(aggregated)
         }
     }
 
     private suspend fun dispatchConcurrently(
         phase: DispatchPhase?,
         errorStrategy: EventErrorStrategy,
-        handlerDispatchFunctions: List<suspend () -> Unit>,
-    ) {
-        if (
+        handlerDispatchFunctions: List<suspend () -> Exception?>,
+    ): List<Exception?> {
+        return if (
             phase in listOf(null, DispatchPhase.POST_COMMIT) &&
                 errorStrategy === EventErrorStrategy.FIRE_AND_FORGET
         ) {
             handlerDispatchFunctions.forEach { dispatchHandler ->
                 dispatcherScope.launch { dispatchHandler() }
             }
+            emptyList()
         } else {
             coroutineScope {
                 handlerDispatchFunctions

@@ -435,6 +435,21 @@ class SucceedingContinueAndAggregateHandler(
     }
 }
 
+/** Throws after [delayMs], so a fast, non-delaying, later-indexed handler can finish first. */
+class DelayingThrowingContinueAndAggregateHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
+
+    override suspend fun handle(message: TestContinueAndAggregateEvent) {
+        delay(delayMs.milliseconds)
+        results.add("threw:$label")
+        throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
+    }
+}
+
 class ThrowingContinueAndAggregateAtEndOfTransactionHandler(
     private val results: MutableList<String>,
     private val label: String,

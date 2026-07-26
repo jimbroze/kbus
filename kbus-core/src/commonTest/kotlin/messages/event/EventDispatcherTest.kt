@@ -15,6 +15,7 @@ import com.jimbroze.kbus.core.fixtures.DelayingSequentialAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
+import com.jimbroze.kbus.core.fixtures.DelayingThrowingContinueAndAggregateHandler
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
@@ -420,6 +421,23 @@ class EventDispatcherTest {
         assertEquals(listOf("threw:first", "success:second", "threw:third"), env.results)
         assertEquals(2, exception.exceptions.size)
     }
+
+    @Test
+    fun continue_and_aggregate_aggregates_even_when_the_last_handler_finishes_before_an_earlier_one_throws() =
+        runTest {
+            val env = TestEnv(this)
+            env.withDomainHandlers(
+                DelayingThrowingContinueAndAggregateHandler(env.results, 100, "first"),
+                SucceedingContinueAndAggregateHandler(env.results, "second"),
+            )
+            val exception =
+                assertFailsWith<AggregateException> {
+                    env.dispatch(TestContinueAndAggregateEvent("test"))
+                }
+
+            assertEquals(listOf("success:second", "threw:first"), env.results)
+            assertEquals(1, exception.exceptions.size)
+        }
 
     @Test
     fun continue_and_aggregate_does_not_throw_when_all_handlers_succeed() = runTest {
