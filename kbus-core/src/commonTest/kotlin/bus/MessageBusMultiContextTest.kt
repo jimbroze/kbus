@@ -303,7 +303,9 @@ class MessageBusMultiContextTest {
         realDelay(400)
 
         // The whole entry stays unpublished, so the poller re-routes it to *every* context and the
-        // healthy one re-dispatches each cycle. Per-destination ack is a Stage 3 concern.
+        // healthy one re-dispatches each cycle. This bus configures no inbox — see
+        // MessageBusInboxTest.aFailingContextIsRetriedAlone_theOutboxEntryIsAckedAndHealthyContextsDispatchOnce
+        // for what an inbox buys.
         assertTrue(failedAttempts.size >= 2, "expected the poller to retry: $failedAttempts")
         assertTrue(
             healthyReceived.size >= 2,

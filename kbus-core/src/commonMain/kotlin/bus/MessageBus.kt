@@ -22,6 +22,8 @@ import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.LocatorSubscriptions
+import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -45,6 +47,7 @@ interface IMessageBus {
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult
 }
 
+@Suppress("LongParameterList")
 abstract class BaseMessageBus(
     protected val handlerLocator: HandlerLocator,
     transactionManager: TransactionManager?,
@@ -52,6 +55,7 @@ abstract class BaseMessageBus(
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
     contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+    inbox: InboxConfig? = null,
 ) : IMessageBus {
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
     protected val rootScope =
@@ -70,6 +74,13 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
+    private val inboxScope =
+        CoroutineScope(
+            rootScope.coroutineContext +
+                SupervisorJob(parent = rootJob) +
+                Dispatchers.Default +
+                CoroutineName("KBus-Inbox")
+        )
     /**
      * One [BoundedContext] per identity, each dispatching integration events to its own handler
      * slice. Empty ⇒ a single [BoundedContextId.DEFAULT] context over the bus's shared locator.
@@ -82,7 +93,8 @@ abstract class BaseMessageBus(
                 BoundedContext(id, LocatorSubscriptions(locator), locator) { eventDispatcher }
             }
 
-    private val router = EventRouter(boundedContexts)
+    private val inboxCoordinator = InboxCoordinator(inbox, boundedContexts, inboxScope)
+    private val router = EventRouter(inboxCoordinator.destinations)
     private val directPublisher = DirectPublisher(router)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
     private val integrationEventPublisherFactory =
@@ -116,13 +128,18 @@ abstract class BaseMessageBus(
 
     /** True when this bus has background work that only [start] can set running. */
     private val requiresStart: Boolean
-        get() = outboxCoordinator.isEnabled || middlewares.any { it is LifecycleAwareMiddleware }
+        get() =
+            outboxCoordinator.isEnabled ||
+                inboxCoordinator.isEnabled ||
+                middlewares.any { it is LifecycleAwareMiddleware }
 
     /**
-     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then the
-     * outbox poller if one is configured. A no-op on a bus with neither. Idempotent — calling this
-     * more than once has no further effect. Must be called before [execute]/[fetch] on a bus with
-     * background work (see [requiresStart]); there is no restart after [stop].
+     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then any
+     * inbox pumps, then the outbox poller if one is configured — consumers before producers, so a
+     * pre-existing backlog is already draining when the poller's first tick lands. A no-op on a bus
+     * with none of these. Idempotent — calling this more than once has no further effect. Must be
+     * called before [execute]/[fetch] on a bus with background work (see [requiresStart]); there is
+     * no restart after [stop].
      */
     fun start() {
         if (lifecycle != Lifecycle.NEW) return
@@ -143,6 +160,7 @@ abstract class BaseMessageBus(
             }
         }
 
+        inboxCoordinator.startConsuming()
         outboxCoordinator.startPolling()
     }
 
@@ -165,8 +183,8 @@ abstract class BaseMessageBus(
 
     private fun checkStarted() =
         check(!requiresStart || lifecycle == Lifecycle.STARTED) {
-            "This bus has background work (an outbox and/or lifecycle-aware middleware) and must " +
-                "be started with start() before dispatching messages."
+            "This bus has background work (an outbox, an inbox, and/or lifecycle-aware " +
+                "middleware) and must be started with start() before dispatching messages."
         }
 
     override suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -199,6 +217,7 @@ abstract class BaseMessageBus(
 }
 
 // TODO change KSP to use extension functions?
+@Suppress("LongParameterList")
 class MessageBus(
     handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = EmptyTransactionManager(),
@@ -206,4 +225,14 @@ class MessageBus(
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
     contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope, outbox, contexts)
+    inbox: InboxConfig? = null,
+) :
+    BaseMessageBus(
+        handlerLocator,
+        transactionManager,
+        middlewares,
+        rootScope,
+        outbox,
+        contexts,
+        inbox,
+    )
