@@ -10,7 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-class ProcessingContextModuleIdentityTest {
+class ProcessingContextBoundedContextIdentityTest {
     private val event = ClassName("com.example", "OrderPlaced")
 
     private fun integrationHandler(handlerName: String, module: String) =
@@ -39,7 +39,7 @@ class ProcessingContextModuleIdentityTest {
         val context = ProcessingContext()
         context.tryAddHandler(integrationHandler("OrdersHandler", "orders"))
 
-        // Same handler class, different module identity — still the same handler.
+        // Same handler class, different bounded context identity — still the same handler.
         val result = context.tryAddHandler(integrationHandler("OrdersHandler", "inventory"))
 
         assertIs<ConflictPolicy.Result.ExactDuplicate>(result)
@@ -47,7 +47,7 @@ class ProcessingContextModuleIdentityTest {
     }
 
     @Test
-    fun anUnassignedModuleIdentityIsTheEmptyString() {
+    fun anUnassignedBoundedContextIdentityIsTheEmptyString() {
         val handlerData =
             HandlerData(ClassName("com.example", "RootHandler"), event, UNIT, emptyList())
 

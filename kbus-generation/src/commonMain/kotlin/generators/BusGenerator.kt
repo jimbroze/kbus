@@ -85,9 +85,9 @@ class BusGenerator(
     }
 
     /**
-     * The bounded contexts this bus wires up: every distinct module identity stamped on an
-     * integration event handler, plus the default context, which owns every handler whose producing
-     * module declared no identity.
+     * The bounded contexts this bus wires up: every distinct identity stamped on an integration
+     * event handler, plus the default context, which owns every handler whose producing module
+     * declared none.
      */
     private fun contextIdentities(handlers: Set<HandlerDefinition>): List<String> {
         val modules =

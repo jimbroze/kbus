@@ -43,8 +43,8 @@ annotation class HandlerInfo(
     val topLevelDependencies: Array<String>,
     /**
      * The bounded context this handler belongs to, stamped by the producing module's KSP run from
-     * the `kbus.moduleIdentity` build arg. `""` means unassigned — folded into the default context,
-     * and deliberately distinct from a context literally named "default".
+     * the `kbus.boundedContextIdentity` build arg. `""` means unassigned — folded into the default
+     * context, and deliberately distinct from a context literally named "default".
      */
     val module: String = "",
 )

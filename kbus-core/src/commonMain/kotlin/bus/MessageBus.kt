@@ -71,9 +71,9 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Outbox")
         )
     /**
-     * One bounded context per module identity, each dispatching integration events to its own
-     * handler slice. Empty ⇒ a single [ModuleId.DEFAULT] context over the bus's shared locator.
-     * Commands, queries and domain events resolve through [handlerLocator] regardless.
+     * One [BoundedContext] per identity, each dispatching integration events to its own handler
+     * slice. Empty ⇒ a single [ModuleId.DEFAULT] context over the bus's shared locator. Commands,
+     * queries and domain events resolve through [handlerLocator] regardless.
      */
     private val boundedContexts: List<BoundedContext> =
         contexts

@@ -37,7 +37,7 @@ private const val LOADED_INTEGRATION_EVENT_HANDLERS_NAME = "LoadedIntegrationEve
 private const val AUTO_PUBLISH_REGISTRATIONS_NAME = "GeneratedAutoPublishRegistrations"
 
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
-private const val MODULE_IDENTITY_KEY = "kbus.moduleIdentity"
+private const val BOUNDED_CONTEXT_IDENTITY_KEY = "kbus.boundedContextIdentity"
 private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
 
 class ContainerProcessorProvider : SymbolProcessorProvider {
@@ -47,7 +47,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
 
         return KbusProcessor(
             environment.logger,
-            HandlerFactory(environment.logger, dependencyFactory, config.moduleIdentity),
+            HandlerFactory(environment.logger, dependencyFactory, config.boundedContextIdentity),
             IndexParser(environment.logger),
             AutoPublishFactory(environment.logger),
             createGenerators(environment, config),
@@ -133,8 +133,8 @@ private class KBusProcessorConfig(private val environment: SymbolProcessorEnviro
      * This Gradle module's bounded context identity — orthogonal to [MODULE_NAME_KEY]: a bounded
      * context often spans several Gradle modules, which are separate submodules but one identity.
      */
-    val moduleIdentity: String
-        get() = environment.options[MODULE_IDENTITY_KEY].orEmpty()
+    val boundedContextIdentity: String
+        get() = environment.options[BOUNDED_CONTEXT_IDENTITY_KEY].orEmpty()
 
     val indexPackagePath: String
         get() {

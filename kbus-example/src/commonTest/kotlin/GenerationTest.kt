@@ -191,12 +191,12 @@ class GenerationTest {
     }
 
     /**
-     * `kbus-example` is a root module with its own handlers and no `kbus.moduleIdentity`, so its
-     * integration handlers land in the default context. This is the regression guard for the
+     * `kbus-example` is a root module with its own handlers and no `kbus.boundedContextIdentity`,
+     * so its integration handlers land in the default context. This is the regression guard for the
      * unassigned-identity path.
      */
     @Test
-    fun test_root_module_handlers_without_a_module_identity_land_in_the_default_context() =
+    fun test_root_module_handlers_without_a_bounded_context_identity_land_in_the_default_context() =
         runTest {
             val bus =
                 CompileTimeLoadedMessageBus(
@@ -224,8 +224,8 @@ class GenerationTest {
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
             )
 
-        // Each submodule declares its own kbus.moduleIdentity, so the generated bus exposes one
-        // registration point per bounded context instead of a single ambiguous mapper.
+        // Each submodule declares its own kbus.boundedContextIdentity, so the generated bus
+        // exposes one registration point per bounded context instead of a single ambiguous mapper.
         bus.orders.addEventHandlers(
             OrderPlacedIntegration::class,
             listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
