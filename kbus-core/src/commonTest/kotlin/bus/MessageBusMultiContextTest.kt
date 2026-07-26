@@ -325,8 +325,10 @@ private class MarkRecordingOutboxStore : OutboxStore {
 
     override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> = entries.take(limit)
 
+    // Idempotent, like a real store: re-marking an already-published id is a no-op, not a second
+    // entry — see RecordingOutboxStore.
     override suspend fun markPublished(ids: List<String>) {
-        markedPublished.addAll(ids)
+        ids.forEach { if (it !in markedPublished) markedPublished.add(it) }
         entries.removeAll { it.id in ids }
     }
 }

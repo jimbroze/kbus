@@ -10,6 +10,8 @@ class RecordingOutboxStore : OutboxStore {
     var saveFailure: Throwable? = null
     var fetchFailure: Throwable? = null
 
+    private val published = mutableSetOf<String>()
+
     override suspend fun save(entries: List<EventEnvelope>) {
         saveFailure?.let { throw it }
         saved.addAll(entries)
@@ -18,11 +20,13 @@ class RecordingOutboxStore : OutboxStore {
     override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> {
         fetchLimits.add(limit)
         fetchFailure?.let { throw it }
-        val publishedIds = markedPublished.toSet()
-        return saved.filterNot { it.id in publishedIds }.take(limit)
+        return saved.filterNot { it.id in published }.take(limit)
     }
 
+    // Idempotent, like a real store: re-marking an already-published id (e.g. the opportunistic
+    // drain and the poller both winning a race for the same envelope) is a no-op, not a second
+    // entry.
     override suspend fun markPublished(ids: List<String>) {
-        markedPublished.addAll(ids)
+        ids.forEach { if (published.add(it)) markedPublished.add(it) }
     }
 }
