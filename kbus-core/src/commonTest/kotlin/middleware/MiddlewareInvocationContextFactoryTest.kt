@@ -29,7 +29,10 @@ class MiddlewareInvocationContextFactoryTest {
                 TestUnitOfWork<Any?>(),
             )
         val invocation = testInvocation<Any?>(publisher = outbox)
-        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
+        val factory =
+            MiddlewareInvocationContextFactory(
+                noOutboxPublisherFactory(backgroundScope, basePublisher)
+            )
 
         assertEquals(outbox, factory.contextFor(invocation).integrationEventPublisher)
     }
@@ -38,7 +41,10 @@ class MiddlewareInvocationContextFactoryTest {
     fun contextFor_an_invocation_using_the_base_publisher_exposes_it() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val invocation = testInvocation<Any?>(publisher = basePublisher)
-        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
+        val factory =
+            MiddlewareInvocationContextFactory(
+                noOutboxPublisherFactory(backgroundScope, basePublisher)
+            )
 
         assertEquals(basePublisher, factory.contextFor(invocation).integrationEventPublisher)
     }
@@ -46,14 +52,21 @@ class MiddlewareInvocationContextFactoryTest {
     @Test
     fun contextFor_null_exposes_the_base_publisher() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
-        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
+        val factory =
+            MiddlewareInvocationContextFactory(
+                noOutboxPublisherFactory(backgroundScope, basePublisher)
+            )
 
         assertEquals(basePublisher, factory.contextFor(null).integrationEventPublisher)
     }
 
     @Test
     fun contextFor_null_withAnOutboxConfigured_exposesTheImmediateOutboxPublisher() = runTest {
-        val publishers = TestPublisherFactories(outboxConfig = OutboxConfig(RecordingOutboxStore()))
+        val publishers =
+            TestPublisherFactories(
+                backgroundScope,
+                outboxConfig = OutboxConfig(RecordingOutboxStore()),
+            )
         val factory = publishers.contextFactory
 
         assertIs<ImmediateOutboxPublisher>(factory.contextFor(null).integrationEventPublisher)
@@ -71,7 +84,10 @@ class MiddlewareInvocationContextFactoryTest {
             )
         val invocationWithOutbox = testInvocation<Any?>(publisher = outbox)
         val invocationWithoutOutbox = testInvocation<Any?>(publisher = basePublisher)
-        val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
+        val factory =
+            MiddlewareInvocationContextFactory(
+                noOutboxPublisherFactory(backgroundScope, basePublisher)
+            )
 
         val firstPublisher = factory.contextFor(invocationWithOutbox).integrationEventPublisher
         val secondPublisher = factory.contextFor(invocationWithoutOutbox).integrationEventPublisher

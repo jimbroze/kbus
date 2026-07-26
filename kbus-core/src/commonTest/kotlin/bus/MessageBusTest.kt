@@ -32,6 +32,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -210,7 +212,14 @@ class MessageBusTest {
             listOf(DelayingStorageEventHandler::class),
         )
 
-        val appScope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        // A *child* of backgroundScope — not a share of its context, which would reuse its Job and
+        // make the cancel below tear down backgroundScope itself — so teardown cancels whatever the
+        // bus launched even if the assertions below fail.
+        val appScope =
+            CoroutineScope(
+                SupervisorJob(backgroundScope.coroutineContext[Job]) +
+                    StandardTestDispatcher(testScheduler)
+            )
         val bus = MessageBus(locator, appScope = appScope)
         val list = mutableListOf<String>()
 

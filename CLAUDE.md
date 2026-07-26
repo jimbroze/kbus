@@ -17,6 +17,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Always format code and check static analysis after making changes.
 
+**Detekt type resolution is currently broken for this project (detekt 1.23.x).** The
+`detektJvmMain`/`detektJvmTest` tasks (the only ones with type resolution, required for
+type-aware rules like `ForbiddenMethodCall`) source from `compilation.kotlinSourceSets`, which
+does not pull in `commonMain`/`commonTest` transitively — since this project has no
+`src/jvmMain`/`src/jvmTest` directories, those tasks silently report `NO-SOURCE` and never
+analyze anything. The plain `detekt` task (`source.from("src")` in `build.gradle.kts`) works but
+has no type resolution. Detekt 2.0 fixes the source-set wiring (types are analyzed via the Kotlin
+Analysis API and tasks are generated per compilation with type resolution "wired up
+automatically") but is a breaking Gradle-plugin migration, not a drop-in bump — worth doing as
+its own follow-up before relying on any type-aware detekt rule.
+
 ## Project Overview
 
 KBUS is a Kotlin Multiplatform CQRS message bus framework. It routes Commands, Queries, and Events to their handlers,
@@ -322,6 +333,17 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Unit tests should be isolated and atomic. Wherever possible, tests should avoid requiring implicit knowledge that
   other tests have checked. If one test asserts something, another test does not need to assert the same thing.
 - Use `testDoubles` for test fixtures with no dependencies on other kbus modules.
+- **Every `CoroutineScope` built in test code must be parented to `backgroundScope`** — enforced by the
+  `checkNoLeakedTestScopes` Gradle task (wired into `check`). A scope with no such parentage is never cancelled at
+  teardown, so anything launched into it (a bus, `startPolling`/`startConsuming`) outlives the test: invisible on
+  JVM/Native, but a 20+ minute CI hang on Node, which won't exit while a timer is pending. Use `backgroundScope`
+  directly, or `CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + Dispatchers.Default)` when the
+  test genuinely needs a real dispatcher rather than `runTest`'s virtual one — note that
+  `CoroutineScope(backgroundScope.coroutineContext + …)` *shares* `backgroundScope`'s `Job` rather than parenting to it,
+  so cancelling the result would cancel `backgroundScope` itself. Test helpers and fixtures **take a scope as a
+  parameter** rather
+  than building one — a fixture-owned scope leaks into every test that uses it, which is why the check has no exempt
+  directory and no opt-out marker.
 
 ## Process
 

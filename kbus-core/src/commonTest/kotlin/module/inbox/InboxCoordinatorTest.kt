@@ -34,7 +34,7 @@ class InboxCoordinatorTest {
                 locator::handlersFor,
                 emptyList(),
                 dispatcherScope,
-                contextFactory = emptyContextFactory(),
+                contextFactory = emptyContextFactory(dispatcherScope),
             )
         return BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
     }
@@ -189,7 +189,7 @@ class InboxCoordinatorTest {
                 locator::handlersFor,
                 emptyList(),
                 dispatcherScope,
-                contextFactory = emptyContextFactory(),
+                contextFactory = emptyContextFactory(dispatcherScope),
             )
         return BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
     }

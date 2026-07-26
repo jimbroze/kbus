@@ -35,7 +35,7 @@ class BoundedContextTest {
                 locator::handlersFor,
                 emptyList(),
                 dispatcherScope,
-                contextFactory = emptyContextFactory(),
+                contextFactory = emptyContextFactory(dispatcherScope),
             )
         return BoundedContext(
             BoundedContextId.DEFAULT,
