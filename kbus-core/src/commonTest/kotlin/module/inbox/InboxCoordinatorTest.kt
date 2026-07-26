@@ -90,19 +90,17 @@ class InboxCoordinatorTest {
     @Test
     fun startConsuming_withNoConfig_launchesNothing() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
-        val scope = CoroutineScope(Job())
-        val coordinator = InboxCoordinator(null, listOf(alpha), scope)
+        val coordinator = InboxCoordinator(null, listOf(alpha), backgroundScope)
 
         coordinator.startConsuming()
 
-        assertTrue(scope.coroutineContext[Job]!!.children.toList().isEmpty())
+        assertTrue(backgroundScope.coroutineContext[Job]!!.children.toList().isEmpty())
     }
 
     @Test
     fun startConsuming_launchesOnePumpPerInbox() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val beta = context(BoundedContextId("beta"), this)
-        val scope = CoroutineScope(Job())
         val config =
             InboxConfig(
                 stores =
@@ -111,24 +109,23 @@ class InboxCoordinatorTest {
                         BoundedContextId("beta") to RecordingInboxStore(),
                     )
             )
-        val coordinator = InboxCoordinator(config, listOf(alpha, beta), scope)
+        val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
 
         coordinator.startConsuming()
 
-        assertEquals(2, scope.coroutineContext[Job]!!.children.toList().size)
+        assertEquals(2, backgroundScope.coroutineContext[Job]!!.children.toList().size)
     }
 
     @Test
     fun startConsuming_calledTwice_runsOnlyOnePumpPerInbox() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
-        val scope = CoroutineScope(Job())
         val config = InboxConfig(stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()))
-        val coordinator = InboxCoordinator(config, listOf(alpha), scope)
+        val coordinator = InboxCoordinator(config, listOf(alpha), backgroundScope)
 
         coordinator.startConsuming()
         coordinator.startConsuming()
 
-        assertEquals(1, scope.coroutineContext[Job]!!.children.toList().size)
+        assertEquals(1, backgroundScope.coroutineContext[Job]!!.children.toList().size)
     }
 
     @Test
