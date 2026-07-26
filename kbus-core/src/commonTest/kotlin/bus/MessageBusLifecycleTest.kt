@@ -1,13 +1,22 @@
 package com.jimbroze.kbus.core.bus
 
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
+import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.domain.event.DispatchTiming
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -17,9 +26,12 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -198,4 +210,129 @@ class MessageBusLifecycleTest {
 
             assertTrue(result.isSuccess)
         }
+
+    /**
+     * The post-commit domain handler is launched detached (`eventDispatcherScope.launch`) rather
+     * than awaited by `execute()`, so without the grace period `stop()`'s `rootJob.cancelAndJoin()`
+     * would cancel it mid-flight and lose it silently. `withContext(Dispatchers.Default)` around
+     * `stop()` puts a *real* dispatcher in the ambient coroutine context so its internal
+     * `withTimeoutOrNull(gracePeriod)` measures real time — under `runTest`'s virtual clock alone
+     * it would resolve near-instantly without giving the real background handler a chance to run.
+     */
+    @Test
+    fun stop_awaitsAnInFlightDetachedPostCommitHandler_withinTheGracePeriod() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        stores.commandStore.registerHandlers(
+            PublishLifecycleDomainEventCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishLifecycleDomainEventCommandHandler::class) { deps ->
+                    PublishLifecycleDomainEventCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+        val received = mutableListOf<String>()
+        stores.eventStore.registerHandlers(
+            LifecycleDomainEvent::class,
+            listOf(
+                EventHandlerFactory(DelayingAfterTransactionHandler::class) {
+                    DelayingAfterTransactionHandler(received, 100)
+                }
+            ),
+        )
+        locator.domainEventMapper.addDomainHandlers(
+            LifecycleDomainEvent::class,
+            listOf(DelayingAfterTransactionHandler::class),
+        )
+
+        val bus = MessageBus(locator, rootScope = backgroundScope)
+        bus.start()
+
+        bus.execute(PublishLifecycleDomainEventCommand("event"))
+        assertTrue(received.isEmpty(), "the handler is launched detached, not awaited by execute()")
+
+        withContext(Dispatchers.Default) { bus.stop(500.milliseconds) }
+
+        assertEquals(listOf("event"), received)
+    }
+
+    @Test
+    fun stop_doesNotBlockPastTheGracePeriodForAHandlerThatNeverCompletes() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        stores.commandStore.registerHandlers(
+            PublishLifecycleDomainEventCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishLifecycleDomainEventCommandHandler::class) { deps ->
+                    PublishLifecycleDomainEventCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+        val started = CompletableDeferred<Unit>()
+        stores.eventStore.registerHandlers(
+            LifecycleDomainEvent::class,
+            listOf(
+                EventHandlerFactory(NeverCompletingAfterTransactionHandler::class) {
+                    NeverCompletingAfterTransactionHandler(started)
+                }
+            ),
+        )
+        locator.domainEventMapper.addDomainHandlers(
+            LifecycleDomainEvent::class,
+            listOf(NeverCompletingAfterTransactionHandler::class),
+        )
+
+        val bus = MessageBus(locator, rootScope = backgroundScope)
+        bus.start()
+
+        bus.execute(PublishLifecycleDomainEventCommand("event"))
+        withContext(Dispatchers.Default) { started.await() }
+
+        val mark = TimeSource.Monotonic.markNow()
+        withContext(Dispatchers.Default) { bus.stop(100.milliseconds) }
+        val elapsed = mark.elapsedNow()
+
+        assertTrue(elapsed < 3.seconds, "stop() must not block past the grace period: $elapsed")
+    }
+}
+
+private class LifecycleDomainEvent(val message: String) : DomainEvent()
+
+private class PublishLifecycleDomainEventCommand(val message: String) :
+    Command<BusResult<Unit, MessageFailure>>()
+
+private class PublishLifecycleDomainEventCommandHandler(
+    private val domainEventPublisher: DomainEventPublisher
+) : CommandHandler<PublishLifecycleDomainEventCommand, BusResult<Unit, MessageFailure>>() {
+    override suspend fun handle(
+        message: PublishLifecycleDomainEventCommand
+    ): BusResult<Unit, MessageFailure> {
+        domainEventPublisher.publish(LifecycleDomainEvent(message.message))
+        return BusResult.success(Unit)
+    }
+}
+
+/** Default errorStrategy (FireAndForget): detached via `eventDispatcherScope.launch`. */
+private class DelayingAfterTransactionHandler(
+    private val received: MutableList<String>,
+    private val delayMs: Long,
+) : DomainEventHandler<LifecycleDomainEvent>() {
+    override val dispatchTiming = DispatchTiming.AfterTransaction
+
+    override suspend fun handle(message: LifecycleDomainEvent) {
+        delay(delayMs.milliseconds)
+        received.add(message.message)
+    }
+}
+
+/** Signals [started] then suspends forever, to exercise stop()'s grace-period cutoff. */
+private class NeverCompletingAfterTransactionHandler(
+    private val started: CompletableDeferred<Unit>
+) : DomainEventHandler<LifecycleDomainEvent>() {
+    override val dispatchTiming = DispatchTiming.AfterTransaction
+
+    override suspend fun handle(message: LifecycleDomainEvent) {
+        started.complete(Unit)
+        awaitCancellation()
+    }
 }

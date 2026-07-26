@@ -31,6 +31,8 @@ import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import kotlin.reflect.KClass
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.withTimeoutOrNull
+
+private val DEFAULT_STOP_GRACE_PERIOD = 5.seconds
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -166,16 +172,30 @@ abstract class BaseMessageBus(
 
     /**
      * Stops this bus: calls each [LifecycleAwareMiddleware]'s
-     * [onStop][LifecycleAwareMiddleware.onStop], then cancels [rootJob] (and, with it, the outbox
-     * poller and every scope derived from it) and suspends until that cancellation completes. A
-     * no-op if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     * [onStop][LifecycleAwareMiddleware.onStop], then gives in-flight [eventDispatcherScope] work
+     * up to [gracePeriod] to finish before cancelling [rootJob] (and, with it, the outbox poller
+     * and every scope derived from it) and suspending until that cancellation completes. A no-op if
+     * [start] was never called. Terminal — a stopped bus cannot be restarted.
+     *
+     * The grace period is not the inbox's durability fix — an inboxed context already dispatches
+     * inline on its own pump coroutine, so a cancelled pump simply leaves its envelope unacked for
+     * the next start to retry, no draining required. What it buys completion for is the two
+     * remaining detached, non-durable paths: a post-commit domain fire-and-forget handler, and
+     * [DirectPublisher]'s launched fire-and-forget routing — both unawaited by the caller that
+     * triggered them, and both lost outright if [rootJob] is cancelled mid-flight. The outbox and
+     * inbox scopes are deliberately not drained here: they run pollers that should be cancelled
+     * promptly, and their work is durable and resumes on restart.
      */
-    suspend fun stop() {
+    suspend fun stop(gracePeriod: Duration = DEFAULT_STOP_GRACE_PERIOD) {
         if (lifecycle != Lifecycle.STARTED) return
         lifecycle = Lifecycle.STOPPED
 
         middlewares.forEach { middleware ->
             if (middleware is LifecycleAwareMiddleware) middleware.onStop()
+        }
+
+        withTimeoutOrNull(gracePeriod) {
+            eventDispatcherScope.coroutineContext[Job]!!.children.toList().joinAll()
         }
 
         rootJob.cancelAndJoin()
