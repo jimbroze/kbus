@@ -19,5 +19,10 @@ class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
 class HandleOrderPlacedIntegrationHandler : IntegrationEventHandler<OrderPlacedIntegration> {
     override suspend fun handle(message: OrderPlacedIntegration) {
         // Integration event consumed by external systems
+        timesHandled++
+    }
+
+    companion object {
+        var timesHandled = 0
     }
 }

@@ -61,6 +61,20 @@ when at least one `@LoadEvent`/`AutoPublishesFrom` opt-in exists) `generatedAuto
 Submodules (`isSubModule=true`) generate only a `DependencyIndex` with `@KbusIndex` metadata (including any
 auto-publish opt-ins) instead of full code.
 
+**Module identity.** `kbus.moduleIdentity` is a per-Gradle-module KSP build arg, orthogonal to
+`kbus.subModuleName` (a bounded context spans several Gradle modules — several `subModuleName`s, one
+`moduleIdentity`). It is stamped onto every `HandlerData` the producing module's KSP run creates,
+round-trips through `HandlerInfo.module` on `@KbusIndex`, and is **never inferred by the consumer** —
+that invariant is what would make a later `@KbusModule("…")` annotation a drop-in override rather than
+a rewrite. `""` means unassigned (folded into the default context) and is deliberately distinct from a
+context literally named `"default"`; `DependencyIndexGenerator` therefore always emits `module`,
+because `IndexParser.findArgument` errors on a missing *or* null value. Identity does not participate
+in `HandlerConflictPolicy` — cross-module command ownership is a later stage. `BusGenerator` groups
+`INTEGRATION` event handlers by identity and emits one `GenerationHandlerLocator` per context (all
+sharing the one `HandlerFactory`), passes them as `contexts` to the super-constructor, and exposes one
+`CompileTimeIntegrationEventMapper` accessor per context — `bus.orders`, `bus.default`. The bus-wide
+`integrationEventMapper` is **gone** (ambiguous with N contexts); `domainEventMapper` stays.
+
 ### Handler Locators
 
 - `GenerationHandlerLocator` — Uses KSP-generated factory (preferred)
@@ -102,9 +116,27 @@ publish through routing to delivery; its id — minted once, at the ingress boun
 
 `BoundedContext` (`kbus-core`, package `com.jimbroze.kbus.core.module`) is the local-dispatch
 `EventDestination` and the only destination today: it owns a handler slice and dispatches to it via
-`HandlerLocator` + `EventDispatcher`. A bus currently holds a single implicit `"default"` bounded
-context wrapping all of its handlers (`appliesTo` accepts everything); later stages split it per
-bounded context with derived subscription sets. `DirectPublisher` is
+`HandlerLocator` + `EventDispatcher`. A bus holds **one context per `ModuleId`**, passed as
+`contexts: Map<ModuleId, HandlerLocator>` on the bus constructor; empty ⇒ a single implicit
+`ModuleId.DEFAULT` context over the bus's shared locator (behaviour-preserving for non-modular apps).
+`appliesTo` is a real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the
+seam Stage 3's `DeclaredSubscriptions` drops into) with `LocatorSubscriptions` delegating to
+`HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so
+both locators answer from `PersistingEventMapper.hasMappingFor`. Laziness is an invariant, not an
+optimisation: handlers are commonly registered *after* the bus is constructed, so a construction-time
+snapshot would silently drop (and, with an inbox, fail to capture) everything that arrived first.
+Per-context locators are used for integration-event lookup **only** — commands, queries and domain
+events still resolve through `BaseMessageBus.handlerLocator`.
+
+Consequences of N contexts, all deliberate: the dispatch middleware chain runs **once per subscribing
+context** (a `Locker` acquires once per context, sequentially — `EventRouter.route` iterates
+destinations serially); an event **no** context subscribes to runs the chain **zero** times and is
+silently accepted and acked (with an outbox: `markPublished`, not retried forever); and `observe()` is
+unchanged — router-level, once per routing attempt, before fan-out. `observe` is a **bus-level
+diagnostic tap, not a subscription mechanism**; treating it as one would dissolve context isolation.
+One flaky context currently leaves the whole entry unpublished, so the poller re-routes to *every*
+context and healthy ones re-dispatch each cycle — per-destination ack is a Stage 3 (inbox) concern.
+`DirectPublisher` is
 the no-outbox `IntegrationEventPublisher` ingress — it mints envelopes and calls `router.route`
 immediately, with no durability. Bus wiring (`BaseMessageBus`): `BoundedContext` → `EventRouter` →
 `DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to

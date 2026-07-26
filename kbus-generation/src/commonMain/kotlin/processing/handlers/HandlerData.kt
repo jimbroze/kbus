@@ -9,6 +9,8 @@ data class HandlerData(
     val messageClass: ClassName,
     val returnType: TypeName,
     val topLevelDependencies: List<Dependency>,
+    /** Bounded context identity; `""` when the producing module declared none. */
+    val module: String = "",
 ) {
     val nameAsDependency: String
         get() = handlerClass.simpleName.replaceFirstChar { it.lowercase() }
