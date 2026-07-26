@@ -603,7 +603,10 @@ bus.stop() // or bus.stop(gracePeriod = 10.seconds)
 The grace period matters for two detached, non-durable paths that would otherwise be lost outright on a cancelled
 shutdown: a post-commit domain handler with the default `FireAndForget` strategy, and a `FireAndForget` integration
 event's routing. An [inboxed context](#per-context-inbox) doesn't need it — it already dispatches inline on its own
-pump coroutine, so a cancelled pump just leaves its envelope unacked for the next `start()` to pick up.
+pump coroutine, so a cancelled pump just leaves its envelope unacked for the next `start()` to pick up. The join is a
+snapshot taken when `stop()` is called, not a fixed point: a handler that itself launches further detached work during
+the grace period isn't guaranteed to be waited for, since it wasn't running yet when the snapshot was taken. The grace
+period bounds shutdown; it doesn't guarantee every detached hop completes.
 
 Restart is unsupported — cancelling the root job is terminal, so a `stop()`ped bus cannot be `start()`ed again.
 `stop()` before `start()` is a no-op.

@@ -20,6 +20,13 @@ import kotlinx.coroutines.launch
  * publish doesn't wait on it), every other strategy is routed and awaited so a destination failure
  * still propagates to the publishing caller.
  */
+/**
+ * [scope] defaults to a fresh, unparented `Dispatchers.Default` scope for the benefit of throwaway
+ * test wiring — [BaseMessageBus][com.jimbroze.kbus.core.bus.BaseMessageBus] always passes its own
+ * `eventDispatcherScope` explicitly. A `DirectPublisher` built with the default in a real bus would
+ * launch [FireAndForget][ErrorStrategy.FireAndForget] routing that `stop(gracePeriod)` can neither
+ * drain nor `rootJob.cancelAndJoin()` cancel — always pass the bus's scope outside of tests.
+ */
 class DirectPublisher(
     private val router: EventRouter,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),

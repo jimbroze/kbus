@@ -212,6 +212,64 @@ class MessageBusOutboxTest {
             assertEquals(listOf("via-middleware"), received)
         }
 
+    /**
+     * Pins the outbox half of the early-ack durability gap the FireAndForget dispatcher-level
+     * detach used to open: dispatch itself now awaits every handler before the poller (or drain)
+     * marks an entry published, for the default FireAndForget strategy too, not just FailFast.
+     */
+    @Test
+    fun aDefaultSettingsEventIsNotMarkedPublishedUntilItsHandlerCompletes() = runTest {
+        val store = InMemoryOutboxStore()
+        val stores = HandlerFactoryStoreCollection()
+        val received = mutableListOf<String>()
+        val gate = CompletableDeferred<Unit>()
+        val locator = PersistingHandlerLocator(stores)
+        stores.eventStore.registerHandlers(
+            OutboxImperativeEvent::class,
+            listOf(
+                EventHandlerFactory(GatedOutboxEventHandler::class) {
+                    GatedOutboxEventHandler(received, gate)
+                }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            OutboxImperativeEvent::class,
+            listOf(GatedOutboxEventHandler::class),
+        )
+        stores.commandStore.registerHandlers(
+            OutboxImperativeCommand::class,
+            listOf(
+                CommandHandlerFactory(OutboxImperativeCommandHandler::class) {
+                    OutboxImperativeCommandHandler()
+                }
+            ),
+        )
+
+        val bus =
+            MessageBus(
+                locator,
+                rootScope = backgroundScope,
+                outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
+            )
+        bus.start()
+        realDelay(50)
+
+        bus.execute(OutboxImperativeCommand("event"))
+        realDelay(100)
+
+        assertTrue(received.isEmpty(), "the handler is still suspended on the gate")
+        assertTrue(
+            store.fetchUnpublished(10).isNotEmpty(),
+            "must not be marked published while the handler is still running",
+        )
+
+        gate.complete(Unit)
+        realDelay(150)
+
+        assertEquals(listOf("event"), received)
+        assertTrue(store.fetchUnpublished(10).isEmpty())
+    }
+
     @Test
     fun middleware_published_event_on_a_successful_command_is_saved_in_transaction_and_delivered() =
         runTest {

@@ -185,6 +185,13 @@ abstract class BaseMessageBus(
      * triggered them, and both lost outright if [rootJob] is cancelled mid-flight. The outbox and
      * inbox scopes are deliberately not drained here: they run pollers that should be cancelled
      * promptly, and their work is durable and resumes on restart.
+     *
+     * The join is a one-shot snapshot of [eventDispatcherScope]'s children at the moment [stop] is
+     * called, not a fixed point: a handler that itself launches further detached work during the
+     * grace period (e.g. a fire-and-forget handler publishing a further fire-and-forget event) is
+     * not guaranteed to be joined, since it wasn't a child yet when the snapshot was taken. The
+     * grace period bounds how long shutdown waits; it does not guarantee every detached hop
+     * completes.
      */
     suspend fun stop(gracePeriod: Duration = DEFAULT_STOP_GRACE_PERIOD) {
         if (lifecycle != Lifecycle.STARTED) return
