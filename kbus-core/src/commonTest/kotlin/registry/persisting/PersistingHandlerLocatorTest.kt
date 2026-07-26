@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.registry.persisting
 
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
@@ -16,6 +17,7 @@ import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreColle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -201,5 +203,41 @@ class PersistingHandlerLocatorTest {
         assertIs<PrintEventHandler>(handlers1[0])
         assertIs<PrintEventHandler>(handlers2[0])
         assertTrue("Expected different instances") { handlers1[0] !== handlers2[0] }
+    }
+
+    @Test
+    fun hasHandlersFor_isTrueOnlyForAnEventWithRegisteredHandlers() {
+        val locator = createLocatorWithStorageEventHandlers()
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(PrintEventHandler::class),
+        )
+
+        assertTrue(locator.hasHandlersFor(StorageEvent("test", mutableListOf())))
+        assertFalse(locator.hasHandlersFor(OtherStorageEvent("test", mutableListOf())))
+    }
+
+    @Test
+    fun hasHandlersFor_doesNotInstantiateHandlers() {
+        var creations = 0
+        val stores = HandlerFactoryStoreCollection()
+        stores.eventStore.registerHandlers(
+            StorageEvent::class,
+            listOf(
+                EventHandlerFactory(PrintEventHandler::class) {
+                    creations++
+                    PrintEventHandler()
+                }
+            ),
+        )
+        val locator = PersistingHandlerLocator(stores)
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(PrintEventHandler::class),
+        )
+
+        locator.hasHandlersFor(StorageEvent("test", mutableListOf()))
+
+        assertEquals(0, creations)
     }
 }

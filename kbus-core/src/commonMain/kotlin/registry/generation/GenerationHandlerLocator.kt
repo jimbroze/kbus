@@ -35,6 +35,8 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
         return generationHandlerFactory.handlerFor(query)
     }
 
+    override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
+
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()

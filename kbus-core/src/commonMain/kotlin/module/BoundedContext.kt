@@ -10,16 +10,25 @@ import com.jimbroze.kbus.core.registry.HandlerLocator
  * The runtime object for one bounded context: it owns a slice of handlers and dispatches to them.
  *
  * A bounded context is the local-dispatch kind of [EventDestination] (external transports are other
- * destinations). Today a bus holds a single, implicit default context wrapping all of its handlers,
- * so [appliesTo] accepts everything; later stages split this per bounded context and derive a real
- * subscription set.
+ * destinations). A bus holds one context per module identity — each with its own [handlerLocator]
+ * slice — and [appliesTo] is the real subscription set derived from that slice, so a handler in one
+ * context never fires for another context's event. A bus configured with no contexts holds a single
+ * implicit [ModuleId.DEFAULT] context over all of its handlers.
+ *
+ * **Scope:** in this stage [handlerLocator] is used only for integration-event lookup
+ * ([HandlerLocator.handlersFor] / [HandlerLocator.hasHandlersFor]). Commands, queries and domain
+ * events still resolve through the bus's own shared locator — that is deliberate, not an oversight.
  */
 class BoundedContext(
-    override val name: String,
+    val id: ModuleId,
+    private val subscriptions: Subscriptions,
     private val handlerLocator: HandlerLocator,
     private val eventDispatcher: () -> EventDispatcher,
 ) : EventDestination {
-    override fun appliesTo(event: IntegrationEvent): Boolean = true
+    override val name: String
+        get() = id.value
+
+    override fun appliesTo(event: IntegrationEvent): Boolean = subscriptions.contains(event)
 
     override suspend fun deliver(envelopes: List<EventEnvelope>) {
         envelopes.forEach { envelope ->

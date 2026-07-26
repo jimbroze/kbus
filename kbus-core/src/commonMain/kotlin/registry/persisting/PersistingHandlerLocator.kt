@@ -57,6 +57,8 @@ class PersistingHandlerLocator(
         return factory.create() as QueryHandler<TQuery, TResult>
     }
 
+    override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
+
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()

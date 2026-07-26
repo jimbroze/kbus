@@ -40,6 +40,14 @@ class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
         }
     }
 
+    /**
+     * Whether any handler is registered for [eventClass], without creating a single handler
+     * instance. [DomainEvent] and [IntegrationEvent] are disjoint class hierarchies, so a lookup by
+     * an integration event's class can only ever match an integration registration.
+     */
+    fun hasMappingFor(eventClass: KClass<out Event>): Boolean =
+        mappings[eventClass]?.isNotEmpty() == true
+
     fun <TEvent : Event> handlerClassesFor(event: TEvent): List<KClass<EventHandler<TEvent>>> {
         @Suppress("UNCHECKED_CAST")
         return mappings[event::class]?.toList() as? List<KClass<EventHandler<TEvent>>>

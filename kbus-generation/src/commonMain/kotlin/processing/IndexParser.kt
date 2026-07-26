@@ -97,6 +97,7 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
             handlerInfoAnnotation.findArgument(HandlerInfo::topLevelDependencies)
         val typeOfHandler: HandlerType =
             handlerInfoAnnotation.findArgument(HandlerInfo::handlerType)
+        val module: String = handlerInfoAnnotation.findArgument(HandlerInfo::module)
 
         val messageClass = TypeResolver.resolveClassName(messageClassSignature)
         val handlerClass = TypeResolver.resolveClassName(handlerClassSignature)
@@ -105,7 +106,8 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
         val topLevelDependencies =
             topLevelDependenciesSignatures.map { allDependenciesBySignature.getValue(it) }
 
-        val handlerData = HandlerData(handlerClass, messageClass, returnType, topLevelDependencies)
+        val handlerData =
+            HandlerData(handlerClass, messageClass, returnType, topLevelDependencies, module)
 
         return createHandler(typeOfHandler, handlerData, logger)
     }

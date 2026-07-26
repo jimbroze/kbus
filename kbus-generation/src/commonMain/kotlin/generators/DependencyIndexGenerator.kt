@@ -129,6 +129,8 @@ class DependencyIndexGenerator(
                 "${HandlerInfo::topLevelDependencies.name} = [%L]",
                 topLevelDependencies(handler.handlerData.topLevelDependencies),
             )
+            // Always emitted: IndexParser errors on a missing or null annotation argument.
+            .addMember("${HandlerInfo::module.name} = %S", handler.handlerData.module)
             .build()
     }
 
