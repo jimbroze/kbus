@@ -52,6 +52,11 @@ interface IMessageBus {
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult
 }
 
+/**
+ * @param appScope the scope every bus-owned scope derives from. Its dispatcher is inherited, not
+ *   overridden, so a supplied dispatcher governs dispatch, outbox, inbox and middleware coroutines
+ *   too — a scope carrying none leaves them on [Dispatchers.Default].
+ */
 @Suppress("LongParameterList")
 abstract class BaseMessageBus(
     protected val handlerLocator: HandlerLocator,
@@ -69,21 +74,18 @@ abstract class BaseMessageBus(
         CoroutineScope(
             rootScope.coroutineContext +
                 SupervisorJob(parent = rootJob) +
-                Dispatchers.Default +
                 CoroutineName("KBus-EventDispatcher")
         )
     private val outboxScope =
         CoroutineScope(
             rootScope.coroutineContext +
                 SupervisorJob(parent = rootJob) +
-                Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
     private val inboxScope =
         CoroutineScope(
             rootScope.coroutineContext +
                 SupervisorJob(parent = rootJob) +
-                Dispatchers.Default +
                 CoroutineName("KBus-Inbox")
         )
     /**
@@ -157,7 +159,6 @@ abstract class BaseMessageBus(
                     CoroutineScope(
                         rootScope.coroutineContext +
                             SupervisorJob(parent = rootJob) +
-                            Dispatchers.Default +
                             CoroutineName("KBus-Middleware-$middlewareName")
                     )
 
@@ -266,7 +267,7 @@ class MessageBus(
     handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = EmptyTransactionManager(),
     middlewares: List<Middleware> = emptyList(),
-    rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
     contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
     inbox: InboxConfig? = null,
@@ -275,7 +276,7 @@ class MessageBus(
         handlerLocator,
         transactionManager,
         middlewares,
-        rootScope,
+        appScope,
         outbox,
         contexts,
         inbox,

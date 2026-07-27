@@ -944,7 +944,7 @@ The KSP processor generates:
 - **`AllHandlers`** — Interface with factory methods for every handler
 - **`HandlerFactory`** — Factory that creates handlers with their dependencies resolved
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
-  each message type
+  each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
 - **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every `@LoadEvent`
   integration event whose companion implements `AutoPublishesFrom` (only generated when at least one exists)
