@@ -292,9 +292,10 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   with no default), never inferred from context shape.
 - **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
   `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop(gracePeriod)` is
-  `suspend` and deterministic — it awaits in-flight dispatch up to a bounded grace period, then cancels and joins the
-  bus's root job regardless. Buses with none of these need no `start()` call — dispatch works immediately, at zero
-  ceremony.
+  `suspend` and deterministic — one grace period covers each middleware's `suspend onStop()` and then in-flight
+  dispatch, after which the root job is cancelled and joined regardless, itself under a bounded wait (cancellation is
+  cooperative and there is no hard kill, so an uncancellable coroutine must leak rather than hang shutdown). Buses with
+  none of these need no `start()` call — dispatch works immediately, at zero ceremony.
 
 ## Conventions
 

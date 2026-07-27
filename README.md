@@ -592,9 +592,10 @@ Calling `execute`/`fetch` on a bus that *does* have background work, before `sta
 `IllegalStateException` rather than silently running with that work never having started (e.g. an outbox that never
 polls).
 
-`stop()` is `suspend`: it calls each middleware's `onStop()`, then gives any in-flight dispatch up to `gracePeriod`
-(default 10 seconds) to finish before cancelling the bus's root job and waiting for that cancellation to complete — so
-shutdown is deterministic in tests and at application exit, and bounded even if a handler never completes.
+`stop()` is `suspend`: within one `gracePeriod` budget (default 10 seconds) it calls each middleware's suspending
+`onStop()` and then lets in-flight dispatch finish; it then cancels the bus's root job and waits, for at most another
+`gracePeriod`, for that cancellation to complete — so shutdown is deterministic in tests and at application exit, and
+bounded even if a handler never completes.
 
 ```kotlin
 bus.stop() // or bus.stop(gracePeriod = 30.seconds)
@@ -607,6 +608,13 @@ pump coroutine, so a cancelled pump just leaves its envelope unacked for the nex
 snapshot taken when `stop()` is called, not a fixed point: a handler that itself launches further detached work during
 the grace period isn't guaranteed to be waited for, since it wasn't running yet when the snapshot was taken. The grace
 period bounds shutdown; it doesn't guarantee every detached hop completes.
+
+`onStop()` is `suspend`, so a middleware with non-durable work in flight can await it there rather than have the scope
+from `onStart` cancelled from under it. The `onStop` calls and the dispatch drain share one budget, sequentially, so a
+middleware that suspends for the whole grace period starves the ones after it — the alternative, a budget per
+middleware, makes worst-case shutdown scale with how many there are. The wait for cancellation is bounded too, because
+cancellation is cooperative and there is no hard kill: a coroutine that never reaches a suspension point, or that
+suspends inside `NonCancellable`, is leaked rather than allowed to hang the application's exit.
 
 Restart is unsupported — cancelling the root job is terminal, so a `stop()`ped bus cannot be `start()`ed again.
 `stop()` before `start()` is a no-op.

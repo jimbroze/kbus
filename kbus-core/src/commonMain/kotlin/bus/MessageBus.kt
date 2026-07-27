@@ -38,7 +38,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withTimeoutOrNull
@@ -171,11 +170,22 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * Stops this bus: calls each [LifecycleAwareMiddleware]'s
-     * [onStop][LifecycleAwareMiddleware.onStop], then gives in-flight [eventDispatcherScope] work
-     * up to [gracePeriod] to finish before cancelling [rootJob] (and, with it, the outbox poller
-     * and every scope derived from it) and suspending until that cancellation completes. A no-op if
-     * [start] was never called. Terminal — a stopped bus cannot be restarted.
+     * Stops this bus: within one [gracePeriod] budget, calls each [LifecycleAwareMiddleware]'s
+     * [onStop][LifecycleAwareMiddleware.onStop] and then lets in-flight [eventDispatcherScope] work
+     * finish; then cancels [rootJob] (and, with it, the outbox poller and every scope derived from
+     * it) and waits, for at most another [gracePeriod], for that cancellation to complete. A no-op
+     * if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     *
+     * The `onStop` calls and the dispatch drain share one budget, sequentially: a middleware that
+     * suspends for the whole grace period starves the ones after it and the drain. That is
+     * deliberate — the alternative is a per-participant budget, which makes worst-case shutdown
+     * scale with the number of middlewares.
+     *
+     * The wait on cancellation is bounded because cancellation is cooperative and there is no hard
+     * kill: a coroutine that never reaches a suspension point, or that suspends inside
+     * `NonCancellable`, would otherwise block shutdown forever. Bounding it means such a coroutine
+     * leaks — orphaned but still running — rather than hanging the application's exit. The bus is
+     * already [Lifecycle.STOPPED] by then and dispatches nothing further.
      *
      * The grace period is not the inbox's durability fix — an inboxed context already dispatches
      * inline on its own pump coroutine, so a cancelled pump simply leaves its envelope unacked for
@@ -197,15 +207,16 @@ abstract class BaseMessageBus(
         if (lifecycle != Lifecycle.STARTED) return
         lifecycle = Lifecycle.STOPPED
 
-        middlewares.forEach { middleware ->
-            if (middleware is LifecycleAwareMiddleware) middleware.onStop()
-        }
-
         withTimeoutOrNull(gracePeriod) {
+            middlewares.forEach { middleware ->
+                if (middleware is LifecycleAwareMiddleware) middleware.onStop()
+            }
+
             eventDispatcherScope.coroutineContext[Job]!!.children.toList().joinAll()
         }
 
-        rootJob.cancelAndJoin()
+        rootJob.cancel()
+        withTimeoutOrNull(gracePeriod) { rootJob.join() }
     }
 
     private fun checkStarted() =

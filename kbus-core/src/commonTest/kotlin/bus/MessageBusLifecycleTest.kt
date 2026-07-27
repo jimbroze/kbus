@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.bus
 
+import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
@@ -8,6 +9,10 @@ import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
+import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
+import com.jimbroze.kbus.core.middleware.MiddlewareContext
+import com.jimbroze.kbus.core.middleware.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -24,6 +29,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -31,10 +37,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 
@@ -168,6 +176,35 @@ class MessageBusLifecycleTest {
         bus.stop()
 
         assertTrue(middleware.stopped)
+    }
+
+    @Test
+    fun stop_awaitsASuspendingOnStopWithinTheGracePeriod() = runTest {
+        val middleware = SuspendingStopMiddleware(onStopDelay = 50.milliseconds)
+        val bus = MessageBus(middlewares = listOf(middleware), rootScope = backgroundScope)
+
+        bus.start()
+        bus.stop()
+
+        assertTrue(middleware.stopCompleted, "stop() must await onStop, not just launch it")
+    }
+
+    /**
+     * A middleware whose background work suspends inside `NonCancellable` can never be cancelled,
+     * so an unbounded `rootJob.join()` would hang shutdown forever. The coroutine is deliberately
+     * leaked; what matters is that `stop()` returns.
+     */
+    @Test
+    fun stop_returnsWhenMiddlewareBackgroundWorkIgnoresCancellation() = runTest {
+        val middleware = UncancellableWorkMiddleware()
+        val bus = MessageBus(middlewares = listOf(middleware), rootScope = backgroundScope)
+
+        bus.start()
+        withContext(Dispatchers.Default) { middleware.started.await() }
+
+        bus.stop(100.milliseconds)
+
+        assertTrue(middleware.stopCompleted)
     }
 
     @Test
@@ -335,4 +372,50 @@ private class NeverCompletingAfterTransactionHandler(
         started.complete(Unit)
         awaitCancellation()
     }
+}
+
+private class SuspendingStopMiddleware(private val onStopDelay: Duration) :
+    LifecycleAwareMiddleware {
+    var stopCompleted = false
+        private set
+
+    override fun onStart(context: MiddlewareContext) = Unit
+
+    override suspend fun onStop() {
+        delay(onStopDelay)
+        stopCompleted = true
+    }
+
+    override suspend fun <TMessage : Message, TResult> handle(
+        message: TMessage,
+        context: MiddlewareInvocationContext,
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult = nextMiddleware(message)
+}
+
+/** Launches background work that cannot be cancelled, so `rootJob.join()` can never complete. */
+private class UncancellableWorkMiddleware : LifecycleAwareMiddleware {
+    val started = CompletableDeferred<Unit>()
+
+    var stopCompleted = false
+        private set
+
+    override fun onStart(context: MiddlewareContext) {
+        context.scope.launch {
+            withContext(NonCancellable) {
+                started.complete(Unit)
+                CompletableDeferred<Unit>().await()
+            }
+        }
+    }
+
+    override suspend fun onStop() {
+        stopCompleted = true
+    }
+
+    override suspend fun <TMessage : Message, TResult> handle(
+        message: TMessage,
+        context: MiddlewareInvocationContext,
+        nextMiddleware: MiddlewareHandler<TMessage, TResult>,
+    ): TResult = nextMiddleware(message)
 }

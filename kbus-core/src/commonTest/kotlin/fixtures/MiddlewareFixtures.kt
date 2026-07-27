@@ -67,7 +67,7 @@ class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycl
         startContext = context
     }
 
-    override fun onStop() {
+    override suspend fun onStop() {
         stopped = true
     }
 
