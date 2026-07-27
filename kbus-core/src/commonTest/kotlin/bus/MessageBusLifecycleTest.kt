@@ -32,7 +32,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -182,14 +181,21 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun stop_awaitsASuspendingOnStopWithinTheGracePeriod() = runTest {
-        val middleware = SuspendingStopMiddleware(onStopDelay = 50.milliseconds)
+    fun stop_suspendsUntilASuspendingOnStopCompletes() = runTest {
+        val middleware = GatedStopMiddleware()
         val bus = MessageBus(middlewares = listOf(middleware), rootScope = backgroundScope)
-
         bus.start()
-        bus.stop()
 
-        assertTrue(middleware.stopCompleted, "stop() must await onStop, not just launch it")
+        val stopping = launch { bus.stop() }
+        middleware.onStopEntered.await()
+
+        assertFalse(stopping.isCompleted, "stop() must not return while onStop is still suspended")
+        assertFalse(middleware.stopCompleted)
+
+        middleware.gate.complete(Unit)
+        stopping.join()
+
+        assertTrue(middleware.stopCompleted)
     }
 
     /**
@@ -489,15 +495,19 @@ private class NeverCompletingAfterTransactionHandler(
     }
 }
 
-private class SuspendingStopMiddleware(private val onStopDelay: Duration) :
-    LifecycleAwareMiddleware {
+/** Suspends inside [onStop] until [gate] completes, so a test can observe stop() waiting. */
+private class GatedStopMiddleware : LifecycleAwareMiddleware {
+    val onStopEntered = CompletableDeferred<Unit>()
+    val gate = CompletableDeferred<Unit>()
+
     var stopCompleted = false
         private set
 
     override fun onStart(context: MiddlewareContext) = Unit
 
     override suspend fun onStop() {
-        delay(onStopDelay)
+        onStopEntered.complete(Unit)
+        gate.await()
         stopCompleted = true
     }
 
