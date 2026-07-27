@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withTimeoutOrNull
 
-private val DEFAULT_STOP_GRACE_PERIOD = 5.seconds
+private val DEFAULT_STOP_GRACE_PERIOD = 10.seconds
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(

@@ -593,11 +593,11 @@ Calling `execute`/`fetch` on a bus that *does* have background work, before `sta
 polls).
 
 `stop()` is `suspend`: it calls each middleware's `onStop()`, then gives any in-flight dispatch up to `gracePeriod`
-(default 5 seconds) to finish before cancelling the bus's root job and waiting for that cancellation to complete — so
+(default 10 seconds) to finish before cancelling the bus's root job and waiting for that cancellation to complete — so
 shutdown is deterministic in tests and at application exit, and bounded even if a handler never completes.
 
 ```kotlin
-bus.stop() // or bus.stop(gracePeriod = 10.seconds)
+bus.stop() // or bus.stop(gracePeriod = 30.seconds)
 ```
 
 The grace period matters for two detached, non-durable paths that would otherwise be lost outright on a cancelled
