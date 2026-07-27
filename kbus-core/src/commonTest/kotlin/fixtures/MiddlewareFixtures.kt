@@ -24,7 +24,8 @@ object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
 
 /** Bundles the bus-owned factories over the same direct publisher, for test wiring. */
 class TestPublisherFactories(
-    directPublisher: DirectPublisher = DirectPublisher(EventRouter(emptyList())),
+    directPublisher: DirectPublisher =
+        DirectPublisher(EventRouter(emptyList()), CoroutineScope(Job())),
     outboxConfig: OutboxConfig? = null,
     router: EventRouter = EventRouter(emptyList()),
     outboxScope: CoroutineScope = CoroutineScope(Job()),
@@ -43,7 +44,8 @@ class TestPublisherFactories(
  * [directPublisher].
  */
 fun noOutboxPublisherFactory(
-    directPublisher: DirectPublisher = DirectPublisher(EventRouter(emptyList()))
+    directPublisher: DirectPublisher =
+        DirectPublisher(EventRouter(emptyList()), CoroutineScope(Job()))
 ): IntegrationEventPublisherFactory =
     IntegrationEventPublisherFactory(
         OutboxCoordinator(null, EventRouter(emptyList()), CoroutineScope(Job())),

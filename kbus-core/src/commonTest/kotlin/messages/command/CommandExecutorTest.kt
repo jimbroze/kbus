@@ -79,7 +79,7 @@ class CommandExecutorTest {
     @Test
     fun test_it_routes_dispatch_through_the_invocations_outbox_when_present() = runTest {
         val directDestination = RecordingDestination()
-        val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)))
+        val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)), this)
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
@@ -114,7 +114,7 @@ class CommandExecutorTest {
 
     @Test
     fun test_the_commands_middleware_context_resolves_to_the_invocations_outbox() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()

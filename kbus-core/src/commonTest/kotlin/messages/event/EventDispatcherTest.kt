@@ -766,7 +766,7 @@ class EventDispatcherTest {
     @Test
     fun dispatchIntegrationEvent_uses_the_base_publisher_context() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val dispatcher =
             EventDispatcher(
                 { emptyList() },

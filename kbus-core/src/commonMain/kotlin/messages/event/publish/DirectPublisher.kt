@@ -6,7 +6,6 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -19,18 +18,13 @@ import kotlinx.coroutines.launch
  * [ErrorStrategy.FireAndForget] group is launched on [scope] (the producer said it doesn't care, so
  * publish doesn't wait on it), every other strategy is routed and awaited so a destination failure
  * still propagates to the publishing caller.
+ *
+ * [scope] is required: [FireAndForget][ErrorStrategy.FireAndForget] routing launched on a scope the
+ * bus does not own is work that `stop(gracePeriod)` can neither drain nor `rootJob.cancelAndJoin()`
+ * cancel, so it must be the bus's own `eventDispatcherScope`.
  */
-/**
- * [scope] defaults to a fresh, unparented `Dispatchers.Default` scope for the benefit of throwaway
- * test wiring — [BaseMessageBus][com.jimbroze.kbus.core.bus.BaseMessageBus] always passes its own
- * `eventDispatcherScope` explicitly. A `DirectPublisher` built with the default in a real bus would
- * launch [FireAndForget][ErrorStrategy.FireAndForget] routing that `stop(gracePeriod)` can neither
- * drain nor `rootJob.cancelAndJoin()` cancel — always pass the bus's scope outside of tests.
- */
-class DirectPublisher(
-    private val router: EventRouter,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-) : IntegrationEventPublisher {
+class DirectPublisher(private val router: EventRouter, private val scope: CoroutineScope) :
+    IntegrationEventPublisher {
     override suspend fun publish(events: List<IntegrationEvent>) {
         val (fireAndForget, awaited) =
             events.partition { it.errorStrategy == ErrorStrategy.FireAndForget }
