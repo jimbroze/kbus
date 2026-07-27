@@ -173,7 +173,8 @@ class EventDispatcher(
     ): suspend () -> Unit = {
         val exceptions =
             when (concurrency) {
-                EventConcurrency.SEQUENTIAL -> handlerDispatchFunctions.map { it() }
+                EventConcurrency.SEQUENTIAL ->
+                    handlerDispatchFunctions.map { dispatchHandler -> dispatchHandler() }
                 EventConcurrency.CONCURRENT ->
                     dispatchConcurrently(phase, errorStrategy, handlerDispatchFunctions)
             }
