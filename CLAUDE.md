@@ -325,3 +325,7 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 ## Process
 
 - Always update README.md if adding or changing features
+- One logical change per commit. When a task covers several independent changes — separate review
+  comments, unrelated fixes, a rename alongside a behaviour change — commit each one on its own, even
+  when they land in the same session and touch the same files. Each commit should be revertable
+  without dragging the others with it.
