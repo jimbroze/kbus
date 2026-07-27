@@ -769,6 +769,7 @@ import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -787,10 +788,13 @@ val bus = MessageBus(
         BoundedContextId("inventory") to inventoryLocator,
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
-    inbox = InboxConfig(stores = mapOf(
-        BoundedContextId("orders") to InMemoryInboxStore(),
-        BoundedContextId("inventory") to InMemoryInboxStore(),
-    )),
+    inbox = InboxConfig(
+        stores = mapOf(
+            BoundedContextId("orders") to InMemoryInboxStore(),
+            BoundedContextId("inventory") to InMemoryInboxStore(),
+        ),
+        ackPolicy = InboxAckPolicy.HonourEventStrategy,
+    ),
 ).apply { start() }
 ```
 
@@ -818,7 +822,8 @@ separately:
 
 - **`errorStrategy`** (on the event) decides whether a handler's exception ever reaches the inbox at all.
 - **`ackPolicy`** (on `InboxConfig`, per bus) decides whether the inbox accepts a producer's `FireAndForget` "don't
-  care", or requires stronger guarantees than the producer declared.
+  care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer is a
+  safe default to pick on a consumer's behalf.
 
 Integration-event dispatch — at an inbox or anywhere else — always awaits its handlers before returning, regardless of
 `errorStrategy` or `concurrency`. There is no window where the inbox can ack before a handler has even started; the
@@ -843,7 +848,7 @@ InboxConfig(
 
 | `ackPolicy` | Effect |
 |---|---|
-| `HonourEventStrategy` (default) | Ack exactly as the table above — today's behaviour, unchanged. |
+| `HonourEventStrategy` | Ack exactly as the table above. |
 | `RequireHandlerSuccess` | A `FireAndForget` event is dispatched as if it were `ContinueAndAggregate`: a handler failure now leaves the envelope pending and is retried. `FailFast` and `ContinueAndAggregate` events are unaffected — they already retry on failure. |
 
 `ackPolicy` is per bus, not per event: it applies uniformly to every event flowing through that context's inbox,

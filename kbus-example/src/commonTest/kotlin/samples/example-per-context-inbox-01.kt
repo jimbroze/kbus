@@ -5,6 +5,7 @@ import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -21,8 +22,11 @@ val bus = MessageBus(
         BoundedContextId("inventory") to inventoryLocator,
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
-    inbox = InboxConfig(stores = mapOf(
-        BoundedContextId("orders") to InMemoryInboxStore(),
-        BoundedContextId("inventory") to InMemoryInboxStore(),
-    )),
+    inbox = InboxConfig(
+        stores = mapOf(
+            BoundedContextId("orders") to InMemoryInboxStore(),
+            BoundedContextId("inventory") to InMemoryInboxStore(),
+        ),
+        ackPolicy = InboxAckPolicy.HonourEventStrategy,
+    ),
 ).apply { start() }

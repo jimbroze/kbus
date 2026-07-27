@@ -53,7 +53,11 @@ class InboxCoordinatorTest {
     fun destinations_wrapsOnlyTheContextsThatHaveAConfiguredStore() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val beta = context(BoundedContextId("beta"), this)
-        val config = InboxConfig(stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()))
+        val config =
+            InboxConfig(
+                ackPolicy = InboxAckPolicy.HonourEventStrategy,
+                stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()),
+            )
 
         val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
 
@@ -67,7 +71,10 @@ class InboxCoordinatorTest {
         val noConfig = InboxCoordinator(null, listOf(alpha), backgroundScope)
         val withConfig =
             InboxCoordinator(
-                InboxConfig(stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore())),
+                InboxConfig(
+                    ackPolicy = InboxAckPolicy.HonourEventStrategy,
+                    stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()),
+                ),
                 listOf(alpha),
                 backgroundScope,
             )
@@ -80,7 +87,10 @@ class InboxCoordinatorTest {
     fun construction_withAStoreForAnUnknownContext_throws() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val config =
-            InboxConfig(stores = mapOf(BoundedContextId("unknown") to RecordingInboxStore()))
+            InboxConfig(
+                ackPolicy = InboxAckPolicy.HonourEventStrategy,
+                stores = mapOf(BoundedContextId("unknown") to RecordingInboxStore()),
+            )
 
         val exception =
             assertFailsWith<IllegalArgumentException> {
@@ -105,11 +115,12 @@ class InboxCoordinatorTest {
         val beta = context(BoundedContextId("beta"), this)
         val config =
             InboxConfig(
+                ackPolicy = InboxAckPolicy.HonourEventStrategy,
                 stores =
                     mapOf(
                         BoundedContextId("alpha") to RecordingInboxStore(),
                         BoundedContextId("beta") to RecordingInboxStore(),
-                    )
+                    ),
             )
         val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
 
@@ -121,7 +132,11 @@ class InboxCoordinatorTest {
     @Test
     fun startConsuming_calledTwice_runsOnlyOnePumpPerInbox() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
-        val config = InboxConfig(stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()))
+        val config =
+            InboxConfig(
+                ackPolicy = InboxAckPolicy.HonourEventStrategy,
+                stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()),
+            )
         val coordinator = InboxCoordinator(config, listOf(alpha), backgroundScope)
 
         coordinator.startConsuming()
@@ -137,6 +152,7 @@ class InboxCoordinatorTest {
         store.save(listOf(EventEnvelope.of(TestIntegrationEvent("from-before-crash"))))
         val config =
             InboxConfig(
+                ackPolicy = InboxAckPolicy.HonourEventStrategy,
                 stores = mapOf(BoundedContextId("alpha") to store),
                 pollInterval = 10.milliseconds,
             )

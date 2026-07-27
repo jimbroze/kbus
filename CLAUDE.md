@@ -236,14 +236,17 @@ runs every handler to completion first, then acks regardless of the outcome — 
 it is no longer a crash-window durability hole, since the tombstone is written only after dispatch returns.
 
 `InboxConfig.ackPolicy` (`InboxAckPolicy`, `core.module.inbox`) is the fix for `FireAndForget`'s "never retried" edge,
-applied per bus rather than per event: `HonourEventStrategy` (default) is the table above; `RequireHandlerSuccess` maps
+applied per bus rather than per event: `HonourEventStrategy` is the table above; `RequireHandlerSuccess` maps
 `FireAndForget` → `ContinueAndAggregate` before dispatch, so a handler failure leaves the envelope pending like
 `FailFast`/`ContinueAndAggregate` already do (those two pass through untouched — they don't need the override). The
 mapping is expressed on the public `ErrorStrategy` contract type, not the dispatcher-internal `EventErrorStrategy`, so
 it can sit on `BoundedContext`'s public constructor and `EventDispatcher.dispatchIntegrationEvent`'s public trailing
 parameter without an internal type leaking into public API. `BoundedContext.withAckStrategy` (`internal`, applied only
 by `InboxCoordinator`, only to contexts with a configured store) returns a copy carrying the override function; a
-context with no inbox is never overridden.
+context with no inbox is never overridden. `ackPolicy` has **no default** — either choice silently picks a side of a
+durability trade-off the consumer owns (`HonourEventStrategy` acks a failed `FireAndForget` handler;
+`RequireHandlerSuccess` retries it forever, there being no attempt cap or dead-letter path yet), so `InboxConfig`
+requires the consumer to state it.
 
 `EventInbox` stays `internal constructor`, built only by `InboxCoordinator` — opening it to wrap an arbitrary
 `EventDestination` (e.g. a future external transport) is cheap to do later and impossible to undo once public.
@@ -284,9 +287,9 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns (domain `dispatchTiming`) sit on
   handlers; event-level `errorStrategy` doubles as ack semantics for whatever is doing the acking — the outbox for a
   context with no inbox (`FailFast` = retry until handlers complete), or that context's own inbox once it has one,
-  independent of every other context. `InboxConfig.ackPolicy` (`InboxAckPolicy.RequireHandlerSuccess`) is the explicit,
-  opt-in override when a consumer wants stronger guarantees than a producer's declared `FireAndForget` — never implicit,
-  never inferred from context shape.
+  independent of every other context. `InboxConfig.ackPolicy` (`InboxAckPolicy.RequireHandlerSuccess`) is how a consumer
+  demands stronger guarantees than a producer's declared `FireAndForget` — stated explicitly (the parameter is required,
+  with no default), never inferred from context shape.
 - **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
   `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop(gracePeriod)` is
   `suspend` and deterministic — it awaits in-flight dispatch up to a bounded grace period, then cancels and joins the

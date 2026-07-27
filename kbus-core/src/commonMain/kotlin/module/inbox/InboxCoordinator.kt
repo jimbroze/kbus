@@ -43,16 +43,21 @@ internal val InboxAckPolicy.errorStrategyOverride: ((ErrorStrategy) -> ErrorStra
 /**
  * Opt-in, per-[BoundedContextId] durable inbox configuration. Each context in [stores] gets its own
  * [InboxStore] instance — structural isolation, so one context's pump cannot see another context's
- * rows. A context absent from [stores] keeps today's synchronous dispatch. [ackPolicy] applies only
- * to the contexts that have a configured store — it is meaningless without a durable ack to make
- * stronger.
+ * rows. A context absent from [stores] keeps today's synchronous dispatch.
+ *
+ * [ackPolicy] is deliberately required rather than defaulted: either default would silently pick a
+ * side of a durability trade-off the consumer owns — [InboxAckPolicy.HonourEventStrategy] lets a
+ * producer's [ErrorStrategy.FireAndForget] ack a failed handler, and
+ * [InboxAckPolicy.RequireHandlerSuccess] retries it indefinitely (there is no attempt cap or
+ * dead-letter path yet). It applies only to the contexts that have a configured store — it is
+ * meaningless without a durable ack to make stronger.
  */
 class InboxConfig(
     val stores: Map<BoundedContextId, InboxStore>,
+    val ackPolicy: InboxAckPolicy,
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
     val opportunisticDispatch: Boolean = true,
-    val ackPolicy: InboxAckPolicy = InboxAckPolicy.HonourEventStrategy,
 ) {
     init {
         require(stores.isNotEmpty()) {
