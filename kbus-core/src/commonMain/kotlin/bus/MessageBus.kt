@@ -196,12 +196,13 @@ abstract class BaseMessageBus(
      * inbox scopes are deliberately not drained here: they run pollers that should be cancelled
      * promptly, and their work is durable and resumes on restart.
      *
-     * The join is a one-shot snapshot of [eventDispatcherScope]'s children at the moment [stop] is
-     * called, not a fixed point: a handler that itself launches further detached work during the
-     * grace period (e.g. a fire-and-forget handler publishing a further fire-and-forget event) is
-     * not guaranteed to be joined, since it wasn't a child yet when the snapshot was taken. The
-     * grace period bounds how long shutdown waits; it does not guarantee every detached hop
-     * completes.
+     * The drain waits for quiescence, not for one snapshot of [eventDispatcherScope]'s children:
+     * work launched *during* the grace period (a fire-and-forget handler publishing a further
+     * fire-and-forget event) becomes a child only after a snapshot would have been taken, so the
+     * children are re-read until none remain. Only that scope's subtree is covered — a handler that
+     * launches onto a scope the bus doesn't own is still cancelled mid-flight — and the grace
+     * period bounds the whole loop, so work that spawns replacements faster than they complete is
+     * cut off rather than spun on forever.
      */
     suspend fun stop(gracePeriod: Duration = DEFAULT_STOP_GRACE_PERIOD) {
         if (lifecycle != Lifecycle.STARTED) return
@@ -212,7 +213,12 @@ abstract class BaseMessageBus(
                 if (middleware is LifecycleAwareMiddleware) middleware.onStop()
             }
 
-            eventDispatcherScope.coroutineContext[Job]!!.children.toList().joinAll()
+            val dispatchJob = eventDispatcherScope.coroutineContext[Job]!!
+            while (true) {
+                val inFlight = dispatchJob.children.toList()
+                if (inFlight.isEmpty()) break
+                inFlight.joinAll()
+            }
         }
 
         rootJob.cancel()

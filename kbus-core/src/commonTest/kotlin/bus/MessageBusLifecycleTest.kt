@@ -3,6 +3,9 @@ package com.jimbroze.kbus.core.bus
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
@@ -293,6 +296,118 @@ class MessageBusLifecycleTest {
         assertEquals(listOf("event"), received)
     }
 
+    /**
+     * Two detached hops: the post-commit domain handler is a child of `eventDispatcherScope` when
+     * `stop()` is called, but the `FireAndForget` integration routing it publishes only becomes one
+     * *during* the grace period. A one-shot snapshot of the scope's children would join the first
+     * and cancel the second.
+     */
+    @Test
+    fun stop_awaitsDetachedWorkLaunchedDuringTheGracePeriod() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        stores.commandStore.registerHandlers(
+            PublishLifecycleDomainEventCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishLifecycleDomainEventCommandHandler::class) { deps ->
+                    PublishLifecycleDomainEventCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+        stores.eventStore.registerHandlers(
+            LifecycleDomainEvent::class,
+            listOf(
+                EventHandlerFactory(RepublishingAfterTransactionHandler::class) {
+                    RepublishingAfterTransactionHandler(50)
+                }
+            ),
+        )
+        locator.domainEventMapper.addDomainHandlers(
+            LifecycleDomainEvent::class,
+            listOf(RepublishingAfterTransactionHandler::class),
+        )
+        val received = mutableListOf<String>()
+        stores.eventStore.registerHandlers(
+            LifecycleIntegrationEvent::class,
+            listOf(
+                EventHandlerFactory(DelayingLifecycleIntegrationHandler::class) {
+                    DelayingLifecycleIntegrationHandler(received, 50)
+                }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            LifecycleIntegrationEvent::class,
+            listOf(DelayingLifecycleIntegrationHandler::class),
+        )
+
+        val bus = MessageBus(locator, rootScope = backgroundScope)
+        bus.start()
+
+        bus.execute(PublishLifecycleDomainEventCommand("event"))
+
+        withContext(Dispatchers.Default) { bus.stop(2.seconds) }
+
+        assertEquals(listOf("event"), received)
+    }
+
+    /**
+     * Each dispatch publishes its own successor, so the dispatch scope never has zero children and
+     * the quiescence loop never sees an empty list. `Job.join()` checks for cancellation even when
+     * the job it is given has already completed, which is what keeps the loop inside the grace
+     * period.
+     */
+    @Test
+    fun stop_isBoundedWhenDetachedWorkKeepsSpawningReplacements() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        stores.commandStore.registerHandlers(
+            PublishLifecycleDomainEventCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishLifecycleDomainEventCommandHandler::class) { deps ->
+                    PublishLifecycleDomainEventCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+        stores.eventStore.registerHandlers(
+            LifecycleDomainEvent::class,
+            listOf(
+                EventHandlerFactory(RepublishingAfterTransactionHandler::class) {
+                    RepublishingAfterTransactionHandler(0)
+                }
+            ),
+        )
+        locator.domainEventMapper.addDomainHandlers(
+            LifecycleDomainEvent::class,
+            listOf(RepublishingAfterTransactionHandler::class),
+        )
+        stores.eventStore.registerHandlers(
+            LifecycleIntegrationEvent::class,
+            listOf(
+                EventHandlerFactory(SelfRepublishingIntegrationHandler::class) {
+                    SelfRepublishingIntegrationHandler()
+                }
+            ),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            LifecycleIntegrationEvent::class,
+            listOf(SelfRepublishingIntegrationHandler::class),
+        )
+
+        val bus = MessageBus(locator, rootScope = backgroundScope)
+        bus.start()
+
+        bus.execute(PublishLifecycleDomainEventCommand("event"))
+
+        val mark = TimeSource.Monotonic.markNow()
+        withContext(Dispatchers.Default) { bus.stop(100.milliseconds) }
+        val elapsed = mark.elapsedNow()
+
+        assertTrue(
+            elapsed < 3.seconds,
+            "stop() must not spin on endlessly respawned work: $elapsed",
+        )
+    }
+
     @Test
     fun stop_doesNotBlockPastTheGracePeriodForAHandlerThatNeverCompletes() = runTest {
         val stores = HandlerFactoryStoreCollection()
@@ -418,4 +533,35 @@ private class UncancellableWorkMiddleware : LifecycleAwareMiddleware {
         context: MiddlewareInvocationContext,
         nextMiddleware: MiddlewareHandler<TMessage, TResult>,
     ): TResult = nextMiddleware(message)
+}
+
+private class LifecycleIntegrationEvent(val message: String) : IntegrationEvent()
+
+/** Publishes a further detached hop — the integration routing — from inside a detached handler. */
+private class RepublishingAfterTransactionHandler(private val delayMs: Long) :
+    DomainEventHandler<LifecycleDomainEvent>() {
+    override val dispatchTiming = DispatchTiming.AfterTransaction
+
+    override suspend fun handle(message: LifecycleDomainEvent) {
+        delay(delayMs.milliseconds)
+        publish(LifecycleIntegrationEvent(message.message))
+    }
+}
+
+private class DelayingLifecycleIntegrationHandler(
+    private val received: MutableList<String>,
+    private val delayMs: Long,
+) : IntegrationEventHandler<LifecycleIntegrationEvent> {
+    override suspend fun handle(message: LifecycleIntegrationEvent) {
+        delay(delayMs.milliseconds)
+        received.add(message.message)
+    }
+}
+
+/** Publishes its own successor on every dispatch, so detached work never runs out. */
+private class SelfRepublishingIntegrationHandler :
+    CanPublishIntegrationEvent(), IntegrationEventHandler<LifecycleIntegrationEvent> {
+    override suspend fun handle(message: LifecycleIntegrationEvent) {
+        publish(LifecycleIntegrationEvent(message.message))
+    }
 }

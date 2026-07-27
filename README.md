@@ -604,10 +604,11 @@ bus.stop() // or bus.stop(gracePeriod = 30.seconds)
 The grace period matters for two detached, non-durable paths that would otherwise be lost outright on a cancelled
 shutdown: a post-commit domain handler with the default `FireAndForget` strategy, and a `FireAndForget` integration
 event's routing. An [inboxed context](#per-context-inbox) doesn't need it — it already dispatches inline on its own
-pump coroutine, so a cancelled pump just leaves its envelope unacked for the next `start()` to pick up. The join is a
-snapshot taken when `stop()` is called, not a fixed point: a handler that itself launches further detached work during
-the grace period isn't guaranteed to be waited for, since it wasn't running yet when the snapshot was taken. The grace
-period bounds shutdown; it doesn't guarantee every detached hop completes.
+pump coroutine, so a cancelled pump just leaves its envelope unacked for the next `start()` to pick up. The drain waits
+for quiescence rather than for one snapshot of what was in flight when `stop()` was called, so a handler that itself
+launches further detached work during the grace period — a fire-and-forget handler publishing a further fire-and-forget
+event — is waited for too. Only the bus's own dispatch scope is covered: a handler that launches onto a scope the bus
+doesn't own is still cancelled mid-flight, and the grace period bounds the whole drain.
 
 `onStop()` is `suspend`, so a middleware with non-durable work in flight can await it there rather than have the scope
 from `onStart` cancelled from under it. The `onStop` calls and the dispatch drain share one budget, sequentially, so a
