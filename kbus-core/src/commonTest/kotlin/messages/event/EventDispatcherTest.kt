@@ -235,8 +235,8 @@ class EventDispatcherTest {
         assertEquals(
             listOf("delayed handler"),
             env.results,
-            "The detach moved to the publish boundary; dispatch itself now awaits handlers " +
-                "so an inboxed context only acks after they complete",
+            "A fire-and-forget integration event's handlers are awaited before dispatch " +
+                "returns, so an inboxed context only acks after they complete",
         )
     }
 
@@ -712,8 +712,6 @@ class EventDispatcherTest {
 
         assertEquals(listOf("threw:test", "success:test"), env.results)
     }
-
-    // Observer-registry emit moved to EventRouter; see EventRouterTest.
 
     // =========================================================================
     // OUTBOX CONTEXT WIRING

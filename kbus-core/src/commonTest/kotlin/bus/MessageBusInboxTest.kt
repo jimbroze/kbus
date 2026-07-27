@@ -527,7 +527,7 @@ class MessageBusInboxTest {
         assertEquals(listOf("healthy:from-before-crash"), healthyReceived)
     }
 
-    /** Regression test for the early-ack durability gap the FireAndForget detach used to open. */
+    /** The default FireAndForget strategy is not acked until its handler completes. */
     @Test
     fun aDefaultSettingsEventIsNotAckedUntilItsHandlerCompletes() = runTest {
         val outboxStore = RecordingOutboxStore()

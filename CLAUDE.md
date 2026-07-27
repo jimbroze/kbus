@@ -299,6 +299,18 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Targets: JVM (17), JS, WASM, macOS, iOS, Linux, Windows
 - Commit messages follow conventional commits: `feat(scope):`, `refactor(scope):`, `fix(scope):`
 
+## Comments
+
+- A comment describes the current code, not its history. Write for a reader who only ever sees this
+  version — never "previously X", "used to do Y", "now does Z", "moved from A to B", or similar
+  before/after framing. That belongs in the commit message, not the source.
+- Default to no comment. Only add one when there's a specific, non-obvious reason for the code being
+  the way it is — a hidden constraint, an invariant a change could silently break, a rejected
+  alternative worth ruling out — something a reader could get wrong by inspecting the code alone.
+  Don't restate what well-named identifiers already say.
+- This applies to KDoc as much as inline comments. Prefer explaining an invariant or a "why" over a
+  narrated changelog of how the implementation got here.
+
 ## Testing
 
 - Everything should have unit test coverage. Use Test-driven development; creating (failing) tests before writing the

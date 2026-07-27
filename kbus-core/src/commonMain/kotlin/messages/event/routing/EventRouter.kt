@@ -20,7 +20,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * and only dedupe a duplicate on retry, instead of waiting for a sick one to recover. If any
  * destination failed, throws [AggregateException] so the caller (the outbox) leaves the entry
  * unpublished for the poller to retry. A [CancellationException] from a destination is rethrown
- * immediately rather than collected — dispatch now commonly runs inside a cancellable coroutine (a
+ * immediately rather than collected — dispatch commonly runs inside a cancellable coroutine (a
  * launched publish, an inbox pump), and wrapping a cancellation into an [AggregateException] would
  * turn a normal shutdown signal into a genuine, uncaught error.
  */

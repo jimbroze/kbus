@@ -156,11 +156,11 @@ class MessageBusOutboxTest {
     /**
      * The post-commit drain is registered as `unitOfWork.addPostCommitWork { drain() }`, and
      * `drain` itself is an unawaited `outboxScope.launch` — so nothing about `bus.execute()`
-     * returning happens-before the handler running, even though dispatch itself now awaits its
-     * handlers (it just does so on `outboxScope`, not on the command's calling coroutine).
-     * Asserting "not yet delivered" against wall-clock timing alone would race that launch. Gating
-     * the handler on a [CompletableDeferred] makes the assertion deterministic: it cannot have
-     * recorded anything until the test releases it.
+     * returning happens-before the handler running, even though dispatch itself awaits its handlers
+     * (it just does so on `outboxScope`, not on the command's calling coroutine). Asserting "not
+     * yet delivered" against wall-clock timing alone would race that launch. Gating the handler on
+     * a [CompletableDeferred] makes the assertion deterministic: it cannot have recorded anything
+     * until the test releases it.
      */
     @Test
     fun middleware_published_event_is_captured_by_the_outbox_and_not_delivered_before_commit() =
@@ -213,9 +213,8 @@ class MessageBusOutboxTest {
         }
 
     /**
-     * Pins the outbox half of the early-ack durability gap the FireAndForget dispatcher-level
-     * detach used to open: dispatch itself now awaits every handler before the poller (or drain)
-     * marks an entry published, for the default FireAndForget strategy too, not just FailFast.
+     * The default FireAndForget strategy gets the same ack timing as FailFast: dispatch awaits
+     * every handler before the poller (or drain) marks an entry published.
      */
     @Test
     fun aDefaultSettingsEventIsNotMarkedPublishedUntilItsHandlerCompletes() = runTest {

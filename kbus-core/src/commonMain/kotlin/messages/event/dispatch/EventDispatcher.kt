@@ -187,10 +187,10 @@ class EventDispatcher(
     /**
      * Only [DispatchPhase.POST_COMMIT] detaches: [dispatchPhaseFor] never returns `null`, so `phase
      * == null` here means an *integration* event (there is no post-commit-work coordinator to
-     * detach from on that path — see [dispatchIntegrationEvent]), and integration dispatch now
-     * always awaits its handlers. The remaining detach is what stops a command's return from
-     * waiting on a domain event handler scheduled [after transaction commit][DispatchPhase
-     * .POST_COMMIT]; [validateDispatchPhase] already rejects [EventErrorStrategy.FAIL_FAST]/
+     * detach from on that path — see [dispatchIntegrationEvent]), and integration dispatch always
+     * awaits its handlers. The remaining detach is what stops a command's return from waiting on a
+     * domain event handler scheduled [after transaction commit][DispatchPhase .POST_COMMIT];
+     * [validateDispatchPhase] already rejects [EventErrorStrategy.FAIL_FAST]/
      * [EventErrorStrategy.CONTINUE_AND_AGGREGATE] at that phase, so `phase == POST_COMMIT` here
      * implies [EventErrorStrategy.FIRE_AND_FORGET] — the strategy check is kept for clarity, not
      * because it can fail.

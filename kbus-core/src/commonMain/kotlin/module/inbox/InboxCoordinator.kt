@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  * own consumption policy.
  */
 sealed interface InboxAckPolicy {
-    /** Ack exactly as the event's own [ErrorStrategy] dictates. Today's behaviour. */
+    /** Ack exactly as the event's own [ErrorStrategy] dictates. */
     data object HonourEventStrategy : InboxAckPolicy
 
     /**

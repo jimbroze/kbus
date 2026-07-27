@@ -16,7 +16,7 @@ import com.jimbroze.kbus.core.registry.HandlerLocator
  * never fires for another context's event. A bus configured with no contexts holds a single
  * implicit [BoundedContextId.DEFAULT] context over all of its handlers.
  *
- * **Scope:** in this stage [handlerLocator] is used only for integration-event lookup
+ * **Scope:** [handlerLocator] is used only for integration-event lookup
  * ([HandlerLocator.handlersFor] / [HandlerLocator.hasHandlersFor]). Commands, queries and domain
  * events still resolve through the bus's own shared locator — that is deliberate, not an oversight.
  */
