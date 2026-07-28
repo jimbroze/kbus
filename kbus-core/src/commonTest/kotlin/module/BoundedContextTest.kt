@@ -105,4 +105,8 @@ private object NonMapperHandlerLocator : com.jimbroze.kbus.core.registry.Handler
         emptyList()
 
     override fun hasHandlersFor(event: Event): Boolean = false
+
+    override fun hasHandlerFor(command: Command<*>): Boolean = false
+
+    override fun hasHandlerFor(query: Query<*>): Boolean = false
 }

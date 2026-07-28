@@ -224,16 +224,18 @@ class MessageBusInboxTest {
     fun aFailingContextIsRetriedAlone_theOutboxEntryIsAckedAndHealthyContextsDispatchOnce() =
         runTest {
             val outboxStore = RecordingOutboxStore()
-            val stores = HandlerFactoryStoreCollection()
-            val busLocator = PersistingHandlerLocator(stores)
-            registerPublishingCommand(stores)
+            val busStores = HandlerFactoryStoreCollection()
+            val busLocator = PersistingHandlerLocator(busStores)
+            registerPublishingCommand(busStores)
 
             val healthyReceived = mutableListOf<String>()
             val failedAttempts = mutableListOf<String>()
-            val healthyLocator = PersistingHandlerLocator(stores)
-            val failingLocator = PersistingHandlerLocator(stores)
-            registerAlphaHandlerIn(stores, healthyLocator, healthyReceived, "healthy")
-            registerThrowingHandlerIn(stores, failingLocator, failedAttempts)
+            val healthyStores = HandlerFactoryStoreCollection()
+            val failingStores = HandlerFactoryStoreCollection()
+            val healthyLocator = PersistingHandlerLocator(healthyStores)
+            val failingLocator = PersistingHandlerLocator(failingStores)
+            registerAlphaHandlerIn(healthyStores, healthyLocator, healthyReceived, "healthy")
+            registerThrowingHandlerIn(failingStores, failingLocator, failedAttempts)
 
             val bus =
                 MessageBus(
@@ -242,6 +244,7 @@ class MessageBusInboxTest {
                     outbox = OutboxConfig(store = outboxStore),
                     contexts =
                         listOf(
+                            BoundedContext(BoundedContextId("publisher"), busLocator),
                             BoundedContext(BoundedContextId("healthy"), healthyLocator),
                             BoundedContext(BoundedContextId("failing"), failingLocator),
                         ),
@@ -272,14 +275,16 @@ class MessageBusInboxTest {
     @Test
     fun aFailingContextsEnvelopeStaysPendingInItsOwnInboxOnly() = runTest {
         val outboxStore = RecordingOutboxStore()
-        val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
-        registerPublishingCommand(stores)
+        val busStores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(busStores)
+        registerPublishingCommand(busStores)
 
-        val healthyLocator = PersistingHandlerLocator(stores)
-        val failingLocator = PersistingHandlerLocator(stores)
-        registerAlphaHandlerIn(stores, healthyLocator, mutableListOf(), "healthy")
-        registerThrowingHandlerIn(stores, failingLocator, mutableListOf())
+        val healthyStores = HandlerFactoryStoreCollection()
+        val failingStores = HandlerFactoryStoreCollection()
+        val healthyLocator = PersistingHandlerLocator(healthyStores)
+        val failingLocator = PersistingHandlerLocator(failingStores)
+        registerAlphaHandlerIn(healthyStores, healthyLocator, mutableListOf(), "healthy")
+        registerThrowingHandlerIn(failingStores, failingLocator, mutableListOf())
 
         val healthyStore = RecordingInboxStore()
         val failingStore = RecordingInboxStore()
@@ -290,6 +295,7 @@ class MessageBusInboxTest {
                 outbox = OutboxConfig(store = outboxStore),
                 contexts =
                     listOf(
+                        BoundedContext(BoundedContextId("publisher"), busLocator),
                         BoundedContext(BoundedContextId("healthy"), healthyLocator),
                         BoundedContext(BoundedContextId("failing"), failingLocator),
                     ),
@@ -357,16 +363,18 @@ class MessageBusInboxTest {
 
     @Test
     fun aContextWithoutAnInboxStore_keepsSynchronousDispatch() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
-        registerPublishingCommand(stores)
+        val busStores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(busStores)
+        registerPublishingCommand(busStores)
 
         val plainReceived = mutableListOf<String>()
         val inboxedReceived = mutableListOf<String>()
-        val plainLocator = PersistingHandlerLocator(stores)
-        val inboxedLocator = PersistingHandlerLocator(stores)
-        registerAlphaHandlerIn(stores, plainLocator, plainReceived, "plain")
-        registerSecondAlphaHandlerIn(stores, inboxedLocator, inboxedReceived, "inboxed")
+        val plainStores = HandlerFactoryStoreCollection()
+        val inboxedStores = HandlerFactoryStoreCollection()
+        val plainLocator = PersistingHandlerLocator(plainStores)
+        val inboxedLocator = PersistingHandlerLocator(inboxedStores)
+        registerAlphaHandlerIn(plainStores, plainLocator, plainReceived, "plain")
+        registerSecondAlphaHandlerIn(inboxedStores, inboxedLocator, inboxedReceived, "inboxed")
 
         val inboxedStore = RecordingInboxStore()
         val bus =
@@ -375,6 +383,7 @@ class MessageBusInboxTest {
                 appScope = backgroundScope,
                 contexts =
                     listOf(
+                        BoundedContext(BoundedContextId("publisher"), busLocator),
                         BoundedContext(BoundedContextId("plain"), plainLocator),
                         BoundedContext(BoundedContextId("inboxed"), inboxedLocator),
                     ),

@@ -27,4 +27,18 @@ interface HandlerLocator {
      * attempt, and `handlersFor` creates every handler it finds.
      */
     fun hasHandlersFor(event: Event): Boolean
+
+    /**
+     * Whether this locator owns a handler for [command], **without instantiating it** — used to
+     * find a command's owning bounded context, so this runs on every `execute` call. Do not
+     * implement this as `handlerFor(command, ...) != null`.
+     */
+    fun hasHandlerFor(command: Command<*>): Boolean
+
+    /**
+     * Whether this locator owns a handler for [query], **without instantiating it** — used to find
+     * a query's owning bounded context, so this runs on every `fetch` call. Do not implement this
+     * as `handlerFor(query) != null`.
+     */
+    fun hasHandlerFor(query: Query<*>): Boolean
 }

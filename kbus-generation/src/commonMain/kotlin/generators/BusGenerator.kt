@@ -244,17 +244,19 @@ private class BusConstructorGenerator(private val config: BusConfig) {
     private fun contextLocatorsBlock(contexts: List<String>): CodeBlock =
         contexts
             .map { context ->
+                val identity = if (context == DEFAULT_CONTEXT) "" else context
                 val key =
                     if (context == DEFAULT_CONTEXT)
                         CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
                     else CodeBlock.of("%T(%S)", BoundedContextId::class, context)
 
                 CodeBlock.of(
-                    "%L to %T(%L, %T(handlerFactory))",
+                    "%L to %T(%L, %T(handlerFactory, %S))",
                     key,
                     BoundedContext::class,
                     key,
                     GenerationHandlerLocator::class,
+                    identity,
                 )
             }
             .joinToCode(", ", "mapOf(", ")")

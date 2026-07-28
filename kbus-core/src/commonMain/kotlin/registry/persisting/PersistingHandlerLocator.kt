@@ -59,6 +59,11 @@ class PersistingHandlerLocator(
 
     override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
 
+    override fun hasHandlerFor(command: Command<*>): Boolean =
+        commandStore.isRegistered(command::class)
+
+    override fun hasHandlerFor(query: Query<*>): Boolean = queryStore.isRegistered(query::class)
+
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()

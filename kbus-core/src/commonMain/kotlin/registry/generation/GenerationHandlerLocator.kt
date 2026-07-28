@@ -16,8 +16,16 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
 import kotlin.reflect.KClass
 
 // TODO type-safe generated event factory
-class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
-    HandlerLocator, EventMapperProvider {
+class GenerationHandlerLocator(
+    val generationHandlerFactory: GenerationHandlerFactory,
+    /**
+     * This locator's own bounded context identity (`""` for the default context) — what
+     * [hasHandlerFor] checks a command's or query's [GenerationHandlerFactory.commandModule]/
+     * [GenerationHandlerFactory.queryModule] against, since one generated factory can hold handlers
+     * for several identities.
+     */
+    private val contextIdentity: String = "",
+) : HandlerLocator, EventMapperProvider {
     private val eventMapper = PersistingEventMapper()
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
@@ -36,6 +44,12 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
     }
 
     override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
+
+    override fun hasHandlerFor(command: Command<*>): Boolean =
+        generationHandlerFactory.commandModule(command::class) == contextIdentity
+
+    override fun hasHandlerFor(query: Query<*>): Boolean =
+        generationHandlerFactory.queryModule(query::class) == contextIdentity
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)

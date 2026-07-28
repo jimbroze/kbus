@@ -25,8 +25,10 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
+import com.squareup.kotlinpoet.WildcardTypeName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.ksp.writeTo
 import kotlin.reflect.KClass
@@ -69,6 +71,12 @@ class HandlersFactoryGenerator(
             )
             .addFunction(
                 buildEventHandlerFor(handlers.filterIsInstance<EventHandlerDefinition>().toSet())
+            )
+            .addFunction(
+                buildCommandModuleFor(handlers.filterIsInstance<CommandHandlerDefinition>().toSet())
+            )
+            .addFunction(
+                buildQueryModuleFor(handlers.filterIsInstance<QueryHandlerDefinition>().toSet())
             )
 
         handlers.forEach { addHandlerDefinition(classBuilder, it) }
@@ -191,6 +199,60 @@ class HandlersFactoryGenerator(
             .addTypeVariables(listOf(tEvent))
             .addParameter("handlerClass", handlerClassType)
             .returns(returnType)
+            .addCode(codeBlock.build())
+            .build()
+    }
+
+    private fun buildCommandModuleFor(handlers: Set<CommandHandlerDefinition>): FunSpec {
+        val commandClassType =
+            KClass::class.asClassName()
+                .parameterizedBy(
+                    WildcardTypeName.producerOf(Command::class.asClassName().parameterizedBy(STAR))
+                )
+
+        val codeBlock = CodeBlock.builder().add("return when (commandClass) {\n").indent()
+
+        for (handler in handlers) {
+            codeBlock.addStatement(
+                "%T::class -> %S",
+                handler.handlerData.messageClass,
+                handler.handlerData.module,
+            )
+        }
+
+        codeBlock.addStatement("else -> null").unindent().add("}")
+
+        return FunSpec.builder("commandModule")
+            .addModifiers(KModifier.OVERRIDE)
+            .addParameter("commandClass", commandClassType)
+            .returns(String::class.asClassName().copy(nullable = true))
+            .addCode(codeBlock.build())
+            .build()
+    }
+
+    private fun buildQueryModuleFor(handlers: Set<QueryHandlerDefinition>): FunSpec {
+        val queryClassType =
+            KClass::class.asClassName()
+                .parameterizedBy(
+                    WildcardTypeName.producerOf(Query::class.asClassName().parameterizedBy(STAR))
+                )
+
+        val codeBlock = CodeBlock.builder().add("return when (queryClass) {\n").indent()
+
+        for (handler in handlers) {
+            codeBlock.addStatement(
+                "%T::class -> %S",
+                handler.handlerData.messageClass,
+                handler.handlerData.module,
+            )
+        }
+
+        codeBlock.addStatement("else -> null").unindent().add("}")
+
+        return FunSpec.builder("queryModule")
+            .addModifiers(KModifier.OVERRIDE)
+            .addParameter("queryClass", queryClassType)
+            .returns(String::class.asClassName().copy(nullable = true))
             .addCode(codeBlock.build())
             .build()
     }

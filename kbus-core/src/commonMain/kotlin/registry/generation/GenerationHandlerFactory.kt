@@ -23,4 +23,14 @@ interface GenerationHandlerFactory {
     fun <TEvent : Event> eventHandler(
         handlerClass: KClass<EventHandler<TEvent>>
     ): EventHandler<TEvent>?
+
+    /**
+     * The bounded context identity (the producing module's `kbus.boundedContextIdentity`, `""` for
+     * unassigned) this factory's handler for [commandClass] was generated with, or `null` if this
+     * factory has no handler for it at all.
+     */
+    fun commandModule(commandClass: KClass<out Command<*>>): String?
+
+    /** The query equivalent of [commandModule]. */
+    fun queryModule(queryClass: KClass<out Query<*>>): String?
 }

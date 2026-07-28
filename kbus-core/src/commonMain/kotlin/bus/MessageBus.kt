@@ -1,5 +1,7 @@
 package com.jimbroze.kbus.core.bus
 
+import com.jimbroze.kbus.contracts.common.AmbiguousHandlerException
+import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -258,8 +260,9 @@ abstract class BaseMessageBus(
         command: TCommand
     ): TResult {
         checkStarted()
+        val owner = ownerLocatorFor(command::class) { it.hasHandlerFor(command) }
         val handlerCreator = { commandDependencies: CommandDependencies ->
-            (handlerLocator.handlerFor(command, commandDependencies)
+            (owner.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
         }
 
@@ -270,11 +273,29 @@ abstract class BaseMessageBus(
         query: TQuery
     ): TResult {
         checkStarted()
+        val owner = ownerLocatorFor(query::class) { it.hasHandlerFor(query) }
         val handlerCreator = {
-            (handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
+            (owner.handlerFor(query) ?: throw MissingHandlerException(query::class))
         }
 
         return queryFetcher.fetch(query, handlerCreator)
+    }
+
+    /**
+     * Finds the single [boundedContexts] entry [hasHandler] answers true for — a command or query
+     * is single-owner by contract, so zero owners is [MissingHandlerException] and two or more is
+     * [AmbiguousHandlerException] rather than resolved by list order.
+     */
+    private fun ownerLocatorFor(
+        messageClass: KClass<out Message>,
+        hasHandler: (HandlerLocator) -> Boolean,
+    ): HandlerLocator {
+        val owners = boundedContexts.filter { hasHandler(it.handlerLocator) }
+        return when (owners.size) {
+            0 -> throw MissingHandlerException(messageClass)
+            1 -> owners.single().handlerLocator
+            else -> throw AmbiguousHandlerException(messageClass, owners.map { it.id.value })
+        }
     }
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
