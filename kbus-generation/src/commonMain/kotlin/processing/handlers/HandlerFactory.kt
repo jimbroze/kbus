@@ -20,6 +20,11 @@ import com.squareup.kotlinpoet.ksp.toTypeName
 class HandlerFactory(
     @Suppress("unused") private val logger: KSPLogger,
     val dependencyFactory: DependencyFactory,
+    /**
+     * This Gradle module's bounded context identity (`kbus.boundedContextIdentity`), stamped onto
+     * every handler it produces. Empty when unassigned.
+     */
+    private val boundedContextIdentity: String = "",
 ) {
     // TODO make more polymorphic. Find name of type args?
     fun createHandler(
@@ -59,6 +64,7 @@ class HandlerFactory(
                 messageClass.toClassName(),
                 UNIT,
                 constructorDependencies,
+                boundedContextIdentity,
             ),
             kind,
         )
@@ -109,6 +115,7 @@ class HandlerFactory(
                 messageClass.toClassName(),
                 returnType.toTypeName(),
                 constructorDependencies,
+                boundedContextIdentity,
             ),
             logger,
         )

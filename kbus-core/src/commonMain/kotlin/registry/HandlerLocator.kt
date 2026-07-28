@@ -20,4 +20,11 @@ interface HandlerLocator {
     ): QueryHandler<TQuery, TResult>?
 
     fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
+
+    /**
+     * Whether this locator has any handler registered for [event], **without instantiating any of
+     * them**. Do not implement this as `handlersFor(event).isNotEmpty()` — it runs on every routing
+     * attempt, and `handlersFor` creates every handler it finds.
+     */
+    fun hasHandlersFor(event: Event): Boolean
 }

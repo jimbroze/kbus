@@ -58,6 +58,17 @@ class OtherPrintEventHandler(val toPrint: String) : EventHandler<StorageEvent> {
     }
 }
 
+/** A second, distinct integration event so subscription sets have something to discriminate. */
+open class OtherStorageEvent(val eventData: String, val listStore: MutableList<String>) :
+    IntegrationEvent()
+
+class OtherStorageEventHandler(private val label: String = "other") :
+    EventHandler<OtherStorageEvent> {
+    override suspend fun handle(message: OtherStorageEvent) {
+        message.listStore.add("$label:${message.eventData}")
+    }
+}
+
 class DelayingStorageEventHandler(private val delayMs: Long) : EventHandler<StorageEvent> {
     override suspend fun handle(message: StorageEvent) {
         delay(delayMs)

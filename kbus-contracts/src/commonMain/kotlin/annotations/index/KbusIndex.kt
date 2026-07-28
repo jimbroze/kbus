@@ -41,6 +41,12 @@ annotation class HandlerInfo(
     val messageClass: String,
     val returnType: String,
     val topLevelDependencies: Array<String>,
+    /**
+     * The bounded context this handler belongs to, stamped by the producing module's KSP run from
+     * the `kbus.boundedContextIdentity` build arg. `""` means unassigned — folded into the default
+     * context, and deliberately distinct from a context literally named "default".
+     */
+    val module: String = "",
 )
 
 @Target()

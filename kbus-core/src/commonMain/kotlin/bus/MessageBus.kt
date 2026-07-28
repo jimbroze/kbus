@@ -14,12 +14,14 @@ import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.messages.event.routing.LocalDestination
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.module.BoundedContext
+import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.LocatorSubscriptions
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -49,6 +51,7 @@ abstract class BaseMessageBus(
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
+    contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
 ) : IMessageBus {
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
     protected val rootScope =
@@ -67,9 +70,19 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
-    private val localDestination: LocalDestination =
-        LocalDestination(handlerLocator) { eventDispatcher }
-    private val router = EventRouter(listOf(localDestination))
+    /**
+     * One [BoundedContext] per identity, each dispatching integration events to its own handler
+     * slice. Empty ⇒ a single [BoundedContextId.DEFAULT] context over the bus's shared locator.
+     * Commands, queries and domain events resolve through [handlerLocator] regardless.
+     */
+    private val boundedContexts: List<BoundedContext> =
+        contexts
+            .ifEmpty { mapOf(BoundedContextId.DEFAULT to handlerLocator) }
+            .map { (id, locator) ->
+                BoundedContext(id, LocatorSubscriptions(locator), locator) { eventDispatcher }
+            }
+
+    private val router = EventRouter(boundedContexts)
     private val directPublisher = DirectPublisher(router)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
     private val integrationEventPublisherFactory =
@@ -192,4 +205,5 @@ class MessageBus(
     middlewares: List<Middleware> = emptyList(),
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope, outbox)
+    contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope, outbox, contexts)

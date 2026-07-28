@@ -135,8 +135,8 @@ Events support multiple handlers and come in two flavors:
 
 #### Domain Events
 
-Domain events dispatch relative to the Unit of Work lifecycle. Publish them from a domain object by
-taking a `DomainEventPublisher` as a constructor dependency. See the section on // TODO
+Domain events dispatch relative to the Unit of Work lifecycle. Publish them from a domain object by taking a
+`DomainEventPublisher` as a constructor dependency. See the section on // TODO
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -159,8 +159,8 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-01.kt).
 
-`CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and
-routes events through the Unit of Work.
+`CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and routes
+events through the Unit of Work.
 
 ### Event Dispatch & Error Strategy Matrix
 
@@ -169,8 +169,8 @@ The safety of an error strategy depends entirely on **when** the handler execute
 * **Pre-Commit:** You can safely throw exceptions to roll back the transaction.
 * **Post-Commit:** You lose throwing privileges and must rely on logging or Dead Letter Queues (DLQ).
 
-| Dispatch Timing                                                         | `FIRE_AND_FORGET`                                       | `FAIL_FAST`                                          | `CONTINUE_AND_AGGREGATE`                                         |
-|:------------------------------------------------------------------------|:--------------------------------------------------------|:-----------------------------------------------------|:-----------------------------------------------------------------|
+| Dispatch Timing                                                         | `FIRE_AND_FORGET`                                        | `FAIL_FAST`                                           | `CONTINUE_AND_AGGREGATE`                                          |
+|:------------------------------------------------------------------------|:---------------------------------------------------------|:------------------------------------------------------|:------------------------------------------------------------------|
 | **`DispatchImmediatelyInTransaction`**<br>*(Before main work finishes)* | ✅ **Safe**<br>Errors logged; transaction continues.     | ✅ **Standard**<br>Throws immediately; rolls back DB. | ✅ **Safe**<br>Collects all, throws at end; rolls back DB.        |
 | **`DispatchAfterPrimaryWork`**<br>*(Before DB commit)*                  | ✅ **Safe**<br>Secondary work fails quietly; DB commits. | ✅ **Safe**<br>Throws before commit; rolls back DB.   | ✅ **Safe**<br>Collects all, throws before commit; rolls back DB. |
 | **`DispatchAfterTransaction`**<br>*(After DB commit)*                   | ✅ **Standard**<br>Failures caught and sent to DLQ.      | ❌ **Dangerous**<br>Throws after transaction commits  | ❌ **Dangerous**<br>Throws after transaction commits              |
@@ -178,9 +178,9 @@ The safety of an error strategy depends entirely on **when** the handler execute
 ### Concurrency
 
 All events can be dispatched sequentially or concurrently by applying `DispatchSequentially` or
-`DispatchConcurrently` interfaces to the event. This applies regardless of dispatch timing or error strategy. That
-is, while concurrent events will dispatch to multiple handlers at the same time, `FAIL_FAST` concurrent events will
-still throw on the first failure; meaning all running handlers for that event will cancel.
+`DispatchConcurrently` interfaces to the event. This applies regardless of dispatch timing or error strategy. That is,
+while concurrent events will dispatch to multiple handlers at the same time, `FAIL_FAST` concurrent events will still
+throw on the first failure; meaning all running handlers for that event will cancel.
 
 ### Event Defaults
 
@@ -188,10 +188,10 @@ By default, domain event handlers that extend `DomainEventHandler` directly are 
 transaction commits**. This default is intentional:
 
 - **Asynchronous by default** — All events (both domain and integration) default to asynchronous, fire-and-forget
-  dispatch. If work must be synchronous and transactional, it should ideally be modeled as an explicit
-  Command, not an Event. This keeps coupled operations visible in the code rather than hiding them behind event
-  handlers that appear decoupled but are actually tightly bound. Synchronous event dispatch should be avoided where
-  possible outside of infrastructure concerns.
+  dispatch. If work must be synchronous and transactional, it should ideally be modeled as an explicit Command, not an
+  Event. This keeps coupled operations visible in the code rather than hiding them behind event handlers that appear
+  decoupled but are actually tightly bound. Synchronous event dispatch should be avoided where possible outside of
+  infrastructure concerns.
 - **After transaction by default** — Domain events default to dispatching after a unit of work transaction commits
   because handlers typically trigger side effects (notifications, external calls) that should only happen once the
   primary work has been persisted. Dispatching before commit risks executing side effects for work that may still be
@@ -237,8 +237,8 @@ class SendShipmentNotification : DomainEventHandler<OrderShipped>() {
 
 #### Integration Events
 
-Integration events are dispatched after the transaction commits, intended for cross-boundary communication.
-Integration events are **always dispatched asynchronously** — handlers run concurrently in a fire-and-forget manner.
+Integration events are dispatched after the transaction commits, intended for cross-boundary communication. Integration
+events are **always dispatched asynchronously** — handlers run concurrently in a fire-and-forget manner.
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -262,8 +262,8 @@ class SyncToExternalCRM :
 
 #### Observing Integration Events
 
-Integration events can be observed as Kotlin Flows directly from the bus. With the generated bus, only known
-events can be observed — attempting to observe an unknown event is a compile error:
+Integration events can be observed as Kotlin Flows directly from the bus. With the generated bus, only known events can
+be observed — attempting to observe an unknown event is a compile error:
 
 ```kotlin
 // With the generated bus — type-safe, one method per known event
@@ -285,8 +285,8 @@ scope.launch {
 }
 ```
 
-Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler
-success or failure.
+Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler success or
+failure.
 
 Command handlers can publish integration events:
 
@@ -318,9 +318,9 @@ class RegisterUserHandler :
 #### Auto-Publishing Integration Events from Domain Events
 
 The `AutoPublishIntegrationEvents` middleware publishes integration events automatically whenever a registered domain
-event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or
-by implementing `AutoPublishesFrom` on the integration event's companion object to declare the domain event it is
-derived from. A domain event may be registered multiple times to publish several integration events.
+event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or by
+implementing `AutoPublishesFrom` on the integration event's companion object to declare the domain event it is derived
+from. A domain event may be registered multiple times to publish several integration events.
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -405,10 +405,10 @@ val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something 
 ## Middleware
 
 Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next
-handler in the chain. Every `handle` call also receives a `MiddlewareInvocationContext`, a per-invocation context
-object passed to all middleware in the chain. It currently exposes `integrationEventPublisher`, an
-`IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration
-events directly, independent of any command handler's own publishing.
+handler in the chain. Every `handle` call also receives a `MiddlewareInvocationContext`, a per-invocation context object
+passed to all middleware in the chain. It currently exposes `integrationEventPublisher`, an
+`IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration events
+directly, independent of any command handler's own publishing.
 
 ### Writing Custom Middleware
 
@@ -474,7 +474,8 @@ val bus = MessageBus(
 
 - **`LoggingMiddleware`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
-- **`AutoPublishIntegrationEvents`** — Publishes the integration event mapped from a registered domain event via `AutoPublishesFrom`
+- **`AutoPublishIntegrationEvents`** — Publishes the integration event mapped from a registered domain event via
+  `AutoPublishesFrom`
 
 ## Unit of Work
 
@@ -578,13 +579,13 @@ val bus = MessageBus(/* ... */)
 bus.start()
 ```
 
-`start()` runs each `LifecycleAwareMiddleware`'s `onStart` and, if an outbox is configured, launches its poller.
-It's idempotent — calling it again is a no-op — and a bus with neither an outbox nor lifecycle-aware middleware
-needs no `start()` call at all; `execute`/`fetch` work immediately, at zero ceremony.
+`start()` runs each `LifecycleAwareMiddleware`'s `onStart` and, if an outbox is configured, launches its poller. It's
+idempotent — calling it again is a no-op — and a bus with neither an outbox nor lifecycle-aware middleware needs no
+`start()` call at all; `execute`/`fetch` work immediately, at zero ceremony.
 
 Calling `execute`/`fetch` on a bus that *does* have background work, before `start()`, throws
-`IllegalStateException` rather than silently running with that work never having started (e.g. an outbox that
-never polls).
+`IllegalStateException` rather than silently running with that work never having started (e.g. an outbox that never
+polls).
 
 `stop()` is `suspend`: it calls each middleware's `onStop()`, then cancels the bus's root job and waits for that
 cancellation to complete, so shutdown is deterministic in tests and at application exit.
@@ -602,8 +603,37 @@ Between publish and dispatch sits a third stage: routing. Every integration publ
 `publish()`, `AutoPublishIntegrationEvents`, query middleware, and integration event handlers that publish further
 events — hands its events to an `EventRouter`, whether or not an outbox is configured. The router emits each event to
 `observe()` collectors once per routing attempt, before fan-out, then attempts delivery to every `EventDestination`
-that applies to the event. Today there is exactly one destination, `LocalDestination`, which dispatches to this bus's
-own handlers; external transports and per-module inboxes are additional destinations the router seam exists to support.
+that applies to the event. The local-dispatch destination is a `BoundedContext` — a module runtime that owns a slice of
+handlers and dispatches to them. A bus holds one per identity:
+
+```kotlin
+val bus = MessageBus(
+    handlerLocator,
+    contexts = mapOf(
+        BoundedContextId("orders") to ordersLocator,
+        BoundedContextId("inventory") to inventoryLocator,
+    ),
+)
+```
+
+Each context's `appliesTo` is derived, lazily, from its own locator, so an integration handler registered in one context
+never fires for another context's event, and a handler registered after the bus was constructed is subscribed to from
+that moment on. Passing no `contexts` gives a bus a single implicit `default` context over its whole handler locator —
+the behaviour of a non-modular application. Context locators are used only for integration-event lookup; commands,
+queries and domain events still resolve through the bus's own handler locator.
+
+Three consequences worth knowing:
+
+- **Dispatch middleware runs once per subscribing context**, so a locking middleware acquires once per context
+  (sequentially — destinations are routed in order).
+- **An event no context subscribes to is silently accepted and acknowledged.** Nothing dispatches, so the dispatch
+  middleware chain does not run for it either, and with an outbox the entry is marked published rather than retried
+  forever.
+- **`observe()` is a bus-level diagnostic tap, not a subscription mechanism.** It fires at the router, before fan-out,
+  independent of which contexts subscribe — do not use it to consume another context's events.
+
+External transports and per-module inboxes are further `EventDestination`s, which is what the router seam exists to
+support.
 
 Observation is at-least-once, not exactly-once: the router re-emits each time an event is routed, and a failed
 destination is re-routed by the outbox poller, so observers see a retried event again. Exactly-once observation would
@@ -617,14 +647,14 @@ publish path always goes through, and the outbox composes with it rather than re
 
 Integration events published during a command (both the imperative `publish()` and the `AutoPublishIntegrationEvents`
 middleware) normally publish inside the command's transaction and dispatch to handlers immediately. This leaves two
-gaps: a **phantom event** (published, then the transaction rolls back) and a **lost event** (committed, then the
-process crashes before handlers run). A transactional outbox closes both gaps by persisting events to a durable store
-inside the transaction, then delivering them separately.
+gaps: a **phantom event** (published, then the transaction rolls back) and a **lost event** (committed, then the process
+crashes before handlers run). A transactional outbox closes both gaps by persisting events to a durable store inside the
+transaction, then delivering them separately.
 
 The outbox hangs off `CommandInvocation`, the bus's per-command scope — a peer of `TransactionManager` on the bus
-constructor, **not middleware**. The Unit of Work itself has no knowledge of the outbox; the outbox instead receives
-the command's Unit of Work at construction time and self-registers into its generic secondary-work/post-commit-work
-phases. Opt in by passing an `OutboxConfig`:
+constructor, **not middleware**. The Unit of Work itself has no knowledge of the outbox; the outbox instead receives the
+command's Unit of Work at construction time and self-registers into its generic secondary-work/post-commit-work phases.
+Opt in by passing an `OutboxConfig`:
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -646,69 +676,66 @@ val bus = MessageBus(
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
 
-An outbox is background work, so the bus must be [started](#bus-lifecycle) before it dispatches
-messages — `start()` is what launches the poller.
+An outbox is background work, so the bus must be [started](#bus-lifecycle) before it dispatches messages — `start()` is
+what launches the poller.
 
 `InMemoryOutboxStore` is a reference implementation for tests and examples. For production, implement `OutboxStore`
 against a durable table. The outbox defers the actual store write until an internal flush, self-registered as the
 *first* secondary-work item on the command's Unit of Work when the outbox is constructed — so `save` runs inside the
 command's `TransactionManager.execute` block, and your implementation **must join the ambient transaction** (the same
 by-convention contract as `TransactionManager` itself) — otherwise a rolled-back command would leave a phantom event
-saved to the outbox. This
-deferral is also what makes command-chain middleware publishes rollback-safe even though middleware runs *before* the
-transaction opens: a middleware-published event sits in memory only until the flush runs, so if the handler
-subsequently fails, the flush never happens and nothing is ever saved.
+saved to the outbox. This deferral is also what makes command-chain middleware publishes rollback-safe even though
+middleware runs *before* the transaction opens: a middleware-published event sits in memory only until the flush runs,
+so if the handler subsequently fails, the flush never happens and nothing is ever saved.
 
 **Publish and dispatch are decoupled.** "Publish" is the durable save inside the transaction; "dispatch" is the async
-delivery to handlers afterward. A command's return value **never awaits** integration handler execution, whether or
-not an outbox is configured.
+delivery to handlers afterward. A command's return value **never awaits** integration handler execution, whether or not
+an outbox is configured.
 
-**When an outbox is configured, *every* integration publish routes through it** — not just command-scoped ones.
-Query middleware, `AutoPublishIntegrationEvents` outside a command, and integration event handlers that publish
-further events all get a durable, at-least-once-delivered publish too. Command-scoped publishes get the
-transactional save-then-flush behaviour described above; everything else gets "save immediately, then drain
-opportunistically" — there's no transaction to defer the save to, so the save happens up front and delivery follows
-the same fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever
-surrounding work triggered them, but events are never silently lost, and the same retry/DLQ policy applies
-uniformly across every publish path. Integration event handlers can themselves publish further events by extending
-`CanPublishIntegrationEvent`, the same mixin command handlers and domain event handlers use — the dispatcher wires
-each handler's publisher before dispatch, so these publishes are outbox-durable too.
+**When an outbox is configured, *every* integration publish routes through it** — not just command-scoped ones. Query
+middleware, `AutoPublishIntegrationEvents` outside a command, and integration event handlers that publish further events
+all get a durable, at-least-once-delivered publish too. Command-scoped publishes get the transactional save-then-flush
+behaviour described above; everything else gets "save immediately, then drain opportunistically" — there's no
+transaction to defer the save to, so the save happens up front and delivery follows the same
+fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever surrounding work
+triggered them, but events are never silently lost, and the same retry/DLQ policy applies uniformly across every publish
+path. Integration event handlers can themselves publish further events by extending
+`CanPublishIntegrationEvent`, the same mixin command handlers and domain event handlers use — the dispatcher wires each
+handler's publisher before dispatch, so these publishes are outbox-durable too.
 
 A publish call's failure semantics differ slightly by path: on the transactional (command-scoped) path, `publish`
-only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the
-*store save* fails. Either way, delivery failures never propagate to the caller — they're the poller's problem.
+only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the *store save*
+fails. Either way, delivery failures never propagate to the caller — they're the poller's problem.
 
-**Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching
-unpublished entries and delivering them — this is what survives a crash between commit and delivery. The poller is
-started by [`bus.start()`](#bus-lifecycle), not by construction. After a
-command's transaction commits (and any post-commit-phase handlers finish), a fire-and-forget drain of the events just
-captured also runs — self-registered as post-commit work by the outbox itself — purely as a latency optimisation; it
-is never awaited, and if it fails or is skipped the poller retries the entry on its next tick. Because the drain and the poller can overlap,
-and because multiple bus instances may run against the same store, a handler may occasionally run more than once —
-design handlers to be idempotent. `OutboxStore.fetchUnpublished` is the hook for narrowing that window (e.g. hiding
-very recently-saved or already-claimed entries).
+**Delivery is at-least-once.** A bus-owned background poller is the delivery guarantee, repeatedly fetching unpublished
+entries and delivering them — this is what survives a crash between commit and delivery. The poller is started by [
+`bus.start()`](#bus-lifecycle), not by construction. After a command's transaction commits (and any post-commit-phase
+handlers finish), a fire-and-forget drain of the events just captured also runs — self-registered as post-commit work by
+the outbox itself — purely as a latency optimisation; it is never awaited, and if it fails or is skipped the poller
+retries the entry on its next tick. Because the drain and the poller can overlap, and because multiple bus instances may
+run against the same store, a handler may occasionally run more than once — design handlers to be idempotent.
+`OutboxStore.fetchUnpublished` is the hook for narrowing that window (e.g. hiding very recently-saved or already-claimed
+entries).
 
-An event's `errorStrategy` doubles as the outbox's acknowledgement semantics: `FireAndForget` marks an entry
-published as soon as delivery is handed off, while `FailFast` only marks it published once every handler has
-actually completed, letting the poller retry entries whose handlers threw. Either way, a handler failure no longer
-fails the command itself — the command has already returned by the time delivery happens.
+An event's `errorStrategy` doubles as the outbox's acknowledgement semantics: `FireAndForget` marks an entry published
+as soon as delivery is handed off, while `FailFast` only marks it published once every handler has actually completed,
+letting the poller retry entries whose handlers threw. Either way, a handler failure no longer fails the command
+itself — the command has already returned by the time delivery happens.
 
 A few edge cases worth knowing:
 
-- Commands with `executeInTransaction = null` still route their events through the outbox, just without the
-  atomicity of the save being part of a real transaction.
-- A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself still publishes
-  through the outbox, via its already-flushed path (saved immediately, no atomicity with the original command) —
-  it does not bypass the outbox, but delivery for that event now depends on the poller rather than the command's
-  own drain.
+- Commands with `executeInTransaction = null` still route their events through the outbox, just without the atomicity of
+  the save being part of a real transaction.
+- A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself still publishes through
+  the outbox, via its already-flushed path (saved immediately, no atomicity with the original command) — it does not
+  bypass the outbox, but delivery for that event now depends on the poller rather than the command's own drain.
 - Events published by `POST_COMMIT`-phase domain event handlers are saved to the outbox non-transactionally (the
   transaction has already committed), but are still captured and drained like any other event.
 
 ## KSP Code Generation
 
-For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module. This
-requires adding no annotations or coupling to anything outside your message handlers (which are already coupled
-to Kbus).
+For compile-time type-safe handler resolution with zero reflection, use the KSP code generation module. This requires
+adding no annotations or coupling to anything outside your message handlers (which are already coupled to Kbus).
 
 ### Setup
 
@@ -799,11 +826,11 @@ val result = bus.execute(PlaceOrder(items))
 
 ### Auto-Publish Registrations
 
-`@LoadEvent` makes an event known to code generation. On its own it generates nothing — but if the annotated
-integration event's companion implements `AutoPublishesFrom` (see
+`@LoadEvent` makes an event known to code generation. On its own it generates nothing — but if the annotated integration
+event's companion implements `AutoPublishesFrom` (see
 [Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)), the processor also
-collects it into the generated `generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered
-by hand:
+collects it into the generated `generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered by
+hand:
 
 <!--- CLEAR -->
 
@@ -822,15 +849,14 @@ val bus = CompileTimeLoadedMessageBus(
 )
 ```
 
-An event annotated with `@LoadEvent` whose companion does not implement `AutoPublishesFrom` (or that has no
-companion) is still known to the processor — it just contributes no registration; this is not an error, and leaves
-room for other `@LoadEvent`-driven code generation in future.
+An event annotated with `@LoadEvent` whose companion does not implement `AutoPublishesFrom` (or that has no companion)
+is still known to the processor — it just contributes no registration; this is not an error, and leaves room for other
+`@LoadEvent`-driven code generation in future.
 
 ### Submodules
 
-For multi-module projects, submodules can export their handler metadata for the main module to consume. You must
-provide a package name for the indexes. This prevents trying to load indexes from a dependent library that uses
-Kbus.
+For multi-module projects, submodules can export their handler metadata for the main module to consume. You must provide
+a package name for the indexes. This prevents trying to load indexes from a dependent library that uses Kbus.
 
 ```groovy
 // In the submodule's build.gradle.kts
@@ -848,6 +874,32 @@ ksp {
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
 these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
 module's `generatedAutoPublishRegistrations`.
+
+### Bounded Context identity
+
+A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,
+`billing-infrastructure` are three submodules but one context). `kbus.boundedContextIdentity` names the context, and is
+orthogonal to `kbus.subModuleName`:
+
+```groovy
+ksp {
+    arg("kbus.subModuleName", project.name)
+    arg("kbus.boundedContextIdentity", "billing")
+    arg("kbus.indexPackage", "com.example.myApp.indexes")
+}
+```
+
+Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
+by the consumer. The generated bus builds one `BoundedContext` per distinct identity and exposes a typed registration
+point for each, named after the identity, plus `default` for handlers from modules that declared no identity:
+
+```kotlin
+bus.billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+bus.default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
+```
+
+There is deliberately no bus-wide `integrationEventMapper`: with several contexts, "which context?" has no answer.
+`domainEventMapper` stays bus-wide — domain events do not cross contexts.
 
 ## Domain Modeling
 

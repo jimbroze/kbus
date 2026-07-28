@@ -25,5 +25,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
 
 ksp {
     arg("kbus.subModuleName", project.name)
+    arg("kbus.boundedContextIdentity", "orders")
     arg("kbus.indexPackage", "com.jimbroze.kbus.testing.indexes")
 }

@@ -13,8 +13,13 @@ import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generated.generatedAutoPublishRegistrations
 import com.jimbroze.kbus.generated.loaded
+import com.jimbroze.kbus.generation.test.inventory.application.usecases.command.ReserveStock
+import com.jimbroze.kbus.generation.test.inventory.application.usecases.event.NotifyWarehouseHandler
+import com.jimbroze.kbus.generation.test.inventory.application.usecases.event.StockReserved
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.ExampleWarehouseNotifier
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.InMemoryInventoryRepository
+import com.jimbroze.kbus.generation.test.orders.application.usecases.event.HandleOrderPlacedIntegrationHandler
+import com.jimbroze.kbus.generation.test.orders.application.usecases.event.OrderPlacedIntegration
 import com.jimbroze.kbus.generation.test.orders.domain.OrderPlaced
 import com.jimbroze.kbus.generation.test.orders.infrastructure.ExampleEmailService
 import com.jimbroze.kbus.generation.test.orders.infrastructure.ExamplePaymentGateway
@@ -28,11 +33,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 
 // TODO don't add any dependencies not in module???
 class Dependencies(private val instant: Instant, applicationScope: CoroutineScope) : AutoLoader() {
@@ -181,8 +190,33 @@ class GenerationTest {
         assertTrue(eventClasses.contains(OrderPlaced::class))
     }
 
+    /**
+     * `kbus-example` is a root module with its own handlers and no `kbus.boundedContextIdentity`,
+     * so its integration handlers land in the default context. This is the regression guard for the
+     * unassigned-identity path.
+     */
     @Test
-    fun test_it_auto_publishes_integration_events_from_domain_events() = runTest {
+    fun test_root_module_handlers_without_a_bounded_context_identity_land_in_the_default_context() =
+        runTest {
+            val bus =
+                CompileTimeLoadedMessageBus(
+                    Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                    EmptyTransactionManager(),
+                    listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
+                )
+
+            bus.default.addEventHandlers(
+                TestShipmentIntegration::class,
+                listOf(TestShipmentIntegrationHandler::class.loaded),
+            )
+
+            val handledBefore = TestShipmentIntegrationHandler.timesHandled
+            bus.execute(TestShipmentCommand())
+            assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
+        }
+
+    @Test
+    fun test_each_context_only_dispatches_its_own_integration_handlers() = runTest {
         val bus =
             CompileTimeLoadedMessageBus(
                 Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
@@ -190,13 +224,26 @@ class GenerationTest {
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
             )
 
-        bus.integrationEventMapper.addEventHandlers(
-            TestShipmentIntegration::class,
-            listOf(TestShipmentIntegrationHandler::class.loaded),
+        // Each submodule declares its own kbus.boundedContextIdentity, so the generated bus
+        // exposes one registration point per bounded context instead of a single ambiguous mapper.
+        bus.orders.addEventHandlers(
+            OrderPlacedIntegration::class,
+            listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
+        )
+        bus.inventory.addEventHandlers(
+            StockReserved::class,
+            listOf(NotifyWarehouseHandler::class.loaded),
         )
 
-        val handledBefore = TestShipmentIntegrationHandler.timesHandled
-        bus.execute(TestShipmentCommand())
-        assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
+        val ordersHandledBefore = HandleOrderPlacedIntegrationHandler.timesHandled
+        val inventoryHandledBefore = NotifyWarehouseHandler.timesHandled
+
+        bus.execute(ReserveStock("product-1", 1))
+        // Integration dispatch is fire-and-forget, so give it a real moment to land.
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        // Only the inventory context has a handler for StockReserved; orders is untouched.
+        assertEquals(inventoryHandledBefore + 1, NotifyWarehouseHandler.timesHandled)
+        assertEquals(ordersHandledBefore, HandleOrderPlacedIntegrationHandler.timesHandled)
     }
 }

@@ -21,5 +21,10 @@ class NotifyWarehouseHandler(private val warehouseNotifier: WarehouseNotifier) :
                 quantity = message.quantity,
             )
         )
+        timesHandled++
+    }
+
+    companion object {
+        var timesHandled = 0
     }
 }

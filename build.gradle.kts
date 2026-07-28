@@ -1,5 +1,6 @@
 import io.gitlab.arturbosch.detekt.Detekt
 import java.util.*
+import org.gradle.plugins.ide.idea.model.IdeaModel
 
 description = "Kotlin message bus framework"
 
@@ -27,6 +28,18 @@ allprojects {
         autoCorrect = true
         parallel = true
         source.from("src")
+    }
+
+    // idea.module.excludeDirs already defaults to [buildDir, .gradle]. KSP output lives
+    // under buildDir, so it must be re-declared as a (generated) source dir to stay
+    // included despite that default exclude.
+    apply(plugin = "idea")
+    configure<IdeaModel> {
+        module {
+            val kspGenerated = file("build/generated/ksp")
+            sourceDirs = sourceDirs + kspGenerated
+            generatedSourceDirs = generatedSourceDirs + kspGenerated
+        }
     }
 }
 

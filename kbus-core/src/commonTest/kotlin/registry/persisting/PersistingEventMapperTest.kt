@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.registry.persisting
 
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
+import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
@@ -10,6 +11,8 @@ import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class PersistingEventMapperTest {
 
@@ -123,5 +126,25 @@ class PersistingEventMapperTest {
 
         val handlerClasses = mapper.handlerClassesFor(StorageEvent("test", mutableListOf()))
         assertEquals(1, handlerClasses.size)
+    }
+
+    @Test
+    fun hasMappingFor_isTrue_onlyForAnEventClassWithRegisteredHandlers() {
+        val mapper = PersistingEventMapper()
+
+        mapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
+
+        assertTrue(mapper.hasMappingFor(StorageEvent::class))
+        assertFalse(mapper.hasMappingFor(OtherStorageEvent::class))
+    }
+
+    @Test
+    fun hasMappingFor_isFalse_forADomainEventClassRegisteredOnTheSameMapper() {
+        val mapper = PersistingEventMapper()
+
+        mapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
+
+        assertTrue(mapper.hasMappingFor(TestDomainEvent::class))
+        assertFalse(mapper.hasMappingFor(StorageEvent::class))
     }
 }
