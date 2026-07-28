@@ -12,7 +12,6 @@ import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
 import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
-import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
@@ -46,6 +45,19 @@ private const val DEFAULT_CONTEXT = "default"
 
 private val COROUTINE_SCOPE = ClassName("kotlinx.coroutines", "CoroutineScope")
 private val DISPATCHERS = ClassName("kotlinx.coroutines", "Dispatchers")
+
+/**
+ * The bounded contexts a bus wires up: every distinct identity stamped on any handler — command,
+ * query or event — plus the default context, which owns every handler whose producing module
+ * declared none. A context defining only commands or only domain handlers still needs its own
+ * entry, or its handlers would be unreachable by owner lookup.
+ */
+internal fun contextIdentities(handlers: Set<HandlerDefinition>): List<String> {
+    val modules =
+        handlers.map { it.handlerData.module }.filter { it.isNotBlank() }.distinct().sorted()
+
+    return listOf(DEFAULT_CONTEXT) + modules
+}
 
 class BusGenerator(
     private val codeGenerator: CodeGenerator,
@@ -88,24 +100,6 @@ class BusGenerator(
         file
             .build()
             .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
-    }
-
-    /**
-     * The bounded contexts this bus wires up: every distinct identity stamped on an integration
-     * event handler, plus the default context, which owns every handler whose producing module
-     * declared none.
-     */
-    private fun contextIdentities(handlers: Set<HandlerDefinition>): List<String> {
-        val modules =
-            handlers
-                .filterIsInstance<EventHandlerDefinition>()
-                .filter { it.kind == EventHandlerKind.INTEGRATION }
-                .map { it.handlerData.module }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .sorted()
-
-        return listOf(DEFAULT_CONTEXT) + modules
     }
 
     private fun accessorName(context: String): String =
