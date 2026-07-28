@@ -1,55 +1,45 @@
 package com.jimbroze.kbus.core.module
 
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.EventDestination
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
+import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
+import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
+import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
+import com.jimbroze.kbus.core.registry.LoadedEventHandler
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.domain.event.DomainEvent
+import kotlin.reflect.KClass
 
 /**
- * The runtime object for one bounded context: it owns a slice of handlers and dispatches to them.
+ * An authored bounded context: a user constructs one with an [id] and registers its command, query,
+ * domain-event and integration-event handlers via [addDomainHandlers]/[addEventHandlers] (command
+ * and query registration goes through [handlerLocator] directly). A bus takes a list of these and
+ * derives the runtime object that actually dispatches — a [BoundedContext] cannot own that itself,
+ * since dispatch needs the bus's middleware, scope and dependency wiring, all constructed later.
  *
- * A bounded context is the local-dispatch kind of [EventDestination] (external transports are other
- * destinations). A bus holds one per identity — each with its own [handlerLocator] slice — and
- * [appliesTo] is the real subscription set derived from that slice, so a handler in one context
- * never fires for another context's event. A bus configured with no contexts holds a single
- * implicit [BoundedContextId.DEFAULT] context over all of its handlers.
- *
- * **Scope:** [handlerLocator] is used only for integration-event lookup
- * ([HandlerLocator.handlersFor] / [HandlerLocator.hasHandlersFor]). Commands, queries and domain
- * events still resolve through the bus's own shared locator — that is deliberate, not an oversight.
+ * [handlerLocator] must also implement [EventMapperProvider] — every shipped [HandlerLocator] does
+ * — which is what [addDomainHandlers]/[addEventHandlers] delegate to.
  */
 class BoundedContext(
     val id: BoundedContextId,
-    private val subscriptions: Subscriptions,
-    private val handlerLocator: HandlerLocator,
-    private val eventDispatcher: () -> EventDispatcher,
-    private val ackStrategyOverride: ((ErrorStrategy) -> ErrorStrategy)? = null,
-) : EventDestination {
-    override val name: String
-        get() = id.value
-
-    override fun appliesTo(event: IntegrationEvent): Boolean = subscriptions.contains(event)
-
-    override suspend fun deliver(envelopes: List<EventEnvelope>) {
-        envelopes.forEach { envelope ->
-            eventDispatcher()
-                .dispatchIntegrationEvent(
-                    envelope.event,
-                    handlerLocator.handlersFor(envelope.event),
-                    ackStrategyOverride?.invoke(envelope.event.errorStrategy),
-                )
+    internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
+) {
+    private val mapperProvider =
+        requireNotNull(handlerLocator as? EventMapperProvider) {
+            "BoundedContext requires a HandlerLocator that also implements EventMapperProvider " +
+                "(every shipped HandlerLocator does)."
         }
-    }
+    private val domainEventMapper = CompileTimeDomainEventMapper(mapperProvider.domainEventMapper)
+    private val integrationEventMapper =
+        CompileTimeIntegrationEventMapper(mapperProvider.integrationEventMapper)
 
-    /**
-     * Returns a copy overridden by [override] — an ack policy's mapping from an event's own
-     * [ErrorStrategy] to the one dispatch should actually use, or `null` to honour the event's
-     * strategy unchanged. Internal: only [com.jimbroze.kbus.core.module.inbox.InboxCoordinator]
-     * applies this, when wrapping a context with a configured inbox store — a context with no inbox
-     * is never overridden.
-     */
-    internal fun withAckStrategy(override: ((ErrorStrategy) -> ErrorStrategy)?): BoundedContext =
-        BoundedContext(id, subscriptions, handlerLocator, eventDispatcher, override)
+    fun <TEvent : DomainEvent> addDomainHandlers(
+        event: KClass<TEvent>,
+        handlers: List<LoadedEventHandler<TEvent>>,
+    ) = domainEventMapper.addDomainHandlers(event, handlers)
+
+    fun <TEvent : IntegrationEvent> addEventHandlers(
+        event: KClass<TEvent>,
+        handlers: List<LoadedEventHandler<TEvent>>,
+    ) = integrationEventMapper.addEventHandlers(event, handlers)
 }

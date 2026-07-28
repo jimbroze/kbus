@@ -8,6 +8,7 @@ import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.ContextRuntime
 import com.jimbroze.kbus.core.module.LocatorSubscriptions
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -27,7 +28,7 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class InboxCoordinatorTest {
-    private fun context(id: BoundedContextId, dispatcherScope: CoroutineScope): BoundedContext {
+    private fun context(id: BoundedContextId, dispatcherScope: CoroutineScope): ContextRuntime {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val eventDispatcher =
             EventDispatcher(
@@ -36,7 +37,12 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
-        return BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
+        return ContextRuntime(
+            BoundedContext(id, locator),
+            LocatorSubscriptions(locator),
+            locator,
+            { eventDispatcher },
+        )
     }
 
     @Test
@@ -169,7 +175,7 @@ class InboxCoordinatorTest {
         id: BoundedContextId,
         attempts: MutableList<String>,
         dispatcherScope: CoroutineScope,
-    ): BoundedContext {
+    ): ContextRuntime {
         val stores = HandlerFactoryStoreCollection()
         stores.eventStore.registerHandlers(
             TestIntegrationEvent::class,
@@ -191,7 +197,12 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
-        return BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
+        return ContextRuntime(
+            BoundedContext(id, locator),
+            LocatorSubscriptions(locator),
+            locator,
+            { eventDispatcher },
+        )
     }
 
     @Test

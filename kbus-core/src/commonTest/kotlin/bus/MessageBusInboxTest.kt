@@ -11,10 +11,10 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
-import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -241,9 +241,9 @@ class MessageBusInboxTest {
                     appScope = backgroundScope,
                     outbox = OutboxConfig(store = outboxStore),
                     contexts =
-                        mapOf(
-                            BoundedContextId("healthy") to healthyLocator as HandlerLocator,
-                            BoundedContextId("failing") to failingLocator,
+                        listOf(
+                            BoundedContext(BoundedContextId("healthy"), healthyLocator),
+                            BoundedContext(BoundedContextId("failing"), failingLocator),
                         ),
                     inbox =
                         InboxConfig(
@@ -289,9 +289,9 @@ class MessageBusInboxTest {
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore),
                 contexts =
-                    mapOf(
-                        BoundedContextId("healthy") to healthyLocator as HandlerLocator,
-                        BoundedContextId("failing") to failingLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("healthy"), healthyLocator),
+                        BoundedContext(BoundedContextId("failing"), failingLocator),
                     ),
                 inbox =
                     InboxConfig(
@@ -336,7 +336,7 @@ class MessageBusInboxTest {
                         pollInterval = 50.milliseconds,
                         opportunisticDrain = false,
                     ),
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
                 inbox =
                     InboxConfig(
                         ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -374,9 +374,9 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 contexts =
-                    mapOf(
-                        BoundedContextId("plain") to plainLocator as HandlerLocator,
-                        BoundedContextId("inboxed") to inboxedLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("plain"), plainLocator),
+                        BoundedContext(BoundedContextId("inboxed"), inboxedLocator),
                     ),
                 inbox =
                     InboxConfig(
@@ -407,7 +407,7 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
                 inbox =
                     InboxConfig(
                         ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -430,7 +430,7 @@ class MessageBusInboxTest {
         MessageBus(
             busLocator,
             appScope = backgroundScope,
-            contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
+            contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
             inbox =
                 InboxConfig(
                     ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -456,7 +456,7 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
                 inbox =
                     InboxConfig(
                         ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -489,7 +489,7 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = RecordingOutboxStore()),
-                contexts = mapOf(BoundedContextId("failing") to failingLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("failing"), failingLocator)),
                 inbox =
                     InboxConfig(
                         ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -518,7 +518,7 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
                 inbox =
                     InboxConfig(
                         ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -567,7 +567,7 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
-                contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("healthy"), locator)),
                 inbox =
                     InboxConfig(
                         ackPolicy = InboxAckPolicy.HonourEventStrategy,
@@ -627,7 +627,7 @@ class MessageBusInboxTest {
                 MessageBus(
                     busLocator,
                     appScope = backgroundScope,
-                    contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
+                    contexts = listOf(BoundedContext(BoundedContextId("healthy"), locator)),
                     inbox =
                         InboxConfig(
                             stores = mapOf(BoundedContextId("healthy") to inboxStore),

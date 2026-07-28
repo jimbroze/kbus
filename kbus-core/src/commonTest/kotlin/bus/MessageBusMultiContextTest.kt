@@ -9,8 +9,8 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -19,6 +19,7 @@ import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -141,6 +142,28 @@ class MessageBusMultiContextTest {
     }
 
     @Test
+    fun constructingWithDuplicateBoundedContextIds_throws() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(stores)
+        val firstLocator = PersistingHandlerLocator(stores)
+        val secondLocator = PersistingHandlerLocator(stores)
+
+        val exception =
+            assertFailsWith<IllegalArgumentException> {
+                MessageBus(
+                    busLocator,
+                    appScope = backgroundScope,
+                    contexts =
+                        listOf(
+                            BoundedContext(BoundedContextId("alpha"), firstLocator),
+                            BoundedContext(BoundedContextId("alpha"), secondLocator),
+                        ),
+                )
+            }
+        assertTrue(exception.message!!.contains("alpha"))
+    }
+
+    @Test
     fun aHandlerInOneContextDoesNotFireForAnotherContextsEvent() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val busLocator = PersistingHandlerLocator(stores)
@@ -158,9 +181,9 @@ class MessageBusMultiContextTest {
                 busLocator,
                 appScope = backgroundScope,
                 contexts =
-                    mapOf(
-                        BoundedContextId("alpha") to alphaLocator as HandlerLocator,
-                        BoundedContextId("beta") to betaLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("alpha"), alphaLocator),
+                        BoundedContext(BoundedContextId("beta"), betaLocator),
                     ),
             )
 
@@ -192,9 +215,9 @@ class MessageBusMultiContextTest {
                 busLocator,
                 appScope = backgroundScope,
                 contexts =
-                    mapOf(
-                        BoundedContextId("alpha") to alphaLocator as HandlerLocator,
-                        BoundedContextId("beta") to betaLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("alpha"), alphaLocator),
+                        BoundedContext(BoundedContextId("beta"), betaLocator),
                     ),
             )
 
@@ -217,7 +240,7 @@ class MessageBusMultiContextTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("beta") to betaLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("beta"), betaLocator)),
             )
 
         val observed = mutableListOf<AlphaEvent>()
@@ -245,7 +268,7 @@ class MessageBusMultiContextTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
-                contexts = mapOf(BoundedContextId("beta") to betaLocator as HandlerLocator),
+                contexts = listOf(BoundedContext(BoundedContextId("beta"), betaLocator)),
             )
         bus.start()
         advanceVirtualTime(50)
@@ -288,9 +311,9 @@ class MessageBusMultiContextTest {
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
                 contexts =
-                    mapOf(
-                        BoundedContextId("healthy") to healthyLocator as HandlerLocator,
-                        BoundedContextId("failing") to failingLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("healthy"), healthyLocator),
+                        BoundedContext(BoundedContextId("failing"), failingLocator),
                     ),
             )
         bus.start()

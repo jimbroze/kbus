@@ -1,204 +1,108 @@
 package com.jimbroze.kbus.core.module
 
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
-import com.jimbroze.kbus.core.fixtures.OtherStorageEventHandler
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
-import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
-import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
-import com.jimbroze.kbus.core.fixtures.emptyContextFactory
-import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
-import com.jimbroze.kbus.core.messages.event.routing.AggregateException
+import com.jimbroze.kbus.core.fixtures.TestDomainEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.core.registry.GeneratedKBusApi
+import com.jimbroze.kbus.core.registry.LoadedEventHandler
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
-import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runTest
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(GeneratedKBusApi::class)
 class BoundedContextTest {
-    private fun createContext(
-        locator: PersistingHandlerLocator,
-        dispatcherScope: CoroutineScope,
-    ): BoundedContext {
-        val eventDispatcher =
-            EventDispatcher(
-                locator::handlersFor,
-                emptyList(),
-                dispatcherScope,
-                contextFactory = emptyContextFactory(dispatcherScope),
-            )
-        return BoundedContext(
-            BoundedContextId.DEFAULT,
-            LocatorSubscriptions(locator),
-            locator,
-            { eventDispatcher },
-        )
+    @Test
+    fun id_isTheOneItWasConstructedWith() {
+        val context = BoundedContext(BoundedContextId("orders"))
+
+        assertEquals(BoundedContextId("orders"), context.id)
     }
 
     @Test
-    fun delivering_a_list_of_envelopes_dispatches_each_to_its_registered_handlers_in_order() =
-        runTest {
-            val stores = HandlerFactoryStoreCollection()
-            val locator = PersistingHandlerLocator(stores)
-            val results = mutableListOf<String>()
+    fun constructor_defaultsToAFreshPersistingHandlerLocator() {
+        val context = BoundedContext(BoundedContextId("orders"))
 
-            stores.eventStore.registerHandlers(
-                StorageEvent::class,
-                listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
-            )
-            locator.integrationEventMapper.addEventHandlers(
-                StorageEvent::class,
-                listOf(PrintEventHandler::class),
-            )
+        context.addEventHandlers(
+            StorageEvent::class,
+            listOf(LoadedEventHandler(PrintEventHandler::class)),
+        )
 
-            val context = createContext(locator, this)
+        assertTrue(context.handlerLocator.hasHandlersFor(StorageEvent("any", mutableListOf())))
+    }
 
-            context.deliver(
-                listOf(
-                    EventEnvelope.of(StorageEvent("first", results)),
-                    EventEnvelope.of(StorageEvent("second", results)),
-                )
-            )
-            advanceUntilIdle()
-
-            assertEquals(listOf("first", "second"), results)
+    @Test
+    fun constructor_rejectsAHandlerLocatorThatIsNotAnEventMapperProvider() {
+        assertFailsWith<IllegalArgumentException> {
+            BoundedContext(BoundedContextId("orders"), NonMapperHandlerLocator)
         }
+    }
 
     @Test
-    fun delivering_an_event_with_no_registered_handlers_does_nothing() = runTest {
+    fun addEventHandlers_registersOnTheUnderlyingLocatorsIntegrationEventMapper() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = createContext(locator, this)
+        val context = BoundedContext(BoundedContextId("orders"), locator)
 
-        context.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("unhandled"))))
-        advanceUntilIdle()
+        context.addEventHandlers(
+            StorageEvent::class,
+            listOf(LoadedEventHandler(PrintEventHandler::class)),
+        )
+
+        assertTrue(locator.hasHandlersFor(StorageEvent("any", mutableListOf())))
     }
 
     @Test
-    fun delivering_an_empty_list_does_nothing() = runTest {
+    fun addDomainHandlers_registersOnTheUnderlyingLocatorsDomainEventMapper() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = createContext(locator, this)
+        val context = BoundedContext(BoundedContextId("orders"), locator)
 
-        context.deliver(emptyList())
-        advanceUntilIdle()
-    }
-
-    private fun registerStorageEventHandler(stores: HandlerFactoryStoreCollection) {
-        stores.eventStore.registerHandlers(
-            StorageEvent::class,
-            listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
+        context.addDomainHandlers(
+            TestDomainEvent::class,
+            listOf(LoadedEventHandler(TestDomainEventHandler::class)),
         )
+
+        assertTrue(locator.hasHandlersFor(TestDomainEvent("any")))
     }
 
     @Test
-    fun appliesTo_isTrue_forAnEventThisContextHasAnIntegrationHandlerFor() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-        registerStorageEventHandler(stores)
-        locator.integrationEventMapper.addEventHandlers(
-            StorageEvent::class,
-            listOf(PrintEventHandler::class),
-        )
-
-        val context = createContext(locator, this)
-
-        assertTrue(context.appliesTo(StorageEvent("any", mutableListOf())))
-    }
-
-    @Test
-    fun appliesTo_isFalse_forAnEventThisContextHasNoHandlerFor() = runTest {
+    fun addEventHandlers_doesNotRegisterOnAnotherContextsLocator() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = createContext(locator, this)
+        val other = PersistingHandlerLocator(HandlerFactoryStoreCollection())
+        val context = BoundedContext(BoundedContextId("orders"), locator)
 
-        assertFalse(context.appliesTo(StorageEvent("any", mutableListOf())))
-    }
-
-    @Test
-    fun appliesTo_reflectsAHandlerRegisteredAfterTheContextWasConstructed() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-        val context = createContext(locator, this)
-
-        registerStorageEventHandler(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        context.addEventHandlers(
             StorageEvent::class,
-            listOf(PrintEventHandler::class),
+            listOf(LoadedEventHandler(PrintEventHandler::class)),
         )
 
-        assertTrue(context.appliesTo(StorageEvent("any", mutableListOf())))
+        assertFalse(other.hasHandlersFor(StorageEvent("any", mutableListOf())))
     }
+}
 
-    @Test
-    fun appliesTo_isFalse_forAnotherContextsEvent_whenBothShareHandlerStores() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        registerStorageEventHandler(stores)
-        stores.eventStore.registerHandlers(
-            OtherStorageEvent::class,
-            listOf(
-                EventHandlerFactory(OtherStorageEventHandler::class) { OtherStorageEventHandler() }
-            ),
-        )
+private object NonMapperHandlerLocator : com.jimbroze.kbus.core.registry.HandlerLocator {
+    override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
+        command: TCommand,
+        commandDependencies: CommandDependencies,
+    ): CommandHandler<TCommand, TResult>? = null
 
-        val thisLocator = PersistingHandlerLocator(stores)
-        thisLocator.integrationEventMapper.addEventHandlers(
-            StorageEvent::class,
-            listOf(PrintEventHandler::class),
-        )
-        val otherLocator = PersistingHandlerLocator(stores)
-        otherLocator.integrationEventMapper.addEventHandlers(
-            OtherStorageEvent::class,
-            listOf(OtherStorageEventHandler::class),
-        )
+    override fun <TQuery : Query<TResult>, TResult : KBusResult> handlerFor(
+        query: TQuery
+    ): QueryHandler<TQuery, TResult>? = null
 
-        val context = createContext(thisLocator, this)
+    override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> =
+        emptyList()
 
-        assertTrue(context.appliesTo(StorageEvent("any", mutableListOf())))
-        assertFalse(context.appliesTo(OtherStorageEvent("any", mutableListOf())))
-    }
-
-    @Test
-    fun withAckStrategy_overridesDispatchOnTheCopyOnly_theOriginalIsUnmutated() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-        val attempts = mutableListOf<String>()
-        stores.eventStore.registerHandlers(
-            TestIntegrationEvent::class,
-            listOf(
-                EventHandlerFactory(ThrowingIntegrationEventHandler::class) {
-                    ThrowingIntegrationEventHandler(attempts)
-                }
-            ),
-        )
-        locator.integrationEventMapper.addEventHandlers(
-            TestIntegrationEvent::class,
-            listOf(ThrowingIntegrationEventHandler::class),
-        )
-
-        val context = createContext(locator, this)
-        val overridden =
-            context.withAckStrategy { strategy ->
-                if (strategy == ErrorStrategy.FireAndForget) ErrorStrategy.ContinueAndAggregate
-                else strategy
-            }
-
-        // The original honours the event's own FireAndForget: the failure is swallowed silently.
-        context.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("first"))))
-        advanceUntilIdle()
-        assertEquals(listOf("first"), attempts)
-
-        // The overridden copy forces ContinueAndAggregate, so the failure now surfaces.
-        assertFailsWith<AggregateException> {
-            overridden.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("second"))))
-        }
-        assertEquals(listOf("first", "second"), attempts)
-    }
+    override fun hasHandlersFor(event: Event): Boolean = false
 }

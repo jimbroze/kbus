@@ -21,6 +21,7 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.ContextRuntime
 import com.jimbroze.kbus.core.module.LocatorSubscriptions
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
@@ -64,7 +65,7 @@ abstract class BaseMessageBus(
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-    contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+    contexts: List<BoundedContext> = emptyList(),
     inbox: InboxConfig? = null,
 ) : IMessageBus {
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
@@ -89,18 +90,39 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One [BoundedContext] per identity, each dispatching integration events to its own handler
-     * slice. Empty ⇒ a single [BoundedContextId.DEFAULT] context over the bus's shared locator.
-     * Commands, queries and domain events resolve through [handlerLocator] regardless.
+     * One [BoundedContext] per identity. Empty ⇒ a single [BoundedContextId.DEFAULT] context over
+     * the bus's shared [handlerLocator] — non-modular apps are unaffected. Commands, queries and
+     * domain events still resolve through [handlerLocator] regardless of what's configured here.
      */
     private val boundedContexts: List<BoundedContext> =
-        contexts
-            .ifEmpty { mapOf(BoundedContextId.DEFAULT to handlerLocator) }
-            .map { (id, locator) ->
-                BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
-            }
+        contexts.ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
 
-    private val inboxCoordinator = InboxCoordinator(inbox, boundedContexts, inboxScope)
+    init {
+        val duplicates =
+            boundedContexts.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys
+        require(duplicates.isEmpty()) {
+            "Duplicate BoundedContextId(s): ${duplicates.map { it.value }}. " +
+                "Each bounded context must have a unique id."
+        }
+    }
+
+    /**
+     * The runtime side of each [boundedContexts] entry, each dispatching integration events to its
+     * own handler slice via a deferred reference to [eventDispatcher] — the dispatcher is
+     * constructed after these, since its [contextFactory] transitively depends on the router these
+     * runtimes feed into.
+     */
+    private val contextRuntimes: List<ContextRuntime> =
+        boundedContexts.map { context ->
+            ContextRuntime(
+                context,
+                LocatorSubscriptions(context.handlerLocator),
+                context.handlerLocator,
+                { eventDispatcher },
+            )
+        }
+
+    private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
     private val directPublisher = DirectPublisher(router, eventDispatcherScope)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
@@ -269,7 +291,7 @@ class MessageBus(
     middlewares: List<Middleware> = emptyList(),
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-    contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+    contexts: List<BoundedContext> = emptyList(),
     inbox: InboxConfig? = null,
 ) :
     BaseMessageBus(

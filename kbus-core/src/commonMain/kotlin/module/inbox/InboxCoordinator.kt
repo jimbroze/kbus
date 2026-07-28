@@ -3,8 +3,8 @@ package com.jimbroze.kbus.core.module.inbox
 import com.jimbroze.kbus.contracts.inbox.InboxStore
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
-import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.ContextRuntime
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -72,29 +72,29 @@ class InboxConfig(
  * config-or-null and a scope in, derived members as `val`s, an idempotent start, and no `stop` —
  * cancellation is the bus's root job.
  */
-class InboxCoordinator(
+internal class InboxCoordinator(
     private val config: InboxConfig?,
-    contexts: List<BoundedContext>,
+    contexts: List<ContextRuntime>,
     private val inboxScope: CoroutineScope,
 ) {
     val destinations: List<EventDestination> =
-        contexts.map { context ->
-            config?.stores?.get(context.id)?.let { store ->
+        contexts.map { runtime ->
+            config?.stores?.get(runtime.context.id)?.let { store ->
                 EventInbox(
-                    context.withAckStrategy(config.ackPolicy.errorStrategyOverride),
+                    runtime.withAckStrategy(config.ackPolicy.errorStrategyOverride),
                     store,
                     inboxScope,
                     config.batchSize,
                     config.pollInterval,
                     config.opportunisticDispatch,
                 )
-            } ?: context
+            } ?: runtime
         }
 
     private val inboxes = destinations.filterIsInstance<EventInbox>()
 
     init {
-        val known = contexts.map { it.id }.toSet()
+        val known = contexts.map { it.context.id }.toSet()
         val unknown = config?.stores?.keys.orEmpty() - known
         require(unknown.isEmpty()) {
             "InboxConfig has stores for bounded contexts this bus has no context for: " +

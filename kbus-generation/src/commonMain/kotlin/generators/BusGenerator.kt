@@ -6,9 +6,9 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
-import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
 import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -68,7 +68,7 @@ class BusGenerator(
                 .addSuperclassConstructorParameter("middleware")
                 .addSuperclassConstructorParameter("appScope = appScope")
                 .addSuperclassConstructorParameter("outbox = outbox")
-                .addSuperclassConstructorParameter("contexts = contextLocators")
+                .addSuperclassConstructorParameter("contexts = contextLocators.values.toList()")
                 .addSuperclassConstructorParameter("inbox = inbox")
 
         val contexts = contextIdentities(handlers)
@@ -131,23 +131,16 @@ class BusGenerator(
                 .build()
         )
 
-        // One integration-event registration point per bounded context. There is deliberately no
-        // bus-wide `integrationEventMapper`: with N contexts, "which context?" has no answer.
+        // One registration point per bounded context. There is deliberately no bus-wide
+        // `integrationEventMapper`: with N contexts, "which context?" has no answer.
         contexts.forEach { context ->
             val key =
                 if (context == DEFAULT_CONTEXT) CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
                 else CodeBlock.of("%T(%S)", BoundedContextId::class, context)
 
             classBuilder.addProperty(
-                PropertySpec.builder(
-                        accessorName(context),
-                        CompileTimeIntegrationEventMapper::class.asClassName(),
-                    )
-                    .initializer(
-                        "%T(contextLocators.getValue(%L).integrationEventMapper)",
-                        CompileTimeIntegrationEventMapper::class,
-                        key,
-                    )
+                PropertySpec.builder(accessorName(context), BoundedContext::class.asClassName())
+                    .initializer("contextLocators.getValue(%L)", key)
                     .build()
             )
         }
@@ -251,20 +244,18 @@ private class BusConstructorGenerator(private val config: BusConfig) {
     private fun contextLocatorsBlock(contexts: List<String>): CodeBlock =
         contexts
             .map { context ->
-                if (context == DEFAULT_CONTEXT) {
-                    CodeBlock.of(
-                        "%T.DEFAULT to %T(handlerFactory)",
-                        BoundedContextId::class,
-                        GenerationHandlerLocator::class,
-                    )
-                } else {
-                    CodeBlock.of(
-                        "%T(%S) to %T(handlerFactory)",
-                        BoundedContextId::class,
-                        context,
-                        GenerationHandlerLocator::class,
-                    )
-                }
+                val key =
+                    if (context == DEFAULT_CONTEXT)
+                        CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
+                    else CodeBlock.of("%T(%S)", BoundedContextId::class, context)
+
+                CodeBlock.of(
+                    "%L to %T(%L, %T(handlerFactory))",
+                    key,
+                    BoundedContext::class,
+                    key,
+                    GenerationHandlerLocator::class,
+                )
             }
             .joinToCode(", ", "mapOf(", ")")
 
@@ -297,7 +288,7 @@ private class BusConstructorGenerator(private val config: BusConfig) {
         Map::class.asClassName()
             .parameterizedBy(
                 BoundedContextId::class.asClassName(),
-                GenerationHandlerLocator::class.asClassName(),
+                BoundedContext::class.asClassName(),
             )
 
     fun build(

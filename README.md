@@ -632,9 +632,9 @@ handlers and dispatches to them. A bus holds one per identity:
 ```kotlin
 val bus = MessageBus(
     handlerLocator,
-    contexts = mapOf(
-        BoundedContextId("orders") to ordersLocator,
-        BoundedContextId("inventory") to inventoryLocator,
+    contexts = listOf(
+        BoundedContext(BoundedContextId("orders"), ordersLocator),
+        BoundedContext(BoundedContextId("inventory"), inventoryLocator),
     ),
 )
 ```
@@ -777,6 +777,7 @@ durable store. A failing context now only retries itself.
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
@@ -792,9 +793,9 @@ val inventoryLocator = PersistingHandlerLocator(stores)
 
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
-    contexts = mapOf(
-        BoundedContextId("orders") to ordersLocator,
-        BoundedContextId("inventory") to inventoryLocator,
+    contexts = listOf(
+        BoundedContext(BoundedContextId("orders"), ordersLocator),
+        BoundedContext(BoundedContextId("inventory"), inventoryLocator),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
     inbox = InboxConfig(
