@@ -4,15 +4,15 @@ import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
@@ -32,6 +32,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -152,14 +153,33 @@ class MessageBusOutboxTest {
         assertTrue(store.fetchUnpublished(10).isEmpty())
     }
 
+    /**
+     * The default `FireAndForget` error strategy dispatches handlers via an unawaited
+     * `dispatcherScope.launch`, so nothing about `bus.execute()` returning happens-before the
+     * handler running — asserting "not yet delivered" against wall-clock timing alone would race
+     * that launch. Gating the handler on a [CompletableDeferred] makes the assertion deterministic:
+     * it cannot have recorded anything until the test releases it.
+     */
     @Test
     fun middleware_published_event_is_captured_by_the_outbox_and_not_delivered_before_commit() =
         runTest {
             val store = InMemoryOutboxStore()
             val stores = HandlerFactoryStoreCollection()
             val received = mutableListOf<String>()
+            val gate = CompletableDeferred<Unit>()
             val locator = PersistingHandlerLocator(stores)
-            registerImperativeHandlerOnly(stores, locator, received)
+            stores.eventStore.registerHandlers(
+                OutboxImperativeEvent::class,
+                listOf(
+                    EventHandlerFactory(GatedOutboxEventHandler::class) {
+                        GatedOutboxEventHandler(received, gate)
+                    }
+                ),
+            )
+            locator.integrationEventMapper.addEventHandlers(
+                OutboxImperativeEvent::class,
+                listOf(GatedOutboxEventHandler::class),
+            )
             stores.commandStore.registerHandlers(
                 OutboxNoopCommand::class,
                 listOf(
@@ -184,6 +204,7 @@ class MessageBusOutboxTest {
 
             assertTrue(received.isEmpty(), "Should not be delivered before commit")
 
+            gate.complete(Unit)
             realDelay(150)
 
             assertEquals(listOf("via-middleware"), received)
@@ -278,7 +299,7 @@ class MessageBusOutboxTest {
     @Test
     fun preexisting_unpublished_entries_are_delivered_on_the_pollers_first_pass() = runTest {
         val store = InMemoryOutboxStore()
-        store.save(listOf(OutboxEntry("seeded-1", OutboxImperativeEvent("from-before-crash"))))
+        store.save(listOf(EventEnvelope("seeded-1", OutboxImperativeEvent("from-before-crash"))))
         val stores = HandlerFactoryStoreCollection()
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
@@ -565,6 +586,17 @@ private class RecordingOutboxEventHandler(private val received: MutableList<Stri
     }
 }
 
+/** Suspends until [gate] completes, so a test can deterministically observe pre-delivery state. */
+private class GatedOutboxEventHandler(
+    private val received: MutableList<String>,
+    private val gate: CompletableDeferred<Unit>,
+) : IntegrationEventHandler<OutboxImperativeEvent> {
+    override suspend fun handle(message: OutboxImperativeEvent) {
+        gate.await()
+        received.add(message.name)
+    }
+}
+
 private class OutboxDomainEvent(val message: String) : DomainEvent()
 
 private class OutboxAutoPublishedEvent(val name: String) : IntegrationEvent() {
@@ -624,8 +656,8 @@ private class AlwaysThrowingOutboxEventHandler(private val attempts: MutableList
 }
 
 private class RollbackSimulatingOutboxStore : OutboxStore {
-    private val committed = mutableListOf<OutboxEntry>()
-    private var staged: MutableList<OutboxEntry>? = null
+    private val committed = mutableListOf<EventEnvelope>()
+    private var staged: MutableList<EventEnvelope>? = null
     val markedPublished = mutableListOf<String>()
 
     fun beginTransaction() {
@@ -641,12 +673,12 @@ private class RollbackSimulatingOutboxStore : OutboxStore {
         staged = null
     }
 
-    override suspend fun save(entries: List<OutboxEntry>) {
+    override suspend fun save(entries: List<EventEnvelope>) {
         val target = staged
         if (target != null) target.addAll(entries) else committed.addAll(entries)
     }
 
-    override suspend fun fetchUnpublished(limit: Int): List<OutboxEntry> {
+    override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> {
         val published = markedPublished.toSet()
         return committed.filterNot { it.id in published }.take(limit)
     }

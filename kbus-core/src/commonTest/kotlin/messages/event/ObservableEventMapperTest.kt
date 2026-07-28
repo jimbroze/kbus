@@ -2,6 +2,8 @@ package com.jimbroze.kbus.core.messages.event
 
 import com.jimbroze.kbus.contracts.messages.event.ObservableEventPublisher
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.messages.event.dispatch.EventObserver
+import com.jimbroze.kbus.core.messages.event.dispatch.ObservableEventMapper
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

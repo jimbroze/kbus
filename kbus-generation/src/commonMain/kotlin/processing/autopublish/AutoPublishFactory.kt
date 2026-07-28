@@ -6,7 +6,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
 import com.squareup.kotlinpoet.ksp.toClassName
 
 private sealed interface AutoPublishSearchResult {

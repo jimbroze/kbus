@@ -4,7 +4,7 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.DispatchingCommand
 import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler
-import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
@@ -16,7 +16,9 @@ import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.TransactionCommand
 import com.jimbroze.kbus.core.fixtures.TransactionCommandHandler
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
@@ -50,8 +52,8 @@ class CommandExecutorTest {
 
     @Test
     fun test_it_gives_handlers_access_to_bus() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
-        val factories = TestPublisherFactories(basePublisher)
+        val destination = RecordingDestination()
+        val factories = TestPublisherFactories(DirectPublisher(EventRouter(listOf(destination))))
         val executor =
             CommandExecutor(
                 null,
@@ -65,16 +67,14 @@ class CommandExecutorTest {
 
         executor.execute(DispatchingCommand()) { handler }
 
-        assertEquals(1, basePublisher.publishedEvents.flatten().size)
-        assertEquals(
-            "test-event",
-            (basePublisher.publishedEvents.flatten()[0] as TestIntegrationEvent).name,
-        )
+        assertEquals(1, destination.delivered.size)
+        assertEquals("test-event", (destination.delivered[0].event as TestIntegrationEvent).name)
     }
 
     @Test
     fun test_it_routes_dispatch_through_the_invocations_outbox_when_present() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val directDestination = RecordingDestination()
+        val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)))
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
@@ -84,7 +84,7 @@ class CommandExecutorTest {
                 IntegrationEventPublisherFactory(
                     OutboxCoordinator(
                         OutboxConfig(store),
-                        RecordingIntegrationEventPublisher(),
+                        EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
                     basePublisher,
@@ -102,14 +102,14 @@ class CommandExecutorTest {
         executor.execute(DispatchingCommand()) { DispatchingCommandHandler() }
         unitOfWorkFactory.unitOfWork.executeAllScheduledWork()
 
-        assertTrue(basePublisher.publishedEvents.isEmpty())
+        assertTrue(directDestination.delivered.isEmpty())
         assertEquals(1, store.saved.size)
         assertEquals("test-event", (store.saved.single().event as TestIntegrationEvent).name)
     }
 
     @Test
     fun test_the_commands_middleware_context_resolves_to_the_invocations_outbox() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val basePublisher = DirectPublisher(EventRouter(emptyList()))
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
@@ -119,7 +119,7 @@ class CommandExecutorTest {
                 IntegrationEventPublisherFactory(
                     OutboxCoordinator(
                         OutboxConfig(store),
-                        RecordingIntegrationEventPublisher(),
+                        EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
                     basePublisher,

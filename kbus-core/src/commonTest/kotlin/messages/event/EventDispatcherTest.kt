@@ -20,6 +20,7 @@ import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PublishingDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.PublishingIntegrationEventHandler
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -65,6 +66,10 @@ import com.jimbroze.kbus.core.fixtures.ThrowingSequentialFireAndForgetHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
+import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.routing.AggregateException
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -73,13 +78,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.yield
 
 @Suppress("LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -412,7 +413,7 @@ class EventDispatcherTest {
             ThrowingContinueAndAggregateHandler(env.results, "third"),
         )
         val exception =
-            assertFailsWith<MultipleException> {
+            assertFailsWith<AggregateException> {
                 env.dispatch(TestContinueAndAggregateEvent("test"))
             }
 
@@ -471,7 +472,7 @@ class EventDispatcherTest {
             ThrowingSequentialContinueAndAggregateHandler(env.results, "third"),
         )
         val exception =
-            assertFailsWith<MultipleException> {
+            assertFailsWith<AggregateException> {
                 env.dispatch(TestSequentialContinueAndAggregateEvent("test"))
             }
 
@@ -569,7 +570,7 @@ class EventDispatcherTest {
             )
 
             val immediateException =
-                assertFailsWith<MultipleException> {
+                assertFailsWith<AggregateException> {
                     env.dispatch(TestContinueAndAggregateEvent("test"))
                 }
 
@@ -691,35 +692,7 @@ class EventDispatcherTest {
         assertEquals(listOf("threw:test", "success:test"), env.results)
     }
 
-    // =========================================================================
-    // OBSERVER REGISTRY
-    // =========================================================================
-
-    @Test
-    fun dispatching_integration_event_emits_to_observer_registry() = runTest {
-        val registry = IntegrationEventObserverRegistry()
-        val dispatcher =
-            EventDispatcher(
-                { emptyList() },
-                emptyList(),
-                this,
-                registry,
-                contextFactory = emptyContextFactory(),
-            )
-
-        val received = mutableListOf<TestIntegrationEvent>()
-        val flow = registry.observableFor(TestIntegrationEvent::class)
-        val job = launch { flow.take(1).toList(received) }
-        yield()
-
-        dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("observed"))
-        advanceUntilIdle()
-        job.join()
-
-        assertEquals("observed", received.single().name)
-    }
-
-    // TODO test observer emit is after other dispatches
+    // Observer-registry emit moved to EventRouter; see EventRouterTest.
 
     // =========================================================================
     // OUTBOX CONTEXT WIRING
@@ -732,7 +705,7 @@ class EventDispatcherTest {
         val outbox =
             TransactionalOutbox(
                 store,
-                RecordingIntegrationEventPublisher(),
+                EventRouter(listOf(RecordingDestination())),
                 this,
                 TestUnitOfWork<Any?>(),
             )
@@ -774,7 +747,7 @@ class EventDispatcherTest {
     @Test
     fun dispatchIntegrationEvent_uses_the_base_publisher_context() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val basePublisher = DirectPublisher(EventRouter(emptyList()))
         val dispatcher =
             EventDispatcher(
                 { emptyList() },
@@ -809,7 +782,7 @@ class EventDispatcherTest {
     @Test
     fun dispatchIntegrationEvent_wires_the_contexts_publisher_into_integration_event_handlers() =
         runTest {
-            val recordingPublisher = RecordingIntegrationEventPublisher()
+            val destination = RecordingDestination()
             val dispatcher =
                 EventDispatcher(
                     { emptyList() },
@@ -817,7 +790,9 @@ class EventDispatcherTest {
                     this,
                     contextFactory =
                         MiddlewareInvocationContextFactory(
-                            noOutboxPublisherFactory(recordingPublisher)
+                            noOutboxPublisherFactory(
+                                DirectPublisher(EventRouter(listOf(destination)))
+                            )
                         ),
                 )
 
@@ -827,7 +802,7 @@ class EventDispatcherTest {
             )
             advanceUntilIdle()
 
-            val published = recordingPublisher.publishedEvents.flatten()
+            val published = destination.delivered.map { it.event }
             assertEquals(1, published.size)
             assertEquals("published-by-test", (published.single() as TestIntegrationEvent).name)
         }

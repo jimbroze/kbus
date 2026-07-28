@@ -4,7 +4,7 @@ import com.jimbroze.kbus.contracts.annotations.LoadEvent
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.core.messages.event.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
 import com.jimbroze.kbus.generation.test.orders.domain.OrderPlaced
 
 @LoadEvent

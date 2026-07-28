@@ -1,9 +1,10 @@
 package com.jimbroze.kbus.core.uow
 
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
-import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
@@ -20,7 +21,8 @@ class OutboxPollerTest {
     @Test
     fun run_fetchesUsingTheConfiguredBatchSize() = runTest {
         val store = RecordingOutboxStore()
-        val poller = OutboxPoller(store, RecordingIntegrationEventPublisher(), 42, 10.milliseconds)
+        val poller =
+            OutboxPoller(store, EventRouter(listOf(RecordingDestination())), 42, 10.milliseconds)
 
         val job = backgroundScope.launch { poller.run() }
         runCurrent()
@@ -33,7 +35,8 @@ class OutboxPollerTest {
     fun run_aThrowingStore_doesNotKillTheLoop() = runTest {
         val store = RecordingOutboxStore()
         store.fetchFailure = IllegalStateException("db down")
-        val poller = OutboxPoller(store, RecordingIntegrationEventPublisher(), 10, 10.milliseconds)
+        val poller =
+            OutboxPoller(store, EventRouter(listOf(RecordingDestination())), 10, 10.milliseconds)
 
         val job = backgroundScope.launch { poller.run() }
         runCurrent()
@@ -49,9 +52,9 @@ class OutboxPollerTest {
     @Test
     fun run_deliversFetchedEntriesAndMarksThemPublished() = runTest {
         val store = RecordingOutboxStore()
-        store.save(listOf(OutboxEntry("entry-1", OutboxPollerTestEvent("a"))))
-        val realPublisher = RecordingIntegrationEventPublisher()
-        val poller = OutboxPoller(store, realPublisher, 10, 10.milliseconds)
+        store.save(listOf(EventEnvelope("entry-1", OutboxPollerTestEvent("a"))))
+        val destination = RecordingDestination()
+        val poller = OutboxPoller(store, EventRouter(listOf(destination)), 10, 10.milliseconds)
 
         val job = backgroundScope.launch { poller.run() }
         runCurrent()

@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import kotlin.reflect.KClass

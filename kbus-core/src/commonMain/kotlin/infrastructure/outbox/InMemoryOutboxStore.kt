@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.infrastructure.outbox
 
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -8,13 +8,13 @@ import kotlinx.coroutines.sync.withLock
 /** Reference, non-durable [OutboxStore] backed by an in-memory list. For tests and examples. */
 class InMemoryOutboxStore : OutboxStore {
     private val mutex = Mutex()
-    private val entries = mutableListOf<OutboxEntry>()
+    private val entries = mutableListOf<EventEnvelope>()
 
-    override suspend fun save(entries: List<OutboxEntry>) {
+    override suspend fun save(entries: List<EventEnvelope>) {
         mutex.withLock { this.entries.addAll(entries) }
     }
 
-    override suspend fun fetchUnpublished(limit: Int): List<OutboxEntry> {
+    override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> {
         mutex.withLock {
             return entries.take(limit)
         }

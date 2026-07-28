@@ -2,7 +2,7 @@ package com.jimbroze.kbus.core.middleware.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.messages.event.IntegrationEventMapper
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext

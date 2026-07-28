@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
-import com.jimbroze.kbus.core.messages.event.DomainEventDispatcher
+import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 

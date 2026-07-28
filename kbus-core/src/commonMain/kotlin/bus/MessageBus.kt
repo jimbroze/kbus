@@ -10,9 +10,11 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
-import com.jimbroze.kbus.core.messages.event.BusIntegrationEventPublisher
-import com.jimbroze.kbus.core.messages.event.EventDispatcher
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.core.messages.event.routing.LocalDestination
 import com.jimbroze.kbus.core.messages.query.QueryFetcher
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
@@ -65,12 +67,13 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
-    private val baseIntegrationEventPublisher: BusIntegrationEventPublisher =
-        BusIntegrationEventPublisher(handlerLocator) { eventDispatcher }
-    private val outboxCoordinator =
-        OutboxCoordinator(outbox, baseIntegrationEventPublisher, outboxScope)
+    private val localDestination: LocalDestination =
+        LocalDestination(handlerLocator) { eventDispatcher }
+    private val router = EventRouter(listOf(localDestination))
+    private val directPublisher = DirectPublisher(router)
+    private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
     private val integrationEventPublisherFactory =
-        IntegrationEventPublisherFactory(outboxCoordinator, baseIntegrationEventPublisher)
+        IntegrationEventPublisherFactory(outboxCoordinator, directPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
         MiddlewareInvocationContextFactory(integrationEventPublisherFactory)
     protected val eventDispatcher: EventDispatcher =
@@ -177,7 +180,7 @@ abstract class BaseMessageBus(
     }
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
-        eventDispatcher.observerRegistry.observableFor(eventClass)
+        router.observerRegistry.observableFor(eventClass)
 
     inline fun <reified T : IntegrationEvent> observe(): Flow<T> = observe(T::class)
 }

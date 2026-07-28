@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.infrastructure.outbox
 
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.outbox.OutboxEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -13,8 +13,8 @@ class InMemoryOutboxStoreTest {
     @Test
     fun fetchUnpublished_returnsSavedEntriesOldestFirst() = runTest {
         val store = InMemoryOutboxStore()
-        val first = OutboxEntry("1", OutboxTestEvent("first"))
-        val second = OutboxEntry("2", OutboxTestEvent("second"))
+        val first = EventEnvelope("1", OutboxTestEvent("first"))
+        val second = EventEnvelope("2", OutboxTestEvent("second"))
 
         store.save(listOf(first))
         store.save(listOf(second))
@@ -27,7 +27,7 @@ class InMemoryOutboxStoreTest {
     @Test
     fun fetchUnpublished_respectsLimit() = runTest {
         val store = InMemoryOutboxStore()
-        store.save((1..5).map { OutboxEntry("$it", OutboxTestEvent("event-$it")) })
+        store.save((1..5).map { EventEnvelope("$it", OutboxTestEvent("event-$it")) })
 
         val fetched = store.fetchUnpublished(2)
 
@@ -37,8 +37,8 @@ class InMemoryOutboxStoreTest {
     @Test
     fun markPublished_excludesEntriesFromFutureFetches() = runTest {
         val store = InMemoryOutboxStore()
-        store.save(listOf(OutboxEntry("1", OutboxTestEvent("first"))))
-        store.save(listOf(OutboxEntry("2", OutboxTestEvent("second"))))
+        store.save(listOf(EventEnvelope("1", OutboxTestEvent("first"))))
+        store.save(listOf(EventEnvelope("2", OutboxTestEvent("second"))))
 
         store.markPublished(listOf("1"))
         val fetched = store.fetchUnpublished(10)
@@ -49,7 +49,7 @@ class InMemoryOutboxStoreTest {
     @Test
     fun markPublished_toleratesUnknownIds() = runTest {
         val store = InMemoryOutboxStore()
-        store.save(listOf(OutboxEntry("1", OutboxTestEvent("first"))))
+        store.save(listOf(EventEnvelope("1", OutboxTestEvent("first"))))
 
         store.markPublished(listOf("unknown-id"))
         val fetched = store.fetchUnpublished(10)

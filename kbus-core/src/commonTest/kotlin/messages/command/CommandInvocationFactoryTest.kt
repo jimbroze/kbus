@@ -1,10 +1,12 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
+import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
-import com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
+import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
+import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
@@ -19,7 +21,7 @@ import kotlinx.coroutines.test.runTest
 class CommandInvocationFactoryTest {
     @Test
     fun create_without_an_outbox_uses_the_base_publisher() = runTest {
-        val basePublisher = RecordingIntegrationEventPublisher()
+        val basePublisher = DirectPublisher(EventRouter(emptyList()))
         val factory =
             CommandInvocationFactory(
                 TestUnitOfWorkFactory(),
@@ -51,10 +53,10 @@ class CommandInvocationFactoryTest {
                 IntegrationEventPublisherFactory(
                     OutboxCoordinator(
                         OutboxConfig(RecordingOutboxStore()),
-                        RecordingIntegrationEventPublisher(),
+                        EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
-                    RecordingIntegrationEventPublisher(),
+                    DirectPublisher(EventRouter(emptyList())),
                 ),
             )
 
@@ -72,10 +74,10 @@ class CommandInvocationFactoryTest {
                 IntegrationEventPublisherFactory(
                     OutboxCoordinator(
                         OutboxConfig(RecordingOutboxStore()),
-                        RecordingIntegrationEventPublisher(),
+                        EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
-                    RecordingIntegrationEventPublisher(),
+                    DirectPublisher(EventRouter(emptyList())),
                 ),
             )
 
