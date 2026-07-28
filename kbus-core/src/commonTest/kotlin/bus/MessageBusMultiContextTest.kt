@@ -21,6 +21,9 @@ import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
+import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,6 +80,45 @@ private class RecordingBetaHandler(private val received: MutableList<String>) :
     }
 }
 
+private class DeltaDomainEvent(val name: String) : DomainEvent()
+
+private class PublishDeltaCommand(val name: String) : Command<BusResult<Unit, MessageFailure>>()
+
+private class PublishDeltaCommandHandler(private val domainEventPublisher: DomainEventPublisher) :
+    CommandHandler<PublishDeltaCommand, BusResult<Unit, MessageFailure>>() {
+    override suspend fun handle(message: PublishDeltaCommand): BusResult<Unit, MessageFailure> {
+        domainEventPublisher.publish(DeltaDomainEvent(message.name))
+        return BusResult.success(Unit)
+    }
+}
+
+/**
+ * A second, distinct command class — a command is single-owner, so isolation tests that need two
+ * contexts each publishing [DeltaDomainEvent] need two commands, one per owning context.
+ */
+private class PublishSecondDeltaCommand(val name: String) :
+    Command<BusResult<Unit, MessageFailure>>()
+
+private class PublishSecondDeltaCommandHandler(
+    private val domainEventPublisher: DomainEventPublisher
+) : CommandHandler<PublishSecondDeltaCommand, BusResult<Unit, MessageFailure>>() {
+    override suspend fun handle(
+        message: PublishSecondDeltaCommand
+    ): BusResult<Unit, MessageFailure> {
+        domainEventPublisher.publish(DeltaDomainEvent(message.name))
+        return BusResult.success(Unit)
+    }
+}
+
+private class RecordingDeltaHandler(
+    private val received: MutableList<String>,
+    private val label: String,
+) : DomainEventHandler<DeltaDomainEvent>() {
+    override suspend fun handle(message: DeltaDomainEvent) {
+        received.add("$label:${message.name}")
+    }
+}
+
 private class AlphaQuery : Query<BusResult<String, MessageFailure>>()
 
 private class AlphaQueryHandler : QueryHandler<AlphaQuery, BusResult<String, MessageFailure>>() {
@@ -116,6 +158,49 @@ class MessageBusMultiContextTest {
         locator.integrationEventMapper.addEventHandlers(
             AlphaEvent::class,
             listOf(RecordingAlphaHandler::class),
+        )
+    }
+
+    private fun registerPublishingDeltaCommand(stores: HandlerFactoryStoreCollection) {
+        stores.commandStore.registerHandlers(
+            PublishDeltaCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishDeltaCommandHandler::class) { deps ->
+                    PublishDeltaCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+    }
+
+    private fun registerPublishingSecondDeltaCommand(stores: HandlerFactoryStoreCollection) {
+        stores.commandStore.registerHandlers(
+            PublishSecondDeltaCommand::class,
+            listOf(
+                CommandHandlerFactory(PublishSecondDeltaCommandHandler::class) { deps ->
+                    PublishSecondDeltaCommandHandler(deps.domainEventPublisher)
+                }
+            ),
+        )
+    }
+
+    /** Registers a domain handler factory in [stores] and maps it on [locator] only. */
+    private fun registerDeltaHandlerIn(
+        stores: HandlerFactoryStoreCollection,
+        locator: PersistingHandlerLocator,
+        received: MutableList<String>,
+        label: String,
+    ) {
+        stores.eventStore.registerHandlers(
+            DeltaDomainEvent::class,
+            listOf(
+                EventHandlerFactory(RecordingDeltaHandler::class) {
+                    RecordingDeltaHandler(received, label)
+                }
+            ),
+        )
+        locator.domainEventMapper.addDomainHandlers(
+            DeltaDomainEvent::class,
+            listOf(RecordingDeltaHandler::class),
         )
     }
 
@@ -295,6 +380,75 @@ class MessageBusMultiContextTest {
             )
 
         assertFailsWith<MissingHandlerException> { bus.fetch(AlphaQuery()) }
+    }
+
+    @Test
+    fun aDomainHandlerInOneContextDoesNotFireForAnotherContextsCommand() = runTest {
+        val ownerStores = HandlerFactoryStoreCollection()
+        val ownerLocator = PersistingHandlerLocator(ownerStores)
+        registerPublishingDeltaCommand(ownerStores)
+
+        val otherStores = HandlerFactoryStoreCollection()
+        val otherLocator = PersistingHandlerLocator(otherStores)
+        val otherReceived = mutableListOf<String>()
+        registerDeltaHandlerIn(otherStores, otherLocator, otherReceived, "beta")
+
+        val bus =
+            MessageBus(
+                PersistingHandlerLocator(),
+                appScope = backgroundScope,
+                contexts =
+                    listOf(
+                        BoundedContext(BoundedContextId("alpha"), ownerLocator),
+                        BoundedContext(BoundedContextId("beta"), otherLocator),
+                    ),
+            )
+
+        bus.execute(PublishDeltaCommand("event"))
+        advanceUntilIdle()
+        advanceVirtualTime(100)
+
+        assertTrue(otherReceived.isEmpty())
+    }
+
+    @Test
+    fun eachContextsDomainHandlerFiresOnlyForItsOwnCommand() = runTest {
+        val alphaStores = HandlerFactoryStoreCollection()
+        val alphaLocator = PersistingHandlerLocator(alphaStores)
+        registerPublishingDeltaCommand(alphaStores)
+        val alphaReceived = mutableListOf<String>()
+        registerDeltaHandlerIn(alphaStores, alphaLocator, alphaReceived, "alpha")
+
+        val betaStores = HandlerFactoryStoreCollection()
+        val betaLocator = PersistingHandlerLocator(betaStores)
+        registerPublishingSecondDeltaCommand(betaStores)
+        val betaReceived = mutableListOf<String>()
+        registerDeltaHandlerIn(betaStores, betaLocator, betaReceived, "beta")
+
+        val bus =
+            MessageBus(
+                PersistingHandlerLocator(),
+                appScope = backgroundScope,
+                contexts =
+                    listOf(
+                        BoundedContext(BoundedContextId("alpha"), alphaLocator),
+                        BoundedContext(BoundedContextId("beta"), betaLocator),
+                    ),
+            )
+
+        bus.execute(PublishDeltaCommand("from-alpha"))
+        advanceUntilIdle()
+        advanceVirtualTime(100)
+
+        assertEquals(listOf("alpha:from-alpha"), alphaReceived)
+        assertTrue(betaReceived.isEmpty())
+
+        bus.execute(PublishSecondDeltaCommand("from-beta"))
+        advanceUntilIdle()
+        advanceVirtualTime(100)
+
+        assertEquals(listOf("alpha:from-alpha"), alphaReceived)
+        assertEquals(listOf("beta:from-beta"), betaReceived)
     }
 
     @Test

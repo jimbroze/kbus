@@ -4,8 +4,11 @@ import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.registry.HandlerLocator
+import com.jimbroze.kbus.domain.event.DomainEvent
 
 /**
  * The bus-derived runtime for one [BoundedContext]: it owns the wired event dispatcher and
@@ -16,20 +19,23 @@ import com.jimbroze.kbus.core.registry.HandlerLocator
  * A [BoundedContext] is the local-dispatch kind of [EventDestination] (external transports are
  * other destinations). A bus holds one runtime per identity — each with its own [handlerLocator]
  * slice — and [appliesTo] is the real subscription set derived from that slice, so a handler in one
- * context never fires for another context's event.
+ * context never fires for another context's event. It is also that context's
+ * [DomainEventDispatcher] — a command's domain events dispatch through the owning context's runtime
+ * and thus only ever reach that context's own domain handlers, mirroring [appliesTo]'s isolation on
+ * the integration side.
  */
 internal class ContextRuntime(
     val context: BoundedContext,
     private val subscriptions: Subscriptions,
     private val handlerLocator: HandlerLocator,
     /**
-     * The bus constructs its dispatcher after the destinations it routes to (the dispatcher's
+     * The bus constructs its dispatchers after the destinations it routes to (a dispatcher's
      * `contextFactory` transitively depends on the router, which depends on these runtimes), so
-     * this is resolved on first [deliver], not at construction.
+     * this is resolved on first [deliver]/[dispatchDomainEvent], not at construction.
      */
     private val eventDispatcher: () -> EventDispatcher,
     private val ackStrategyOverride: ((ErrorStrategy) -> ErrorStrategy)? = null,
-) : EventDestination {
+) : EventDestination, DomainEventDispatcher {
     override val name: String
         get() = context.id.value
 
@@ -45,6 +51,11 @@ internal class ContextRuntime(
                 )
         }
     }
+
+    override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
+        event: TEvent,
+        invocation: CommandInvocation<*>,
+    ) = eventDispatcher().dispatchDomainEvent(event, invocation)
 
     /**
      * Returns a copy overridden by [override] — an ack policy's mapping from an event's own

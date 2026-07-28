@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
+import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -75,7 +76,8 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
 fun <TResult> testInvocation(
     unitOfWork: UnitOfWork<TResult> = TestUnitOfWork(),
     publisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
-): CommandInvocation<TResult> = CommandInvocation(unitOfWork, publisher)
+    contextId: BoundedContextId = BoundedContextId.DEFAULT,
+): CommandInvocation<TResult> = CommandInvocation(unitOfWork, publisher, contextId)
 
 class TestDomainEventDispatcher : DomainEventDispatcher {
     val dispatchedEvents = mutableListOf<Pair<DomainEvent, CommandInvocation<*>>>()

@@ -8,6 +8,7 @@ import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
@@ -20,9 +21,10 @@ class CommandExecutor(
 ) {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
+        contextId: BoundedContextId,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
     ): TResult {
-        val invocation = invocationFactory.create<TResult>()
+        val invocation = invocationFactory.create<TResult>(contextId)
         val handler = createHandler(commandDependenciesFactory.create(invocation))
 
         handler.setPublisher(invocation.integrationEventPublisher)
@@ -61,11 +63,20 @@ interface CommandDependenciesFactory {
     fun create(invocation: CommandInvocation<*>): CommandDependencies
 }
 
-class DefaultCommandDependenciesFactory(private val domainEventDispatcher: DomainEventDispatcher?) :
-    CommandDependenciesFactory {
+/**
+ * [domainEventDispatcherFor] resolves per invocation, by [CommandInvocation.contextId] — a
+ * command's domain events must reach only its owning context's domain handlers, not a single
+ * bus-wide set.
+ */
+class DefaultCommandDependenciesFactory(
+    private val domainEventDispatcherFor: (BoundedContextId) -> DomainEventDispatcher?
+) : CommandDependenciesFactory {
     override fun create(invocation: CommandInvocation<*>): CommandDependencies {
         return CommandDependencies(
-            InvocationDomainEventPublisher(domainEventDispatcher, invocation)
+            InvocationDomainEventPublisher(
+                domainEventDispatcherFor(invocation.contextId),
+                invocation,
+            )
         )
     }
 }

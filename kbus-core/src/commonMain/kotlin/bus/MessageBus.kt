@@ -94,7 +94,8 @@ abstract class BaseMessageBus(
     /**
      * One [BoundedContext] per identity. Empty ⇒ a single [BoundedContextId.DEFAULT] context over
      * the bus's shared [handlerLocator] — non-modular apps are unaffected. Commands, queries and
-     * domain events still resolve through [handlerLocator] regardless of what's configured here.
+     * domain events all resolve per-context: a command's owning context (see [ownerContextFor])
+     * determines both its handler and which context's domain handlers its domain events reach.
      */
     private val boundedContexts: List<BoundedContext> =
         contexts.ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
@@ -109,10 +110,11 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * The runtime side of each [boundedContexts] entry, each dispatching integration events to its
-     * own handler slice via a deferred reference to [eventDispatcher] — the dispatcher is
-     * constructed after these, since its [contextFactory] transitively depends on the router these
-     * runtimes feed into.
+     * The runtime side of each [boundedContexts] entry, each dispatching integration events — and,
+     * as a [com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher], domain events —
+     * to its own handler slice via a deferred reference into [contextEventDispatchers]. The
+     * dispatchers are constructed after these runtimes, since a dispatcher's [contextFactory]
+     * transitively depends on the router these runtimes feed into.
      */
     private val contextRuntimes: List<ContextRuntime> =
         boundedContexts.map { context ->
@@ -120,9 +122,12 @@ abstract class BaseMessageBus(
                 context,
                 LocatorSubscriptions(context.handlerLocator),
                 context.handlerLocator,
-                { eventDispatcher },
+                { contextEventDispatchers.getValue(context.id) },
             )
         }
+
+    private val contextRuntimesById: Map<BoundedContextId, ContextRuntime> =
+        contextRuntimes.associateBy { it.context.id }
 
     private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
@@ -132,19 +137,25 @@ abstract class BaseMessageBus(
         IntegrationEventPublisherFactory(outboxCoordinator, directPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
         MiddlewareInvocationContextFactory(integrationEventPublisherFactory)
-    protected val eventDispatcher: EventDispatcher =
-        EventDispatcher(
-            handlerLocator::handlersFor,
-            middlewares,
-            eventDispatcherScope,
-            contextFactory = contextFactory,
-        )
+
+    /** One dispatcher per [boundedContexts] entry, each scoped to that context's own handlers. */
+    private val contextEventDispatchers: Map<BoundedContextId, EventDispatcher> =
+        boundedContexts.associate { context ->
+            context.id to
+                EventDispatcher(
+                    context.handlerLocator::handlersFor,
+                    middlewares,
+                    eventDispatcherScope,
+                    contextFactory = contextFactory,
+                )
+        }
+
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
             contextFactory,
-            DefaultCommandDependenciesFactory(eventDispatcher),
+            DefaultCommandDependenciesFactory(contextRuntimesById::get),
             CommandInvocationFactory(DefaultUnitOfWorkFactory(), integrationEventPublisherFactory),
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
@@ -260,22 +271,22 @@ abstract class BaseMessageBus(
         command: TCommand
     ): TResult {
         checkStarted()
-        val owner = ownerLocatorFor(command::class) { it.hasHandlerFor(command) }
+        val owner = ownerContextFor(command::class) { it.hasHandlerFor(command) }
         val handlerCreator = { commandDependencies: CommandDependencies ->
-            (owner.handlerFor(command, commandDependencies)
+            (owner.handlerLocator.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
         }
 
-        return commandExecutor.execute(command, handlerCreator)
+        return commandExecutor.execute(command, owner.id, handlerCreator)
     }
 
     override suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(
         query: TQuery
     ): TResult {
         checkStarted()
-        val owner = ownerLocatorFor(query::class) { it.hasHandlerFor(query) }
+        val owner = ownerContextFor(query::class) { it.hasHandlerFor(query) }
         val handlerCreator = {
-            (owner.handlerFor(query) ?: throw MissingHandlerException(query::class))
+            (owner.handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
         }
 
         return queryFetcher.fetch(query, handlerCreator)
@@ -284,16 +295,18 @@ abstract class BaseMessageBus(
     /**
      * Finds the single [boundedContexts] entry [hasHandler] answers true for — a command or query
      * is single-owner by contract, so zero owners is [MissingHandlerException] and two or more is
-     * [AmbiguousHandlerException] rather than resolved by list order.
+     * [AmbiguousHandlerException] rather than resolved by list order. Returns the owning
+     * [BoundedContext] itself (not just its locator) so callers can thread [BoundedContext.id]
+     * through to domain dispatch.
      */
-    private fun ownerLocatorFor(
+    private fun ownerContextFor(
         messageClass: KClass<out Message>,
         hasHandler: (HandlerLocator) -> Boolean,
-    ): HandlerLocator {
+    ): BoundedContext {
         val owners = boundedContexts.filter { hasHandler(it.handlerLocator) }
         return when (owners.size) {
             0 -> throw MissingHandlerException(messageClass)
-            1 -> owners.single().handlerLocator
+            1 -> owners.single()
             else -> throw AmbiguousHandlerException(messageClass, owners.map { it.id.value })
         }
     }

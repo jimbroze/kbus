@@ -7,6 +7,7 @@ import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
@@ -28,7 +29,7 @@ class CommandInvocationFactoryTest {
                 noOutboxPublisherFactory(backgroundScope, basePublisher),
             )
 
-        val invocation = factory.create<Any?>()
+        val invocation = factory.create<Any?>(BoundedContextId.DEFAULT)
 
         assertSame(basePublisher, invocation.integrationEventPublisher)
     }
@@ -39,7 +40,7 @@ class CommandInvocationFactoryTest {
         val factory =
             CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
 
-        factory.create<Any?>()
+        factory.create<Any?>(BoundedContextId.DEFAULT)
 
         assertTrue(unitOfWorkFactory.unitOfWork.secondaryWork.isEmpty())
         assertTrue(unitOfWorkFactory.unitOfWork.postCommitWork.isEmpty())
@@ -61,7 +62,7 @@ class CommandInvocationFactoryTest {
                 ),
             )
 
-        val invocation = factory.create<Any?>()
+        val invocation = factory.create<Any?>(BoundedContextId.DEFAULT)
 
         assertIs<TransactionalOutbox>(invocation.integrationEventPublisher)
     }
@@ -82,7 +83,7 @@ class CommandInvocationFactoryTest {
                 ),
             )
 
-        val invocation = factory.create<Any?>()
+        val invocation = factory.create<Any?>(BoundedContextId.DEFAULT)
 
         assertTrue(unitOfWorkFactory.unitOfWork === invocation.unitOfWork)
         assertTrue(unitOfWorkFactory.unitOfWork.secondaryWork.isNotEmpty())
