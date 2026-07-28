@@ -159,7 +159,7 @@ class GenerationTest {
                 emptyList(),
             )
 
-        bus.domainEventMapper.addDomainHandlers(
+        bus.default.addDomainHandlers(
             TestGeneratorEvent::class,
             listOf(TestGeneratorEventHandler::class.loaded),
         )

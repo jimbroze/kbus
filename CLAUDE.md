@@ -79,10 +79,14 @@ invariant is what would make a later `@KbusModule("…")` annotation a drop-in o
 unassigned (folded into the default context) and is deliberately distinct from a context literally named `"default"`;
 `DependencyIndexGenerator` therefore always emits `module`, because `IndexParser.findArgument` errors on a missing *or*
 null value. Identity does not participate in `HandlerConflictPolicy` — cross-module command ownership is a later stage.
-`BusGenerator` groups `INTEGRATION` event handlers by identity and emits one `GenerationHandlerLocator`
-per context (all sharing the one `HandlerFactory`), passes them as `contexts` to the super-constructor, and exposes one
-`CompileTimeIntegrationEventMapper` accessor per context — `bus.orders`, `bus.default`. The bus-wide
-`integrationEventMapper` is **gone** (ambiguous with N contexts); `domainEventMapper` stays.
+`BusGenerator` groups every handler kind (command, query, domain, integration) by identity and emits one
+`GenerationHandlerLocator` per context (all sharing the one `HandlerFactory`, disambiguated by its own
+`contextIdentity`), passes them as `contexts` to the super-constructor, and exposes one `BoundedContext` accessor per
+context — `bus.orders`, `bus.default` — the one registration point for both `addEventHandlers` and
+`addDomainHandlers`. There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N
+contexts, "which context?" has no answer for either. A generated command convenience function
+(`bus.placeOrder(...)`) bakes in its handler's own owning `BoundedContextId` as the `CommandExecutor.execute` argument
+that determines which context's domain handlers its domain events reach.
 
 ### Handler Locators
 
@@ -134,15 +138,23 @@ over the bus's shared locator (behaviour-preserving for non-modular apps); dupli
 The bus derives one internal `ContextRuntime` per `BoundedContext` — the local-dispatch `EventDestination` and the only
 destination today — once its own middleware, scope and dispatcher exist; a `BoundedContext` cannot own that itself,
 since none of that wiring is available at the point a user constructs one. `ContextRuntime` holds a **deferred**
-reference to the bus's `EventDispatcher` (`() -> EventDispatcher`, resolved on first `deliver`, not at construction) —
-not vestigial, but load-bearing: the dispatcher's `contextFactory` transitively depends on the router these runtimes
-feed into, so building them eagerly with a concrete `EventDispatcher` would be a circular initializer. `appliesTo` is a
+reference to that context's own `EventDispatcher` (`() -> EventDispatcher`, resolved on first `deliver`/
+`dispatchDomainEvent`, not at construction) — not vestigial, but load-bearing: a dispatcher's `contextFactory`
+transitively depends on the router these runtimes feed into, so building them eagerly with a concrete `EventDispatcher`
+would be a circular initializer. `appliesTo` is a
 real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the seam Stage 3's
 `DeclaredSubscriptions` drops into) with `LocatorSubscriptions` delegating to
 `HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both locators
 answer from `PersistingEventMapper.hasMappingFor`. Laziness is an invariant, not an optimisation: handlers are commonly
 registered *after* the bus is constructed, so a construction-time snapshot would silently drop (and, with an inbox, fail
 to capture) everything that arrived first.
+
+`ContextRuntime` is also that context's `DomainEventDispatcher`: `dispatchDomainEvent` delegates to the same deferred
+`EventDispatcher` reference `deliver` uses, so integration and domain dispatch for one context share a single
+dispatcher instance rather than two parallel wiring paths. `CommandExecutor.execute` and
+`CommandInvocationFactory.create` both take a **required** `BoundedContextId` (no default — a caller that forgot it
+would otherwise get silently wrong domain dispatch instead of a compile error), which becomes
+`CommandInvocation.contextId`; `MessageBus.execute` passes the id of the context that owner lookup resolved.
 
 **Commands and queries resolve by owner lookup**, not through `BaseMessageBus.handlerLocator` directly:
 `execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of `hasHandlersFor`, same
@@ -153,8 +165,10 @@ needs its own `contextIdentity` (`""` for default) to answer this, because conte
 module currently share one generated `HandlerFactory` instance — `GenerationHandlerFactory.commandModule`/
 `queryModule` report the owning identity (or `null`) per message class, generated from `HandlerData.module`, and the
 locator compares it against its own identity. `BaseMessageBus.handlerLocator` itself is **not** a lookup candidate once
-`contexts` is non-empty — it only backs domain-event dispatch and the implicit default context — so a hand-rolled bus
+`contexts` is non-empty — it only backs the implicit default context when `contexts` is empty — so a hand-rolled bus
 that passes explicit `contexts` must register every command/query handler through one of those contexts' locators.
+Domain-event dispatch is per-context too, via `BaseMessageBus.contextEventDispatchers` (one `EventDispatcher` per
+`BoundedContextId`) — see the `ContextRuntime`/`CommandInvocation.contextId` wiring above.
 
 Consequences of N contexts, all deliberate: the dispatch middleware chain runs **once per subscribing context** (a
 `Locker` acquires once per context, sequentially — `EventRouter.route` iterates destinations serially); an event **no**

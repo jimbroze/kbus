@@ -1054,8 +1054,15 @@ bus.billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::cla
 bus.default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
 ```
 
-There is deliberately no bus-wide `integrationEventMapper`: with several contexts, "which context?" has no answer.
-`domainEventMapper` stays bus-wide — domain events do not cross contexts.
+Domain handlers register the same way, per context:
+
+```kotlin
+bus.billing.addDomainHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+```
+
+There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
+context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
+handlers — a domain handler registered on `bus.billing` never fires for a command owned by another context.
 
 ## Domain Modeling
 

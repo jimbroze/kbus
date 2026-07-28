@@ -8,9 +8,8 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
-import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
+import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
@@ -58,6 +57,11 @@ internal fun contextIdentities(handlers: Set<HandlerDefinition>): List<String> {
 
     return listOf(DEFAULT_CONTEXT) + modules
 }
+
+/** The [BoundedContextId] a handler's raw (possibly blank/unassigned) declared module maps to. */
+private fun contextIdKeyBlock(module: String): CodeBlock =
+    if (module.isBlank()) CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
+    else CodeBlock.of("%T(%S)", BoundedContextId::class, module)
 
 class BusGenerator(
     private val codeGenerator: CodeGenerator,
@@ -111,22 +115,13 @@ class BusGenerator(
             }
             .joinToString("")
 
+    /**
+     * One registration point per bounded context, for both integration and domain handlers (via
+     * [BoundedContext]'s own `addEventHandlers`/`addDomainHandlers`). There is deliberately no
+     * bus-wide `integrationEventMapper` or `domainEventMapper`: with N contexts, "which context?"
+     * has no answer for either — a command's domain events dispatch only to its owning context.
+     */
     private fun buildEventMapperProperties(classBuilder: TypeSpec.Builder, contexts: List<String>) {
-        classBuilder.addProperty(
-            PropertySpec.builder(
-                    "domainEventMapper",
-                    CompileTimeDomainEventMapper::class.asClassName(),
-                )
-                .initializer(
-                    "%T((handlerLocator as %T).domainEventMapper)",
-                    CompileTimeDomainEventMapper::class,
-                    EventMapperProvider::class,
-                )
-                .build()
-        )
-
-        // One registration point per bounded context. There is deliberately no bus-wide
-        // `integrationEventMapper`: with N contexts, "which context?" has no answer.
         contexts.forEach { context ->
             val key =
                 if (context == DEFAULT_CONTEXT) CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
@@ -154,6 +149,18 @@ class BusGenerator(
                 .map { parameter -> CodeBlock.of("${parameter.name}: %T", parameter.typeRef) }
                 .joinToCode(", ")
 
+        // A command's domain events must dispatch only to its own owning context, so
+        // CommandExecutor.execute needs that context's id — known at generation time from the
+        // handler's own declared module, baked in here rather than resolved dynamically.
+        val processorArgs =
+            if (handler is CommandHandlerDefinition)
+                CodeBlock.of(
+                    "%L, %L, handlerCreator",
+                    messageType,
+                    contextIdKeyBlock(handler.handlerData.module),
+                )
+            else CodeBlock.of("%L, handlerCreator", messageType)
+
         val functionBuilder =
             FunSpec.builder(processMethod)
                 .addModifiers(KModifier.SUSPEND)
@@ -168,9 +175,7 @@ class BusGenerator(
                     handler.handlerData.nameAsDependency,
                 )
                 .endControlFlow()
-                .addStatement(
-                    "return $messageProcessor.$processMethod($messageType, handlerCreator)"
-                )
+                .addStatement("return %L.%L(%L)", messageProcessor, processMethod, processorArgs)
                 .build()
         )
 
