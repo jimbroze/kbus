@@ -15,6 +15,7 @@ import com.jimbroze.kbus.core.fixtures.DelayingSequentialAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialEndOfTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingSequentialImmediateHandler
+import com.jimbroze.kbus.core.fixtures.DelayingThrowingContinueAndAggregateHandler
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
@@ -224,16 +225,19 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun it_dispatches_integration_events_asynchronously_as_fire_and_forget() = runTest {
+    fun it_awaits_a_fire_and_forget_integration_events_handlers_before_returning() = runTest {
         val env = TestEnv(this)
         env.dispatchIntegration(
             TestIntegrationEvent("test"),
             DelayingIntegrationEventHandler(env.results, 100, "delayed handler"),
         )
 
-        assertEquals(0, env.results.size, "Dispatch returns before handlers complete")
-        advanceUntilIdle()
-        assertEquals(listOf("delayed handler"), env.results)
+        assertEquals(
+            listOf("delayed handler"),
+            env.results,
+            "A fire-and-forget integration event's handlers are awaited before dispatch " +
+                "returns, so an inboxed context only acks after they complete",
+        )
     }
 
     @Test
@@ -420,6 +424,23 @@ class EventDispatcherTest {
         assertEquals(listOf("threw:first", "success:second", "threw:third"), env.results)
         assertEquals(2, exception.exceptions.size)
     }
+
+    @Test
+    fun continue_and_aggregate_aggregates_even_when_the_last_handler_finishes_before_an_earlier_one_throws() =
+        runTest {
+            val env = TestEnv(this)
+            env.withDomainHandlers(
+                DelayingThrowingContinueAndAggregateHandler(env.results, 100, "first"),
+                SucceedingContinueAndAggregateHandler(env.results, "second"),
+            )
+            val exception =
+                assertFailsWith<AggregateException> {
+                    env.dispatch(TestContinueAndAggregateEvent("test"))
+                }
+
+            assertEquals(listOf("success:second", "threw:first"), env.results)
+            assertEquals(1, exception.exceptions.size)
+        }
 
     @Test
     fun continue_and_aggregate_does_not_throw_when_all_handlers_succeed() = runTest {
@@ -692,8 +713,6 @@ class EventDispatcherTest {
         assertEquals(listOf("threw:test", "success:test"), env.results)
     }
 
-    // Observer-registry emit moved to EventRouter; see EventRouterTest.
-
     // =========================================================================
     // OUTBOX CONTEXT WIRING
     // =========================================================================
@@ -747,7 +766,7 @@ class EventDispatcherTest {
     @Test
     fun dispatchIntegrationEvent_uses_the_base_publisher_context() = runTest {
         val capturingMiddleware = CapturingContextMiddleware()
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val dispatcher =
             EventDispatcher(
                 { emptyList() },
@@ -791,7 +810,7 @@ class EventDispatcherTest {
                     contextFactory =
                         MiddlewareInvocationContextFactory(
                             noOutboxPublisherFactory(
-                                DirectPublisher(EventRouter(listOf(destination)))
+                                DirectPublisher(EventRouter(listOf(destination)), this)
                             )
                         ),
                 )

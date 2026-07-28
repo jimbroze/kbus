@@ -30,8 +30,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CommandExecutorTest {
     @Test
     fun test_it_invokes_handler_and_returns_result() = runTest {
@@ -53,7 +56,8 @@ class CommandExecutorTest {
     @Test
     fun test_it_gives_handlers_access_to_bus() = runTest {
         val destination = RecordingDestination()
-        val factories = TestPublisherFactories(DirectPublisher(EventRouter(listOf(destination))))
+        val factories =
+            TestPublisherFactories(DirectPublisher(EventRouter(listOf(destination)), this))
         val executor =
             CommandExecutor(
                 null,
@@ -66,6 +70,7 @@ class CommandExecutorTest {
         val handler = DispatchingCommandHandler()
 
         executor.execute(DispatchingCommand()) { handler }
+        advanceUntilIdle()
 
         assertEquals(1, destination.delivered.size)
         assertEquals("test-event", (destination.delivered[0].event as TestIntegrationEvent).name)
@@ -74,7 +79,7 @@ class CommandExecutorTest {
     @Test
     fun test_it_routes_dispatch_through_the_invocations_outbox_when_present() = runTest {
         val directDestination = RecordingDestination()
-        val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)))
+        val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)), this)
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
@@ -109,7 +114,7 @@ class CommandExecutorTest {
 
     @Test
     fun test_the_commands_middleware_context_resolves_to_the_invocations_outbox() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factories = TestPublisherFactories(basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()

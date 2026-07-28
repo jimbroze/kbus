@@ -237,8 +237,12 @@ class SendShipmentNotification : DomainEventHandler<OrderShipped>() {
 
 #### Integration Events
 
-Integration events are dispatched after the transaction commits, intended for cross-boundary communication. Integration
-events are **always dispatched asynchronously** — handlers run concurrently in a fire-and-forget manner.
+Integration events are dispatched after the transaction commits, intended for cross-boundary communication. A
+command's return **never awaits** integration handler execution — publishing hands the event off to the
+[outbox](#transactional-outbox) or [direct publisher](#event-routing) and moves on. Once dispatch actually runs,
+though, it awaits its own handlers before returning (concurrently or sequentially, per the event's `Concurrency`
+setting) — this is what lets an [inboxed context](#per-context-inbox) ack only after they complete, rather than
+before a single one has started.
 
 <!--- CLEAR -->
 <!--- INCLUDE
@@ -571,28 +575,47 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
 
 ## Bus Lifecycle
 
-A bus with background work — an outbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) — must be
-explicitly started before it dispatches messages:
+A bus with background work — an outbox, an inbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) —
+must be explicitly started before it dispatches messages:
 
 ```kotlin
 val bus = MessageBus(/* ... */)
 bus.start()
 ```
 
-`start()` runs each `LifecycleAwareMiddleware`'s `onStart` and, if an outbox is configured, launches its poller. It's
-idempotent — calling it again is a no-op — and a bus with neither an outbox nor lifecycle-aware middleware needs no
-`start()` call at all; `execute`/`fetch` work immediately, at zero ceremony.
+`start()` runs each `LifecycleAwareMiddleware`'s `onStart`, then launches its poller and any per-context inbox pumps
+(consumers before producers, so a pre-existing backlog is already draining when the poller's first tick lands). It's
+idempotent — calling it again is a no-op — and a bus with none of these needs no `start()` call at all; `execute`/
+`fetch` work immediately, at zero ceremony.
 
 Calling `execute`/`fetch` on a bus that *does* have background work, before `start()`, throws
 `IllegalStateException` rather than silently running with that work never having started (e.g. an outbox that never
 polls).
 
-`stop()` is `suspend`: it calls each middleware's `onStop()`, then cancels the bus's root job and waits for that
-cancellation to complete, so shutdown is deterministic in tests and at application exit.
+`stop()` is `suspend`: within one `gracePeriod` budget (default 10 seconds) it calls each middleware's suspending
+`onStop()` and then lets in-flight dispatch finish; it then cancels the bus's root job and waits, for at most another
+`gracePeriod`, for that cancellation to complete — so shutdown is deterministic in tests and at application exit, and
+bounded even if a handler never completes.
 
 ```kotlin
-bus.stop()
+bus.stop() // or bus.stop(gracePeriod = 30.seconds)
 ```
+
+The grace period matters for two detached, non-durable paths that would otherwise be lost outright on a cancelled
+shutdown: a post-commit domain handler with the default `FireAndForget` strategy, and a `FireAndForget` integration
+event's routing. An [inboxed context](#per-context-inbox) doesn't need it — it already dispatches inline on its own
+pump coroutine, so a cancelled pump just leaves its envelope unacked for the next `start()` to pick up. The drain waits
+for quiescence rather than for one snapshot of what was in flight when `stop()` was called, so a handler that itself
+launches further detached work during the grace period — a fire-and-forget handler publishing a further fire-and-forget
+event — is waited for too. Only the bus's own dispatch scope is covered: a handler that launches onto a scope the bus
+doesn't own is still cancelled mid-flight, and the grace period bounds the whole drain.
+
+`onStop()` is `suspend`, so a middleware with non-durable work in flight can await it there rather than have the scope
+from `onStart` cancelled from under it. The `onStop` calls and the dispatch drain share one budget, sequentially, so a
+middleware that suspends for the whole grace period starves the ones after it — the alternative, a budget per
+middleware, makes worst-case shutdown scale with how many there are. The wait for cancellation is bounded too, because
+cancellation is cooperative and there is no hard kill: a coroutine that never reaches a suspension point, or that
+suspends inside `NonCancellable`, is leaked rather than allowed to hang the application's exit.
 
 Restart is unsupported — cancelling the root job is terminal, so a `stop()`ped bus cannot be `start()`ed again.
 `stop()` before `start()` is a no-op.
@@ -632,8 +655,8 @@ Three consequences worth knowing:
 - **`observe()` is a bus-level diagnostic tap, not a subscription mechanism.** It fires at the router, before fan-out,
   independent of which contexts subscribe — do not use it to consume another context's events.
 
-External transports and per-module inboxes are further `EventDestination`s, which is what the router seam exists to
-support.
+External transports and [per-context inboxes](#per-context-inbox) are further `EventDestination`s, which is what the
+router seam exists to support.
 
 Observation is at-least-once, not exactly-once: the router re-emits each time an event is routed, and a failed
 destination is re-routed by the outbox poller, so observers see a retried event again. Exactly-once observation would
@@ -641,7 +664,9 @@ require deduping on `EventEnvelope.id` against a durable store — the same id-k
 
 A destination that throws is not acknowledged: with an outbox configured, that leaves the entry unpublished for the
 poller to retry, the same as any other delivery failure. Routing has no dependency on the outbox — it is what every
-publish path always goes through, and the outbox composes with it rather than replacing it.
+publish path always goes through, and the outbox composes with it rather than replacing it. For a destination fronted
+by a [per-context inbox](#per-context-inbox), the thing that can throw (and un-ack the entry) is the *save* to the
+inbox's store, not the handlers — dispatch to handlers happens later, off the inbox's own pump.
 
 ## Transactional Outbox
 
@@ -717,10 +742,16 @@ run against the same store, a handler may occasionally run more than once — de
 `OutboxStore.fetchUnpublished` is the hook for narrowing that window (e.g. hiding very recently-saved or already-claimed
 entries).
 
-An event's `errorStrategy` doubles as the outbox's acknowledgement semantics: `FireAndForget` marks an entry published
-as soon as delivery is handed off, while `FailFast` only marks it published once every handler has actually completed,
-letting the poller retry entries whose handlers threw. Either way, a handler failure no longer fails the command
-itself — the command has already returned by the time delivery happens.
+For a context with no inbox, an event's `errorStrategy` doubles as the outbox's acknowledgement semantics. Dispatch
+itself always awaits every handler before the poller (or drain) marks the entry published — `FireAndForget` and
+`FailFast` no longer differ on *when* the mark happens, only on what a handler's exception does to it: `FireAndForget`
+marks the entry published regardless of the outcome (a failing handler is swallowed and never retried), while
+`FailFast` leaves it unpublished if any handler threw, so the poller retries it. Either way, a handler failure no
+longer fails the command itself — the command has already returned by the time delivery happens.
+An outbox without an inbox retries the *whole* fan-out on any destination failure — see
+[Per-Context Inbox](#per-context-inbox) for the context-isolated alternative, where the outbox instead acks once every
+destination has *accepted* the event (for an inboxed context: persisted to its own store), and `errorStrategy` becomes
+that context's own inbox acknowledgement semantics.
 
 A few edge cases worth knowing:
 
@@ -731,6 +762,122 @@ A few edge cases worth knowing:
   bypass the outbox, but delivery for that event now depends on the poller rather than the command's own drain.
 - Events published by `POST_COMMIT`-phase domain event handlers are saved to the outbox non-transactionally (the
   transaction has already committed), but are still captured and drained like any other event.
+
+## Per-Context Inbox
+
+With multiple [bounded contexts](#event-routing), a throwing handler in one context makes the router's whole-envelope
+delivery fail, so a configured outbox leaves the entry unpublished — and its poller re-routes that entry to **every**
+context on retry, not just the failing one. Healthy contexts re-dispatch on every cycle until the sick one recovers.
+A per-context inbox fixes this: opt a context in, and its `deliver` becomes *save durably and return* — the router acks
+that context immediately, and a separate, per-context background pump handles dispatch (and retries) from its own
+durable store. A failing context now only retries itself.
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
+import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
+import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
+import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
+import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.uow.OutboxConfig
+-->
+
+```kotlin
+val stores = HandlerFactoryStoreCollection()
+val ordersLocator = PersistingHandlerLocator(stores)
+val inventoryLocator = PersistingHandlerLocator(stores)
+
+val bus = MessageBus(
+    handlerLocator = PersistingHandlerLocator(stores),
+    contexts = mapOf(
+        BoundedContextId("orders") to ordersLocator,
+        BoundedContextId("inventory") to inventoryLocator,
+    ),
+    outbox = OutboxConfig(store = InMemoryOutboxStore()),
+    inbox = InboxConfig(
+        stores = mapOf(
+            BoundedContextId("orders") to InMemoryInboxStore(),
+            BoundedContextId("inventory") to InMemoryInboxStore(),
+        ),
+        ackPolicy = InboxAckPolicy.HonourEventStrategy,
+    ),
+).apply { start() }
+```
+
+> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
+
+Each context in `InboxConfig.stores` gets its **own** `InboxStore` instance — structural isolation, not a shared table
+with a context column, so one context's pump physically cannot see another context's rows. A context absent from
+`stores` keeps today's synchronous, un-inboxed dispatch; the two can be mixed on the same bus.
+
+**Dedupe is what actually kills the amplification.** The router still routes a whole envelope to every context on
+every attempt, exactly as without an inbox — nothing about routing changes. What changes is that an inboxed context's
+`deliver` collapses to `InboxStore.save`, which is idempotent per `EventEnvelope.id`: a re-routed envelope that's still
+pending, or already consumed, is silently dropped. So a healthy context acks instantly and dedupes a retried envelope
+on its next arrival, while a sick context's failure is now a *handler* failure inside its own pump — invisible to the
+router — and never causes the healthy contexts to redo anything.
+
+`InboxStore` diverges from `OutboxStore` in two ways implementers must not miss (copying an existing outbox store is
+not enough): `save` must reject an id that is still *pending*, not only one already *consumed* — a fetched-but-unacked
+envelope is otherwise re-savable, which double-dispatches — and `markConsumed` must **not** forget the id, the way
+`OutboxStore.markPublished` is allowed to. A consumed id is a dedupe tombstone that must survive at least as long as
+the producing outbox might still retry, or a late redelivery slips back in as a duplicate.
+
+Two separate things determine what happens to a failing handler at the inbox — easy to conflate, so worth naming
+separately:
+
+- **`errorStrategy`** (on the event) decides whether a handler's exception ever reaches the inbox at all.
+- **`ackPolicy`** (on `InboxConfig`, per bus) decides whether the inbox accepts a producer's `FireAndForget` "don't
+  care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer is a
+  safe default to pick on a consumer's behalf.
+
+Integration-event dispatch — at an inbox or anywhere else — always awaits its handlers before returning, regardless of
+`errorStrategy` or `concurrency`. There is no window where the inbox can ack before a handler has even started; the
+tombstone is only ever written after dispatch returns. What `errorStrategy` still controls is what happens to a
+handler's *exception*:
+
+| `errorStrategy` | Effect at the inbox |
+|---|---|
+| `FailFast` | A throwing handler leaves the envelope pending in *this context's* store, retried every poll interval until every handler completes. No other context is affected. |
+| `ContinueAndAggregate` | All handlers run; any failure leaves the envelope pending, so a retry re-runs the ones that already succeeded too. |
+| `FireAndForget` | Every handler still runs to completion, but an exception is swallowed rather than surfaced — the envelope is acked and tombstoned regardless, so a failing handler is never retried. |
+
+`FireAndForget`'s "never retried" row is a legitimate choice for events a producer truly doesn't care about, but a
+consumer can refuse it via `InboxConfig`'s `ackPolicy`:
+
+```kotlin
+InboxConfig(
+    stores = mapOf(BoundedContextId("orders") to InMemoryInboxStore()),
+    ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
+)
+```
+
+| `ackPolicy` | Effect |
+|---|---|
+| `HonourEventStrategy` | Ack exactly as the table above. |
+| `RequireHandlerSuccess` | A `FireAndForget` event is dispatched as if it were `ContinueAndAggregate`: a handler failure now leaves the envelope pending and is retried. `FailFast` and `ContinueAndAggregate` events are unaffected — they already retry on failure. |
+
+`ackPolicy` is per bus, not per event: it applies uniformly to every event flowing through that context's inbox,
+without the producer having to know or care which contexts consume its events with stronger guarantees.
+
+As with the outbox, handlers must still be idempotent — the inbox dedupes *transport* redelivery (the same envelope
+id arriving twice), not *handler* re-execution: a crash between fetching and acking redispatches the same envelope on
+restart, and a retry (from either `errorStrategy` or `ackPolicy`) re-runs a handler that already succeeded once.
+
+A few things this stage deliberately leaves for later, since none of them require a breaking change to add:
+
+- No dead-letter queue — a poison message retries forever, and if poison entries ever exceed the batch size, the
+  oldest-first fetch stops advancing and the context wedges.
+- `pollInterval`, `batchSize`, and whether dispatch is opportunistic are bus-wide, not per-context.
+- Tombstone retention has no contract-level pruning hook; an implementation that prunes too aggressively re-opens the
+  duplicate window it was closing.
+- No ordering guarantee across retries — a failed envelope is retried after later ones were already delivered.
+- Middleware dispatched from an inboxed context runs on the inbox's own pump coroutine, not the caller's — a
+  `LockingMiddleware`'s re-entrancy token (carried in the coroutine context) does not propagate from whatever
+  triggered the original publish.
 
 ## KSP Code Generation
 

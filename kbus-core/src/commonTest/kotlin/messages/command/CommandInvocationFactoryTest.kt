@@ -21,7 +21,7 @@ import kotlinx.coroutines.test.runTest
 class CommandInvocationFactoryTest {
     @Test
     fun create_without_an_outbox_uses_the_base_publisher() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factory =
             CommandInvocationFactory(
                 TestUnitOfWorkFactory(),
@@ -56,7 +56,7 @@ class CommandInvocationFactoryTest {
                         EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
-                    DirectPublisher(EventRouter(emptyList())),
+                    DirectPublisher(EventRouter(emptyList()), this),
                 ),
             )
 
@@ -77,7 +77,7 @@ class CommandInvocationFactoryTest {
                         EventRouter(listOf(RecordingDestination())),
                         this,
                     ),
-                    DirectPublisher(EventRouter(emptyList())),
+                    DirectPublisher(EventRouter(emptyList()), this),
                 ),
             )
 

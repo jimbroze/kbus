@@ -22,6 +22,8 @@ import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.LocatorSubscriptions
+import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -29,13 +31,18 @@ import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import kotlin.reflect.KClass
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.withTimeoutOrNull
+
+private val DEFAULT_STOP_GRACE_PERIOD = 10.seconds
 
 interface IMessageBus {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -45,6 +52,7 @@ interface IMessageBus {
     suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(query: TQuery): TResult
 }
 
+@Suppress("LongParameterList")
 abstract class BaseMessageBus(
     protected val handlerLocator: HandlerLocator,
     transactionManager: TransactionManager?,
@@ -52,6 +60,7 @@ abstract class BaseMessageBus(
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
     contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+    inbox: InboxConfig? = null,
 ) : IMessageBus {
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
     protected val rootScope =
@@ -70,6 +79,13 @@ abstract class BaseMessageBus(
                 Dispatchers.Default +
                 CoroutineName("KBus-Outbox")
         )
+    private val inboxScope =
+        CoroutineScope(
+            rootScope.coroutineContext +
+                SupervisorJob(parent = rootJob) +
+                Dispatchers.Default +
+                CoroutineName("KBus-Inbox")
+        )
     /**
      * One [BoundedContext] per identity, each dispatching integration events to its own handler
      * slice. Empty ⇒ a single [BoundedContextId.DEFAULT] context over the bus's shared locator.
@@ -79,11 +95,12 @@ abstract class BaseMessageBus(
         contexts
             .ifEmpty { mapOf(BoundedContextId.DEFAULT to handlerLocator) }
             .map { (id, locator) ->
-                BoundedContext(id, LocatorSubscriptions(locator), locator) { eventDispatcher }
+                BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
             }
 
-    private val router = EventRouter(boundedContexts)
-    private val directPublisher = DirectPublisher(router)
+    private val inboxCoordinator = InboxCoordinator(inbox, boundedContexts, inboxScope)
+    private val router = EventRouter(inboxCoordinator.destinations)
+    private val directPublisher = DirectPublisher(router, eventDispatcherScope)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
     private val integrationEventPublisherFactory =
         IntegrationEventPublisherFactory(outboxCoordinator, directPublisher)
@@ -116,13 +133,18 @@ abstract class BaseMessageBus(
 
     /** True when this bus has background work that only [start] can set running. */
     private val requiresStart: Boolean
-        get() = outboxCoordinator.isEnabled || middlewares.any { it is LifecycleAwareMiddleware }
+        get() =
+            outboxCoordinator.isEnabled ||
+                inboxCoordinator.isEnabled ||
+                middlewares.any { it is LifecycleAwareMiddleware }
 
     /**
-     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then the
-     * outbox poller if one is configured. A no-op on a bus with neither. Idempotent — calling this
-     * more than once has no further effect. Must be called before [execute]/[fetch] on a bus with
-     * background work (see [requiresStart]); there is no restart after [stop].
+     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then any
+     * inbox pumps, then the outbox poller if one is configured — consumers before producers, so a
+     * pre-existing backlog is already draining when the poller's first tick lands. A no-op on a bus
+     * with none of these. Idempotent — calling this more than once has no further effect. Must be
+     * called before [execute]/[fetch] on a bus with background work (see [requiresStart]); there is
+     * no restart after [stop].
      */
     fun start() {
         if (lifecycle != Lifecycle.NEW) return
@@ -143,30 +165,70 @@ abstract class BaseMessageBus(
             }
         }
 
+        inboxCoordinator.startConsuming()
         outboxCoordinator.startPolling()
     }
 
     /**
-     * Stops this bus: calls each [LifecycleAwareMiddleware]'s
-     * [onStop][LifecycleAwareMiddleware.onStop], then cancels [rootJob] (and, with it, the outbox
-     * poller and every scope derived from it) and suspends until that cancellation completes. A
-     * no-op if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     * Stops this bus: within one [gracePeriod] budget, calls each [LifecycleAwareMiddleware]'s
+     * [onStop][LifecycleAwareMiddleware.onStop] and then lets in-flight [eventDispatcherScope] work
+     * finish; then cancels [rootJob] (and, with it, the outbox poller and every scope derived from
+     * it) and waits, for at most another [gracePeriod], for that cancellation to complete. A no-op
+     * if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     *
+     * The `onStop` calls and the dispatch drain share one budget, sequentially: a middleware that
+     * suspends for the whole grace period starves the ones after it and the drain. That is
+     * deliberate — the alternative is a per-participant budget, which makes worst-case shutdown
+     * scale with the number of middlewares.
+     *
+     * The wait on cancellation is bounded because cancellation is cooperative and there is no hard
+     * kill: a coroutine that never reaches a suspension point, or that suspends inside
+     * `NonCancellable`, would otherwise block shutdown forever. Bounding it means such a coroutine
+     * leaks — orphaned but still running — rather than hanging the application's exit. The bus is
+     * already [Lifecycle.STOPPED] by then and dispatches nothing further.
+     *
+     * The grace period is not the inbox's durability fix — an inboxed context already dispatches
+     * inline on its own pump coroutine, so a cancelled pump simply leaves its envelope unacked for
+     * the next start to retry, no draining required. What it buys completion for is the two
+     * remaining detached, non-durable paths: a post-commit domain fire-and-forget handler, and
+     * [DirectPublisher]'s launched fire-and-forget routing — both unawaited by the caller that
+     * triggered them, and both lost outright if [rootJob] is cancelled mid-flight. The outbox and
+     * inbox scopes are deliberately not drained here: they run pollers that should be cancelled
+     * promptly, and their work is durable and resumes on restart.
+     *
+     * The drain waits for quiescence, not for one snapshot of [eventDispatcherScope]'s children:
+     * work launched *during* the grace period (a fire-and-forget handler publishing a further
+     * fire-and-forget event) becomes a child only after a snapshot would have been taken, so the
+     * children are re-read until none remain. Only that scope's subtree is covered — a handler that
+     * launches onto a scope the bus doesn't own is still cancelled mid-flight — and the grace
+     * period bounds the whole loop, so work that spawns replacements faster than they complete is
+     * cut off rather than spun on forever.
      */
-    suspend fun stop() {
+    suspend fun stop(gracePeriod: Duration = DEFAULT_STOP_GRACE_PERIOD) {
         if (lifecycle != Lifecycle.STARTED) return
         lifecycle = Lifecycle.STOPPED
 
-        middlewares.forEach { middleware ->
-            if (middleware is LifecycleAwareMiddleware) middleware.onStop()
+        withTimeoutOrNull(gracePeriod) {
+            middlewares.forEach { middleware ->
+                if (middleware is LifecycleAwareMiddleware) middleware.onStop()
+            }
+
+            val dispatchJob = eventDispatcherScope.coroutineContext[Job]!!
+            while (true) {
+                val inFlight = dispatchJob.children.toList()
+                if (inFlight.isEmpty()) break
+                inFlight.joinAll()
+            }
         }
 
-        rootJob.cancelAndJoin()
+        rootJob.cancel()
+        withTimeoutOrNull(gracePeriod) { rootJob.join() }
     }
 
     private fun checkStarted() =
         check(!requiresStart || lifecycle == Lifecycle.STARTED) {
-            "This bus has background work (an outbox and/or lifecycle-aware middleware) and must " +
-                "be started with start() before dispatching messages."
+            "This bus has background work (an outbox, an inbox, and/or lifecycle-aware " +
+                "middleware) and must be started with start() before dispatching messages."
         }
 
     override suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
@@ -199,6 +261,7 @@ abstract class BaseMessageBus(
 }
 
 // TODO change KSP to use extension functions?
+@Suppress("LongParameterList")
 class MessageBus(
     handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     transactionManager: TransactionManager? = EmptyTransactionManager(),
@@ -206,4 +269,14 @@ class MessageBus(
     rootScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
     contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
-) : BaseMessageBus(handlerLocator, transactionManager, middlewares, rootScope, outbox, contexts)
+    inbox: InboxConfig? = null,
+) :
+    BaseMessageBus(
+        handlerLocator,
+        transactionManager,
+        middlewares,
+        rootScope,
+        outbox,
+        contexts,
+        inbox,
+    )

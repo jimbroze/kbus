@@ -4,12 +4,12 @@ import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
+import com.jimbroze.kbus.core.messages.event.relay.outboxRelay
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -48,6 +48,7 @@ internal constructor(
     private val buffer = mutableListOf<EventEnvelope>()
     private val pendingSave = mutableListOf<EventEnvelope>()
     private var flushed = false
+    private val relay = outboxRelay(store, router)
 
     init {
         unitOfWork.addSecondaryWork { flush() }
@@ -81,33 +82,9 @@ internal constructor(
     private fun drain() {
         drainScope.launch {
             val entries = mutex.withLock { buffer.toList().also { buffer.clear() } }
-            deliverAndMark(entries, router, store)
+            relay.relay(entries)
         }
     }
-}
-
-/**
- * Routes each entry via [router] and marks the successes in [store]. A per-entry failure leaves
- * that entry unpublished for the outbox poller to retry; it never stops delivery of the remaining
- * entries.
- */
-internal suspend fun deliverAndMark(
-    entries: List<EventEnvelope>,
-    router: EventRouter,
-    store: OutboxStore,
-) {
-    val publishedIds = mutableListOf<String>()
-    for (entry in entries) {
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
-        try {
-            router.route(listOf(entry))
-            publishedIds.add(entry.id)
-        } catch (e: Exception) {
-            // Left unpublished; the outbox poller will retry it.
-        }
-    }
-
-    if (publishedIds.isNotEmpty()) store.markPublished(publishedIds)
 }
 
 /**
@@ -124,11 +101,13 @@ internal constructor(
     private val drainScope: CoroutineScope,
     private val opportunisticDrain: Boolean = true,
 ) : IntegrationEventPublisher {
+    private val relay = outboxRelay(store, router)
+
     override suspend fun publish(events: List<IntegrationEvent>) {
         val entries = events.map { EventEnvelope.of(it) }
 
         store.save(entries)
-        if (opportunisticDrain) drainScope.launch { deliverAndMark(entries, router, store) }
+        if (opportunisticDrain) drainScope.launch { relay.relay(entries) }
     }
 }
 
@@ -171,35 +150,7 @@ class OutboxCoordinator(
         if (config == null || pollerJob != null) return
         pollerJob =
             outboxScope.launch {
-                OutboxPoller(config.store, router, config.batchSize, config.pollInterval).run()
+                outboxRelay(config.store, router).poll(config.batchSize, config.pollInterval)
             }
-    }
-}
-
-/**
- * The transactional outbox's at-least-once delivery guarantee. Runs forever once started: polls
- * [store] for unpublished entries, routes them via [router], and marks the successes. Never throws
- * — a failing batch is simply retried on the next tick.
- */
-internal class OutboxPoller(
-    private val store: OutboxStore,
-    private val router: EventRouter,
-    private val batchSize: Int,
-    private val pollInterval: Duration,
-) {
-    suspend fun run() {
-        while (true) {
-            pollOnce()
-            delay(pollInterval)
-        }
-    }
-
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
-    private suspend fun pollOnce() {
-        try {
-            deliverAndMark(store.fetchUnpublished(batchSize), router, store)
-        } catch (e: Exception) {
-            // Never crash the polling loop; retried on the next poll.
-        }
     }
 }

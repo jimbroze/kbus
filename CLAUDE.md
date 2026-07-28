@@ -130,11 +130,17 @@ Consequences of N contexts, all deliberate: the dispatch middleware chain runs *
 context subscribes to runs the chain **zero** times and is silently accepted and acked (with an outbox: `markPublished`,
 not retried forever); and `observe()` is unchanged — router-level, once per routing attempt, before fan-out. `observe`
 is a **bus-level diagnostic tap, not a subscription mechanism**; treating it as one would dissolve context isolation.
-One flaky context currently leaves the whole entry unpublished, so the poller re-routes to *every*
-context and healthy ones re-dispatch each cycle — per-destination ack is a Stage 3 (inbox) concern.
-`DirectPublisher` is the no-outbox `IntegrationEventPublisher` ingress — it mints envelopes and calls `router.route`
-immediately, with no durability. Bus wiring (`BaseMessageBus`): `BoundedContext` → `EventRouter` →
-`DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
+A context with no [inbox](#per-context-inbox) still has this behaviour: one flaky context leaves the whole entry
+unpublished, so the poller re-routes to *every* context and healthy ones re-dispatch each cycle
+(`MessageBusMultiContextTest.aFailingContextLeavesTheEntryUnpublished_andHealthyContextsReDispatchOnRetry` pins it). A
+per-context inbox is the fix — see `### Per-Context Inbox`.
+`DirectPublisher` is the no-outbox `IntegrationEventPublisher` ingress and the one caller-facing integration-publish
+path — the inbox pump, the outbox poller and the outbox drain are all background coroutines nobody awaits. It mints
+envelopes and partitions the batch by each event's own `errorStrategy` (not per event, or `observe()`/`EventInbox
+.deliver` would be multiplied): a `FireAndForget` group is launched on `fireAndForgetScope` (`MessageBus` wires in
+`eventDispatcherScope`) so the caller doesn't wait on it, every other group is routed and awaited so a destination
+failure still propagates to the publisher. No durability either way. Bus wiring (`BaseMessageBus`): `BoundedContext` →
+`EventRouter` → `DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
 `router.observerRegistry`, not `EventDispatcher`. A destination that throws is not acknowledged — with an outbox
 configured, that leaves the entry unpublished for the poller to retry; this is the whole ack mechanism, and routing has
 no dependency on the outbox otherwise — every publish path, with or without one, goes through the router.
@@ -157,20 +163,23 @@ bus-owned poller is the at-least-once delivery guarantee; the drain is only a la
 end to end by
 `OutboxCoordinator` (bus-owned, one per bus): its `startPolling()` is called from `BaseMessageBus.start()`, not from any
 constructor — no background work ever begins before the application explicitly starts the bus. `TransactionalOutbox`,
-`ImmediateOutboxPublisher`, `OutboxCoordinator`, and `OutboxPoller` all hold an `EventRouter` (not a bare
-`IntegrationEventPublisher`); `deliverAndMark` calls
-`router.route(listOf(envelope))` per entry, so the router's all-or-nothing-per-entry ack semantics are what leaves an
-entry unpublished for the poller to retry.
+`ImmediateOutboxPublisher`, and `OutboxCoordinator` all hold an `EventRouter` (not a bare `IntegrationEventPublisher`)
+and delegate their delivery loop to a shared `EnvelopeRelay` (`core.messages.event.relay`) — the one fetch/deliver/ack
+loop behind the outbox drain, the immediate publisher, the outbox poller, and every [inbox](#per-context-inbox) pump.
+`outboxRelay(store, router)` is the outbox-specific factory: `deliver = { router.route(listOf(it)) }`, so the router's
+all-or-nothing-per-entry ack semantics are what leaves an entry unpublished for the poller to retry. `EnvelopeRelay`'s
+`relay()` catches and rethrows `CancellationException` rather than swallowing it — required once N per-context inbox
+pumps can be cancelled mid-dispatch on every `stop()`, so a cancelled tick never acks an envelope whose handlers were
+cancelled.
 
 When an outbox is configured, **every** integration publish routes through it, not just command-scoped ones.
 `IntegrationEventPublisherFactory.create(unitOfWork)` returns a
 `TransactionalOutbox` when given a unit of work, and otherwise falls back to
 `OutboxCoordinator.immediatePublisher` — a stateless, long-lived `ImmediateOutboxPublisher`
 that saves to the `OutboxStore` immediately (no transaction to defer to) and opportunistically drains, sharing the same
-`deliverAndMark` delivery loop as `TransactionalOutbox.drain` and
-`OutboxPoller.pollOnce`. This covers query middleware and every other non-command publish path (previously
-fire-and-forget with no durability). Only when no outbox is configured does
-`create` fall through to the direct publisher.
+`EnvelopeRelay`-based delivery loop as `TransactionalOutbox.drain` and `OutboxCoordinator`'s poller. This covers query
+middleware and every other non-command publish path (previously fire-and-forget with no durability). Only when no
+outbox is configured does `create` fall through to the direct publisher.
 
 Command handlers, domain event handlers, and integration event handlers all reach the relevant publisher through the
 same `CanPublishIntegrationEvent` mixin (`setPublisher`/`publish`):
@@ -180,6 +189,67 @@ the publisher into the middleware context (AutoPublish path);
 `EventDispatcher.dispatchIntegrationEvent` resolves the context once and sets its publisher on every handler
 implementing `CanPublishIntegrationEvent`, making integration-event publish chains possible and outbox-durable end to
 end.
+
+### Per-Context Inbox
+
+Opt-in per `BoundedContextId` via `InboxConfig(stores: Map<BoundedContextId, InboxStore>, …)` on the bus constructor
+(`inbox` param, last, after `contexts`). Packages: `contracts.inbox` (`InboxStore`), `core.messages.event.relay`
+(`EnvelopeRelay`, shared with the outbox), `core.module.inbox` (`EventInbox`, `InboxCoordinator`, `InboxConfig`),
+`core.infrastructure.inbox` (`InMemoryInboxStore`).
+
+`EventInbox` is a **decorator**, not a field on `BoundedContext` — `EventInbox(inner: EventDestination, store, …) :
+EventDestination` wraps a context so `BoundedContext` itself is untouched (no branch, no second entry point). Its
+`deliver` collapses to *save durably and return*: `store.save(envelopes)`, then (if `opportunisticDispatch`)
+`pumpScope.launch { drain() }`. `drain()`/`pump()` are `relay.pollOnce()`/`relay.poll()` on an internal `EnvelopeRelay`
+whose `fetch = store::fetchPending`, `deliver = { inner.deliver(listOf(it)) }` (per-entry, so ack is per-entry — a
+throwing handler for one envelope leaves only that envelope unacked), `ack = store::markConsumed`.
+
+**Per-context store instances are the structural isolation.** Each key in `InboxConfig.stores` gets its own store
+instance, so a context's pump physically cannot see another context's rows — this, not a shared table with a context
+column, is what makes contexts independent. A context absent from `stores` keeps synchronous dispatch; `InboxCoordinator`
+(mirrors `OutboxCoordinator`'s shape: config-or-null + scope in, `destinations: List<EventDestination>` derived once,
+idempotent `startConsuming()`, no `stop` — cancellation is the bus's root job) wraps only the configured ones and fails
+fast (`IllegalArgumentException`) if `stores` names a `BoundedContextId` the bus has no context for — a silent ignore
+would be a silent durability regression from a typo.
+
+**Dedupe-on-id is the load-bearing invariant, not routing.** `EventRouter.route` is unchanged — still all-or-nothing per
+envelope, still fans a whole envelope to every destination. What kills the no-inbox amplification
+(`MessageBusMultiContextTest`'s pinned test, above) is that a re-routed envelope hits `InboxStore.save`, which must be
+idempotent per `EventEnvelope.id` — silently dropping an id that is still pending *or* already consumed. So a healthy
+context's `deliver` is a no-op on retry (already acked upstream), and a sick context's failure is a *handler* failure
+inside its own pump, invisible to the router. `markConsumed`, unlike `OutboxStore.markPublished`, must **not** forget
+the id — a consumed id is a dedupe tombstone that must outlive the producing outbox's retry horizon, or a late
+redelivery slips back in as a genuine duplicate.
+
+`EnvelopeRelay`'s single-flight mutex (`pollMutex`, held across fetch/deliver/ack) is what stops an opportunistic drain
+racing a scheduled pump tick for the same inbox — both call `pollOnce`, so the loser blocks rather than double-fetching.
+Per-process only; cross-process overlap is `InboxStore.fetchPending`'s problem, exactly as for the outbox.
+
+Two axes, not one: `errorStrategy` (on the event) decides whether a handler exception ever reaches the relay —
+`FailFast`/`ContinueAndAggregate` retry on failure, `FireAndForget` swallows it into `handleFailure` so the envelope is
+acked regardless — while `concurrency` only ever decided *timing*, and integration dispatch (`EventDispatcher
+.dispatchConcurrently`'s detach narrowed to `phase == POST_COMMIT` only, which integration events never are) now always
+awaits its handlers before returning, for every `errorStrategy` and every `concurrency`. So `errorStrategy` becomes
+that context's own inbox ack semantics, independent of every other context: `FailFast` retries until every handler
+completes; `ContinueAndAggregate` retries the whole batch (re-running successes) on any failure; `FireAndForget` still
+runs every handler to completion first, then acks regardless of the outcome — a failing handler is never retried, but
+it is no longer a crash-window durability hole, since the tombstone is written only after dispatch returns.
+
+`InboxConfig.ackPolicy` (`InboxAckPolicy`, `core.module.inbox`) is the fix for `FireAndForget`'s "never retried" edge,
+applied per bus rather than per event: `HonourEventStrategy` is the table above; `RequireHandlerSuccess` maps
+`FireAndForget` → `ContinueAndAggregate` before dispatch, so a handler failure leaves the envelope pending like
+`FailFast`/`ContinueAndAggregate` already do (those two pass through untouched — they don't need the override). The
+mapping is expressed on the public `ErrorStrategy` contract type, not the dispatcher-internal `EventErrorStrategy`, so
+it can sit on `BoundedContext`'s public constructor and `EventDispatcher.dispatchIntegrationEvent`'s public trailing
+parameter without an internal type leaking into public API. `BoundedContext.withAckStrategy` (`internal`, applied only
+by `InboxCoordinator`, only to contexts with a configured store) returns a copy carrying the override function; a
+context with no inbox is never overridden. `ackPolicy` has **no default** — either choice silently picks a side of a
+durability trade-off the consumer owns (`HonourEventStrategy` acks a failed `FireAndForget` handler;
+`RequireHandlerSuccess` retries it forever, there being no attempt cap or dead-letter path yet), so `InboxConfig`
+requires the consumer to state it.
+
+`EventInbox` stays `internal constructor`, built only by `InboxCoordinator` — opening it to wrap an arbitrary
+`EventDestination` (e.g. a future external transport) is cheap to do later and impossible to undo once public.
 
 ### Result Types
 
@@ -210,21 +280,58 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   Publish → route → dispatch is three stages, not two: publishing (durable save, in-transaction) and dispatching (async
   delivery to handlers, post-commit) are separate steps, and every publish path — with or without an outbox — hands off
   through `EventRouter` before a destination ever dispatches. A command's return never awaits integration handler
-  execution; delivery is at-least-once via the outbox poller, and the post-commit drain is opportunistic fire-and-forget
-  (awaiting it can deadlock with held locks).
+  execution; delivery is at-least-once via the outbox poller. The *launching* of a dispatch stays fire-and-forget from
+  the triggering caller's point of view (the outbox's post-commit drain, `DirectPublisher`'s routing of a
+  `FireAndForget` batch) — awaiting it there can deadlock with held locks — but once launched, dispatch itself always
+  awaits its own handlers before returning, which is what lets an inboxed context ack only after they complete.
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns (domain `dispatchTiming`) sit on
-  handlers; event-level `errorStrategy` doubles as the outbox's ack semantics (`FailFast` = retry until handlers
-  complete).
-- **No background work starts from a constructor.** A bus with an outbox and/or
-  `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop()`
-  is `suspend` and deterministic (cancels and joins the bus's root job). Buses with neither need no
-  `start()` call — dispatch works immediately, at zero ceremony.
+  handlers; event-level `errorStrategy` doubles as ack semantics for whatever is doing the acking — the outbox for a
+  context with no inbox (`FailFast` = retry until handlers complete), or that context's own inbox once it has one,
+  independent of every other context. `InboxConfig.ackPolicy` (`InboxAckPolicy.RequireHandlerSuccess`) is how a consumer
+  demands stronger guarantees than a producer's declared `FireAndForget` — stated explicitly (the parameter is required,
+  with no default), never inferred from context shape.
+- **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
+  `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop(gracePeriod)` is
+  `suspend` and deterministic — one grace period covers each middleware's `suspend onStop()` and then in-flight
+  dispatch, after which the root job is cancelled and joined regardless, itself under a bounded wait (cancellation is
+  cooperative and there is no hard kill, so an uncancellable coroutine must leak rather than hang shutdown). Buses with
+  none of these need no `start()` call — dispatch works immediately, at zero ceremony.
 
 ## Conventions
 
 - Kotlin Multiplatform: all core code in `commonMain`, tests use `kotlinx.coroutines.test.runTest`
 - Targets: JVM (17), JS, WASM, macOS, iOS, Linux, Windows
 - Commit messages follow conventional commits: `feat(scope):`, `refactor(scope):`, `fix(scope):`
+
+## Comments
+
+- A comment describes the current code, not its history. Write for a reader who only ever sees this
+  version — never "previously X", "used to do Y", "now does Z", "moved from A to B", or similar
+  before/after framing. That belongs in the commit message, not the source.
+- Default to no comment. Only add one when there's a specific, non-obvious reason for the code being
+  the way it is — a hidden constraint, an invariant a change could silently break, a rejected
+  alternative worth ruling out — something a reader could get wrong by inspecting the code alone.
+  Don't restate what well-named identifiers already say.
+- This applies to KDoc as much as inline comments. Prefer explaining an invariant or a "why" over a
+  narrated changelog of how the implementation got here.
+
+## Naming
+
+- A name should say *what a value is*, not just its shape. `known`/`unknown`, `result`, `data`,
+  `item`, `scope` force a reader to go read the surrounding code to answer "known **what**?" — the
+  type or the local block only narrows that far. Prefer `busContextIds` over `known`,
+  `fireAndForgetScope` over `scope`, `storeIdsWithNoContext` over `unknown`.
+- This applies to locals, parameters, and private fields, not just public API — a name that's clear
+  only because of a comment above it, or only by tracing every call site, is not clear.
+  Constructor/function parameters that share a concept with another name already used for it
+  elsewhere in the file or module (e.g. an ack-strategy-override function) should reuse that name,
+  not a shorter generic one — consistency across a call chain is itself a form of clarity.
+- It's fine — encouraged, even — to be a little verbose if it makes the name unambiguous to a new
+  developer. `pumpScope` beats `scope`; `storeIdsWithNoContext` beats `unknown`. A few extra
+  characters are cheap; a name a reader has to decode by reading the function body is not.
+- Watch for names that collide with language keywords or shadow their everyday meaning (e.g. an
+  `override` parameter next to Kotlin's `override` modifier) — pick something unambiguous even if
+  it's longer.
 
 ## Testing
 
@@ -237,3 +344,7 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 ## Process
 
 - Always update README.md if adding or changing features
+- One logical change per commit. When a task covers several independent changes — separate review
+  comments, unrelated fixes, a rename alongside a behaviour change — commit each one on its own, even
+  when they land in the same session and touch the same files. Each commit should be revertable
+  without dragging the others with it.

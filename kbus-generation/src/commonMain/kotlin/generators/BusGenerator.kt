@@ -39,6 +39,7 @@ data class BusConfig(
     val transactionManagerClass: KClass<*>,
     val handlerLocatorInterface: KClass<*>,
     val outboxConfigClass: KClass<*>,
+    val inboxConfigClass: KClass<*>,
 )
 
 private const val DEFAULT_CONTEXT = "default"
@@ -64,6 +65,7 @@ class BusGenerator(
                 .addSuperclassConstructorParameter("middleware")
                 .addSuperclassConstructorParameter("outbox = outbox")
                 .addSuperclassConstructorParameter("contexts = contextLocators")
+                .addSuperclassConstructorParameter("inbox = inbox")
 
         val contexts = contextIdentities(handlers)
         BusConstructorGenerator(config)
@@ -277,6 +279,11 @@ private class BusConstructorGenerator(private val config: BusConfig) {
             .defaultValue("null")
             .build()
 
+    private fun inboxParameter(): ParameterSpec =
+        ParameterSpec.builder("inbox", config.inboxConfigClass.asClassName().copy(nullable = true))
+            .defaultValue("null")
+            .build()
+
     private fun contextLocatorsType() =
         Map::class.asClassName()
             .parameterizedBy(
@@ -299,6 +306,7 @@ private class BusConstructorGenerator(private val config: BusConfig) {
                     .addParameter("transactionManager", config.transactionManagerClass)
                     .addParameter(middlewareListParameter())
                     .addParameter(outboxParameter())
+                    .addParameter(inboxParameter())
                     .build()
             )
             .addProperty(
@@ -328,12 +336,14 @@ private class BusConstructorGenerator(private val config: BusConfig) {
             .addParameter("transactionManager", config.transactionManagerClass)
             .addParameter(middlewareListParameter())
             .addParameter(outboxParameter())
+            .addParameter(inboxParameter())
             .callThisConstructor(
                 CodeBlock.of("handlerFactory"),
                 contextLocatorsBlock(contexts),
                 CodeBlock.of("transactionManager"),
                 CodeBlock.of("middleware"),
                 CodeBlock.of("outbox"),
+                CodeBlock.of("inbox"),
             )
             .build()
 
@@ -346,11 +356,13 @@ private class BusConstructorGenerator(private val config: BusConfig) {
             .addParameter("transactionManager", config.transactionManagerClass)
             .addParameter(middlewareListParameter())
             .addParameter(outboxParameter())
+            .addParameter(inboxParameter())
             .callThisConstructor(
                 CodeBlock.of("%T(loader)", handlerFactoryClassName),
                 CodeBlock.of("transactionManager"),
                 CodeBlock.of("middleware"),
                 CodeBlock.of("outbox"),
+                CodeBlock.of("inbox"),
             )
             .build()
 }

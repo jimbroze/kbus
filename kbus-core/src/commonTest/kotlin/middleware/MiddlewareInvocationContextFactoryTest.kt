@@ -20,7 +20,7 @@ import kotlinx.coroutines.test.runTest
 class MiddlewareInvocationContextFactoryTest {
     @Test
     fun contextFor_an_invocation_with_an_outbox_publisher_exposes_that_outbox() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val outbox =
             TransactionalOutbox(
                 RecordingOutboxStore(),
@@ -36,7 +36,7 @@ class MiddlewareInvocationContextFactoryTest {
 
     @Test
     fun contextFor_an_invocation_using_the_base_publisher_exposes_it() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val invocation = testInvocation<Any?>(publisher = basePublisher)
         val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
 
@@ -45,7 +45,7 @@ class MiddlewareInvocationContextFactoryTest {
 
     @Test
     fun contextFor_null_exposes_the_base_publisher() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factory = MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher))
 
         assertEquals(basePublisher, factory.contextFor(null).integrationEventPublisher)
@@ -61,7 +61,7 @@ class MiddlewareInvocationContextFactoryTest {
 
     @Test
     fun resolution_is_per_call_not_cached() = runTest {
-        val basePublisher = DirectPublisher(EventRouter(emptyList()))
+        val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val outbox =
             TransactionalOutbox(
                 RecordingOutboxStore(),

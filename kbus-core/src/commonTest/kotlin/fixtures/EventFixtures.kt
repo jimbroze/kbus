@@ -33,17 +33,26 @@ class RecordingIntegrationEventPublisher : IntegrationEventPublisher {
 
 /**
  * Records delivered envelopes, one entry per [deliver] call. Accepts everything unless [failure] is
- * set.
+ * set. [deliveredCalls] additionally records each [deliver] invocation as its own list, so a caller
+ * that delivers one envelope at a time (an inbox) can be distinguished from one that batches.
+ * [failureFor] fails individual envelopes rather than the whole call; [beforeDeliver] is a hook run
+ * before every call, useful for gating concurrent deliveries in tests.
  */
 class RecordingDestination(override val name: String = "recording") : EventDestination {
     val delivered = mutableListOf<EventEnvelope>()
+    val deliveredCalls = mutableListOf<List<EventEnvelope>>()
     var failure: Throwable? = null
+    var failureFor: ((EventEnvelope) -> Throwable?)? = null
+    var beforeDeliver: (suspend () -> Unit)? = null
 
     override fun appliesTo(event: IntegrationEvent): Boolean = true
 
     override suspend fun deliver(envelopes: List<EventEnvelope>) {
+        beforeDeliver?.invoke()
         failure?.let { throw it }
+        envelopes.forEach { envelope -> failureFor?.invoke(envelope)?.let { throw it } }
         delivered.addAll(envelopes)
+        deliveredCalls.add(envelopes)
     }
 }
 
@@ -426,6 +435,21 @@ class SucceedingContinueAndAggregateHandler(
     }
 }
 
+/** Throws after [delayMs], so a fast, non-delaying, later-indexed handler can finish first. */
+class DelayingThrowingContinueAndAggregateHandler(
+    private val results: MutableList<String>,
+    private val delayMs: Long,
+    private val label: String,
+) : DomainEventHandler<TestContinueAndAggregateEvent>() {
+    override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
+
+    override suspend fun handle(message: TestContinueAndAggregateEvent) {
+        delay(delayMs.milliseconds)
+        results.add("threw:$label")
+        throw TestHandlerException("ContinueAndAggregate handler '$label' failed")
+    }
+}
+
 class ThrowingContinueAndAggregateAtEndOfTransactionHandler(
     private val results: MutableList<String>,
     private val label: String,
@@ -559,6 +583,14 @@ class PublishingIntegrationEventHandler :
     CanPublishIntegrationEvent(), IntegrationEventHandler<TestIntegrationEvent> {
     override suspend fun handle(message: TestIntegrationEvent) {
         publish(TestIntegrationEvent("published-by-${message.name}"))
+    }
+}
+
+class ThrowingIntegrationEventHandler(private val attempts: MutableList<String>) :
+    IntegrationEventHandler<TestIntegrationEvent> {
+    override suspend fun handle(message: TestIntegrationEvent) {
+        attempts.add(message.name)
+        throw TestHandlerException("Integration handler failed for: ${message.name}")
     }
 }
 

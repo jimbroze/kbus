@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.Middleware
+import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
@@ -120,6 +121,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 TransactionManager::class,
                 GenerationHandlerLocator::class,
                 OutboxConfig::class,
+                InboxConfig::class,
             ),
             PACKAGE_PATH,
         )
