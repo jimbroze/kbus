@@ -337,13 +337,13 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   `checkNoLeakedTestScopes` Gradle task (wired into `check`). A scope with no such parentage is never cancelled at
   teardown, so anything launched into it (a bus, `startPolling`/`startConsuming`) outlives the test: invisible on
   JVM/Native, but a 20+ minute CI hang on Node, which won't exit while a timer is pending. Use `backgroundScope`
-  directly, or `CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + Dispatchers.Default)` when the
-  test genuinely needs a real dispatcher rather than `runTest`'s virtual one — note that
+  directly, or `CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + dispatcher)` when the test needs
+  its own cancellable scope — parentage and the choice of dispatcher are orthogonal, so that form works equally with
+  `Dispatchers.Default` and with `StandardTestDispatcher(testScheduler)`. Note that
   `CoroutineScope(backgroundScope.coroutineContext + …)` *shares* `backgroundScope`'s `Job` rather than parenting to it,
   so cancelling the result would cancel `backgroundScope` itself. Test helpers and fixtures **take a scope as a
-  parameter** rather
-  than building one — a fixture-owned scope leaks into every test that uses it, which is why the check has no exempt
-  directory and no opt-out marker.
+  parameter** rather than building one — a fixture-owned scope leaks into every test that uses it, which is why the
+  check has no exempt directory and no opt-out marker.
 
 ## Process
 

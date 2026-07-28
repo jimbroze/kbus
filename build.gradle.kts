@@ -47,9 +47,10 @@ allprojects {
     // past the test — invisible on JVM/Native (process exit doesn't wait for it) but a genuine
     // 20+ minute CI hang on Node, which won't exit while a timer is pending (InboxCoordinatorTest,
     // 2026-07-26).
-    // The invariant checked is *parentage*, not syntax: a scope whose context derives from
-    // `backgroundScope` dies with the test no matter what is launched into it, so a test needing a
-    // real dispatcher writes `CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)`
+    // The invariant checked is *parentage*, not syntax: a scope whose job descends from
+    // `backgroundScope`'s dies with the test no matter what is launched into it, so a test needing a
+    // real dispatcher writes
+    // `CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + Dispatchers.Default)`
     // and passes. That is a property this check can actually see, which is why there is no opt-out
     // marker and no exempt directory — fixtures included, since a fixture that manufactures its own
     // scope leaks into every test that uses it. Fixtures take a scope from the caller instead.
