@@ -94,11 +94,12 @@ class InboxCoordinator(
     private val inboxes = destinations.filterIsInstance<EventInbox>()
 
     init {
-        val known = contexts.map { it.id }.toSet()
-        val unknown = config?.stores?.keys.orEmpty() - known
-        require(unknown.isEmpty()) {
+        val busContextIds = contexts.map { it.id }.toSet()
+        val storeIdsWithNoContext = config?.stores?.keys.orEmpty() - busContextIds
+        require(storeIdsWithNoContext.isEmpty()) {
             "InboxConfig has stores for bounded contexts this bus has no context for: " +
-                "${unknown.map { it.value }}. Known contexts: ${known.map { it.value }}."
+                "${storeIdsWithNoContext.map { it.value }}. Known contexts: " +
+                busContextIds.map { it.value }.toString()
         }
     }
 

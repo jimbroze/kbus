@@ -148,7 +148,7 @@ per-context inbox is the fix — see `### Per-Context Inbox`.
 `DirectPublisher` is the no-outbox `IntegrationEventPublisher` ingress and the one caller-facing integration-publish
 path — the inbox pump, the outbox poller and the outbox drain are all background coroutines nobody awaits. It mints
 envelopes and partitions the batch by each event's own `errorStrategy` (not per event, or `observe()`/`EventInbox
-.deliver` would be multiplied): a `FireAndForget` group is launched on its scope (`MessageBus` wires in
+.deliver` would be multiplied): a `FireAndForget` group is launched on `fireAndForgetScope` (`MessageBus` wires in
 `eventDispatcherScope`) so the caller doesn't wait on it, every other group is routed and awaited so a destination
 failure still propagates to the publisher. No durability either way. Bus wiring (`BaseMessageBus`): `BoundedContext` →
 `EventRouter` → `DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
@@ -325,6 +325,24 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   Don't restate what well-named identifiers already say.
 - This applies to KDoc as much as inline comments. Prefer explaining an invariant or a "why" over a
   narrated changelog of how the implementation got here.
+
+## Naming
+
+- A name should say *what a value is*, not just its shape. `known`/`unknown`, `result`, `data`,
+  `item`, `scope` force a reader to go read the surrounding code to answer "known **what**?" — the
+  type or the local block only narrows that far. Prefer `busContextIds` over `known`,
+  `fireAndForgetScope` over `scope`, `storeIdsWithNoContext` over `unknown`.
+- This applies to locals, parameters, and private fields, not just public API — a name that's clear
+  only because of a comment above it, or only by tracing every call site, is not clear.
+  Constructor/function parameters that share a concept with another name already used for it
+  elsewhere in the file or module (e.g. an ack-strategy-override function) should reuse that name,
+  not a shorter generic one — consistency across a call chain is itself a form of clarity.
+- It's fine — encouraged, even — to be a little verbose if it makes the name unambiguous to a new
+  developer. `pumpScope` beats `scope`; `storeIdsWithNoContext` beats `unknown`. A few extra
+  characters are cheap; a name a reader has to decode by reading the function body is not.
+- Watch for names that collide with language keywords or shadow their everyday meaning (e.g. an
+  `override` parameter next to Kotlin's `override` modifier) — pick something unambiguous even if
+  it's longer.
 
 ## Testing
 
