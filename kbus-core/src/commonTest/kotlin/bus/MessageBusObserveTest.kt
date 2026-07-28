@@ -10,18 +10,15 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
 private class ObservedEvent(val name: String) : IntegrationEvent()
@@ -48,8 +45,6 @@ private class RecordingObservedEventHandler(private val received: MutableList<St
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MessageBusObserveTest {
-    private suspend fun realDelay(millis: Long) =
-        withContext(Dispatchers.Default) { delay(millis.milliseconds) }
 
     private fun registerPublishingCommand(stores: HandlerFactoryStoreCollection) {
         stores.commandStore.registerHandlers(
@@ -80,7 +75,7 @@ class MessageBusObserveTest {
             ObservedEvent::class,
             listOf(RecordingObservedEventHandler::class),
         )
-        val bus = MessageBus(locator)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         val observed = mutableListOf<ObservedEvent>()
         val job = launch { bus.observe<ObservedEvent>().take(1).toList(observed) }
@@ -88,7 +83,7 @@ class MessageBusObserveTest {
 
         bus.execute(PublishObservedEventCommand("observed"))
         advanceUntilIdle()
-        realDelay(100)
+        advanceVirtualTime(100)
         job.join()
 
         assertEquals(listOf("observed"), observed.map { it.name })
@@ -100,7 +95,7 @@ class MessageBusObserveTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
-        val bus = MessageBus(locator)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         val observed = mutableListOf<ObservedEvent>()
         val job = launch { bus.observe<ObservedEvent>().take(1).toList(observed) }

@@ -24,19 +24,17 @@ import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 
 class MessageBusTest {
     @Test
@@ -160,13 +158,12 @@ class MessageBusTest {
         val locator = PersistingHandlerLocator(stores)
         createBusWithIntegrationEventHandlers(stores, locator)
 
-        val bus = MessageBus(locator)
+        val bus = MessageBus(locator, appScope = backgroundScope)
         val list = mutableListOf<String>()
 
         bus.execute(EventCommand("test", list))
 
-        // Real delay to allow async handlers on Dispatchers.Default to complete
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        advanceVirtualTime(100)
 
         assertContains(list, "test")
     }
@@ -177,23 +174,23 @@ class MessageBusTest {
         val locator = PersistingHandlerLocator(stores)
         createBusWithIntegrationEventHandlers(stores, locator)
 
-        val bus = MessageBus(locator)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         // First command: triggers a throwing handler
         val list1 = mutableListOf<String>()
         bus.execute(EventCommand("first", list1))
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        advanceVirtualTime(100)
 
         // Second command: scope should still be active, handlers should still execute
         val list2 = mutableListOf<String>()
         bus.execute(EventCommand("second", list2))
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        advanceVirtualTime(100)
 
         assertContains(list2, "second")
     }
 
     @Test
-    fun test_cancelling_bus_rootScope_stops_pending_event_handlers() = runTest {
+    fun test_cancelling_bus_appScope_stops_pending_event_handlers() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
@@ -213,16 +210,16 @@ class MessageBusTest {
             listOf(DelayingStorageEventHandler::class),
         )
 
-        val rootScope = CoroutineScope(Dispatchers.Default)
-        val bus = MessageBus(locator, rootScope = rootScope)
+        val appScope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        val bus = MessageBus(locator, appScope = appScope)
         val list = mutableListOf<String>()
 
         bus.execute(EventCommand("test", list))
 
         // Cancel the root scope before the delayed handler completes
-        rootScope.cancel()
+        appScope.cancel()
 
-        withContext(Dispatchers.Default) { delay(200.milliseconds) }
+        advanceVirtualTime(200)
 
         assertEquals(0, list.size)
     }
@@ -249,7 +246,7 @@ class MessageBusTest {
             listOf(PrintEventHandler::class),
         )
         val middleware = CapturingContextMiddleware()
-        val bus = MessageBus(locator, middlewares = listOf(middleware))
+        val bus = MessageBus(locator, middlewares = listOf(middleware), appScope = backgroundScope)
 
         bus.execute(ReturnCommand("Test the bus"))
 
@@ -257,7 +254,7 @@ class MessageBusTest {
         middleware.capturedContext!!
             .integrationEventPublisher
             .publish(listOf(StorageEvent("via-context", list)))
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        advanceVirtualTime(100)
 
         assertContains(list, "via-context")
     }
@@ -275,7 +272,7 @@ class MessageBusTest {
             listOf(PrintEventHandler::class),
         )
         val middleware = CapturingContextMiddleware()
-        val bus = MessageBus(locator, middlewares = listOf(middleware))
+        val bus = MessageBus(locator, middlewares = listOf(middleware), appScope = backgroundScope)
 
         bus.fetch(StorageQuery(0, mutableListOf("Test the bus")))
 
@@ -283,7 +280,7 @@ class MessageBusTest {
         middleware.capturedContext!!
             .integrationEventPublisher
             .publish(listOf(StorageEvent("via-context", list)))
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        advanceVirtualTime(100)
 
         assertContains(list, "via-context")
     }
@@ -302,10 +299,11 @@ class MessageBusTest {
                 listOf(PrintEventHandler::class),
             )
             val middleware = CapturingContextMiddleware()
-            val bus = MessageBus(locator, middlewares = listOf(middleware))
+            val bus =
+                MessageBus(locator, middlewares = listOf(middleware), appScope = backgroundScope)
 
             bus.execute(EventCommand("triggering event", mutableListOf()))
-            withContext(Dispatchers.Default) { delay(100.milliseconds) }
+            advanceVirtualTime(100)
 
             // Middleware wraps the StorageEvent's own dispatch, not just the triggering command's.
             val eventContext = middleware.contextFor(StorageEvent::class)
@@ -315,7 +313,7 @@ class MessageBusTest {
             eventContext.integrationEventPublisher.publish(
                 listOf(StorageEvent("via-event-context", list))
             )
-            withContext(Dispatchers.Default) { delay(100.milliseconds) }
+            advanceVirtualTime(100)
 
             assertContains(list, "via-event-context")
         }

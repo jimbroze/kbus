@@ -20,6 +20,7 @@ import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,12 +28,9 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 
 /**
  * [ErrorStrategy.FailFast] so a throwing handler surfaces synchronously, matching
@@ -151,8 +149,6 @@ private class ThrowingGatedInboxHandler(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MessageBusInboxTest {
-    private suspend fun realDelay(millis: Long) =
-        withContext(Dispatchers.Default) { delay(millis.milliseconds) }
 
     private fun registerPublishingCommand(stores: HandlerFactoryStoreCollection) {
         stores.commandStore.registerHandlers(
@@ -242,7 +238,7 @@ class MessageBusInboxTest {
             val bus =
                 MessageBus(
                     busLocator,
-                    rootScope = backgroundScope,
+                    appScope = backgroundScope,
                     outbox = OutboxConfig(store = outboxStore),
                     contexts =
                         mapOf(
@@ -263,7 +259,7 @@ class MessageBusInboxTest {
             bus.start()
 
             bus.execute(PublishInboxAlphaCommand("event"))
-            realDelay(600)
+            advanceVirtualTime(600)
 
             assertEquals(1, outboxStore.markedPublished.size)
             assertEquals(listOf("healthy:event"), healthyReceived)
@@ -290,7 +286,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore),
                 contexts =
                     mapOf(
@@ -311,7 +307,7 @@ class MessageBusInboxTest {
         bus.start()
 
         bus.execute(PublishInboxAlphaCommand("event"))
-        realDelay(400)
+        advanceVirtualTime(400)
 
         assertTrue(healthyStore.fetchPending(10).isEmpty())
         assertEquals(1, healthyStore.markedConsumed.size)
@@ -333,7 +329,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox =
                     OutboxConfig(
                         store = outboxStore,
@@ -350,7 +346,7 @@ class MessageBusInboxTest {
         bus.start()
 
         bus.execute(PublishInboxAlphaCommand("event"))
-        realDelay(400)
+        advanceVirtualTime(400)
 
         assertTrue(
             outboxStore.fetchLimits.size >= 3,
@@ -376,7 +372,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts =
                     mapOf(
                         BoundedContextId("plain") to plainLocator as HandlerLocator,
@@ -410,7 +406,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
                 inbox =
                     InboxConfig(
@@ -433,7 +429,7 @@ class MessageBusInboxTest {
 
         MessageBus(
             busLocator,
-            rootScope = backgroundScope,
+            appScope = backgroundScope,
             contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
             inbox =
                 InboxConfig(
@@ -442,7 +438,7 @@ class MessageBusInboxTest {
                     pollInterval = 10.milliseconds,
                 ),
         )
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertTrue(store.fetchLimits.isEmpty())
     }
@@ -459,7 +455,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
                 inbox =
                     InboxConfig(
@@ -470,12 +466,12 @@ class MessageBusInboxTest {
             )
 
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
         val pumpsBeforeStop = store.fetchLimits.size
         assertTrue(pumpsBeforeStop > 0)
 
         bus.stop()
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertEquals(pumpsBeforeStop, store.fetchLimits.size)
     }
@@ -491,7 +487,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = RecordingOutboxStore()),
                 contexts = mapOf(BoundedContextId("failing") to failingLocator as HandlerLocator),
                 inbox =
@@ -521,7 +517,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
                 inbox =
                     InboxConfig(
@@ -531,7 +527,7 @@ class MessageBusInboxTest {
                     ),
             )
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertEquals(listOf("healthy:from-before-crash"), healthyReceived)
     }
@@ -569,7 +565,7 @@ class MessageBusInboxTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
                 contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
                 inbox =
@@ -581,7 +577,7 @@ class MessageBusInboxTest {
         bus.start()
 
         bus.execute(PublishGatedInboxCommand("event"))
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertTrue(received.isEmpty(), "the handler is still suspended on the gate")
         assertTrue(
@@ -590,7 +586,7 @@ class MessageBusInboxTest {
         )
 
         gate.complete(Unit)
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertEquals(listOf("event"), received)
         assertEquals(1, inboxStore.markedConsumed.size)
@@ -630,7 +626,7 @@ class MessageBusInboxTest {
             val bus =
                 MessageBus(
                     busLocator,
-                    rootScope = backgroundScope,
+                    appScope = backgroundScope,
                     contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
                     inbox =
                         InboxConfig(
@@ -643,7 +639,7 @@ class MessageBusInboxTest {
 
             bus.execute(PublishGatedInboxCommand("event"))
             gate.complete(Unit)
-            realDelay(350)
+            advanceVirtualTime(350)
 
             assertTrue(
                 inboxStore.markedConsumed.isEmpty(),

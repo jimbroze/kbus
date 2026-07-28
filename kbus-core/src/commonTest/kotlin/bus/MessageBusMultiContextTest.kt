@@ -16,20 +16,18 @@ import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
 /** [ErrorStrategy.FailFast] so a throwing handler surfaces as a failed delivery to the router. */
@@ -75,8 +73,6 @@ private class RecordingBetaHandler(private val received: MutableList<String>) :
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MessageBusMultiContextTest {
-    private suspend fun realDelay(millis: Long) =
-        withContext(Dispatchers.Default) { delay(millis.milliseconds) }
 
     private fun registerPublishingCommand(stores: HandlerFactoryStoreCollection) {
         stores.commandStore.registerHandlers(
@@ -135,11 +131,11 @@ class MessageBusMultiContextTest {
         registerPublishingCommand(stores)
         registerAlphaHandlerIn(stores, locator, received, "default")
 
-        val bus = MessageBus(locator, rootScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         bus.execute(PublishAlphaCommand("event"))
         advanceUntilIdle()
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertEquals(listOf("default:event"), received)
     }
@@ -160,7 +156,7 @@ class MessageBusMultiContextTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts =
                     mapOf(
                         BoundedContextId("alpha") to alphaLocator as HandlerLocator,
@@ -170,7 +166,7 @@ class MessageBusMultiContextTest {
 
         bus.execute(PublishAlphaCommand("event"))
         advanceUntilIdle()
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertEquals(listOf("alpha:event"), alphaReceived)
         assertTrue(betaReceived.isEmpty())
@@ -194,7 +190,7 @@ class MessageBusMultiContextTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts =
                     mapOf(
                         BoundedContextId("alpha") to alphaLocator as HandlerLocator,
@@ -204,7 +200,7 @@ class MessageBusMultiContextTest {
 
         bus.execute(PublishAlphaCommand("event"))
         advanceUntilIdle()
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertEquals(2, received.size)
     }
@@ -220,7 +216,7 @@ class MessageBusMultiContextTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 contexts = mapOf(BoundedContextId("beta") to betaLocator as HandlerLocator),
             )
 
@@ -247,15 +243,15 @@ class MessageBusMultiContextTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 contexts = mapOf(BoundedContextId("beta") to betaLocator as HandlerLocator),
             )
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         bus.execute(PublishAlphaCommand("unsubscribed"))
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertEquals(1, store.markedPublished.size)
         assertTrue(store.fetchUnpublished(10).isEmpty())
@@ -289,7 +285,7 @@ class MessageBusMultiContextTest {
         val bus =
             MessageBus(
                 busLocator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
                 contexts =
                     mapOf(
@@ -300,7 +296,7 @@ class MessageBusMultiContextTest {
         bus.start()
 
         bus.execute(PublishAlphaCommand("event"))
-        realDelay(400)
+        advanceVirtualTime(400)
 
         // The whole entry stays unpublished, so the poller re-routes it to *every* context and the
         // healthy one re-dispatches each cycle. This bus configures no inbox — see

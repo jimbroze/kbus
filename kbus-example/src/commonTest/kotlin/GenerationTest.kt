@@ -25,6 +25,7 @@ import com.jimbroze.kbus.generation.test.orders.infrastructure.ExampleEmailServi
 import com.jimbroze.kbus.generation.test.orders.infrastructure.ExamplePaymentGateway
 import com.jimbroze.kbus.generation.test.orders.infrastructure.InMemoryOrderRepository
 import com.jimbroze.kbus.testdoubles.AutoTickingClock
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalNestedWithExternal
 import com.test.external.ExternalNestedWithPrimitive
@@ -33,15 +34,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 
 // TODO don't add any dependencies not in module???
 class Dependencies(private val instant: Instant, applicationScope: CoroutineScope) : AutoLoader() {
@@ -52,7 +49,7 @@ class Dependencies(private val instant: Instant, applicationScope: CoroutineScop
             30.seconds,
         )
     }
-    override val messageBus = MessageBus(rootScope = applicationScope)
+    override val messageBus = MessageBus(appScope = applicationScope)
 
     override val anObject: AnObject = AnObject
 
@@ -222,6 +219,7 @@ class GenerationTest {
                 Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                 EmptyTransactionManager(),
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
+                appScope = backgroundScope,
             )
 
         // Each submodule declares its own kbus.boundedContextIdentity, so the generated bus
@@ -239,8 +237,8 @@ class GenerationTest {
         val inventoryHandledBefore = NotifyWarehouseHandler.timesHandled
 
         bus.execute(ReserveStock("product-1", 1))
-        // Integration dispatch is fire-and-forget, so give it a real moment to land.
-        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+        // Integration dispatch is fire-and-forget, so give it a moment to land.
+        advanceVirtualTime(100)
 
         // Only the inventory context has a handler for StockReserved; orders is untouched.
         assertEquals(inventoryHandledBefore + 1, NotifyWarehouseHandler.timesHandled)

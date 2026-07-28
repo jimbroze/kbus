@@ -25,6 +25,7 @@ import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -45,6 +46,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 
@@ -59,14 +61,11 @@ class MessageBusLifecycleTest {
         return PersistingHandlerLocator(stores) to stores
     }
 
-    private suspend fun realDelay(millis: Long) =
-        withContext(Dispatchers.Default) { delay(millis.milliseconds) }
-
     @Test
     fun lifecycle_aware_middleware_receives_scope_on_start_not_construction() = runTest {
         val middleware = CapturingLifecycleMiddleware()
 
-        val bus = MessageBus(middlewares = listOf(middleware))
+        val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
         assertNull(middleware.startContext)
 
         bus.start()
@@ -80,7 +79,8 @@ class MessageBusLifecycleTest {
         val middleware1 = CapturingLifecycleMiddleware("First")
         val middleware2 = CapturingLifecycleMiddleware("Second")
 
-        val bus = MessageBus(middlewares = listOf(middleware1, middleware2))
+        val bus =
+            MessageBus(middlewares = listOf(middleware1, middleware2), appScope = backgroundScope)
         bus.start()
 
         val scope1 = middleware1.startContext!!.scope
@@ -96,18 +96,18 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun cancelling_root_scope_cancels_middleware_scopes() = runTest {
+    fun cancelling_the_app_scope_cancels_middleware_scopes() = runTest {
         val middleware = CapturingLifecycleMiddleware()
-        val rootScope = CoroutineScope(Dispatchers.Default)
+        val appScope = CoroutineScope(StandardTestDispatcher(testScheduler))
 
-        val bus = MessageBus(middlewares = listOf(middleware), rootScope = rootScope)
+        val bus = MessageBus(middlewares = listOf(middleware), appScope = appScope)
         bus.start()
 
         assertTrue(middleware.startContext!!.scope.isActive)
 
-        rootScope.cancel()
+        appScope.cancel()
 
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertFalse(middleware.startContext!!.scope.isActive)
     }
@@ -119,10 +119,10 @@ class MessageBusLifecycleTest {
 
         MessageBus(
             locator,
-            rootScope = backgroundScope,
+            appScope = backgroundScope,
             outbox = OutboxConfig(store = store, pollInterval = 10.milliseconds),
         )
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertTrue(store.fetchLimits.isEmpty())
     }
@@ -135,13 +135,13 @@ class MessageBusLifecycleTest {
         val bus =
             MessageBus(
                 locator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
 
         bus.start()
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertEquals(1, store.fetchLimits.size)
     }
@@ -154,17 +154,17 @@ class MessageBusLifecycleTest {
         val bus =
             MessageBus(
                 locator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 20.milliseconds),
             )
 
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
         val pollsBeforeStop = store.fetchLimits.size
         assertTrue(pollsBeforeStop > 0)
 
         bus.stop()
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertEquals(pollsBeforeStop, store.fetchLimits.size)
     }
@@ -172,7 +172,7 @@ class MessageBusLifecycleTest {
     @Test
     fun stop_calls_onStop() = runTest {
         val middleware = CapturingLifecycleMiddleware()
-        val bus = MessageBus(middlewares = listOf(middleware))
+        val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
 
         bus.start()
         bus.stop()
@@ -183,7 +183,7 @@ class MessageBusLifecycleTest {
     @Test
     fun stop_suspendsUntilASuspendingOnStopCompletes() = runTest {
         val middleware = GatedStopMiddleware()
-        val bus = MessageBus(middlewares = listOf(middleware), rootScope = backgroundScope)
+        val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
         bus.start()
 
         val stopping = launch { bus.stop() }
@@ -206,10 +206,10 @@ class MessageBusLifecycleTest {
     @Test
     fun stop_returnsWhenMiddlewareBackgroundWorkIgnoresCancellation() = runTest {
         val middleware = UncancellableWorkMiddleware()
-        val bus = MessageBus(middlewares = listOf(middleware), rootScope = backgroundScope)
+        val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
 
         bus.start()
-        withContext(Dispatchers.Default) { middleware.started.await() }
+        middleware.started.await()
 
         bus.stop(100.milliseconds)
 
@@ -219,7 +219,7 @@ class MessageBusLifecycleTest {
     @Test
     fun stop_before_start_is_a_noop() = runTest {
         val middleware = CapturingLifecycleMiddleware()
-        val bus = MessageBus(middlewares = listOf(middleware))
+        val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
 
         bus.stop()
 
@@ -233,7 +233,7 @@ class MessageBusLifecycleTest {
         val (locator, _) = busWithReturnCommand()
 
         val bus =
-            MessageBus(locator, rootScope = backgroundScope, outbox = OutboxConfig(store = store))
+            MessageBus(locator, appScope = backgroundScope, outbox = OutboxConfig(store = store))
 
         assertFailsWith<IllegalStateException> { bus.execute(ReturnCommand("test")) }
     }
@@ -241,7 +241,12 @@ class MessageBusLifecycleTest {
     @Test
     fun execute_throws_on_an_unstarted_bus_with_lifecycle_aware_middleware() = runTest {
         val (locator, _) = busWithReturnCommand()
-        val bus = MessageBus(locator, middlewares = listOf(CapturingLifecycleMiddleware()))
+        val bus =
+            MessageBus(
+                locator,
+                middlewares = listOf(CapturingLifecycleMiddleware()),
+                appScope = backgroundScope,
+            )
 
         assertFailsWith<IllegalStateException> { bus.execute(ReturnCommand("test")) }
     }
@@ -250,7 +255,7 @@ class MessageBusLifecycleTest {
     fun execute_still_works_unstarted_on_a_bus_with_neither_an_outbox_nor_lifecycle_middleware() =
         runTest {
             val (locator, _) = busWithReturnCommand()
-            val bus = MessageBus(locator)
+            val bus = MessageBus(locator, appScope = backgroundScope)
 
             val result = bus.execute(ReturnCommand("test"))
 
@@ -260,10 +265,7 @@ class MessageBusLifecycleTest {
     /**
      * The post-commit domain handler is launched detached (`eventDispatcherScope.launch`) rather
      * than awaited by `execute()`, so without the grace period `stop()`'s `rootJob.cancelAndJoin()`
-     * would cancel it mid-flight and lose it silently. `withContext(Dispatchers.Default)` around
-     * `stop()` puts a *real* dispatcher in the ambient coroutine context so its internal
-     * `withTimeoutOrNull(gracePeriod)` measures real time — under `runTest`'s virtual clock alone
-     * it would resolve near-instantly without giving the real background handler a chance to run.
+     * would cancel it mid-flight and lose it silently.
      */
     @Test
     fun stop_awaitsAnInFlightDetachedPostCommitHandler_withinTheGracePeriod() = runTest {
@@ -291,13 +293,13 @@ class MessageBusLifecycleTest {
             listOf(DelayingAfterTransactionHandler::class),
         )
 
-        val bus = MessageBus(locator, rootScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
         bus.start()
 
         bus.execute(PublishLifecycleDomainEventCommand("event"))
         assertTrue(received.isEmpty(), "the handler is launched detached, not awaited by execute()")
 
-        withContext(Dispatchers.Default) { bus.stop(500.milliseconds) }
+        bus.stop(500.milliseconds)
 
         assertEquals(listOf("event"), received)
     }
@@ -346,24 +348,18 @@ class MessageBusLifecycleTest {
             listOf(DelayingLifecycleIntegrationHandler::class),
         )
 
-        val bus = MessageBus(locator, rootScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
         bus.start()
 
         bus.execute(PublishLifecycleDomainEventCommand("event"))
 
-        withContext(Dispatchers.Default) { bus.stop(2.seconds) }
+        bus.stop(2.seconds)
 
         assertEquals(listOf("event"), received)
     }
 
-    /**
-     * Each dispatch publishes its own successor, so the dispatch scope never has zero children and
-     * the quiescence loop never sees an empty list. `Job.join()` checks for cancellation even when
-     * the job it is given has already completed, which is what keeps the loop inside the grace
-     * period.
-     */
-    @Test
-    fun stop_isBoundedWhenDetachedWorkKeepsSpawningReplacements() = runTest {
+    /** A bus whose every dispatch publishes its own successor, so detached work never runs out. */
+    private fun respawningLocator(delayMs: Long): PersistingHandlerLocator {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
@@ -378,7 +374,7 @@ class MessageBusLifecycleTest {
             LifecycleDomainEvent::class,
             listOf(
                 EventHandlerFactory(RepublishingAfterTransactionHandler::class) {
-                    RepublishingAfterTransactionHandler(0)
+                    RepublishingAfterTransactionHandler(delayMs)
                 }
             ),
         )
@@ -390,7 +386,7 @@ class MessageBusLifecycleTest {
             LifecycleIntegrationEvent::class,
             listOf(
                 EventHandlerFactory(SelfRepublishingIntegrationHandler::class) {
-                    SelfRepublishingIntegrationHandler()
+                    SelfRepublishingIntegrationHandler(delayMs)
                 }
             ),
         )
@@ -398,8 +394,41 @@ class MessageBusLifecycleTest {
             LifecycleIntegrationEvent::class,
             listOf(SelfRepublishingIntegrationHandler::class),
         )
+        return locator
+    }
 
-        val bus = MessageBus(locator, rootScope = backgroundScope)
+    /**
+     * The dispatch scope never has zero children, so the quiescence loop never sees an empty list —
+     * only the grace period ends it. The successors delay, so the deadline is reached the ordinary
+     * way; [stop_isBoundedWhenDetachedWorkRespawnsWithoutSuspending] covers the harder case.
+     */
+    @Test
+    fun stop_isBoundedWhenDetachedWorkKeepsSpawningReplacements() = runTest {
+        val bus = MessageBus(respawningLocator(1), appScope = backgroundScope)
+        bus.start()
+
+        bus.execute(PublishLifecycleDomainEventCommand("event"))
+
+        val startedAt = testScheduler.currentTime
+        bus.stop(100.milliseconds)
+        val elapsed = (testScheduler.currentTime - startedAt).milliseconds
+
+        assertTrue(
+            elapsed <= 200.milliseconds,
+            "stop() must not spin on endlessly respawned work: $elapsed",
+        )
+    }
+
+    /**
+     * Successors that respawn without ever suspending: `Job.join()` checking for cancellation even
+     * when handed an already-completed job is the only thing that lets the grace period interrupt
+     * the loop. Deliberately the one test here on a real clock — a virtual one is advanced by
+     * suspension, so work that never suspends could never reach a virtual deadline.
+     */
+    @Test
+    fun stop_isBoundedWhenDetachedWorkRespawnsWithoutSuspending() = runTest {
+        val appScope = CoroutineScope(Dispatchers.Default)
+        val bus = MessageBus(respawningLocator(0), appScope = appScope)
         bus.start()
 
         bus.execute(PublishLifecycleDomainEventCommand("event"))
@@ -407,6 +436,8 @@ class MessageBusLifecycleTest {
         val mark = TimeSource.Monotonic.markNow()
         withContext(Dispatchers.Default) { bus.stop(100.milliseconds) }
         val elapsed = mark.elapsedNow()
+
+        appScope.cancel()
 
         assertTrue(
             elapsed < 3.seconds,
@@ -440,17 +471,20 @@ class MessageBusLifecycleTest {
             listOf(NeverCompletingAfterTransactionHandler::class),
         )
 
-        val bus = MessageBus(locator, rootScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
         bus.start()
 
         bus.execute(PublishLifecycleDomainEventCommand("event"))
-        withContext(Dispatchers.Default) { started.await() }
+        started.await()
 
-        val mark = TimeSource.Monotonic.markNow()
-        withContext(Dispatchers.Default) { bus.stop(100.milliseconds) }
-        val elapsed = mark.elapsedNow()
+        val startedAt = testScheduler.currentTime
+        bus.stop(100.milliseconds)
+        val elapsed = (testScheduler.currentTime - startedAt).milliseconds
 
-        assertTrue(elapsed < 3.seconds, "stop() must not block past the grace period: $elapsed")
+        assertTrue(
+            elapsed <= 200.milliseconds,
+            "stop() must not block past the grace period: $elapsed",
+        )
     }
 }
 
@@ -569,9 +603,10 @@ private class DelayingLifecycleIntegrationHandler(
 }
 
 /** Publishes its own successor on every dispatch, so detached work never runs out. */
-private class SelfRepublishingIntegrationHandler :
+private class SelfRepublishingIntegrationHandler(private val delayMs: Long) :
     CanPublishIntegrationEvent(), IntegrationEventHandler<LifecycleIntegrationEvent> {
     override suspend fun handle(message: LifecycleIntegrationEvent) {
+        delay(delayMs.milliseconds)
         publish(LifecycleIntegrationEvent(message.message))
     }
 }

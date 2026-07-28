@@ -25,6 +25,7 @@ import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreColle
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
+import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -33,10 +34,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 
 class MessageBusOutboxTest {
     @Test
@@ -52,15 +50,15 @@ class MessageBusOutboxTest {
             MessageBus(
                 locator,
                 transactionManager = transactionManager,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
         bus.start()
         // Let the poller's immediate first (empty) pass settle into its long sleep.
-        realDelay(50)
+        advanceVirtualTime(50)
 
         bus.execute(OutboxImperativeCommand("via-imperative"))
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertEquals(listOf("via-imperative"), received)
         assertEquals(1, store.markedPublished.size)
@@ -81,14 +79,14 @@ class MessageBusOutboxTest {
                 locator,
                 transactionManager = transactionManager,
                 middlewares = listOf(middleware),
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         bus.execute(OutboxDomainCommand("via-autopublish"))
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertEquals(listOf("via-autopublish"), received)
         assertEquals(1, store.markedPublished.size)
@@ -110,16 +108,16 @@ class MessageBusOutboxTest {
                 locator,
                 transactionManager = transactionManager,
                 middlewares = listOf(middleware),
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertFailsWith<IllegalStateException> {
             bus.execute(OutboxDomainCommand("should-not-be-saved"))
         }
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertTrue(received.isEmpty())
         assertTrue(store.fetchUnpublished(10).isEmpty())
@@ -138,16 +136,16 @@ class MessageBusOutboxTest {
             MessageBus(
                 locator,
                 transactionManager = transactionManager,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         assertFailsWith<IllegalStateException> {
             bus.execute(OutboxImperativeCommand("should-not-be-dispatched"))
         }
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertTrue(received.isEmpty())
         assertTrue(store.fetchUnpublished(10).isEmpty())
@@ -196,18 +194,18 @@ class MessageBusOutboxTest {
                 MessageBus(
                     locator,
                     middlewares = listOf(middleware),
-                    rootScope = backgroundScope,
+                    appScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 )
             bus.start()
-            realDelay(50)
+            advanceVirtualTime(50)
 
             bus.execute(OutboxNoopCommand())
 
             assertTrue(received.isEmpty(), "Should not be delivered before commit")
 
             gate.complete(Unit)
-            realDelay(150)
+            advanceVirtualTime(150)
 
             assertEquals(listOf("via-middleware"), received)
         }
@@ -247,14 +245,14 @@ class MessageBusOutboxTest {
         val bus =
             MessageBus(
                 locator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
         bus.start()
-        realDelay(50)
+        advanceVirtualTime(50)
 
         bus.execute(OutboxImperativeCommand("event"))
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertTrue(received.isEmpty(), "the handler is still suspended on the gate")
         assertTrue(
@@ -263,7 +261,7 @@ class MessageBusOutboxTest {
         )
 
         gate.complete(Unit)
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertEquals(listOf("event"), received)
         assertTrue(store.fetchUnpublished(10).isEmpty())
@@ -294,14 +292,14 @@ class MessageBusOutboxTest {
                     locator,
                     transactionManager = transactionManager,
                     middlewares = listOf(middleware),
-                    rootScope = backgroundScope,
+                    appScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 )
             bus.start()
-            realDelay(50)
+            advanceVirtualTime(50)
 
             bus.execute(OutboxNoopCommand())
-            realDelay(150)
+            advanceVirtualTime(150)
 
             assertEquals(listOf("via-middleware-success"), received)
             assertEquals(1, store.markedPublished.size)
@@ -342,14 +340,14 @@ class MessageBusOutboxTest {
                     locator,
                     transactionManager = transactionManager,
                     middlewares = listOf(middleware),
-                    rootScope = backgroundScope,
+                    appScope = backgroundScope,
                     outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
                 )
             bus.start()
-            realDelay(50)
+            advanceVirtualTime(50)
 
             assertFailsWith<IllegalStateException> { bus.execute(OutboxNoopCommand()) }
-            realDelay(150)
+            advanceVirtualTime(150)
 
             assertTrue(received.isEmpty(), "Never delivered: nothing was ever flushed to the store")
             assertTrue(store.fetchUnpublished(10).isEmpty(), "Rollback-safe: nothing staged")
@@ -367,11 +365,11 @@ class MessageBusOutboxTest {
         val bus =
             MessageBus(
                 locator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
         bus.start()
-        realDelay(150)
+        advanceVirtualTime(150)
 
         assertEquals(listOf("from-before-crash"), received)
     }
@@ -387,14 +385,14 @@ class MessageBusOutboxTest {
         val bus =
             MessageBus(
                 locator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
             )
         bus.start()
-        realDelay(30)
+        advanceVirtualTime(30)
 
         bus.execute(OutboxFlakyCommand("flaky"))
-        realDelay(250)
+        advanceVirtualTime(250)
 
         assertTrue(attempts.size >= 2)
     }
@@ -410,7 +408,7 @@ class MessageBusOutboxTest {
         val bus =
             MessageBus(
                 locator,
-                rootScope = backgroundScope,
+                appScope = backgroundScope,
                 outbox =
                     OutboxConfig(
                         store = store,
@@ -419,13 +417,13 @@ class MessageBusOutboxTest {
                     ),
             )
         bus.start()
-        realDelay(20)
+        advanceVirtualTime(20)
 
         bus.execute(OutboxImperativeCommand("poller-only"))
-        realDelay(20)
+        advanceVirtualTime(20)
         assertTrue(received.isEmpty())
 
-        realDelay(400)
+        advanceVirtualTime(400)
         assertEquals(listOf("poller-only"), received)
     }
 
@@ -436,16 +434,13 @@ class MessageBusOutboxTest {
         val locator = PersistingHandlerLocator(stores)
         registerImperativeCommand(stores, locator, received)
 
-        val bus = MessageBus(locator, rootScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         bus.execute(OutboxImperativeCommand("no-outbox"))
-        realDelay(100)
+        advanceVirtualTime(100)
 
         assertContains(received, "no-outbox")
     }
-
-    private suspend fun realDelay(millis: Long) =
-        withContext(Dispatchers.Default) { delay(millis.milliseconds) }
 
     private fun registerImperativeCommand(
         stores: HandlerFactoryStoreCollection,
