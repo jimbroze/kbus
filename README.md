@@ -626,8 +626,8 @@ Between publish and dispatch sits a third stage: routing. Every integration publ
 `publish()`, `AutoPublishIntegrationEvents`, query middleware, and integration event handlers that publish further
 events — hands its events to an `EventRouter`, whether or not an outbox is configured. The router emits each event to
 `observe()` collectors once per routing attempt, before fan-out, then attempts delivery to every `EventDestination`
-that applies to the event. The local-dispatch destination is a `BoundedContext` — a module runtime that owns a slice of
-handlers and dispatches to them. A bus holds one per identity:
+that applies to the event. The local-dispatch destination is derived from a `BoundedContext` — the declaration a user
+constructs and registers handlers on. A bus holds one per identity:
 
 ```kotlin
 val bus = MessageBus(
@@ -642,8 +642,16 @@ val bus = MessageBus(
 Each context's `appliesTo` is derived, lazily, from its own locator, so an integration handler registered in one context
 never fires for another context's event, and a handler registered after the bus was constructed is subscribed to from
 that moment on. Passing no `contexts` gives a bus a single implicit `default` context over its whole handler locator —
-the behaviour of a non-modular application. Context locators are used only for integration-event lookup; commands,
-queries and domain events still resolve through the bus's own handler locator.
+the behaviour of a non-modular application.
+
+**Commands and queries resolve by owner lookup across `contexts`**, not through the bus's own handler locator directly:
+exactly one context's locator must claim a given command or query (`HandlerLocator.hasHandlerFor`), or `execute`/`fetch`
+throws — `MissingHandlerException` for zero owners, `AmbiguousHandlerException` for two or more. This means that once
+you pass an explicit `contexts` list, every command and query handler must be registered on one of those contexts'
+locators — registering one only on the bus-wide `handlerLocator` is no longer enough, since that locator only backs
+domain-event dispatch and the implicit default context. Constructing a bus with two contexts sharing the same
+`BoundedContextId` also throws, at construction time. Domain events are unaffected — they still resolve through the
+bus's own handler locator.
 
 Three consequences worth knowing:
 

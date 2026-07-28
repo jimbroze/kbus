@@ -123,18 +123,38 @@ deduping on
 routing to delivery; its id — minted once, at the ingress boundary, via
 `EventEnvelope.of` — is what an at-least-once consumer (the outbox poller, later an inbox) dedupes on.
 
-`BoundedContext` (`kbus-core`, package `com.jimbroze.kbus.core.module`) is the local-dispatch
-`EventDestination` and the only destination today: it owns a handler slice and dispatches to it via
-`HandlerLocator` + `EventDispatcher`. A bus holds **one context per `BoundedContextId`**, passed as
-`contexts: Map<BoundedContextId, HandlerLocator>` on the bus constructor; empty ⇒ a single implicit
-`BoundedContextId.DEFAULT` context over the bus's shared locator (behaviour-preserving for non-modular apps).
-`appliesTo` is a real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the seam Stage 3's
+`BoundedContext` (`kbus-core`, package `com.jimbroze.kbus.core.module`) is an **authored declaration**, not a runtime
+object: a user constructs one with an id and a `HandlerLocator`, and registers domain/integration handlers on it via
+`addDomainHandlers`/`addEventHandlers`, which delegate through `EventMapperProvider` (the locator must implement it —
+every shipped `HandlerLocator` does; `BoundedContext`'s `init` block fails fast if not). A bus takes
+**`contexts: List<BoundedContext>`** on its constructor; empty ⇒ a single implicit `BoundedContextId.DEFAULT` context
+over the bus's shared locator (behaviour-preserving for non-modular apps); duplicate ids among an explicit list throw
+`IllegalArgumentException` at construction.
+
+The bus derives one internal `ContextRuntime` per `BoundedContext` — the local-dispatch `EventDestination` and the only
+destination today — once its own middleware, scope and dispatcher exist; a `BoundedContext` cannot own that itself,
+since none of that wiring is available at the point a user constructs one. `ContextRuntime` holds a **deferred**
+reference to the bus's `EventDispatcher` (`() -> EventDispatcher`, resolved on first `deliver`, not at construction) —
+not vestigial, but load-bearing: the dispatcher's `contextFactory` transitively depends on the router these runtimes
+feed into, so building them eagerly with a concrete `EventDispatcher` would be a circular initializer. `appliesTo` is a
+real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the seam Stage 3's
 `DeclaredSubscriptions` drops into) with `LocatorSubscriptions` delegating to
 `HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both locators
 answer from `PersistingEventMapper.hasMappingFor`. Laziness is an invariant, not an optimisation: handlers are commonly
 registered *after* the bus is constructed, so a construction-time snapshot would silently drop (and, with an inbox, fail
-to capture) everything that arrived first. Per-context locators are used for integration-event lookup **only** —
-commands, queries and domain events still resolve through `BaseMessageBus.handlerLocator`.
+to capture) everything that arrived first.
+
+**Commands and queries resolve by owner lookup**, not through `BaseMessageBus.handlerLocator` directly:
+`execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of `hasHandlersFor`, same
+no-instantiation contract) and require exactly one owner — zero throws the existing `MissingHandlerException`, two or
+more throws `AmbiguousHandlerException(messageClass, contextIds)` (`kbus-contracts`, beside `MissingHandlerException`),
+since a command or query is single-owner by contract and must not be resolved by list order. `GenerationHandlerLocator`
+needs its own `contextIdentity` (`""` for default) to answer this, because contexts produced from the same Gradle
+module currently share one generated `HandlerFactory` instance — `GenerationHandlerFactory.commandModule`/
+`queryModule` report the owning identity (or `null`) per message class, generated from `HandlerData.module`, and the
+locator compares it against its own identity. `BaseMessageBus.handlerLocator` itself is **not** a lookup candidate once
+`contexts` is non-empty — it only backs domain-event dispatch and the implicit default context — so a hand-rolled bus
+that passes explicit `contexts` must register every command/query handler through one of those contexts' locators.
 
 Consequences of N contexts, all deliberate: the dispatch middleware chain runs **once per subscribing context** (a
 `Locker` acquires once per context, sequentially — `EventRouter.route` iterates destinations serially); an event **no**
@@ -150,7 +170,7 @@ path — the inbox pump, the outbox poller and the outbox drain are all backgrou
 envelopes and partitions the batch by each event's own `errorStrategy` (not per event, or `observe()`/`EventInbox
 .deliver` would be multiplied): a `FireAndForget` group is launched on its scope (`MessageBus` wires in
 `eventDispatcherScope`) so the caller doesn't wait on it, every other group is routed and awaited so a destination
-failure still propagates to the publisher. No durability either way. Bus wiring (`BaseMessageBus`): `BoundedContext` →
+failure still propagates to the publisher. No durability either way. Bus wiring (`BaseMessageBus`): `ContextRuntime` →
 `EventRouter` → `DirectPublisher` / `OutboxCoordinator` → `IntegrationEventPublisherFactory`. `observe()` delegates to
 `router.observerRegistry`, not `EventDispatcher`. A destination that throws is not acknowledged — with an outbox
 configured, that leaves the entry unpublished for the poller to retry; this is the whole ack mechanism, and routing has
@@ -208,8 +228,8 @@ Opt-in per `BoundedContextId` via `InboxConfig(stores: Map<BoundedContextId, Inb
 (`EnvelopeRelay`, shared with the outbox), `core.module.inbox` (`EventInbox`, `InboxCoordinator`, `InboxConfig`),
 `core.infrastructure.inbox` (`InMemoryInboxStore`).
 
-`EventInbox` is a **decorator**, not a field on `BoundedContext` — `EventInbox(inner: EventDestination, store, …) :
-EventDestination` wraps a context so `BoundedContext` itself is untouched (no branch, no second entry point). Its
+`EventInbox` is a **decorator**, not a field on `ContextRuntime` — `EventInbox(inner: EventDestination, store, …) :
+EventDestination` wraps a context runtime so `ContextRuntime` itself is untouched (no branch, no second entry point). Its
 `deliver` collapses to *save durably and return*: `store.save(envelopes)`, then (if `opportunisticDispatch`)
 `pumpScope.launch { drain() }`. `drain()`/`pump()` are `relay.pollOnce()`/`relay.poll()` on an internal `EnvelopeRelay`
 whose `fetch = store::fetchPending`, `deliver = { inner.deliver(listOf(it)) }` (per-entry, so ack is per-entry — a
@@ -251,8 +271,8 @@ applied per bus rather than per event: `HonourEventStrategy` is the table above;
 `FireAndForget` → `ContinueAndAggregate` before dispatch, so a handler failure leaves the envelope pending like
 `FailFast`/`ContinueAndAggregate` already do (those two pass through untouched — they don't need the override). The
 mapping is expressed on the public `ErrorStrategy` contract type, not the dispatcher-internal `EventErrorStrategy`, so
-it can sit on `BoundedContext`'s public constructor and `EventDispatcher.dispatchIntegrationEvent`'s public trailing
-parameter without an internal type leaking into public API. `BoundedContext.withAckStrategy` (`internal`, applied only
+it can sit on `ContextRuntime`'s constructor and `EventDispatcher.dispatchIntegrationEvent`'s public trailing
+parameter without an internal type leaking into public API. `ContextRuntime.withAckStrategy` (`internal`, applied only
 by `InboxCoordinator`, only to contexts with a configured store) returns a copy carrying the override function; a
 context with no inbox is never overridden. `ackPolicy` has **no default** — either choice silently picks a side of a
 durability trade-off the consumer owns (`HonourEventStrategy` acks a failed `FireAndForget` handler;
