@@ -15,22 +15,24 @@ import kotlinx.coroutines.launch
  * publish-boundary timing now that dispatch itself always awaits its handlers: a batch is
  * partitioned by each event's own [ErrorStrategy], not split per event (that would multiply
  * [EventRouter]'s observer emissions and turn one batched save into several) — the
- * [ErrorStrategy.FireAndForget] group is launched on [scope] (the producer said it doesn't care, so
- * publish doesn't wait on it), every other strategy is routed and awaited so a destination failure
- * still propagates to the publishing caller.
+ * [ErrorStrategy.FireAndForget] group is launched on [fireAndForgetScope] (the producer said it
+ * doesn't care, so publish doesn't wait on it), every other strategy is routed and awaited so a
+ * destination failure still propagates to the publishing caller.
  *
- * [scope] is required: [FireAndForget][ErrorStrategy.FireAndForget] routing launched on a scope the
- * bus does not own is work that `stop(gracePeriod)` can neither drain nor `rootJob.cancelAndJoin()`
- * cancel, so it must be the bus's own `eventDispatcherScope`.
+ * [fireAndForgetScope] is required: [FireAndForget][ErrorStrategy.FireAndForget] routing launched
+ * on a scope the bus does not own is work that `stop(gracePeriod)` can neither drain nor
+ * `rootJob.cancelAndJoin()` cancel, so it must be the bus's own `eventDispatcherScope`.
  */
-class DirectPublisher(private val router: EventRouter, private val scope: CoroutineScope) :
-    IntegrationEventPublisher {
+class DirectPublisher(
+    private val router: EventRouter,
+    private val fireAndForgetScope: CoroutineScope,
+) : IntegrationEventPublisher {
     override suspend fun publish(events: List<IntegrationEvent>) {
         val (fireAndForget, awaited) =
             events.partition { it.errorStrategy == ErrorStrategy.FireAndForget }
 
         if (fireAndForget.isNotEmpty()) {
-            scope.launch { router.route(fireAndForget.map { EventEnvelope.of(it) }) }
+            fireAndForgetScope.launch { router.route(fireAndForget.map { EventEnvelope.of(it) }) }
         }
         if (awaited.isNotEmpty()) {
             router.route(awaited.map { EventEnvelope.of(it) })

@@ -87,14 +87,14 @@ private class ThrowingInboxAlphaHandler(private val attempts: MutableList<String
  */
 private class NonAckingOutboxStore : OutboxStore {
     private val entries = mutableListOf<EventEnvelope>()
-    val fetchCount = mutableListOf<Int>()
+    val fetchLimits = mutableListOf<Int>()
 
     override suspend fun save(entries: List<EventEnvelope>) {
         this.entries.addAll(entries)
     }
 
     override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> {
-        fetchCount.add(limit)
+        fetchLimits.add(limit)
         return entries.take(limit)
     }
 
@@ -353,8 +353,8 @@ class MessageBusInboxTest {
         realDelay(400)
 
         assertTrue(
-            outboxStore.fetchCount.size >= 3,
-            "expected multiple route attempts: ${outboxStore.fetchCount}",
+            outboxStore.fetchLimits.size >= 3,
+            "expected multiple route attempts: ${outboxStore.fetchLimits}",
         )
         assertEquals(listOf("healthy:event"), received)
     }

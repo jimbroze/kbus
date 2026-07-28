@@ -14,11 +14,11 @@ class RecordingInboxStore : InboxStore {
     var saveFailure: Throwable? = null
     var fetchFailure: Throwable? = null
 
-    private val seen = mutableSetOf<String>()
+    private val dedupedIds = mutableSetOf<String>()
 
     override suspend fun save(envelopes: List<EventEnvelope>) {
         saveFailure?.let { throw it }
-        envelopes.forEach { if (seen.add(it.id)) saved.add(it) }
+        envelopes.forEach { if (dedupedIds.add(it.id)) saved.add(it) }
     }
 
     override suspend fun fetchPending(limit: Int): List<EventEnvelope> {

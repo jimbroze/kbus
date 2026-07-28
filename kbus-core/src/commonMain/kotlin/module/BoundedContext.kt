@@ -44,12 +44,14 @@ class BoundedContext(
     }
 
     /**
-     * Returns a copy overridden by [override] — an ack policy's mapping from an event's own
-     * [ErrorStrategy] to the one dispatch should actually use, or `null` to honour the event's
+     * Returns a copy overridden by [ackStrategyOverride] — an ack policy's mapping from an event's
+     * own [ErrorStrategy] to the one dispatch should actually use, or `null` to honour the event's
      * strategy unchanged. Internal: only [com.jimbroze.kbus.core.module.inbox.InboxCoordinator]
      * applies this, when wrapping a context with a configured inbox store — a context with no inbox
      * is never overridden.
      */
-    internal fun withAckStrategy(override: ((ErrorStrategy) -> ErrorStrategy)?): BoundedContext =
-        BoundedContext(id, subscriptions, handlerLocator, eventDispatcher, override)
+    internal fun withAckStrategy(
+        ackStrategyOverride: ((ErrorStrategy) -> ErrorStrategy)?
+    ): BoundedContext =
+        BoundedContext(id, subscriptions, handlerLocator, eventDispatcher, ackStrategyOverride)
 }
