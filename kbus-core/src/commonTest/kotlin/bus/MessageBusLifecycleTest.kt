@@ -40,7 +40,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -98,7 +100,14 @@ class MessageBusLifecycleTest {
     @Test
     fun cancelling_the_app_scope_cancels_middleware_scopes() = runTest {
         val middleware = CapturingLifecycleMiddleware()
-        val appScope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        // A *child* of backgroundScope — not a share of its context, which would reuse its Job and
+        // make the cancel below tear down backgroundScope itself — so teardown cancels whatever the
+        // bus launched even if the assertions below fail.
+        val appScope =
+            CoroutineScope(
+                SupervisorJob(backgroundScope.coroutineContext[Job]) +
+                    StandardTestDispatcher(testScheduler)
+            )
 
         val bus = MessageBus(middlewares = listOf(middleware), appScope = appScope)
         bus.start()
@@ -427,7 +436,13 @@ class MessageBusLifecycleTest {
      */
     @Test
     fun stop_isBoundedWhenDetachedWorkRespawnsWithoutSuspending() = runTest {
-        val appScope = CoroutineScope(Dispatchers.Default)
+        // A real dispatcher is the point of this test, but the scope is still a *child* of
+        // backgroundScope so endlessly respawning work cannot outlive the test if the assertions
+        // below fail.
+        val appScope =
+            CoroutineScope(
+                SupervisorJob(backgroundScope.coroutineContext[Job]) + Dispatchers.Default
+            )
         val bus = MessageBus(respawningLocator(0), appScope = appScope)
         bus.start()
 

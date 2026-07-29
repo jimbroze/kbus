@@ -108,7 +108,7 @@ class EventDispatcherTest {
                     { castedHandlers },
                     emptyList(),
                     dispatcherScope = scope,
-                    contextFactory = emptyContextFactory(),
+                    contextFactory = emptyContextFactory(scope.backgroundScope),
                 )
             return this
         }
@@ -123,7 +123,7 @@ class EventDispatcherTest {
                     { emptyList() },
                     emptyList(),
                     dispatcherScope = scope,
-                    contextFactory = emptyContextFactory(),
+                    contextFactory = emptyContextFactory(scope.backgroundScope),
                 )
             dispatcher.dispatchIntegrationEvent(event, castedHandlers)
         }
@@ -734,7 +734,7 @@ class EventDispatcherTest {
                 { emptyList() },
                 listOf(capturingMiddleware),
                 this,
-                contextFactory = emptyContextFactory(),
+                contextFactory = emptyContextFactory(backgroundScope),
             )
 
         dispatcher.dispatchDomainEvent(TestDomainEvent("test"), invocation)
@@ -752,7 +752,7 @@ class EventDispatcherTest {
                     { emptyList() },
                     listOf(capturingMiddleware),
                     this,
-                    contextFactory = emptyContextFactory(),
+                    contextFactory = emptyContextFactory(backgroundScope),
                 )
 
             dispatcher.dispatchDomainEvent(TestDomainEvent("test"), invocation)
@@ -773,7 +773,9 @@ class EventDispatcherTest {
                 listOf(capturingMiddleware),
                 this,
                 contextFactory =
-                    MiddlewareInvocationContextFactory(noOutboxPublisherFactory(basePublisher)),
+                    MiddlewareInvocationContextFactory(
+                        noOutboxPublisherFactory(backgroundScope, basePublisher)
+                    ),
             )
 
         dispatcher.dispatchIntegrationEvent(TestIntegrationEvent("test"))
@@ -810,7 +812,8 @@ class EventDispatcherTest {
                     contextFactory =
                         MiddlewareInvocationContextFactory(
                             noOutboxPublisherFactory(
-                                DirectPublisher(EventRouter(listOf(destination)), this)
+                                backgroundScope,
+                                DirectPublisher(EventRouter(listOf(destination)), this),
                             )
                         ),
                 )

@@ -38,7 +38,7 @@ import kotlinx.coroutines.test.runTest
 class CommandExecutorTest {
     @Test
     fun test_it_invokes_handler_and_returns_result() = runTest {
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
                 null,
@@ -57,7 +57,10 @@ class CommandExecutorTest {
     fun test_it_gives_handlers_access_to_bus() = runTest {
         val destination = RecordingDestination()
         val factories =
-            TestPublisherFactories(DirectPublisher(EventRouter(listOf(destination)), this))
+            TestPublisherFactories(
+                backgroundScope,
+                DirectPublisher(EventRouter(listOf(destination)), this),
+            )
         val executor =
             CommandExecutor(
                 null,
@@ -80,7 +83,7 @@ class CommandExecutorTest {
     fun test_it_routes_dispatch_through_the_invocations_outbox_when_present() = runTest {
         val directDestination = RecordingDestination()
         val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)), this)
-        val factories = TestPublisherFactories(basePublisher)
+        val factories = TestPublisherFactories(backgroundScope, basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val invocationFactory =
@@ -115,7 +118,7 @@ class CommandExecutorTest {
     @Test
     fun test_the_commands_middleware_context_resolves_to_the_invocations_outbox() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
-        val factories = TestPublisherFactories(basePublisher)
+        val factories = TestPublisherFactories(backgroundScope, basePublisher)
         val store = RecordingOutboxStore()
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val invocationFactory =
@@ -150,9 +153,9 @@ class CommandExecutorTest {
     @Test
     fun test_it_executes_handler_in_unit_of_work() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory())
+            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
         val executor =
             CommandExecutor(
                 null,
@@ -172,7 +175,7 @@ class CommandExecutorTest {
     @Test
     fun test_it_uses_provided_transaction_manager() = runTest {
         val testTransactionManager = TestTransactionManager()
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
                 testTransactionManager,
@@ -192,7 +195,7 @@ class CommandExecutorTest {
 
     @Test
     fun test_it_errors_for_executeInTransaction_if_no_transaction_manager() = runTest {
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
                 null,
@@ -211,7 +214,7 @@ class CommandExecutorTest {
     fun test_it_uses_handler_transaction_manager_when_provided() = runTest {
         val defaultTransactionManager = TestTransactionManager()
         val handlerTransactionManager = TestTransactionManager()
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
                 defaultTransactionManager,
@@ -235,7 +238,7 @@ class CommandExecutorTest {
     @Test
     fun test_default_transaction_manager_can_be_null_if_handler_manager_is_provided() = runTest {
         val handlerTransactionManager = TestTransactionManager()
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
                 null,
@@ -260,9 +263,9 @@ class CommandExecutorTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         var testDependencies: CommandDependencies? = null
         val dependenciesFactory = TestCommandDependenciesFactory()
-        val factories = TestPublisherFactories()
+        val factories = TestPublisherFactories(backgroundScope)
         val invocationFactory =
-            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory())
+            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
         val executor =
             CommandExecutor(
                 null,

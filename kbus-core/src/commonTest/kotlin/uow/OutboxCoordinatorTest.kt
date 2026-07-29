@@ -9,7 +9,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.advanceTimeBy
@@ -22,13 +21,12 @@ private class OutboxCoordinatorTestEvent(val name: String) : IntegrationEvent()
 class OutboxCoordinatorTest {
     @Test
     fun startPolling_withNoConfig_launchesNothing() = runTest {
-        val scope = CoroutineScope(Job())
         val coordinator =
-            OutboxCoordinator(null, EventRouter(listOf(RecordingDestination())), scope)
+            OutboxCoordinator(null, EventRouter(listOf(RecordingDestination())), backgroundScope)
 
         coordinator.startPolling()
 
-        assertTrue(scope.coroutineContext[Job]!!.children.toList().isEmpty())
+        assertTrue(backgroundScope.coroutineContext[Job]!!.children.toList().isEmpty())
     }
 
     @Test

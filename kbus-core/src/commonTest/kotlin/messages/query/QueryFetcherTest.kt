@@ -11,7 +11,7 @@ import kotlinx.coroutines.test.runTest
 class QueryFetcherTest {
     @Test
     fun test_it_invokes_handler_and_returns_result() = runTest {
-        val fetcher = QueryFetcher(emptyList(), emptyContextFactory())
+        val fetcher = QueryFetcher(emptyList(), emptyContextFactory(backgroundScope))
 
         val createHandler = { StorageQueryHandler() }
         val result = fetcher.fetch(StorageQuery(0, mutableListOf("Wassup")), createHandler)

@@ -25,7 +25,7 @@ class CommandInvocationFactoryTest {
         val factory =
             CommandInvocationFactory(
                 TestUnitOfWorkFactory(),
-                noOutboxPublisherFactory(basePublisher),
+                noOutboxPublisherFactory(backgroundScope, basePublisher),
             )
 
         val invocation = factory.create<Any?>()
@@ -36,7 +36,8 @@ class CommandInvocationFactoryTest {
     @Test
     fun create_without_an_outbox_registers_no_phase_hooks() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
-        val factory = CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory())
+        val factory =
+            CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
 
         factory.create<Any?>()
 

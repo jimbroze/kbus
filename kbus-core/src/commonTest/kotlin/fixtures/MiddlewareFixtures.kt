@@ -16,23 +16,26 @@ import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 
 object EmptyMiddlewareInvocationContext : MiddlewareInvocationContext {
     override val integrationEventPublisher = EmptyIntegrationEventPublisher
 }
 
-/** Bundles the bus-owned factories over the same direct publisher, for test wiring. */
+/**
+ * Bundles the bus-owned factories over the same direct publisher, for test wiring.
+ *
+ * [scope] is caller-supplied and has no default: pass `backgroundScope` so anything the coordinator
+ * or publisher launches dies with the test. Fixtures must not manufacture lifetimes of their own.
+ */
 class TestPublisherFactories(
-    directPublisher: DirectPublisher =
-        DirectPublisher(EventRouter(emptyList()), CoroutineScope(Job())),
+    scope: CoroutineScope,
+    directPublisher: DirectPublisher = DirectPublisher(EventRouter(emptyList()), scope),
     outboxConfig: OutboxConfig? = null,
     router: EventRouter = EventRouter(emptyList()),
-    outboxScope: CoroutineScope = CoroutineScope(Job()),
 ) {
     private val publisherFactory =
         IntegrationEventPublisherFactory(
-            OutboxCoordinator(outboxConfig, router, outboxScope),
+            OutboxCoordinator(outboxConfig, router, scope),
             directPublisher,
         )
     val contextFactory = MiddlewareInvocationContextFactory(publisherFactory)
@@ -44,16 +47,16 @@ class TestPublisherFactories(
  * [directPublisher].
  */
 fun noOutboxPublisherFactory(
-    directPublisher: DirectPublisher =
-        DirectPublisher(EventRouter(emptyList()), CoroutineScope(Job()))
+    scope: CoroutineScope,
+    directPublisher: DirectPublisher = DirectPublisher(EventRouter(emptyList()), scope),
 ): IntegrationEventPublisherFactory =
     IntegrationEventPublisherFactory(
-        OutboxCoordinator(null, EventRouter(emptyList()), CoroutineScope(Job())),
+        OutboxCoordinator(null, EventRouter(emptyList()), scope),
         directPublisher,
     )
 
-fun emptyContextFactory(): MiddlewareInvocationContextFactory =
-    MiddlewareInvocationContextFactory(noOutboxPublisherFactory())
+fun emptyContextFactory(scope: CoroutineScope): MiddlewareInvocationContextFactory =
+    MiddlewareInvocationContextFactory(noOutboxPublisherFactory(scope))
 
 class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycle") :
     LifecycleAwareMiddleware {
