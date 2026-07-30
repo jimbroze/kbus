@@ -1068,8 +1068,9 @@ handlers — a domain handler registered on `bus.billing` never fires for a comm
 
 **Command and query handlers must be registered before the bus is constructed.** Building a bus closes registration on
 every context it is given; a later `registerHandlers` throws `HandlerRegistrationSealedException`. A command has exactly
-one owning context, and the bus resolves that owner itself, so a handler registered afterwards could never be found —
-failing loudly beats a handler that is silently never called.
+one owning context, and the bus is what resolves that owner, so it must be able to settle ownership while it is being
+built — that is what lets two contexts claiming the same command be reported against your wiring rather than against
+some later dispatch in production.
 
 **Event handlers may be registered at any time,** before or after the bus exists. That is what makes
 `bus.billing.addEventHandlers(...)` above work: the generated bus only exposes its contexts once it has been built. A

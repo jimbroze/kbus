@@ -3,8 +3,9 @@ package com.jimbroze.kbus.core.registry
 /**
  * Thrown when handlers are registered after the bus that owns them was constructed.
  *
- * A bus snapshots each context's handlers when it is built, so a later registration would be
- * invisible to routing and to owner lookup. Failing loudly here is the whole point: the alternative
- * is a handler that is silently never called.
+ * A command or query has exactly one owning context, and the bus is what resolves that owner.
+ * Closing registration at construction is what lets ownership be settled — and conflicts reported —
+ * while there is still a stack trace pointing at the wiring, rather than at the first dispatch in
+ * production.
  */
 class HandlerRegistrationSealedException(message: String) : Exception(message)

@@ -161,8 +161,10 @@ unrepresentable: there is no id left to look up, so `DefaultCommandDependenciesF
 **Handler registration closes when the bus is constructed — for commands and queries.** `HandlerLocator.seal()` is
 called on every context's locator from `BaseMessageBus`'s `init` (via `BoundedContext.seal()`), and
 `MessageHandlerFactoryStore.registerHandlers`/`removeHandlers` then throw `HandlerRegistrationSealedException`
-(`kbus-core`, `registry`). A command handler registered after construction could never be found by owner lookup, so
-failing loudly beats a handler that is silently never called. Sealing must be idempotent — two contexts may share one
+(`kbus-core`, `registry`). Sealing is a precondition, not a bug fix: owner lookup is still lazy today, so a late command
+handler *would* in fact be found. What a closed handler set buys is the pair of properties the bus was built for —
+construction-time conflict detection, and an eager owner map in place of the per-dispatch scan over every context.
+Neither is sound while registration stays open. Sealing must be idempotent — two contexts may share one
 `HandlerFactoryStoreCollection`. `GenerationHandlerLocator.seal()` is a no-op: its commands and queries come from a
 generated factory fixed at compile time.
 
@@ -353,9 +355,9 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   demands stronger guarantees than a producer's declared `FireAndForget` — stated explicitly (the parameter is required,
   with no default), never inferred from context shape.
 - **Registration closes when the bus is built — for commands and queries only.** A command or query has exactly one
-  owning context and the bus resolves that owner, so a handler registered after construction could never be found:
-  `HandlerLocator.seal()` makes that a loud `HandlerRegistrationSealedException` instead of a handler that is silently
-  never called. Event handlers stay open by necessity, not preference — the generated bus exposes its contexts only
+  owning context and the bus is what resolves that owner, so ownership must be settleable at construction — that is what
+  makes conflicts reportable against the wiring rather than against the first dispatch, and an eager owner map sound.
+  `HandlerLocator.seal()` enforces it with a loud `HandlerRegistrationSealedException`. Event handlers stay open by necessity, not preference — the generated bus exposes its contexts only
   after construction, so registering on a live bus is its documented API, and that is precisely why a context's
   subscription set must stay derived-on-demand rather than snapshotted.
 - **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
