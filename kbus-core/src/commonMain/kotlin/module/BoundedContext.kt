@@ -16,9 +16,6 @@ import kotlin.reflect.KClass
  * and query registration goes through [handlerLocator] directly). A bus takes a list of these and
  * derives the runtime object that actually dispatches — a [BoundedContext] cannot own that itself,
  * since dispatch needs the bus's middleware, scope and dependency wiring, all constructed later.
- *
- * [handlerLocator] must also implement [EventMapperProvider] — every shipped [HandlerLocator] does
- * — which is what [addDomainHandlers]/[addEventHandlers] delegate to.
  */
 class BoundedContext(
     val id: BoundedContextId,
