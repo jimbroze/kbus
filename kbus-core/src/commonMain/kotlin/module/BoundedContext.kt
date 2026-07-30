@@ -20,8 +20,7 @@ class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
 ) {
-    private val domainEventMapper =
-        CompileTimeDomainEventMapper(handlerLocator.domainEventMapper)
+    private val domainEventMapper = CompileTimeDomainEventMapper(handlerLocator.domainEventMapper)
     private val integrationEventMapper =
         CompileTimeIntegrationEventMapper(handlerLocator.integrationEventMapper)
 

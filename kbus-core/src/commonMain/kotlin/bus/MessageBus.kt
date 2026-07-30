@@ -24,7 +24,6 @@ import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextRuntime
-import com.jimbroze.kbus.core.module.LocatorSubscriptions
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.registry.HandlerLocator
@@ -94,9 +93,9 @@ abstract class BaseMessageBus(
     /**
      * One entry per [BoundedContextId]; the [init] block below throws on duplicates. Empty ⇒ a
      * single [BoundedContextId.DEFAULT] context over the bus's shared [handlerLocator] —
-     * non-modular apps are unaffected. Commands, queries and
-     * domain events all resolve per-context: a command's owning context (see [ownerContextFor])
-     * determines both its handler and which context's domain handlers its domain events reach.
+     * non-modular apps are unaffected. Commands, queries and domain events all resolve per-context:
+     * a command's owning context (see [ownerContextFor]) determines both its handler and which
+     * context's domain handlers its domain events reach.
      */
     private val boundedContexts: List<BoundedContext> =
         contexts.ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
@@ -121,9 +120,7 @@ abstract class BaseMessageBus(
         boundedContexts.map { context ->
             ContextRuntime(
                 context,
-                LocatorSubscriptions(context.handlerLocator),
-                context.handlerLocator,
-                { contextEventDispatchers.getValue(context.id) },
+                eventDispatcher = { contextEventDispatchers.getValue(context.id) },
             )
         }
 

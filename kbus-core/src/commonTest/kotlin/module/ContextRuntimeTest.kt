@@ -39,9 +39,7 @@ class ContextRuntimeTest {
             )
         return ContextRuntime(
             BoundedContext(BoundedContextId.DEFAULT, locator),
-            LocatorSubscriptions(locator),
-            locator,
-            { eventDispatcher },
+            eventDispatcher = { eventDispatcher },
         )
     }
 

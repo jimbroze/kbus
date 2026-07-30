@@ -7,7 +7,6 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
-import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.domain.event.DomainEvent
 
 /**
@@ -26,8 +25,7 @@ import com.jimbroze.kbus.domain.event.DomainEvent
  */
 internal class ContextRuntime(
     val context: BoundedContext,
-    private val subscriptions: Subscriptions,
-    private val handlerLocator: HandlerLocator,
+    private val subscriptions: Subscriptions = LocatorSubscriptions(context.handlerLocator),
     /**
      * The bus constructs its dispatchers after the destinations it routes to (a dispatcher's
      * `contextFactory` transitively depends on the router, which depends on these runtimes), so
@@ -46,7 +44,7 @@ internal class ContextRuntime(
             eventDispatcher()
                 .dispatchIntegrationEvent(
                     envelope.event,
-                    handlerLocator.handlersFor(envelope.event),
+                    context.handlerLocator.handlersFor(envelope.event),
                     ackStrategyOverride?.invoke(envelope.event.errorStrategy),
                 )
         }
@@ -62,8 +60,9 @@ internal class ContextRuntime(
      * [ErrorStrategy] to the one dispatch should actually use, or `null` to honour the event's
      * strategy unchanged. Internal: only [com.jimbroze.kbus.core.module.inbox.InboxCoordinator]
      * applies this, when wrapping a context with a configured inbox store — a context with no inbox
-     * is never overridden.
+     * is never overridden. Shares [eventDispatcher] with the original rather than resolving a fresh
+     * one, so the copy still dispatches through the same lazily-created dispatcher instance.
      */
     internal fun withAckStrategy(override: ((ErrorStrategy) -> ErrorStrategy)?): ContextRuntime =
-        ContextRuntime(context, subscriptions, handlerLocator, eventDispatcher, override)
+        ContextRuntime(context, subscriptions, eventDispatcher, override)
 }

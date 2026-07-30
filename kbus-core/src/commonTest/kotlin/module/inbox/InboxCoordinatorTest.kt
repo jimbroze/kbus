@@ -9,7 +9,6 @@ import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextRuntime
-import com.jimbroze.kbus.core.module.LocatorSubscriptions
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -37,12 +36,7 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
-        return ContextRuntime(
-            BoundedContext(id, locator),
-            LocatorSubscriptions(locator),
-            locator,
-            { eventDispatcher },
-        )
+        return ContextRuntime(BoundedContext(id, locator), eventDispatcher = { eventDispatcher })
     }
 
     @Test
@@ -197,12 +191,7 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
-        return ContextRuntime(
-            BoundedContext(id, locator),
-            LocatorSubscriptions(locator),
-            locator,
-            { eventDispatcher },
-        )
+        return ContextRuntime(BoundedContext(id, locator), eventDispatcher = { eventDispatcher })
     }
 
     @Test
