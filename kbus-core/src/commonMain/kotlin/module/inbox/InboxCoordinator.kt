@@ -78,17 +78,17 @@ internal class InboxCoordinator(
     private val inboxScope: CoroutineScope,
 ) {
     val destinations: List<EventDestination> =
-        contexts.map { runtime ->
-            config?.stores?.get(runtime.context.id)?.let { store ->
+        contexts.map { contextRuntime ->
+            config?.stores?.get(contextRuntime.context.id)?.let { store ->
                 EventInbox(
-                    runtime.withAckStrategy(config.ackPolicy.errorStrategyOverride),
+                    contextRuntime.withAckStrategy(config.ackPolicy.errorStrategyOverride),
                     store,
                     inboxScope,
                     config.batchSize,
                     config.pollInterval,
                     config.opportunisticDispatch,
                 )
-            } ?: runtime
+            } ?: contextRuntime
         }
 
     private val inboxes = destinations.filterIsInstance<EventInbox>()
