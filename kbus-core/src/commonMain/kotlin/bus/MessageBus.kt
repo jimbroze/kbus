@@ -92,8 +92,9 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One [BoundedContext] per identity. Empty ⇒ a single [BoundedContextId.DEFAULT] context over
-     * the bus's shared [handlerLocator] — non-modular apps are unaffected. Commands, queries and
+     * One entry per [BoundedContextId]; the [init] block below throws on duplicates. Empty ⇒ a
+     * single [BoundedContextId.DEFAULT] context over the bus's shared [handlerLocator] —
+     * non-modular apps are unaffected. Commands, queries and
      * domain events all resolve per-context: a command's owning context (see [ownerContextFor])
      * determines both its handler and which context's domain handlers its domain events reach.
      */
