@@ -3,7 +3,6 @@ package com.jimbroze.kbus.core.module
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
 import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
-import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.LoadedEventHandler
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -21,14 +20,10 @@ class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
 ) {
-    private val mapperProvider =
-        requireNotNull(handlerLocator as? EventMapperProvider) {
-            "BoundedContext requires a HandlerLocator that also implements EventMapperProvider " +
-                "(every shipped HandlerLocator does)."
-        }
-    private val domainEventMapper = CompileTimeDomainEventMapper(mapperProvider.domainEventMapper)
+    private val domainEventMapper =
+        CompileTimeDomainEventMapper(handlerLocator.domainEventMapper)
     private val integrationEventMapper =
-        CompileTimeIntegrationEventMapper(mapperProvider.integrationEventMapper)
+        CompileTimeIntegrationEventMapper(handlerLocator.integrationEventMapper)
 
     fun <TEvent : DomainEvent> addDomainHandlers(
         event: KClass<TEvent>,

@@ -9,7 +9,6 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
-import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
@@ -25,7 +24,7 @@ class GenerationHandlerLocator(
      * for several identities.
      */
     private val contextIdentity: String = "",
-) : HandlerLocator, EventMapperProvider {
+) : HandlerLocator {
     private val eventMapper = PersistingEventMapper()
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper

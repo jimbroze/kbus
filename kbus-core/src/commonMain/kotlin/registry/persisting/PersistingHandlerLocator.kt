@@ -9,7 +9,6 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
-import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
@@ -22,7 +21,7 @@ import kotlin.reflect.KClass
 // TODO create EventLocator that combines mapper and factory?
 class PersistingHandlerLocator(
     stores: HandlerFactoryStoreCollection = HandlerFactoryStoreCollection()
-) : HandlerLocator, EventMapperProvider {
+) : HandlerLocator {
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
     private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
