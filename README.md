@@ -627,7 +627,7 @@ Between publish and dispatch sits a third stage: routing. Every integration publ
 events — hands its events to an `EventRouter`, whether or not an outbox is configured. The router emits each event to
 `observe()` collectors once per routing attempt, before fan-out, then attempts delivery to every `EventDestination`
 that applies to the event. The local-dispatch destination is derived from a `BoundedContext` — the declaration a user
-constructs and registers handlers on. A bus holds one per identity:
+constructs and registers handlers on. A bus holds one per `BoundedContextId`:
 
 ```kotlin
 val bus = MessageBus(

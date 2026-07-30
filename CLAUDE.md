@@ -129,8 +129,8 @@ routing to delivery; its id — minted once, at the ingress boundary, via
 
 `BoundedContext` (`kbus-core`, package `com.jimbroze.kbus.core.module`) is an **authored declaration**, not a runtime
 object: a user constructs one with an id and a `HandlerLocator`, and registers domain/integration handlers on it via
-`addDomainHandlers`/`addEventHandlers`, which delegate through `EventMapperProvider` (the locator must implement it —
-every shipped `HandlerLocator` does; `BoundedContext`'s `init` block fails fast if not). A bus takes
+`addDomainHandlers`/`addEventHandlers`, which delegate through `EventMapperProvider` — a `HandlerLocator` supertype, so
+every locator implements it by construction. A bus takes
 **`contexts: List<BoundedContext>`** on its constructor; empty ⇒ a single implicit `BoundedContextId.DEFAULT` context
 over the bus's shared locator (behaviour-preserving for non-modular apps); duplicate ids among an explicit list throw
 `IllegalArgumentException` at construction.
@@ -167,8 +167,8 @@ module currently share one generated `HandlerFactory` instance — `GenerationHa
 locator compares it against its own identity. `BaseMessageBus.handlerLocator` itself is **not** a lookup candidate once
 `contexts` is non-empty — it only backs the implicit default context when `contexts` is empty — so a hand-rolled bus
 that passes explicit `contexts` must register every command/query handler through one of those contexts' locators.
-Domain-event dispatch is per-context too, via `BaseMessageBus.contextEventDispatchers` (one `EventDispatcher` per
-`BoundedContextId`) — see the `ContextRuntime`/`CommandInvocation.contextId` wiring above.
+Domain-event dispatch is per-context too, via each context's own `ContextRuntime`-held `EventDispatcher` — see the
+`ContextRuntime`/`CommandInvocation.contextId` wiring above.
 
 Consequences of N contexts, all deliberate: the dispatch middleware chain runs **once per subscribing context** (a
 `Locker` acquires once per context, sequentially — `EventRouter.route` iterates destinations serially); an event **no**
