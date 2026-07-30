@@ -1,16 +1,18 @@
 package com.jimbroze.kbus.core.module
 
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.OtherStorageEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
+import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.routing.AggregateException
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -29,6 +31,7 @@ class ContextRuntimeTest {
     private fun createRuntime(
         locator: PersistingHandlerLocator,
         dispatcherScope: CoroutineScope,
+        inbox: ContextInbox? = null,
     ): ContextRuntime {
         val eventDispatcher =
             EventDispatcher(
@@ -38,7 +41,7 @@ class ContextRuntimeTest {
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
         return ContextRuntime(
-            BoundedContext(BoundedContextId.DEFAULT, locator),
+            BoundedContext(BoundedContextId.DEFAULT, locator, inbox),
             eventDispatcher = lazy { eventDispatcher },
         )
     }
@@ -164,7 +167,7 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun withAckStrategy_overridesDispatchOnTheCopyOnly_theOriginalIsUnmutated() = runTest {
+    fun deliver_appliesTheAckPolicyDeclaredOnItsOwnContext() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val attempts = mutableListOf<String>()
@@ -181,21 +184,22 @@ class ContextRuntimeTest {
             listOf(ThrowingIntegrationEventHandler::class),
         )
 
-        val runtime = createRuntime(locator, this)
-        val overridden =
-            runtime.withAckStrategy { strategy ->
-                if (strategy == ErrorStrategy.FireAndForget) ErrorStrategy.ContinueAndAggregate
-                else strategy
-            }
+        val honouring = createRuntime(locator, this)
+        val requiringSuccess =
+            createRuntime(
+                locator,
+                this,
+                ContextInbox(RecordingInboxStore(), InboxAckPolicy.RequireHandlerSuccess),
+            )
 
-        // The original honours the event's own FireAndForget: the failure is swallowed silently.
-        runtime.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("first"))))
+        // A context declaring no inbox honours the event's own FireAndForget: failure is swallowed.
+        honouring.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("first"))))
         advanceUntilIdle()
         assertEquals(listOf("first"), attempts)
 
-        // The overridden copy forces ContinueAndAggregate, so the failure now surfaces.
+        // RequireHandlerSuccess forces ContinueAndAggregate, so the failure now surfaces.
         assertFailsWith<AggregateException> {
-            overridden.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("second"))))
+            requiringSuccess.deliver(listOf(EventEnvelope.of(TestIntegrationEvent("second"))))
         }
         assertEquals(listOf("first", "second"), attempts)
     }

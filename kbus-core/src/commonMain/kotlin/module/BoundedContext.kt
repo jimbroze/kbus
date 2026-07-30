@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.module
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.registry.CompileTimeDomainEventMapper
 import com.jimbroze.kbus.core.registry.CompileTimeIntegrationEventMapper
 import com.jimbroze.kbus.core.registry.HandlerLocator
@@ -17,12 +18,16 @@ import kotlin.reflect.KClass
  * derives the runtime object that actually dispatches — a [BoundedContext] cannot own that itself,
  * since dispatch needs the bus's middleware, scope and dependency wiring, all constructed later.
  *
+ * Declaring an [inbox] gives this context durable, independently-acked delivery of the integration
+ * events it subscribes to; a context that declares none dispatches synchronously.
+ *
  * Event handlers register either as bare handler classes — the hand-written path, usable without
  * code generation — or as [LoadedEventHandler] tokens, which only the generator can mint.
  */
 class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
+    internal val inbox: ContextInbox? = null,
 ) {
     private val domainEventMapper = CompileTimeDomainEventMapper(handlerLocator.domainEventMapper)
     private val integrationEventMapper =

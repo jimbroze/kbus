@@ -13,6 +13,7 @@ import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -245,19 +246,24 @@ class MessageBusInboxTest {
                     contexts =
                         listOf(
                             BoundedContext(BoundedContextId("publisher"), busLocator),
-                            BoundedContext(BoundedContextId("healthy"), healthyLocator),
-                            BoundedContext(BoundedContextId("failing"), failingLocator),
-                        ),
-                    inbox =
-                        InboxConfig(
-                            ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                            stores =
-                                mapOf(
-                                    BoundedContextId("healthy") to RecordingInboxStore(),
-                                    BoundedContextId("failing") to RecordingInboxStore(),
+                            BoundedContext(
+                                BoundedContextId("healthy"),
+                                healthyLocator,
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
                                 ),
-                            pollInterval = 100.milliseconds,
+                            ),
+                            BoundedContext(
+                                BoundedContextId("failing"),
+                                failingLocator,
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
+                            ),
                         ),
+                    inbox = InboxConfig(pollInterval = 100.milliseconds),
                 )
             bus.start()
 
@@ -296,19 +302,18 @@ class MessageBusInboxTest {
                 contexts =
                     listOf(
                         BoundedContext(BoundedContextId("publisher"), busLocator),
-                        BoundedContext(BoundedContextId("healthy"), healthyLocator),
-                        BoundedContext(BoundedContextId("failing"), failingLocator),
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(healthyStore, InboxAckPolicy.HonourEventStrategy),
+                        ),
+                        BoundedContext(
+                            BoundedContextId("failing"),
+                            failingLocator,
+                            ContextInbox(failingStore, InboxAckPolicy.HonourEventStrategy),
+                        ),
                     ),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores =
-                            mapOf(
-                                BoundedContextId("healthy") to healthyStore,
-                                BoundedContextId("failing") to failingStore,
-                            ),
-                        pollInterval = 100.milliseconds,
-                    ),
+                inbox = InboxConfig(pollInterval = 100.milliseconds),
             )
         bus.start()
 
@@ -342,11 +347,13 @@ class MessageBusInboxTest {
                         pollInterval = 50.milliseconds,
                         opportunisticDrain = false,
                     ),
-                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to RecordingInboxStore()),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
         bus.start()
@@ -385,14 +392,13 @@ class MessageBusInboxTest {
                     listOf(
                         BoundedContext(BoundedContextId("publisher"), busLocator),
                         BoundedContext(BoundedContextId("plain"), plainLocator),
-                        BoundedContext(BoundedContextId("inboxed"), inboxedLocator),
+                        BoundedContext(
+                            BoundedContextId("inboxed"),
+                            inboxedLocator,
+                            ContextInbox(inboxedStore, InboxAckPolicy.HonourEventStrategy),
+                        ),
                     ),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("inboxed") to inboxedStore),
-                        opportunisticDispatch = false,
-                    ),
+                inbox = InboxConfig(opportunisticDispatch = false),
             )
         bus.start()
 
@@ -416,11 +422,13 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to RecordingInboxStore()),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
 
@@ -439,13 +447,15 @@ class MessageBusInboxTest {
         MessageBus(
             busLocator,
             appScope = backgroundScope,
-            contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
-            inbox =
-                InboxConfig(
-                    ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                    stores = mapOf(BoundedContextId("healthy") to store),
-                    pollInterval = 10.milliseconds,
+            contexts =
+                listOf(
+                    BoundedContext(
+                        BoundedContextId("healthy"),
+                        healthyLocator,
+                        ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                    )
                 ),
+            inbox = InboxConfig(pollInterval = 10.milliseconds),
         )
         advanceVirtualTime(50)
 
@@ -465,13 +475,15 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to store),
-                        pollInterval = 20.milliseconds,
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
+                inbox = InboxConfig(pollInterval = 20.milliseconds),
             )
 
         bus.start()
@@ -498,11 +510,13 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = RecordingOutboxStore()),
-                contexts = listOf(BoundedContext(BoundedContextId("failing"), failingLocator)),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("failing") to RecordingInboxStore()),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("failing"),
+                            failingLocator,
+                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
         bus.start()
@@ -527,13 +541,15 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = listOf(BoundedContext(BoundedContextId("healthy"), healthyLocator)),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to store),
-                        pollInterval = 10.milliseconds,
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
+                inbox = InboxConfig(pollInterval = 10.milliseconds),
             )
         bus.start()
         advanceVirtualTime(50)
@@ -576,11 +592,13 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
-                contexts = listOf(BoundedContext(BoundedContextId("healthy"), locator)),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to inboxStore),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            locator,
+                            ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
         bus.start()
@@ -636,13 +654,15 @@ class MessageBusInboxTest {
                 MessageBus(
                     busLocator,
                     appScope = backgroundScope,
-                    contexts = listOf(BoundedContext(BoundedContextId("healthy"), locator)),
-                    inbox =
-                        InboxConfig(
-                            stores = mapOf(BoundedContextId("healthy") to inboxStore),
-                            pollInterval = 100.milliseconds,
-                            ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
+                    contexts =
+                        listOf(
+                            BoundedContext(
+                                BoundedContextId("healthy"),
+                                locator,
+                                ContextInbox(inboxStore, InboxAckPolicy.RequireHandlerSuccess),
+                            )
                         ),
+                    inbox = InboxConfig(pollInterval = 100.milliseconds),
                 )
             bus.start()
 

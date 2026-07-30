@@ -787,8 +787,8 @@ import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
@@ -802,25 +802,28 @@ val inventoryLocator = PersistingHandlerLocator(stores)
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
     contexts = listOf(
-        BoundedContext(BoundedContextId("orders"), ordersLocator),
-        BoundedContext(BoundedContextId("inventory"), inventoryLocator),
+        BoundedContext(
+            BoundedContextId("orders"),
+            ordersLocator,
+            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+        ),
+        BoundedContext(
+            BoundedContextId("inventory"),
+            inventoryLocator,
+            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+        ),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
-    inbox = InboxConfig(
-        stores = mapOf(
-            BoundedContextId("orders") to InMemoryInboxStore(),
-            BoundedContextId("inventory") to InMemoryInboxStore(),
-        ),
-        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-    ),
 ).apply { start() }
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
 
-Each context in `InboxConfig.stores` gets its **own** `InboxStore` instance — structural isolation, not a shared table
-with a context column, so one context's pump physically cannot see another context's rows. A context absent from
-`stores` keeps today's synchronous, un-inboxed dispatch; the two can be mixed on the same bus.
+Each context declaring a `ContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
+table with a context column, so one context's pump physically cannot see another context's rows. A context that
+declares none keeps synchronous, un-inboxed dispatch; the two can be mixed on the same bus. Declaring the inbox on the
+context rather than in a bus-level map keyed by `BoundedContextId` means naming a context that does not exist is not
+expressible, and the store cannot drift apart from the context it belongs to.
 
 **Dedupe is what actually kills the amplification.** The router still routes a whole envelope to every context on
 every attempt, exactly as without an inbox — nothing about routing changes. What changes is that an inboxed context's
@@ -839,9 +842,9 @@ Two separate things determine what happens to a failing handler at the inbox —
 separately:
 
 - **`errorStrategy`** (on the event) decides whether a handler's exception ever reaches the inbox at all.
-- **`ackPolicy`** (on `InboxConfig`, per bus) decides whether the inbox accepts a producer's `FireAndForget` "don't
-  care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer is a
-  safe default to pick on a consumer's behalf.
+- **`ackPolicy`** (on the context's own `ContextInbox`) decides whether that inbox accepts a producer's `FireAndForget`
+  "don't care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer
+  is a safe default to pick on a consumer's behalf.
 
 Integration-event dispatch — at an inbox or anywhere else — always awaits its handlers before returning, regardless of
 `errorStrategy` or `concurrency`. There is no window where the inbox can ack before a handler has even started; the
@@ -855,13 +858,10 @@ handler's *exception*:
 | `FireAndForget` | Every handler still runs to completion, but an exception is swallowed rather than surfaced — the envelope is acked and tombstoned regardless, so a failing handler is never retried. |
 
 `FireAndForget`'s "never retried" row is a legitimate choice for events a producer truly doesn't care about, but a
-consumer can refuse it via `InboxConfig`'s `ackPolicy`:
+consumer can refuse it via its context's `ackPolicy`:
 
 ```kotlin
-InboxConfig(
-    stores = mapOf(BoundedContextId("orders") to InMemoryInboxStore()),
-    ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
-)
+ContextInbox(InMemoryInboxStore(), InboxAckPolicy.RequireHandlerSuccess)
 ```
 
 | `ackPolicy` | Effect |
@@ -869,7 +869,7 @@ InboxConfig(
 | `HonourEventStrategy` | Ack exactly as the table above. |
 | `RequireHandlerSuccess` | A `FireAndForget` event is dispatched as if it were `ContinueAndAggregate`: a handler failure now leaves the envelope pending and is retried. `FailFast` and `ContinueAndAggregate` events are unaffected — they already retry on failure. |
 
-`ackPolicy` is per bus, not per event: it applies uniformly to every event flowing through that context's inbox,
+`ackPolicy` is per context, not per event: it applies uniformly to every event flowing through that context's inbox,
 without the producer having to know or care which contexts consume its events with stronger guarantees.
 
 As with the outbox, handlers must still be idempotent — the inbox dedupes *transport* redelivery (the same envelope
@@ -880,7 +880,7 @@ A few things this stage deliberately leaves for later, since none of them requir
 
 - No dead-letter queue — a poison message retries forever, and if poison entries ever exceed the batch size, the
   oldest-first fetch stops advancing and the context wedges.
-- `pollInterval`, `batchSize`, and whether dispatch is opportunistic are bus-wide, not per-context.
+- `pollInterval`, `batchSize`, and whether dispatch is opportunistic stay bus-wide on `InboxConfig`, not per-context.
 - Tombstone retention has no contract-level pruning hook; an implementation that prunes too aggressively re-opens the
   duplicate window it was closing.
 - No ordering guarantee across retries — a failed envelope is retried after later ones were already delivered.

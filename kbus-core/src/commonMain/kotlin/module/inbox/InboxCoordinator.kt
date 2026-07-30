@@ -3,7 +3,6 @@ package com.jimbroze.kbus.core.module.inbox
 import com.jimbroze.kbus.contracts.inbox.InboxStore
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
-import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextRuntime
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -41,66 +40,60 @@ internal val InboxAckPolicy.errorStrategyOverride: ((ErrorStrategy) -> ErrorStra
         }
 
 /**
- * Opt-in, per-[BoundedContextId] durable inbox configuration. Each context in [stores] gets its own
- * [InboxStore] instance — structural isolation, so one context's pump cannot see another context's
- * rows. A context absent from [stores] keeps today's synchronous dispatch.
+ * A context's opt-in durable inbox, declared on the [com.jimbroze.kbus.core.module.BoundedContext]
+ * itself. Each declaring context supplies its own [store] instance — structural isolation, so one
+ * context's pump cannot see another context's rows. A context that declares none keeps synchronous
+ * dispatch.
  *
  * [ackPolicy] is deliberately required rather than defaulted: either default would silently pick a
  * side of a durability trade-off the consumer owns — [InboxAckPolicy.HonourEventStrategy] lets a
  * producer's [ErrorStrategy.FireAndForget] ack a failed handler, and
  * [InboxAckPolicy.RequireHandlerSuccess] retries it indefinitely (there is no attempt cap or
- * dead-letter path yet). It applies only to the contexts that have a configured store — it is
- * meaningless without a durable ack to make stronger.
+ * dead-letter path yet). Pairing it with [store] here is what makes it unstatable without a durable
+ * ack to make stronger.
+ */
+class ContextInbox(val store: InboxStore, val ackPolicy: InboxAckPolicy)
+
+/**
+ * Bus-wide inbox tuning. Which contexts have an inbox, and on what ack policy, is declared per
+ * context via [ContextInbox] — this covers only the knobs every pump shares.
  */
 class InboxConfig(
-    val stores: Map<BoundedContextId, InboxStore>,
-    val ackPolicy: InboxAckPolicy,
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
     val opportunisticDispatch: Boolean = true,
-) {
-    init {
-        require(stores.isNotEmpty()) {
-            "InboxConfig with no stores does nothing; pass inbox = null instead."
-        }
-    }
-}
+)
 
 /**
- * Wraps each [contexts] entry that has a configured store in [config] with an [EventInbox], and
- * leaves the rest untouched. Mirrors [com.jimbroze.kbus.core.uow.OutboxCoordinator]'s shape:
- * config-or-null and a scope in, derived members as `val`s, an idempotent start, and no `stop` —
- * cancellation is the bus's root job.
+ * Wraps each [contexts] entry whose [com.jimbroze.kbus.core.module.BoundedContext] declares a
+ * [ContextInbox] in an [EventInbox], and leaves the rest untouched. Mirrors
+ * [com.jimbroze.kbus.core.uow.OutboxCoordinator]'s shape: config-or-null and a scope in, derived
+ * members as `val`s, an idempotent start, and no `stop` — cancellation is the bus's root job.
+ *
+ * A null [config] means default tuning, not "no inboxes": enablement is the contexts' to declare.
  */
 internal class InboxCoordinator(
-    private val config: InboxConfig?,
+    config: InboxConfig?,
     contexts: List<ContextRuntime>,
     private val inboxScope: CoroutineScope,
 ) {
+    private val tuning = config ?: InboxConfig()
+
     val destinations: List<EventDestination> =
         contexts.map { contextRuntime ->
-            config?.stores?.get(contextRuntime.context.id)?.let { store ->
+            contextRuntime.context.inbox?.let { inbox ->
                 EventInbox(
-                    contextRuntime.withAckStrategy(config.ackPolicy.errorStrategyOverride),
-                    store,
+                    contextRuntime,
+                    inbox.store,
                     inboxScope,
-                    config.batchSize,
-                    config.pollInterval,
-                    config.opportunisticDispatch,
+                    tuning.batchSize,
+                    tuning.pollInterval,
+                    tuning.opportunisticDispatch,
                 )
             } ?: contextRuntime
         }
 
     private val inboxes = destinations.filterIsInstance<EventInbox>()
-
-    init {
-        val known = contexts.map { it.context.id }.toSet()
-        val unknown = config?.stores?.keys.orEmpty() - known
-        require(unknown.isEmpty()) {
-            "InboxConfig has stores for bounded contexts this bus has no context for: " +
-                "${unknown.map { it.value }}. Known contexts: ${known.map { it.value }}."
-        }
-    }
 
     val isEnabled: Boolean
         get() = inboxes.isNotEmpty()

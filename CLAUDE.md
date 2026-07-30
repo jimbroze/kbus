@@ -239,8 +239,9 @@ end.
 
 ### Per-Context Inbox
 
-Opt-in per `BoundedContextId` via `InboxConfig(stores: Map<BoundedContextId, InboxStore>, …)` on the bus constructor
-(`inbox` param, last, after `contexts`). Packages: `contracts.inbox` (`InboxStore`), `core.messages.event.relay`
+Opt-in per context: a `BoundedContext` declares its own `ContextInbox(store, ackPolicy)`. `InboxConfig` on the bus
+constructor (`inbox` param, last, after `contexts`) carries only the tuning every pump shares — `pollInterval`,
+`batchSize`, `opportunisticDispatch` — so a null `inbox` means default tuning, not "no inboxes". Packages: `contracts.inbox` (`InboxStore`), `core.messages.event.relay`
 (`EnvelopeRelay`, shared with the outbox), `core.module.inbox` (`EventInbox`, `InboxCoordinator`, `InboxConfig`),
 `core.infrastructure.inbox` (`InMemoryInboxStore`).
 
@@ -251,13 +252,13 @@ EventDestination` wraps a context runtime so `ContextRuntime` itself is untouche
 whose `fetch = store::fetchPending`, `deliver = { inner.deliver(listOf(it)) }` (per-entry, so ack is per-entry — a
 throwing handler for one envelope leaves only that envelope unacked), `ack = store::markConsumed`.
 
-**Per-context store instances are the structural isolation.** Each key in `InboxConfig.stores` gets its own store
-instance, so a context's pump physically cannot see another context's rows — this, not a shared table with a context
-column, is what makes contexts independent. A context absent from `stores` keeps synchronous dispatch; `InboxCoordinator`
+**Per-context store instances are the structural isolation.** Each declaring context supplies its own store instance, so
+a context's pump physically cannot see another context's rows — this, not a shared table with a context column, is what
+makes contexts independent. A context declaring no `ContextInbox` keeps synchronous dispatch; `InboxCoordinator`
 (mirrors `OutboxCoordinator`'s shape: config-or-null + scope in, `destinations: List<EventDestination>` derived once,
-idempotent `startConsuming()`, no `stop` — cancellation is the bus's root job) wraps only the configured ones and fails
-fast (`IllegalArgumentException`) if `stores` names a `BoundedContextId` the bus has no context for — a silent ignore
-would be a silent durability regression from a typo.
+idempotent `startConsuming()`, no `stop` — cancellation is the bus's root job) wraps only the declaring ones. Declaring
+the store on the context rather than in a map keyed by `BoundedContextId` is what removes the old fail-fast for an id
+the bus has no context for: naming a nonexistent context is no longer expressible.
 
 **Dedupe-on-id is the load-bearing invariant, not routing.** `EventRouter.route` is unchanged — still all-or-nothing per
 envelope, still fans a whole envelope to every destination. What kills the no-inbox amplification
@@ -282,8 +283,8 @@ completes; `ContinueAndAggregate` retries the whole batch (re-running successes)
 runs every handler to completion first, then acks regardless of the outcome — a failing handler is never retried, but
 it is no longer a crash-window durability hole, since the tombstone is written only after dispatch returns.
 
-`InboxConfig.ackPolicy` (`InboxAckPolicy`, `core.module.inbox`) is the fix for `FireAndForget`'s "never retried" edge,
-applied per bus rather than per event: `HonourEventStrategy` is the table above; `RequireHandlerSuccess` maps
+`ContextInbox.ackPolicy` (`InboxAckPolicy`, `core.module.inbox`) is the fix for `FireAndForget`'s "never retried" edge,
+applied per context rather than per event: `HonourEventStrategy` is the table above; `RequireHandlerSuccess` maps
 `FireAndForget` → `ContinueAndAggregate` before dispatch, so a handler failure leaves the envelope pending like
 `FailFast`/`ContinueAndAggregate` already do (those two pass through untouched — they don't need the override). The
 mapping is expressed on the public `ErrorStrategy` contract type, not the dispatcher-internal `EventErrorStrategy`, so

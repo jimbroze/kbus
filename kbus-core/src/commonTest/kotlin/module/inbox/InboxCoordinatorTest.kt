@@ -14,7 +14,6 @@ import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -27,7 +26,11 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class InboxCoordinatorTest {
-    private fun context(id: BoundedContextId, dispatcherScope: CoroutineScope): ContextRuntime {
+    private fun context(
+        id: BoundedContextId,
+        dispatcherScope: CoroutineScope,
+        inbox: ContextInbox? = null,
+    ): ContextRuntime {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val eventDispatcher =
             EventDispatcher(
@@ -37,13 +40,16 @@ class InboxCoordinatorTest {
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
         return ContextRuntime(
-            BoundedContext(id, locator),
+            BoundedContext(id, locator, inbox),
             eventDispatcher = lazy { eventDispatcher },
         )
     }
 
+    private fun honouringInbox(store: RecordingInboxStore = RecordingInboxStore()) =
+        ContextInbox(store, InboxAckPolicy.HonourEventStrategy)
+
     @Test
-    fun destinations_withNoConfig_areTheContextsThemselves() = runTest {
+    fun destinations_forContextsDeclaringNoInbox_areTheContextsThemselves() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val beta = context(BoundedContextId("beta"), this)
 
@@ -53,57 +59,27 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun destinations_wrapsOnlyTheContextsThatHaveAConfiguredStore() = runTest {
-        val alpha = context(BoundedContextId("alpha"), this)
+    fun destinations_wrapsOnlyTheContextsThatDeclareAnInbox() = runTest {
+        val alpha = context(BoundedContextId("alpha"), this, honouringInbox())
         val beta = context(BoundedContextId("beta"), this)
-        val config =
-            InboxConfig(
-                ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()),
-            )
 
-        val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
+        val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
 
         assertTrue(coordinator.destinations[0] is EventInbox)
         assertEquals(beta, coordinator.destinations[1])
     }
 
     @Test
-    fun isEnabled_isFalseWithNoConfig_trueWithOne() = runTest {
-        val alpha = context(BoundedContextId("alpha"), this)
-        val noConfig = InboxCoordinator(null, listOf(alpha), backgroundScope)
-        val withConfig =
-            InboxCoordinator(
-                InboxConfig(
-                    ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                    stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()),
-                ),
-                listOf(alpha),
-                backgroundScope,
-            )
+    fun isEnabled_isFalseWhenNoContextDeclaresAnInbox_trueWhenOneDoes() = runTest {
+        val withoutInbox = context(BoundedContextId("alpha"), this)
+        val withInbox = context(BoundedContextId("beta"), this, honouringInbox())
 
-        assertFalse(noConfig.isEnabled)
-        assertTrue(withConfig.isEnabled)
+        assertFalse(InboxCoordinator(null, listOf(withoutInbox), backgroundScope).isEnabled)
+        assertTrue(InboxCoordinator(null, listOf(withInbox), backgroundScope).isEnabled)
     }
 
     @Test
-    fun construction_withAStoreForAnUnknownContext_throws() = runTest {
-        val alpha = context(BoundedContextId("alpha"), this)
-        val config =
-            InboxConfig(
-                ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                stores = mapOf(BoundedContextId("unknown") to RecordingInboxStore()),
-            )
-
-        val exception =
-            assertFailsWith<IllegalArgumentException> {
-                InboxCoordinator(config, listOf(alpha), backgroundScope)
-            }
-        assertTrue(exception.message!!.contains("unknown"))
-    }
-
-    @Test
-    fun startConsuming_withNoConfig_launchesNothing() = runTest {
+    fun startConsuming_withNoInboxedContext_launchesNothing() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val coordinator = InboxCoordinator(null, listOf(alpha), backgroundScope)
 
@@ -114,18 +90,9 @@ class InboxCoordinatorTest {
 
     @Test
     fun startConsuming_launchesOnePumpPerInbox() = runTest {
-        val alpha = context(BoundedContextId("alpha"), this)
-        val beta = context(BoundedContextId("beta"), this)
-        val config =
-            InboxConfig(
-                ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                stores =
-                    mapOf(
-                        BoundedContextId("alpha") to RecordingInboxStore(),
-                        BoundedContextId("beta") to RecordingInboxStore(),
-                    ),
-            )
-        val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
+        val alpha = context(BoundedContextId("alpha"), this, honouringInbox())
+        val beta = context(BoundedContextId("beta"), this, honouringInbox())
+        val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
 
         coordinator.startConsuming()
 
@@ -134,13 +101,8 @@ class InboxCoordinatorTest {
 
     @Test
     fun startConsuming_calledTwice_runsOnlyOnePumpPerInbox() = runTest {
-        val alpha = context(BoundedContextId("alpha"), this)
-        val config =
-            InboxConfig(
-                ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                stores = mapOf(BoundedContextId("alpha") to RecordingInboxStore()),
-            )
-        val coordinator = InboxCoordinator(config, listOf(alpha), backgroundScope)
+        val alpha = context(BoundedContextId("alpha"), this, honouringInbox())
+        val coordinator = InboxCoordinator(null, listOf(alpha), backgroundScope)
 
         coordinator.startConsuming()
         coordinator.startConsuming()
@@ -150,15 +112,10 @@ class InboxCoordinatorTest {
 
     @Test
     fun startConsuming_dispatchesPendingEnvelopesLeftBehindByAPreviousRun() = runTest {
-        val alpha = context(BoundedContextId("alpha"), backgroundScope)
         val store = RecordingInboxStore()
+        val alpha = context(BoundedContextId("alpha"), backgroundScope, honouringInbox(store))
         store.save(listOf(EventEnvelope.of(TestIntegrationEvent("from-before-crash"))))
-        val config =
-            InboxConfig(
-                ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                stores = mapOf(BoundedContextId("alpha") to store),
-                pollInterval = 10.milliseconds,
-            )
+        val config = InboxConfig(pollInterval = 10.milliseconds)
         val coordinator = InboxCoordinator(config, listOf(alpha), backgroundScope)
 
         coordinator.startConsuming()
@@ -172,6 +129,7 @@ class InboxCoordinatorTest {
         id: BoundedContextId,
         attempts: MutableList<String>,
         dispatcherScope: CoroutineScope,
+        inbox: ContextInbox? = null,
     ): ContextRuntime {
         val stores = HandlerFactoryStoreCollection()
         stores.eventStore.registerHandlers(
@@ -195,27 +153,29 @@ class InboxCoordinatorTest {
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
         return ContextRuntime(
-            BoundedContext(id, locator),
+            BoundedContext(id, locator, inbox),
             eventDispatcher = lazy { eventDispatcher },
         )
     }
 
     @Test
-    fun ackPolicyOverride_isAppliedOnlyToContextsThatHaveAConfiguredStore() = runTest {
+    fun ackPolicyOverride_isAppliedOnlyToContextsThatDeclareAnInbox() = runTest {
         val alphaAttempts = mutableListOf<String>()
         val betaAttempts = mutableListOf<String>()
-        val alpha = throwingContext(BoundedContextId("alpha"), alphaAttempts, backgroundScope)
+        val alphaStore = RecordingInboxStore()
+        val alpha =
+            throwingContext(
+                BoundedContextId("alpha"),
+                alphaAttempts,
+                backgroundScope,
+                ContextInbox(alphaStore, InboxAckPolicy.RequireHandlerSuccess),
+            )
         val beta = throwingContext(BoundedContextId("beta"), betaAttempts, backgroundScope)
 
-        val alphaStore = RecordingInboxStore()
-        val config =
-            InboxConfig(
-                stores = mapOf(BoundedContextId("alpha") to alphaStore),
-                ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
-            )
-        val coordinator = InboxCoordinator(config, listOf(alpha, beta), backgroundScope)
+        val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
 
-        // alpha has a store: RequireHandlerSuccess overrides FireAndForget, so a failing handler
+        // alpha declares an inbox: RequireHandlerSuccess overrides FireAndForget, so a failing
+        // handler
         // leaves the envelope pending rather than acked.
         alphaStore.save(listOf(EventEnvelope.of(TestIntegrationEvent("via-alpha"))))
         (coordinator.destinations[0] as EventInbox).drain()
@@ -226,7 +186,8 @@ class InboxCoordinatorTest {
             "RequireHandlerSuccess must not ack a failed handler",
         )
 
-        // beta has no store, so it is never wrapped or overridden: the plain context still honours
+        // beta declares no inbox, so it is never wrapped or overridden: the plain context still
+        // honours
         // the event's own FireAndForget and swallows the failure.
         coordinator.destinations[1].deliver(
             listOf(EventEnvelope.of(TestIntegrationEvent("via-beta")))
