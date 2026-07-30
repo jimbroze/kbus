@@ -36,7 +36,10 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
-        return ContextRuntime(BoundedContext(id, locator), eventDispatcher = { eventDispatcher })
+        return ContextRuntime(
+            BoundedContext(id, locator),
+            eventDispatcher = lazy { eventDispatcher },
+        )
     }
 
     @Test
@@ -191,7 +194,10 @@ class InboxCoordinatorTest {
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
             )
-        return ContextRuntime(BoundedContext(id, locator), eventDispatcher = { eventDispatcher })
+        return ContextRuntime(
+            BoundedContext(id, locator),
+            eventDispatcher = lazy { eventDispatcher },
+        )
     }
 
     @Test

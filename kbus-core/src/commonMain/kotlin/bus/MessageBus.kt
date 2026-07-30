@@ -112,15 +112,24 @@ abstract class BaseMessageBus(
     /**
      * The runtime side of each [boundedContexts] entry, each dispatching integration events — and,
      * as a [com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher], domain events —
-     * to its own handler slice via a deferred reference into [contextEventDispatchers]. The
-     * dispatchers are constructed after these runtimes, since a dispatcher's [contextFactory]
-     * transitively depends on the router these runtimes feed into.
+     * to its own handler slice via its own lazily-created [EventDispatcher]. That dispatcher's
+     * [contextFactory] transitively depends on the router these runtimes feed into, so construction
+     * is deferred to first use rather than built eagerly here, which would be a circular
+     * initializer.
      */
     private val contextRuntimes: List<ContextRuntime> =
         boundedContexts.map { context ->
             ContextRuntime(
                 context,
-                eventDispatcher = { contextEventDispatchers.getValue(context.id) },
+                eventDispatcher =
+                    lazy {
+                        EventDispatcher(
+                            context.handlerLocator::handlersFor,
+                            middlewares,
+                            eventDispatcherScope,
+                            contextFactory = contextFactory,
+                        )
+                    },
             )
         }
 
@@ -135,18 +144,6 @@ abstract class BaseMessageBus(
         IntegrationEventPublisherFactory(outboxCoordinator, directPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
         MiddlewareInvocationContextFactory(integrationEventPublisherFactory)
-
-    /** One dispatcher per [boundedContexts] entry, each scoped to that context's own handlers. */
-    private val contextEventDispatchers: Map<BoundedContextId, EventDispatcher> =
-        boundedContexts.associate { context ->
-            context.id to
-                EventDispatcher(
-                    context.handlerLocator::handlersFor,
-                    middlewares,
-                    eventDispatcherScope,
-                    contextFactory = contextFactory,
-                )
-        }
 
     protected val commandExecutor =
         CommandExecutor(
