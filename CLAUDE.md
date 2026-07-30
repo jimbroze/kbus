@@ -85,8 +85,8 @@ null value. Identity does not participate in `HandlerConflictPolicy` — cross-m
 context — `bus.orders`, `bus.default` — the one registration point for both `addEventHandlers` and
 `addDomainHandlers`. There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N
 contexts, "which context?" has no answer for either. A generated command convenience function
-(`bus.placeOrder(...)`) bakes in its handler's own owning `BoundedContextId` as the `CommandExecutor.execute` argument
-that determines which context's domain handlers its domain events reach.
+(`bus.placeOrder(...)`) knows its handler's owning context statically, so it bakes in that `BoundedContextId` and
+resolves it through `BaseMessageBus.domainEventDispatcherFor` rather than searching every context for an owner.
 
 ### Handler Locators
 
@@ -152,9 +152,11 @@ to capture) everything that arrived first.
 `ContextRuntime` is also that context's `DomainEventDispatcher`: `dispatchDomainEvent` delegates to the same deferred
 `EventDispatcher` reference `deliver` uses, so integration and domain dispatch for one context share a single
 dispatcher instance rather than two parallel wiring paths. `CommandExecutor.execute` and
-`CommandInvocationFactory.create` both take a **required** `BoundedContextId` (no default — a caller that forgot it
-would otherwise get silently wrong domain dispatch instead of a compile error), which becomes
-`CommandInvocation.contextId`; `MessageBus.execute` passes the id of the context that owner lookup resolved.
+`CommandInvocationFactory.create` both take the owning context's `DomainEventDispatcher`, which becomes
+`CommandInvocation.domainEventDispatcher`; `MessageBus.execute` passes the `ContextRuntime` that owner lookup
+resolved. Passing the resolved dispatcher rather than a `BoundedContextId` is what makes wrong-context domain dispatch
+unrepresentable: there is no id left to look up, so `DefaultCommandDependenciesFactory` takes no lookup function and
+`InvocationDomainEventPublisher.baseDispatcher` is non-null.
 
 **Commands and queries resolve by owner lookup**, not through `BaseMessageBus.handlerLocator` directly:
 `execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of `hasHandlersFor`, same
@@ -168,7 +170,7 @@ locator compares it against its own identity. `BaseMessageBus.handlerLocator` it
 `contexts` is non-empty — it only backs the implicit default context when `contexts` is empty — so a hand-rolled bus
 that passes explicit `contexts` must register every command/query handler through one of those contexts' locators.
 Domain-event dispatch is per-context too, via each context's own `ContextRuntime`-held `EventDispatcher` — see the
-`ContextRuntime`/`CommandInvocation.contextId` wiring above.
+`ContextRuntime`/`CommandInvocation.domainEventDispatcher` wiring above.
 
 Consequences of N contexts, all deliberate: the dispatch middleware chain runs **once per subscribing context** (a
 `Locker` acquires once per context, sequentially — `EventRouter.route` iterates destinations serially); an event **no**

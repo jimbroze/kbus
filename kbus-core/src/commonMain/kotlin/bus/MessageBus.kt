@@ -12,6 +12,7 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
+import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
@@ -91,50 +92,43 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One entry per [BoundedContextId]; the [init] block below throws on duplicates. Empty ⇒ a
-     * single [BoundedContextId.DEFAULT] context over the bus's shared [handlerLocator] —
-     * non-modular apps are unaffected. Commands, queries and domain events all resolve per-context:
-     * a command's owning context (see [ownerContextFor]) determines both its handler and which
-     * context's domain handlers its domain events reach.
+     * One runtime per authored [BoundedContext], each dispatching integration events — and, as a
+     * [com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher], domain events — to
+     * its own handler slice. An empty [contexts] gives a single [BoundedContextId.DEFAULT] context
+     * over the bus's shared [handlerLocator], so non-modular apps are unaffected. Commands, queries
+     * and domain events all resolve per-context: a command's owning context (see [ownerRuntimeFor])
+     * determines both its handler and which context's domain handlers its domain events reach.
+     *
+     * Each runtime's [EventDispatcher] is created lazily. Its [contextFactory] transitively depends
+     * on the router these runtimes feed into, so building one eagerly here would be a circular
+     * initializer.
      */
-    private val boundedContexts: List<BoundedContext> =
-        contexts.ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
+    private val contextRuntimes: List<ContextRuntime> =
+        contexts
+            .ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
+            .map { context ->
+                ContextRuntime(
+                    context,
+                    eventDispatcher =
+                        lazy {
+                            EventDispatcher(
+                                context.handlerLocator::handlersFor,
+                                middlewares,
+                                eventDispatcherScope,
+                                contextFactory = contextFactory,
+                            )
+                        },
+                )
+            }
 
     init {
         val duplicates =
-            boundedContexts.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys
+            contextRuntimes.groupingBy { it.context.id }.eachCount().filterValues { it > 1 }.keys
         require(duplicates.isEmpty()) {
             "Duplicate BoundedContextId(s): ${duplicates.map { it.value }}. " +
                 "Each bounded context must have a unique id."
         }
     }
-
-    /**
-     * The runtime side of each [boundedContexts] entry, each dispatching integration events — and,
-     * as a [com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher], domain events —
-     * to its own handler slice via its own lazily-created [EventDispatcher]. That dispatcher's
-     * [contextFactory] transitively depends on the router these runtimes feed into, so construction
-     * is deferred to first use rather than built eagerly here, which would be a circular
-     * initializer.
-     */
-    private val contextRuntimes: List<ContextRuntime> =
-        boundedContexts.map { context ->
-            ContextRuntime(
-                context,
-                eventDispatcher =
-                    lazy {
-                        EventDispatcher(
-                            context.handlerLocator::handlersFor,
-                            middlewares,
-                            eventDispatcherScope,
-                            contextFactory = contextFactory,
-                        )
-                    },
-            )
-        }
-
-    private val contextRuntimesById: Map<BoundedContextId, ContextRuntime> =
-        contextRuntimes.associateBy { it.context.id }
 
     private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
@@ -150,7 +144,7 @@ abstract class BaseMessageBus(
             transactionManager,
             middlewares,
             contextFactory,
-            DefaultCommandDependenciesFactory(contextRuntimesById::get),
+            DefaultCommandDependenciesFactory(),
             CommandInvocationFactory(DefaultUnitOfWorkFactory(), integrationEventPublisherFactory),
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
@@ -266,45 +260,59 @@ abstract class BaseMessageBus(
         command: TCommand
     ): TResult {
         checkStarted()
-        val owner = ownerContextFor(command::class) { it.hasHandlerFor(command) }
+        val owner = ownerRuntimeFor(command::class) { it.hasHandlerFor(command) }
         val handlerCreator = { commandDependencies: CommandDependencies ->
-            (owner.handlerLocator.handlerFor(command, commandDependencies)
+            (owner.context.handlerLocator.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
         }
 
-        return commandExecutor.execute(command, owner.id, handlerCreator)
+        return commandExecutor.execute(command, owner, handlerCreator)
     }
 
     override suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(
         query: TQuery
     ): TResult {
         checkStarted()
-        val owner = ownerContextFor(query::class) { it.hasHandlerFor(query) }
+        val owner = ownerRuntimeFor(query::class) { it.hasHandlerFor(query) }
         val handlerCreator = {
-            (owner.handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
+            (owner.context.handlerLocator.handlerFor(query)
+                ?: throw MissingHandlerException(query::class))
         }
 
         return queryFetcher.fetch(query, handlerCreator)
     }
 
     /**
-     * Finds the single [boundedContexts] entry [hasHandler] answers true for — a command or query
+     * Finds the single [contextRuntimes] entry [hasHandler] answers true for — a command or query
      * is single-owner by contract, so zero owners is [MissingHandlerException] and two or more is
-     * [AmbiguousHandlerException] rather than resolved by list order. Returns the owning
-     * [BoundedContext] itself (not just its locator) so callers can thread [BoundedContext.id]
-     * through to domain dispatch.
+     * [AmbiguousHandlerException] rather than resolved by list order. Returns the owning runtime
+     * rather than its id, so a command's domain dispatcher is the resolved object itself and can
+     * never be re-derived wrongly.
      */
-    private fun ownerContextFor(
+    private fun ownerRuntimeFor(
         messageClass: KClass<out Message>,
         hasHandler: (HandlerLocator) -> Boolean,
-    ): BoundedContext {
-        val owners = boundedContexts.filter { hasHandler(it.handlerLocator) }
+    ): ContextRuntime {
+        val owners = contextRuntimes.filter { hasHandler(it.context.handlerLocator) }
         return when (owners.size) {
             0 -> throw MissingHandlerException(messageClass)
             1 -> owners.single()
-            else -> throw AmbiguousHandlerException(messageClass, owners.map { it.id.value })
+            else ->
+                throw AmbiguousHandlerException(messageClass, owners.map { it.context.id.value })
         }
     }
+
+    /**
+     * The domain-event dispatcher of the context [contextId] names. Generated command functions
+     * know their handler's owning context statically and so skip [ownerRuntimeFor]'s search; this
+     * is the one place that turns such an id back into a dispatcher, and it throws rather than
+     * silently dispatching to no one when the id names no context on this bus.
+     */
+    protected fun domainEventDispatcherFor(contextId: BoundedContextId): DomainEventDispatcher =
+        contextRuntimes.firstOrNull { it.context.id == contextId }
+            ?: throw IllegalArgumentException(
+                "No bounded context with id '${contextId.value}' on this bus."
+            )
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
         router.observerRegistry.observableFor(eventClass)

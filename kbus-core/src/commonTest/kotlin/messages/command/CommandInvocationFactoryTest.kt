@@ -2,12 +2,12 @@ package com.jimbroze.kbus.core.messages.command
 
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.fixtures.TestDomainEventDispatcher
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
@@ -29,7 +29,7 @@ class CommandInvocationFactoryTest {
                 noOutboxPublisherFactory(backgroundScope, basePublisher),
             )
 
-        val invocation = factory.create<Any?>(BoundedContextId.DEFAULT)
+        val invocation = factory.create<Any?>(TestDomainEventDispatcher())
 
         assertSame(basePublisher, invocation.integrationEventPublisher)
     }
@@ -40,7 +40,7 @@ class CommandInvocationFactoryTest {
         val factory =
             CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
 
-        factory.create<Any?>(BoundedContextId.DEFAULT)
+        factory.create<Any?>(TestDomainEventDispatcher())
 
         assertTrue(unitOfWorkFactory.unitOfWork.secondaryWork.isEmpty())
         assertTrue(unitOfWorkFactory.unitOfWork.postCommitWork.isEmpty())
@@ -62,7 +62,7 @@ class CommandInvocationFactoryTest {
                 ),
             )
 
-        val invocation = factory.create<Any?>(BoundedContextId.DEFAULT)
+        val invocation = factory.create<Any?>(TestDomainEventDispatcher())
 
         assertIs<TransactionalOutbox>(invocation.integrationEventPublisher)
     }
@@ -83,7 +83,7 @@ class CommandInvocationFactoryTest {
                 ),
             )
 
-        val invocation = factory.create<Any?>(BoundedContextId.DEFAULT)
+        val invocation = factory.create<Any?>(TestDomainEventDispatcher())
 
         assertTrue(unitOfWorkFactory.unitOfWork === invocation.unitOfWork)
         assertTrue(unitOfWorkFactory.unitOfWork.secondaryWork.isNotEmpty())

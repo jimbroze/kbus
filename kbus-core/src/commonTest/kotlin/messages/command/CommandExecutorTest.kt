@@ -9,6 +9,7 @@ import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestCommandDependenciesFactory
+import com.jimbroze.kbus.core.fixtures.TestDomainEventDispatcher
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestPublisherFactories
 import com.jimbroze.kbus.core.fixtures.TestTransactionManager
@@ -19,7 +20,6 @@ import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
@@ -50,7 +50,7 @@ class CommandExecutorTest {
             )
 
         val result =
-            executor.execute(ReturnCommand("Wassup"), BoundedContextId.DEFAULT) {
+            executor.execute(ReturnCommand("Wassup"), TestDomainEventDispatcher()) {
                 ReturnCommandHandler()
             }
 
@@ -76,7 +76,7 @@ class CommandExecutorTest {
 
         val handler = DispatchingCommandHandler()
 
-        executor.execute(DispatchingCommand(), BoundedContextId.DEFAULT) { handler }
+        executor.execute(DispatchingCommand(), TestDomainEventDispatcher()) { handler }
         advanceUntilIdle()
 
         assertEquals(1, destination.delivered.size)
@@ -111,7 +111,7 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(DispatchingCommand(), BoundedContextId.DEFAULT) {
+        executor.execute(DispatchingCommand(), TestDomainEventDispatcher()) {
             DispatchingCommandHandler()
         }
         unitOfWorkFactory.unitOfWork.executeAllScheduledWork()
@@ -149,7 +149,9 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(ReturnCommand("test"), BoundedContextId.DEFAULT) { ReturnCommandHandler() }
+        executor.execute(ReturnCommand("test"), TestDomainEventDispatcher()) {
+            ReturnCommandHandler()
+        }
 
         assertIs<TransactionalOutbox>(
             capturingMiddleware.capturedContext?.integrationEventPublisher
@@ -171,7 +173,7 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(ReturnCommand("Primary"), BoundedContextId.DEFAULT) {
+        executor.execute(ReturnCommand("Primary"), TestDomainEventDispatcher()) {
             ReturnCommandHandler()
         }
 
@@ -193,7 +195,7 @@ class CommandExecutorTest {
                 factories.invocationFactory,
             )
 
-        executor.execute(TransactionCommand("Transaction"), BoundedContextId.DEFAULT) {
+        executor.execute(TransactionCommand("Transaction"), TestDomainEventDispatcher()) {
             TransactionCommandHandler()
         }
 
@@ -216,7 +218,7 @@ class CommandExecutorTest {
             )
 
         assertFailsWith<IllegalStateException> {
-            executor.execute(TransactionCommand("Transaction"), BoundedContextId.DEFAULT) {
+            executor.execute(TransactionCommand("Transaction"), TestDomainEventDispatcher()) {
                 TransactionCommandHandler()
             }
         }
@@ -238,7 +240,7 @@ class CommandExecutorTest {
 
         val command = TransactionCommand("HandlerTransaction")
 
-        executor.execute(command, BoundedContextId.DEFAULT) {
+        executor.execute(command, TestDomainEventDispatcher()) {
             TransactionCommandHandler(handlerTransactionManager)
         }
 
@@ -264,7 +266,7 @@ class CommandExecutorTest {
 
         val command = TransactionCommand("Transaction")
 
-        executor.execute(command, BoundedContextId.DEFAULT) {
+        executor.execute(command, TestDomainEventDispatcher()) {
             TransactionCommandHandler(handlerTransactionManager)
         }
 
@@ -295,7 +297,7 @@ class CommandExecutorTest {
             ReturnCommandHandler()
         }
 
-        executor.execute(ReturnCommand("Primary"), BoundedContextId.DEFAULT, createHandler)
+        executor.execute(ReturnCommand("Primary"), TestDomainEventDispatcher(), createHandler)
 
         val unitOfWork = unitOfWorkFactory.unitOfWork
         assertNotNull(testDependencies)
