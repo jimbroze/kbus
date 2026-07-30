@@ -128,6 +128,8 @@ abstract class BaseMessageBus(
             "Duplicate BoundedContextId(s): ${duplicates.map { it.value }}. " +
                 "Each bounded context must have a unique id."
         }
+
+        contextRuntimes.forEach { it.context.seal() }
     }
 
     private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)

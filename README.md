@@ -1064,6 +1064,18 @@ There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper
 context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
 handlers — a domain handler registered on `bus.billing` never fires for a command owned by another context.
 
+### When handlers may be registered
+
+**Command and query handlers must be registered before the bus is constructed.** Building a bus closes registration on
+every context it is given; a later `registerHandlers` throws `HandlerRegistrationSealedException`. A command has exactly
+one owning context, and the bus resolves that owner itself, so a handler registered afterwards could never be found —
+failing loudly beats a handler that is silently never called.
+
+**Event handlers may be registered at any time,** before or after the bus exists. That is what makes
+`bus.billing.addEventHandlers(...)` above work: the generated bus only exposes its contexts once it has been built. A
+context's subscription set is therefore derived on demand rather than snapshotted, so a handler registered later starts
+receiving events from that moment on.
+
 ## Domain Modeling
 
 KBUS includes base types for domain-driven design:

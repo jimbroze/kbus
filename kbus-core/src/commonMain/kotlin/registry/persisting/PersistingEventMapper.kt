@@ -11,6 +11,14 @@ import kotlin.reflect.KClass
 
 class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
     private val mappings = mutableMapOf<KClass<out Event>, MutableSet<KClass<EventHandler<*>>>>()
+    private var sealed = false
+
+    /**
+     * Idempotent: a mapper shared by two contexts is sealed once per context, to the same effect.
+     */
+    fun seal() {
+        sealed = true
+    }
 
     override fun <TEvent : DomainEvent> addDomainHandlers(
         event: KClass<TEvent>,

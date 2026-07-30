@@ -3,16 +3,34 @@ package com.jimbroze.kbus.core.registry.persisting.store
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.common.MessageHandler
 import com.jimbroze.kbus.contracts.messages.command.TooManyHandlersException
+import com.jimbroze.kbus.core.registry.HandlerRegistrationSealedException
 import kotlin.reflect.KClass
 
 class MessageHandlerFactoryStore<TMessageType : Message> {
     private var factories =
         mutableMapOf<KClass<out TMessageType>, List<MessageHandlerFactory<out TMessageType, *>>>()
+    private var sealed = false
+
+    /**
+     * Idempotent: a store shared by two contexts is sealed once per context, to the same effect.
+     */
+    fun seal() {
+        sealed = true
+    }
+
+    private fun checkNotSealed() {
+        if (sealed) {
+            throw HandlerRegistrationSealedException(
+                "Handlers cannot be registered or removed after the bus was constructed."
+            )
+        }
+    }
 
     fun <TMessage : TMessageType> registerHandlers(
         messageType: KClass<TMessage>,
         handlerFactories: List<MessageHandlerFactory<TMessage, *>>,
     ) {
+        checkNotSealed()
         val existingFactories = this.factories[messageType] ?: listOf()
 
         val duplicateHandlerFactory =
@@ -35,6 +53,7 @@ class MessageHandlerFactoryStore<TMessageType : Message> {
         messageType: KClass<TMessage>,
         handlerTypes: List<KClass<out MessageHandler<TMessage>>>?,
     ) {
+        checkNotSealed()
 
         if (handlerTypes === null) {
             this.factories.remove(messageType)

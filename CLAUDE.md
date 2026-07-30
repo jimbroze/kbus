@@ -145,9 +145,9 @@ would be a circular initializer. `appliesTo` is a
 real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the seam Stage 3's
 `DeclaredSubscriptions` drops into) with `LocatorSubscriptions` delegating to
 `HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both locators
-answer from `PersistingEventMapper.hasMappingFor`. Laziness is an invariant, not an optimisation: handlers are commonly
-registered *after* the bus is constructed, so a construction-time snapshot would silently drop (and, with an inbox, fail
-to capture) everything that arrived first.
+answer from `PersistingEventMapper.hasMappingFor`. Laziness is an invariant here, not an optimisation, and it is
+scoped to events specifically: **event** handlers are registerable after the bus exists (see the registration-sealing
+rule below), so a construction-time snapshot would silently drop everything registered afterwards.
 
 `ContextRuntime` is also that context's `DomainEventDispatcher`: `dispatchDomainEvent` delegates to the same deferred
 `EventDispatcher` reference `deliver` uses, so integration and domain dispatch for one context share a single
@@ -157,6 +157,20 @@ dispatcher instance rather than two parallel wiring paths. `CommandExecutor.exec
 resolved. Passing the resolved dispatcher rather than a `BoundedContextId` is what makes wrong-context domain dispatch
 unrepresentable: there is no id left to look up, so `DefaultCommandDependenciesFactory` takes no lookup function and
 `InvocationDomainEventPublisher.baseDispatcher` is non-null.
+
+**Handler registration closes when the bus is constructed — for commands and queries.** `HandlerLocator.seal()` is
+called on every context's locator from `BaseMessageBus`'s `init` (via `BoundedContext.seal()`), and
+`MessageHandlerFactoryStore.registerHandlers`/`removeHandlers` then throw `HandlerRegistrationSealedException`
+(`kbus-core`, `registry`). A command handler registered after construction could never be found by owner lookup, so
+failing loudly beats a handler that is silently never called. Sealing must be idempotent — two contexts may share one
+`HandlerFactoryStoreCollection`. `GenerationHandlerLocator.seal()` is a no-op: its commands and queries come from a
+generated factory fixed at compile time.
+
+**Event handlers are deliberately exempt from sealing**, and this is a constraint of the generated API, not an
+oversight: a generated bus exposes its contexts only *after* construction, so `bus.billing.addEventHandlers(...)` on a
+live bus is its documented registration path (README). That exemption is exactly why `Subscriptions` stays lazy while
+command/query lookup may safely become eager. Closing it would mean giving the generated bus a pre-construction
+registration hook.
 
 **Commands and queries resolve by owner lookup**, not through `BaseMessageBus.handlerLocator` directly:
 `execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of `hasHandlersFor`, same
@@ -338,6 +352,12 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   independent of every other context. `InboxConfig.ackPolicy` (`InboxAckPolicy.RequireHandlerSuccess`) is how a consumer
   demands stronger guarantees than a producer's declared `FireAndForget` — stated explicitly (the parameter is required,
   with no default), never inferred from context shape.
+- **Registration closes when the bus is built — for commands and queries only.** A command or query has exactly one
+  owning context and the bus resolves that owner, so a handler registered after construction could never be found:
+  `HandlerLocator.seal()` makes that a loud `HandlerRegistrationSealedException` instead of a handler that is silently
+  never called. Event handlers stay open by necessity, not preference — the generated bus exposes its contexts only
+  after construction, so registering on a live bus is its documented API, and that is precisely why a context's
+  subscription set must stay derived-on-demand rather than snapshotted.
 - **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
   `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop(gracePeriod)` is
   `suspend` and deterministic — one grace period covers each middleware's `suspend onStop()` and then in-flight

@@ -29,6 +29,13 @@ class BoundedContext(
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     internal val inbox: ContextInbox? = null,
 ) {
+    /**
+     * Closes this context's command and query registration. The bus calls this for every context it
+     * is given. Event handlers stay registerable: the generated bus exposes its contexts only after
+     * construction, so `bus.billing.addEventHandlers(...)` is registration on a live bus by design.
+     */
+    internal fun seal() = handlerLocator.seal()
+
     private val domainEventMapper = CompileTimeDomainEventMapper(handlerLocator.domainEventMapper)
     private val integrationEventMapper =
         CompileTimeIntegrationEventMapper(handlerLocator.integrationEventMapper)
