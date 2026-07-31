@@ -1047,18 +1047,24 @@ ksp {
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
 by the consumer. The generated bus builds one `BoundedContext` per distinct identity and exposes a typed registration
-point for each, named after the identity, plus `default` for handlers from modules that declared no identity:
+point for each, named after the identity, plus `default` for handlers from modules that declared no identity. Register
+against them in the bus constructor's trailing `configure` lambda:
 
 ```kotlin
-bus.billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
-bus.default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
+val bus = MyBus(dependencies, transactionManager, middleware) {
+    billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+    default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
+}
 ```
 
 Domain handlers register the same way, per context:
 
 ```kotlin
-bus.billing.addDomainHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+billing.addDomainHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
 ```
+
+Each context is also readable off the built bus (`bus.billing`), which is how a live bus takes further event handler
+registrations.
 
 There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
 context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
@@ -1072,10 +1078,11 @@ one owning context, and the bus is what resolves that owner, so it must be able 
 built — that is what lets two contexts claiming the same command be reported against your wiring rather than against
 some later dispatch in production.
 
-**Event handlers may be registered at any time,** before or after the bus exists. That is what makes
-`bus.billing.addEventHandlers(...)` above work: the generated bus only exposes its contexts once it has been built. A
-context's subscription set is therefore derived on demand rather than snapshotted, so a handler registered later starts
-receiving events from that moment on.
+**Event handlers may be registered at any time,** before or after the bus exists. The `configure` lambda is the
+pre-construction path: a delegating constructor's arguments are evaluated before the constructor they delegate to, which
+is the one window where the contexts exist but the bus does not. `bus.billing.addEventHandlers(...)` on a live bus works
+too. A context's subscription set is therefore derived on demand rather than snapshotted, so a handler registered later
+starts receiving events from that moment on.
 
 ## Domain Modeling
 

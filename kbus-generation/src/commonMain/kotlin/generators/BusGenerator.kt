@@ -18,11 +18,13 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
+import com.squareup.kotlinpoet.UNIT
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
@@ -41,6 +43,7 @@ data class BusConfig(
 )
 
 private const val DEFAULT_CONTEXT = "default"
+private const val CONTEXTS_CLASS = "Contexts"
 
 private val COROUTINE_SCOPE = ClassName("kotlinx.coroutines", "CoroutineScope")
 private val DISPATCHERS = ClassName("kotlinx.coroutines", "Dispatchers")
@@ -84,12 +87,14 @@ class BusGenerator(
                 .addSuperclassConstructorParameter("middleware")
                 .addSuperclassConstructorParameter("appScope = appScope")
                 .addSuperclassConstructorParameter("outbox = outbox")
-                .addSuperclassConstructorParameter("contexts = contextLocators.values.toList()")
+                .addSuperclassConstructorParameter("contexts = contexts.all")
                 .addSuperclassConstructorParameter("inbox = inbox")
 
         val contexts = contextIdentities(handlers)
-        BusConstructorGenerator(config)
-            .build(classBuilder, dependenciesClassName, handlerFactoryClassName, contexts)
+        val contextsClassName = ClassName(packagePath, config.busClassName, CONTEXTS_CLASS)
+        classBuilder.addType(buildContextsClass(handlerFactoryClassName, contexts))
+        BusConstructorGenerator(config, contextsClassName)
+            .build(classBuilder, dependenciesClassName, handlerFactoryClassName)
         buildEventMapperProperties(classBuilder, contexts)
 
         handlers
@@ -123,16 +128,63 @@ class BusGenerator(
      */
     private fun buildEventMapperProperties(classBuilder: TypeSpec.Builder, contexts: List<String>) {
         contexts.forEach { context ->
-            val key =
-                if (context == DEFAULT_CONTEXT) CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
-                else CodeBlock.of("%T(%S)", BoundedContextId::class, context)
-
             classBuilder.addProperty(
                 PropertySpec.builder(accessorName(context), BoundedContext::class.asClassName())
-                    .initializer("contextLocators.getValue(%L)", key)
+                    .initializer("contexts.%L", accessorName(context))
                     .build()
             )
         }
+    }
+
+    /**
+     * The bus's bounded contexts as standalone objects, constructed before the bus itself so that
+     * event handlers can be registered against them while the bus is still being built. All share
+     * the one generated handler factory, each disambiguated by its own context identity.
+     */
+    private fun buildContextsClass(
+        handlerFactoryClassName: ClassName,
+        contexts: List<String>,
+    ): TypeSpec {
+        val builder =
+            TypeSpec.classBuilder(CONTEXTS_CLASS)
+                .primaryConstructor(
+                    FunSpec.constructorBuilder()
+                        .addModifiers(KModifier.INTERNAL)
+                        .addParameter("handlerFactory", handlerFactoryClassName)
+                        .build()
+                )
+
+        contexts.forEach { context ->
+            val identity = if (context == DEFAULT_CONTEXT) "" else context
+            builder.addProperty(
+                PropertySpec.builder(accessorName(context), BoundedContext::class.asClassName())
+                    .initializer(
+                        "%T(%L, %T(handlerFactory, %S))",
+                        BoundedContext::class,
+                        contextIdKeyBlock(identity),
+                        GenerationHandlerLocator::class,
+                        identity,
+                    )
+                    .build()
+            )
+        }
+
+        return builder
+            .addProperty(
+                PropertySpec.builder(
+                        "all",
+                        List::class.asClassName()
+                            .parameterizedBy(BoundedContext::class.asClassName()),
+                    )
+                    .addModifiers(KModifier.INTERNAL)
+                    .initializer(
+                        contexts
+                            .map { CodeBlock.of("%L", accessorName(it)) }
+                            .joinToCode(", ", "listOf(", ")")
+                    )
+                    .build()
+            )
+            .build()
     }
 
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
@@ -240,26 +292,23 @@ class BusGenerator(
 }
 
 /** Builds the generated bus's constructors and the bounded-context locator map they wire up. */
-private class BusConstructorGenerator(private val config: BusConfig) {
-    private fun contextLocatorsBlock(contexts: List<String>): CodeBlock =
-        contexts
-            .map { context ->
-                val identity = if (context == DEFAULT_CONTEXT) "" else context
-                val key =
-                    if (context == DEFAULT_CONTEXT)
-                        CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
-                    else CodeBlock.of("%T(%S)", BoundedContextId::class, context)
-
-                CodeBlock.of(
-                    "%L to %T(%L, %T(handlerFactory, %S))",
-                    key,
-                    BoundedContext::class,
-                    key,
-                    GenerationHandlerLocator::class,
-                    identity,
-                )
-            }
-            .joinToCode(", ", "mapOf(", ")")
+private class BusConstructorGenerator(
+    private val config: BusConfig,
+    private val contextsClassName: ClassName,
+) {
+    /**
+     * Registration against a context has to happen before the bus exists, so that a bus can close
+     * registration as it is built. A delegating constructor's arguments are evaluated before the
+     * constructor it delegates to, which is the only window where the contexts exist but the bus
+     * does not.
+     */
+    private fun configureParameter(): ParameterSpec =
+        ParameterSpec.builder(
+                "configure",
+                LambdaTypeName.get(receiver = contextsClassName, returnType = UNIT),
+            )
+            .defaultValue("{}")
+            .build()
 
     private fun middlewareListParameter(): ParameterSpec =
         ParameterSpec.builder(
@@ -286,25 +335,17 @@ private class BusConstructorGenerator(private val config: BusConfig) {
             .defaultValue("null")
             .build()
 
-    private fun contextLocatorsType() =
-        Map::class.asClassName()
-            .parameterizedBy(
-                BoundedContextId::class.asClassName(),
-                BoundedContext::class.asClassName(),
-            )
-
     fun build(
         classBuilder: TypeSpec.Builder,
         dependenciesClassName: ClassName,
         handlerFactoryClassName: ClassName,
-        contexts: List<String>,
     ) {
         classBuilder
             .primaryConstructor(
                 FunSpec.constructorBuilder()
                     .addModifiers(KModifier.PRIVATE)
                     .addParameter("handlerFactory", handlerFactoryClassName)
-                    .addParameter("contextLocators", contextLocatorsType())
+                    .addParameter("contexts", contextsClassName)
                     .addParameter("transactionManager", config.transactionManagerClass)
                     .addParameter(middlewareListParameter())
                     .addParameter(appScopeParameter())
@@ -319,20 +360,19 @@ private class BusConstructorGenerator(private val config: BusConfig) {
                     .build()
             )
             .addProperty(
-                PropertySpec.builder("contextLocators", contextLocatorsType())
-                    .initializer("contextLocators")
+                PropertySpec.builder("contexts", contextsClassName)
+                    .initializer("contexts")
                     .addModifiers(KModifier.PRIVATE)
                     .build()
             )
-            .addFunction(buildContextBuildingConstructor(handlerFactoryClassName, contexts))
+            .addFunction(buildContextBuildingConstructor(handlerFactoryClassName))
             .addFunction(buildLoaderConstructor(dependenciesClassName, handlerFactoryClassName))
     }
 
-    /** Builds this bus's bounded contexts, all sharing the one generated handler factory. */
-    private fun buildContextBuildingConstructor(
-        handlerFactoryClassName: ClassName,
-        contexts: List<String>,
-    ): FunSpec =
+    /**
+     * Builds this bus's bounded contexts and applies `configure` to them, before the bus exists.
+     */
+    private fun buildContextBuildingConstructor(handlerFactoryClassName: ClassName): FunSpec =
         FunSpec.constructorBuilder()
             .addModifiers(KModifier.PRIVATE)
             .addParameter("handlerFactory", handlerFactoryClassName)
@@ -341,9 +381,10 @@ private class BusConstructorGenerator(private val config: BusConfig) {
             .addParameter(appScopeParameter())
             .addParameter(outboxParameter())
             .addParameter(inboxParameter())
+            .addParameter(configureParameter())
             .callThisConstructor(
                 CodeBlock.of("handlerFactory"),
-                contextLocatorsBlock(contexts),
+                CodeBlock.of("%T(handlerFactory).apply(configure)", contextsClassName),
                 CodeBlock.of("transactionManager"),
                 CodeBlock.of("middleware"),
                 CodeBlock.of("appScope"),
@@ -363,6 +404,7 @@ private class BusConstructorGenerator(private val config: BusConfig) {
             .addParameter(appScopeParameter())
             .addParameter(outboxParameter())
             .addParameter(inboxParameter())
+            .addParameter(configureParameter())
             .callThisConstructor(
                 CodeBlock.of("%T(loader)", handlerFactoryClassName),
                 CodeBlock.of("transactionManager"),
@@ -370,6 +412,7 @@ private class BusConstructorGenerator(private val config: BusConfig) {
                 CodeBlock.of("appScope"),
                 CodeBlock.of("outbox"),
                 CodeBlock.of("inbox"),
+                CodeBlock.of("configure"),
             )
             .build()
 }
