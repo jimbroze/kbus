@@ -58,10 +58,9 @@ class PersistingHandlerLocator(
 
     override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
 
-    override fun hasHandlerFor(command: Command<*>): Boolean =
-        commandStore.isRegistered(command::class)
+    override fun handledCommandTypes(): Set<KClass<out Command<*>>> = commandStore.registeredTypes()
 
-    override fun hasHandlerFor(query: Query<*>): Boolean = queryStore.isRegistered(query::class)
+    override fun handledQueryTypes(): Set<KClass<out Query<*>>> = queryStore.registeredTypes()
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)

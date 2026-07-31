@@ -1,7 +1,5 @@
 package com.jimbroze.kbus.core.registry.persisting
 
-import com.jimbroze.kbus.core.fixtures.FailureCommand
-import com.jimbroze.kbus.core.fixtures.FailureQuery
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
@@ -247,7 +245,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun hasHandlerFor_command_isTrueOnlyForARegisteredCommand() {
+    fun handledCommandTypes_areOnlyTheRegisteredCommands() {
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
             StorageCommand::class,
@@ -255,12 +253,11 @@ class PersistingHandlerLocatorTest {
         )
         val locator = PersistingHandlerLocator(stores)
 
-        assertTrue(locator.hasHandlerFor(StorageCommand("test", mutableListOf())))
-        assertFalse(locator.hasHandlerFor(FailureCommand()))
+        assertEquals(setOf(StorageCommand::class), locator.handledCommandTypes())
     }
 
     @Test
-    fun hasHandlerFor_command_doesNotInstantiateTheHandler() {
+    fun handledCommandTypes_doesNotInstantiateTheHandler() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
@@ -274,13 +271,13 @@ class PersistingHandlerLocatorTest {
         )
         val locator = PersistingHandlerLocator(stores)
 
-        locator.hasHandlerFor(StorageCommand("test", mutableListOf()))
+        locator.handledCommandTypes()
 
         assertEquals(0, creations)
     }
 
     @Test
-    fun hasHandlerFor_query_isTrueOnlyForARegisteredQuery() {
+    fun handledQueryTypes_areOnlyTheRegisteredQueries() {
         val stores = HandlerFactoryStoreCollection()
         stores.queryStore.registerHandlers(
             StorageQuery::class,
@@ -288,12 +285,11 @@ class PersistingHandlerLocatorTest {
         )
         val locator = PersistingHandlerLocator(stores)
 
-        assertTrue(locator.hasHandlerFor(StorageQuery(0, mutableListOf())))
-        assertFalse(locator.hasHandlerFor(FailureQuery()))
+        assertEquals(setOf(StorageQuery::class), locator.handledQueryTypes())
     }
 
     @Test
-    fun hasHandlerFor_query_doesNotInstantiateTheHandler() {
+    fun handledQueryTypes_doesNotInstantiateTheHandler() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.queryStore.registerHandlers(
@@ -307,7 +303,7 @@ class PersistingHandlerLocatorTest {
         )
         val locator = PersistingHandlerLocator(stores)
 
-        locator.hasHandlerFor(StorageQuery(0, mutableListOf()))
+        locator.handledQueryTypes()
 
         assertEquals(0, creations)
     }

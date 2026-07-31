@@ -645,13 +645,19 @@ to at all. Passing no `contexts` gives a bus a single implicit `default` context
 behaviour of a non-modular application.
 
 **Commands and queries resolve by owner lookup across `contexts`**, not through the bus's own handler locator directly:
-exactly one context's locator must claim a given command or query (`HandlerLocator.hasHandlerFor`), or `execute`/`fetch`
-throws — `MissingHandlerException` for zero owners, `AmbiguousHandlerException` for two or more. This means that once
-you pass an explicit `contexts` list, every command and query handler must be registered on one of those contexts'
-locators — registering one only on the bus-wide `handlerLocator` is no longer enough, since that locator only backs
-domain-event dispatch and the implicit default context. Constructing a bus with two contexts sharing the same
-`BoundedContextId` also throws, at construction time. Domain events are unaffected — they still resolve through the
-bus's own handler locator.
+while the bus is being built it asks each context's locator what it handles
+(`HandlerLocator.handledCommandTypes`/`handledQueryTypes`) and indexes the result. Exactly one context must claim a
+given command or query. Two or more throws `AmbiguousHandlerException` **from the bus constructor**, so a single-owner
+conflict surfaces against the wiring at startup rather than against whichever dispatch first happens to hit it; a
+message no context claims throws `MissingHandlerException` from `execute`/`fetch`. This means that once you pass an
+explicit `contexts` list, every command and query handler must be registered on one of those contexts' locators —
+registering one only on the bus-wide `handlerLocator` is no longer enough, since that locator only backs domain-event
+dispatch and the implicit default context. Constructing a bus with two contexts sharing the same `BoundedContextId`
+also throws, at construction time. Domain events are unaffected — they still resolve through the bus's own handler
+locator.
+
+Because ownership is indexed when the bus is built, a command or query handler registered on a locator *after* that
+point is not routable — register everything before constructing the bus.
 
 Three consequences worth knowing:
 

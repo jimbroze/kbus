@@ -291,25 +291,25 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aCommandRegisteredInTwoContexts_throwsAmbiguousHandlerException() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        registerPublishingCommand(stores)
-        val firstLocator = PersistingHandlerLocator(stores)
-        val secondLocator = PersistingHandlerLocator(stores)
+    fun aCommandRegisteredInTwoContexts_throwsAmbiguousHandlerExceptionWhenTheBusIsBuilt() =
+        runTest {
+            val stores = HandlerFactoryStoreCollection()
+            registerPublishingCommand(stores)
+            val firstLocator = PersistingHandlerLocator(stores)
+            val secondLocator = PersistingHandlerLocator(stores)
 
-        val bus =
-            MessageBus(
-                PersistingHandlerLocator(),
-                appScope = backgroundScope,
-                contexts =
-                    listOf(
-                        BoundedContext(BoundedContextId("alpha"), firstLocator),
-                        BoundedContext(BoundedContextId("beta"), secondLocator),
-                    ),
-            )
-
-        assertFailsWith<AmbiguousHandlerException> { bus.execute(PublishAlphaCommand("event")) }
-    }
+            assertFailsWith<AmbiguousHandlerException> {
+                MessageBus(
+                    PersistingHandlerLocator(),
+                    appScope = backgroundScope,
+                    contexts =
+                        listOf(
+                            BoundedContext(BoundedContextId("alpha"), firstLocator),
+                            BoundedContext(BoundedContextId("beta"), secondLocator),
+                        ),
+                )
+            }
+        }
 
     @Test
     fun aCommandRegisteredNowhere_throwsMissingHandlerException() = runTest {
@@ -346,7 +346,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aQueryRegisteredInTwoContexts_throwsAmbiguousHandlerException() = runTest {
+    fun aQueryRegisteredInTwoContexts_throwsAmbiguousHandlerExceptionWhenTheBusIsBuilt() = runTest {
         val stores = HandlerFactoryStoreCollection()
         stores.queryStore.registerHandlers(
             AlphaQuery::class,
@@ -355,7 +355,7 @@ class MessageBusMultiContextTest {
         val firstLocator = PersistingHandlerLocator(stores)
         val secondLocator = PersistingHandlerLocator(stores)
 
-        val bus =
+        assertFailsWith<AmbiguousHandlerException> {
             MessageBus(
                 PersistingHandlerLocator(),
                 appScope = backgroundScope,
@@ -365,8 +365,7 @@ class MessageBusMultiContextTest {
                         BoundedContext(BoundedContextId("beta"), secondLocator),
                     ),
             )
-
-        assertFailsWith<AmbiguousHandlerException> { bus.fetch(AlphaQuery()) }
+        }
     }
 
     @Test

@@ -125,6 +125,9 @@ abstract class BaseMessageBus(
         }
     }
 
+    private val commandOwners = indexOwners { it.handledCommandTypes() }
+    private val queryOwners = indexOwners { it.handledQueryTypes() }
+
     private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
     private val directPublisher = DirectPublisher(router, eventDispatcherScope)
@@ -233,7 +236,7 @@ abstract class BaseMessageBus(
         command: TCommand
     ): TResult {
         checkStarted()
-        val owner = ownerRuntimeFor(command::class) { it.hasHandlerFor(command) }
+        val owner = commandOwners[command::class] ?: throw MissingHandlerException(command::class)
         val handlerCreator = { commandDependencies: CommandDependencies ->
             (owner.context.handlerLocator.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
@@ -246,7 +249,7 @@ abstract class BaseMessageBus(
         query: TQuery
     ): TResult {
         checkStarted()
-        val owner = ownerRuntimeFor(query::class) { it.hasHandlerFor(query) }
+        val owner = queryOwners[query::class] ?: throw MissingHandlerException(query::class)
         val handlerCreator = {
             (owner.context.handlerLocator.handlerFor(query)
                 ?: throw MissingHandlerException(query::class))
@@ -256,20 +259,27 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * The one context owning this message. Commands and queries are single-owner by contract, so
-     * ambiguity throws rather than being resolved by list order.
+     * Which context owns each message, read once from the contexts' handlers. Handlers registered
+     * after the bus is built are not honoured, which is safe only because registration closes at
+     * construction — and is what lets single-owner conflicts be reported against the wiring here
+     * rather than against whichever dispatch happens to hit one first.
      */
-    private fun ownerRuntimeFor(
-        messageClass: KClass<out Message>,
-        hasHandler: (HandlerLocator) -> Boolean,
-    ): ContextRuntime {
-        val owners = contextRuntimes.filter { hasHandler(it.context.handlerLocator) }
-        return when (owners.size) {
-            0 -> throw MissingHandlerException(messageClass)
-            1 -> owners.single()
-            else ->
-                throw AmbiguousHandlerException(messageClass, owners.map { it.context.id.value })
+    private fun indexOwners(
+        handledTypes: (HandlerLocator) -> Set<KClass<out Message>>
+    ): Map<KClass<out Message>, ContextRuntime> {
+        val owners = mutableMapOf<KClass<out Message>, ContextRuntime>()
+        for (runtime in contextRuntimes) {
+            for (messageClass in handledTypes(runtime.context.handlerLocator)) {
+                val existingOwner = owners.put(messageClass, runtime)
+                if (existingOwner != null) {
+                    throw AmbiguousHandlerException(
+                        messageClass,
+                        listOf(existingOwner.context.id.value, runtime.context.id.value),
+                    )
+                }
+            }
         }
+        return owners
     }
 
     /**

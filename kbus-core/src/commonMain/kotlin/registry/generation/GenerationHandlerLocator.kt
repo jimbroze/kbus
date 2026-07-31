@@ -42,11 +42,11 @@ class GenerationHandlerLocator(
 
     override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
 
-    override fun hasHandlerFor(command: Command<*>): Boolean =
-        generationHandlerFactory.commandModule(command::class) == contextIdentity
+    override fun handledCommandTypes(): Set<KClass<out Command<*>>> =
+        generationHandlerFactory.commandTypesFor(contextIdentity)
 
-    override fun hasHandlerFor(query: Query<*>): Boolean =
-        generationHandlerFactory.queryModule(query::class) == contextIdentity
+    override fun handledQueryTypes(): Set<KClass<out Query<*>>> =
+        generationHandlerFactory.queryTypesFor(contextIdentity)
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)

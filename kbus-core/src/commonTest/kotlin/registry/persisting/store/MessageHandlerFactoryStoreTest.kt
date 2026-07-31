@@ -11,21 +11,19 @@ import com.jimbroze.kbus.core.fixtures.StorageEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 class MessageHandlerFactoryStoreTest {
 
     @Test
-    fun test_isRegistered_returns_false_when_no_handlers_registered() {
+    fun test_registeredTypes_is_empty_when_no_handlers_registered() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
-        assertFalse(store.isRegistered(StorageEvent::class))
+        assertEquals(emptySet(), store.registeredTypes())
     }
 
     @Test
-    fun test_isRegistered_returns_true_after_registering_handlers() {
+    fun test_registeredTypes_contains_a_type_after_registering_handlers() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -33,7 +31,7 @@ class MessageHandlerFactoryStoreTest {
             listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
         )
 
-        assertTrue(store.isRegistered(StorageEvent::class))
+        assertEquals(setOf(StorageEvent::class), store.registeredTypes())
     }
 
     @Test
@@ -163,7 +161,21 @@ class MessageHandlerFactoryStoreTest {
 
         store.removeHandlers(StorageEvent::class, null)
 
-        assertFalse(store.isRegistered(StorageEvent::class))
+        assertEquals(emptySet(), store.registeredTypes())
+    }
+
+    @Test
+    fun test_registeredTypes_excludes_a_type_whose_last_handler_was_removed_by_type() {
+        val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
+
+        store.registerHandlers(
+            StorageEvent::class,
+            listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
+        )
+
+        store.removeHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
+
+        assertEquals(emptySet(), store.registeredTypes())
     }
 
     @Test
@@ -172,7 +184,7 @@ class MessageHandlerFactoryStoreTest {
 
         store.removeHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
-        assertFalse(store.isRegistered(StorageEvent::class))
+        assertEquals(emptySet(), store.registeredTypes())
     }
 
     @Test
@@ -225,7 +237,6 @@ class MessageHandlerFactoryStoreTest {
 
         store.removeHandlers(StorageCommand::class, null)
 
-        assertFalse(store.isRegistered(StorageCommand::class))
-        assertTrue(store.isRegistered(ReturnCommand::class))
+        assertEquals(setOf(ReturnCommand::class), store.registeredTypes())
     }
 }

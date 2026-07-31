@@ -7,17 +7,14 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.core.fixtures.FailureCommand
-import com.jimbroze.kbus.core.fixtures.FailureQuery
 import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageQuery
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import kotlin.reflect.KClass
 import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
-/** Reports fixed module identities for [StorageCommand]/[StorageQuery] only. */
+/** Holds [StorageCommand]/[StorageQuery] under one fixed module identity each. */
 private class FakeGenerationHandlerFactory(
     private val commandModule: String? = null,
     private val queryModule: String? = null,
@@ -35,84 +32,69 @@ private class FakeGenerationHandlerFactory(
         handlerClass: KClass<EventHandler<TEvent>>
     ): EventHandler<TEvent>? = null
 
-    override fun commandModule(commandClass: KClass<out Command<*>>): String? =
-        if (commandClass == StorageCommand::class) commandModule else null
+    override fun commandTypesFor(contextIdentity: String): Set<KClass<out Command<*>>> =
+        if (contextIdentity == commandModule) setOf(StorageCommand::class) else emptySet()
 
-    override fun queryModule(queryClass: KClass<out Query<*>>): String? =
-        if (queryClass == StorageQuery::class) queryModule else null
+    override fun queryTypesFor(contextIdentity: String): Set<KClass<out Query<*>>> =
+        if (contextIdentity == queryModule) setOf(StorageQuery::class) else emptySet()
 }
 
 class GenerationHandlerLocatorTest {
     @Test
-    fun hasHandlerFor_command_isTrueWhenTheFactoryReportsThisLocatorsIdentity() {
+    fun handledCommandTypes_areTheFactorysCommandsForThisLocatorsIdentity() {
         val locator =
             GenerationHandlerLocator(
                 FakeGenerationHandlerFactory(commandModule = "orders"),
                 contextIdentity = "orders",
             )
 
-        assertTrue(locator.hasHandlerFor(StorageCommand("test", mutableListOf())))
+        assertEquals(setOf(StorageCommand::class), locator.handledCommandTypes())
     }
 
     @Test
-    fun hasHandlerFor_command_isFalseForAnotherContextsIdentity() {
+    fun handledCommandTypes_excludeAnotherContextsCommands() {
         val locator =
             GenerationHandlerLocator(
                 FakeGenerationHandlerFactory(commandModule = "orders"),
                 contextIdentity = "inventory",
             )
 
-        assertFalse(locator.hasHandlerFor(StorageCommand("test", mutableListOf())))
+        assertEquals(emptySet(), locator.handledCommandTypes())
     }
 
     @Test
-    fun hasHandlerFor_command_isFalseForACommandTheFactoryDoesNotKnow() {
-        val locator =
-            GenerationHandlerLocator(FakeGenerationHandlerFactory(commandModule = "orders"))
-
-        assertFalse(locator.hasHandlerFor(FailureCommand()))
-    }
-
-    @Test
-    fun hasHandlerFor_command_defaultIdentityMatchesUnassignedModule() {
+    fun handledCommandTypes_defaultIdentityMatchesUnassignedModule() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(commandModule = ""))
 
-        assertTrue(locator.hasHandlerFor(StorageCommand("test", mutableListOf())))
+        assertEquals(setOf(StorageCommand::class), locator.handledCommandTypes())
     }
 
     @Test
-    fun hasHandlerFor_query_isTrueWhenTheFactoryReportsThisLocatorsIdentity() {
+    fun handledQueryTypes_areTheFactorysQueriesForThisLocatorsIdentity() {
         val locator =
             GenerationHandlerLocator(
                 FakeGenerationHandlerFactory(queryModule = "orders"),
                 contextIdentity = "orders",
             )
 
-        assertTrue(locator.hasHandlerFor(StorageQuery(0, mutableListOf())))
+        assertEquals(setOf(StorageQuery::class), locator.handledQueryTypes())
     }
 
     @Test
-    fun hasHandlerFor_query_isFalseForAnotherContextsIdentity() {
+    fun handledQueryTypes_excludeAnotherContextsQueries() {
         val locator =
             GenerationHandlerLocator(
                 FakeGenerationHandlerFactory(queryModule = "orders"),
                 contextIdentity = "inventory",
             )
 
-        assertFalse(locator.hasHandlerFor(StorageQuery(0, mutableListOf())))
+        assertEquals(emptySet(), locator.handledQueryTypes())
     }
 
     @Test
-    fun hasHandlerFor_query_isFalseForAQueryTheFactoryDoesNotKnow() {
-        val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(queryModule = "orders"))
-
-        assertFalse(locator.hasHandlerFor(FailureQuery()))
-    }
-
-    @Test
-    fun hasHandlerFor_query_defaultIdentityMatchesUnassignedModule() {
+    fun handledQueryTypes_defaultIdentityMatchesUnassignedModule() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(queryModule = ""))
 
-        assertTrue(locator.hasHandlerFor(StorageQuery(0, mutableListOf())))
+        assertEquals(setOf(StorageQuery::class), locator.handledQueryTypes())
     }
 }

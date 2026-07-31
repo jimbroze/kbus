@@ -29,14 +29,13 @@ interface HandlerLocator : EventMapperProvider {
     fun subscribedEventTypes(): Set<KClass<out Event>>
 
     /**
-     * Whether this locator owns a handler for [command], **without instantiating it**. Runs on
-     * every dispatch, so do not implement it as `handlerFor(command, ...) != null`.
+     * Every command class this locator has a handler registered for, **without instantiating any of
+     * them** — [handlerFor] creates the handler it finds, so it must not back this.
      */
-    fun hasHandlerFor(command: Command<*>): Boolean
+    fun handledCommandTypes(): Set<KClass<out Command<*>>>
 
     /**
-     * Whether this locator owns a handler for [query], **without instantiating it**. Runs on every
-     * dispatch, so do not implement it as `handlerFor(query) != null`.
+     * The query equivalent of [handledCommandTypes], under the same no-instantiation requirement.
      */
-    fun hasHandlerFor(query: Query<*>): Boolean
+    fun handledQueryTypes(): Set<KClass<out Query<*>>>
 }
