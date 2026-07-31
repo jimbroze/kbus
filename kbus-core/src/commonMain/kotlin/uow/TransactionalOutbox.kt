@@ -113,10 +113,8 @@ internal constructor(
 
 /**
  * Owns everything the outbox needs beyond a single command's scope: the [immediatePublisher] and
- * per-command [create] used by
- * [IntegrationEventPublisherFactory][com.jimbroze.kbus.core.messages.event.IntegrationEventPublisherFactory],
- * and the bus-wide poller — the outbox's at-least-once delivery guarantee — started explicitly via
- * [startPolling] rather than from a constructor.
+ * per-command [create] that publishing goes through, and the bus-wide poller that makes delivery
+ * at-least-once. The poller starts on [startPolling], never from a constructor.
  */
 class OutboxCoordinator(
     private val config: OutboxConfig?,
