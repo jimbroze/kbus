@@ -26,7 +26,7 @@ import com.jimbroze.kbus.domain.event.DomainEvent
  */
 internal class ContextRuntime(
     val context: BoundedContext,
-    private val subscriptions: Subscriptions = LocatorSubscriptions(context.handlerLocator),
+    private val subscriptions: Subscriptions = SnapshotSubscriptions(context.handlerLocator),
     /**
      * The bus constructs its dispatchers after the destinations it routes to (a dispatcher's
      * `contextFactory` transitively depends on the router, which depends on these runtimes), so

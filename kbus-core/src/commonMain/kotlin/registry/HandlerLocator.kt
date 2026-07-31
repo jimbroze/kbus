@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import kotlin.reflect.KClass
 
 interface HandlerLocator : EventMapperProvider {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
@@ -22,11 +23,11 @@ interface HandlerLocator : EventMapperProvider {
     fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
 
     /**
-     * Whether this locator has any handler registered for [event], **without instantiating any of
-     * them**. Do not implement this as `handlersFor(event).isNotEmpty()` — it runs on every routing
-     * attempt, and `handlersFor` creates every handler it finds.
+     * Every event class this locator has a handler registered for, **without instantiating any of
+     * them** — `handlersFor` creates every handler it finds, so it must not back this. Read once
+     * per context when the bus is built, to derive that context's subscriptions.
      */
-    fun hasHandlersFor(event: Event): Boolean
+    fun subscribedEventTypes(): Set<KClass<out Event>>
 
     /**
      * Whether this locator owns a handler for [command], **without instantiating it** — used to

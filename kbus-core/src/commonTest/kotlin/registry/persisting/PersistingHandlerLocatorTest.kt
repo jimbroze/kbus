@@ -211,19 +211,19 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun hasHandlersFor_isTrueOnlyForAnEventWithRegisteredHandlers() {
+    fun subscribedEventTypes_containsOnlyEventsWithRegisteredHandlers() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
 
-        assertTrue(locator.hasHandlersFor(StorageEvent("test", mutableListOf())))
-        assertFalse(locator.hasHandlersFor(OtherStorageEvent("test", mutableListOf())))
+        assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
+        assertFalse(locator.subscribedEventTypes().contains(OtherStorageEvent::class))
     }
 
     @Test
-    fun hasHandlersFor_doesNotInstantiateHandlers() {
+    fun subscribedEventTypes_doesNotInstantiateHandlers() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.eventStore.registerHandlers(
@@ -241,7 +241,7 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class),
         )
 
-        locator.hasHandlersFor(StorageEvent("test", mutableListOf()))
+        locator.subscribedEventTypes()
 
         assertEquals(0, creations)
     }

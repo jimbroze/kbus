@@ -39,7 +39,7 @@ class BoundedContextTest {
                 )
             }
 
-        assertTrue(context.handlerLocator.hasHandlersFor(StorageEvent("any", mutableListOf())))
+        assertTrue(context.handlerLocator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
@@ -53,7 +53,7 @@ class BoundedContextTest {
             )
         }
 
-        assertTrue(locator.hasHandlersFor(StorageEvent("any", mutableListOf())))
+        assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
@@ -67,7 +67,7 @@ class BoundedContextTest {
             )
         }
 
-        assertTrue(locator.hasHandlersFor(TestDomainEvent("any")))
+        assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))
     }
 
     @Test
@@ -82,7 +82,7 @@ class BoundedContextTest {
             )
         }
 
-        assertFalse(other.hasHandlersFor(StorageEvent("any", mutableListOf())))
+        assertFalse(other.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
@@ -92,7 +92,7 @@ class BoundedContextTest {
             addEventHandlers(StorageEvent::class, PrintEventHandler::class)
         }
 
-        assertTrue(locator.hasHandlersFor(StorageEvent("any", mutableListOf())))
+        assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
@@ -102,7 +102,7 @@ class BoundedContextTest {
             addDomainHandlers(TestDomainEvent::class, TestDomainEventHandler::class)
         }
 
-        assertTrue(locator.hasHandlersFor(TestDomainEvent("any")))
+        assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))
     }
 
     @Test

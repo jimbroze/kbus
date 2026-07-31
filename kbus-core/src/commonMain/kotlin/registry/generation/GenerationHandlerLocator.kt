@@ -42,7 +42,7 @@ class GenerationHandlerLocator(
         return generationHandlerFactory.handlerFor(query)
     }
 
-    override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
+    override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
 
     override fun hasHandlerFor(command: Command<*>): Boolean =
         generationHandlerFactory.commandModule(command::class) == contextIdentity

@@ -56,7 +56,7 @@ class PersistingHandlerLocator(
         return factory.create() as QueryHandler<TQuery, TResult>
     }
 
-    override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
+    override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
 
     override fun hasHandlerFor(command: Command<*>): Boolean =
         commandStore.isRegistered(command::class)

@@ -142,11 +142,13 @@ reference to that context's own `EventDispatcher` (`() -> EventDispatcher`, reso
 `dispatchDomainEvent`, not at construction) — not vestigial, but load-bearing: a dispatcher's `contextFactory`
 transitively depends on the router these runtimes feed into, so building them eagerly with a concrete `EventDispatcher`
 would be a circular initializer. `appliesTo` is a
-real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, so an implementation that declares its
-event types up front can replace the derived one without touching `ContextRuntime`) with `LocatorSubscriptions`
-delegating to `HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both
-locators answer from `PersistingEventMapper.hasMappingFor`. Since every handler set is now fixed at bus construction,
-that laziness is an optimisation rather than an invariant: a construction-time snapshot would be sound.
+real subscription set, **snapshotted** when the runtime is built: `Subscriptions` (a `fun interface`, so a destination
+that declares its event types some other way can replace the derived one without touching `ContextRuntime`) with
+`SnapshotSubscriptions` reading `HandlerLocator.subscribedEventTypes()` once. Snapshotting is sound only because
+registration is confined to construction (below) — there is no later state for it to miss.
+`subscribedEventTypes` must never instantiate handlers, so both locators answer from
+`PersistingEventMapper.subscribedEventTypes`. Registering through a retained locator afterwards is not honoured, which
+`ContextRuntimeTest.appliesTo_ignoresAHandlerRegisteredAfterTheRuntimeWasConstructed` pins.
 
 `ContextRuntime` is also that context's `DomainEventDispatcher`: `dispatchDomainEvent` delegates to the same deferred
 `EventDispatcher` reference `deliver` uses, so integration and domain dispatch for one context share a single
@@ -175,8 +177,8 @@ The residual escape hatch is deliberate: a hand-written user who retains their o
 not worth it, since the generated path — the one users actually use — makes late registration unrepresentable.
 
 **Commands and queries resolve by owner lookup**, not through `BaseMessageBus.handlerLocator` directly:
-`execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of `hasHandlersFor`, same
-no-instantiation contract) and require exactly one owner — zero throws the existing `MissingHandlerException`, two or
+`execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of
+`subscribedEventTypes`, same no-instantiation contract) and require exactly one owner — zero throws the existing `MissingHandlerException`, two or
 more throws `AmbiguousHandlerException(messageClass, contextIds)` (`kbus-contracts`, beside `MissingHandlerException`),
 since a command or query is single-owner by contract and must not be resolved by list order. `GenerationHandlerLocator`
 needs its own `contextIdentity` (`""` for default) to answer this, because contexts produced from the same Gradle

@@ -129,22 +129,22 @@ class PersistingEventMapperTest {
     }
 
     @Test
-    fun hasMappingFor_isTrue_onlyForAnEventClassWithRegisteredHandlers() {
+    fun subscribedEventTypes_containsOnlyEventClassesWithRegisteredHandlers() {
         val mapper = PersistingEventMapper()
 
         mapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
-        assertTrue(mapper.hasMappingFor(StorageEvent::class))
-        assertFalse(mapper.hasMappingFor(OtherStorageEvent::class))
+        assertTrue(mapper.subscribedEventTypes().contains(StorageEvent::class))
+        assertFalse(mapper.subscribedEventTypes().contains(OtherStorageEvent::class))
     }
 
     @Test
-    fun hasMappingFor_isFalse_forADomainEventClassRegisteredOnTheSameMapper() {
+    fun subscribedEventTypes_separatesDomainAndIntegrationEventClasses() {
         val mapper = PersistingEventMapper()
 
         mapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
 
-        assertTrue(mapper.hasMappingFor(TestDomainEvent::class))
-        assertFalse(mapper.hasMappingFor(StorageEvent::class))
+        assertTrue(mapper.subscribedEventTypes().contains(TestDomainEvent::class))
+        assertFalse(mapper.subscribedEventTypes().contains(StorageEvent::class))
     }
 }

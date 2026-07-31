@@ -123,8 +123,14 @@ class ContextRuntimeTest {
         assertFalse(runtime.appliesTo(StorageEvent("any", mutableListOf())))
     }
 
+    /**
+     * Subscriptions are read once, when the runtime is built. Registering through a retained
+     * locator is the one way to get a handler in after that, and it is deliberately not honoured —
+     * `BoundedContext`'s registration lambda is the supported path, and it runs before any runtime
+     * exists.
+     */
     @Test
-    fun appliesTo_reflectsAHandlerRegisteredAfterTheContextWasConstructed() = runTest {
+    fun appliesTo_ignoresAHandlerRegisteredAfterTheRuntimeWasConstructed() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val runtime = createRuntime(locator, this)
@@ -135,7 +141,7 @@ class ContextRuntimeTest {
             listOf(PrintEventHandler::class),
         )
 
-        assertTrue(runtime.appliesTo(StorageEvent("any", mutableListOf())))
+        assertFalse(runtime.appliesTo(StorageEvent("any", mutableListOf())))
     }
 
     @Test

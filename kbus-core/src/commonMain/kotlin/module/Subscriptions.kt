@@ -9,10 +9,13 @@ fun interface Subscriptions {
 }
 
 /**
- * Derives a context's subscriptions from its own handler slice, **lazily** — evaluated per call, so
- * a handler registered after the context was constructed is subscribed to from that moment on. Do
- * not snapshot at construction time.
+ * A context's subscriptions, read once from its own handler slice when the bus is built. Safe
+ * because registration is confined to construction: nothing can add a handler after this, so there
+ * is no later state for a snapshot to miss.
  */
-class LocatorSubscriptions(private val locator: HandlerLocator) : Subscriptions {
-    override fun contains(event: IntegrationEvent): Boolean = locator.hasHandlersFor(event)
+class SnapshotSubscriptions(locator: HandlerLocator) : Subscriptions {
+    private val subscribedEventTypes = locator.subscribedEventTypes()
+
+    override fun contains(event: IntegrationEvent): Boolean =
+        subscribedEventTypes.contains(event::class)
 }
