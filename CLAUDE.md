@@ -170,6 +170,15 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   Don't restate what well-named identifiers already say.
 - This applies to KDoc as much as inline comments. Prefer explaining an invariant or a "why" over a
   narrated changelog of how the implementation got here.
+- **Naming is the first tool; a comment is the fallback.** Before writing one, try to make it
+  unnecessary by renaming the class, function, property or variable. A comment that explains what a
+  name should have said is a naming bug.
+- **Describe the interface, not the implementation.** A comment on a declaration is for its callers:
+  what it guarantees, what it requires, what it does *not* promise. Don't narrate the body — how it
+  is implemented must be free to change without the comment going stale.
+- **Never name a type or file the code doesn't already import.** A comment that mentions some other
+  class, module or test is coupling, and coupling a reader can't follow to a definition and a
+  compiler can't check. Describe the constraint in its own terms instead.
 
 ## Testing
 
