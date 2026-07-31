@@ -175,8 +175,7 @@ class InboxCoordinatorTest {
         val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
 
         // alpha declares an inbox: RequireHandlerSuccess overrides FireAndForget, so a failing
-        // handler
-        // leaves the envelope pending rather than acked.
+        // handler leaves the envelope pending rather than acked.
         alphaStore.save(listOf(EventEnvelope.of(TestIntegrationEvent("via-alpha"))))
         (coordinator.destinations[0] as EventInbox).drain()
 
@@ -186,9 +185,8 @@ class InboxCoordinatorTest {
             "RequireHandlerSuccess must not ack a failed handler",
         )
 
-        // beta declares no inbox, so it is never wrapped or overridden: the plain context still
-        // honours
-        // the event's own FireAndForget and swallows the failure.
+        // beta declares no inbox, so it is never overridden: it still honours the event's own
+        // FireAndForget and swallows the failure.
         coordinator.destinations[1].deliver(
             listOf(EventEnvelope.of(TestIntegrationEvent("via-beta")))
         )

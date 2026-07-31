@@ -6,10 +6,10 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 
 class InvocationDomainEventPublisher(
-    val baseDispatcher: DomainEventDispatcher,
+    val domainEventDispatcher: DomainEventDispatcher,
     val invocation: CommandInvocation<*>,
 ) : DomainEventPublisher {
     override suspend fun publish(event: DomainEvent) {
-        baseDispatcher.dispatchDomainEvent(event, invocation)
+        domainEventDispatcher.dispatchDomainEvent(event, invocation)
     }
 }

@@ -33,10 +33,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
-/**
- * [ErrorStrategy.FailFast] so a throwing handler surfaces synchronously, matching
- * [MessageBusMultiContextTest].
- */
+/** [ErrorStrategy.FailFast] so a throwing handler surfaces synchronously. */
 private class InboxAlphaEvent(val name: String) : IntegrationEvent() {
     override val errorStrategy = ErrorStrategy.FailFast
 }
@@ -103,10 +100,7 @@ private class NonAckingOutboxStore : OutboxStore {
     }
 }
 
-/**
- * Default settings: [com.jimbroze.kbus.contracts.messages.event.Concurrency.Concurrent] +
- * FireAndForget.
- */
+/** Default settings: concurrent dispatch, fire and forget. */
 private class GatedInboxEvent(val name: String) : IntegrationEvent()
 
 private class PublishGatedInboxCommand(val name: String) :

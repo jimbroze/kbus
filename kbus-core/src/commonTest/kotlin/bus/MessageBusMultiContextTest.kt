@@ -611,10 +611,8 @@ class MessageBusMultiContextTest {
         bus.execute(PublishAlphaCommand("event"))
         advanceVirtualTime(400)
 
-        // The whole entry stays unpublished, so the poller re-routes it to *every* context and the
-        // healthy one re-dispatches each cycle. This bus configures no inbox — see
-        // MessageBusInboxTest.aFailingContextIsRetriedAlone_theOutboxEntryIsAckedAndHealthyContextsDispatchOnce
-        // for what an inbox buys.
+        // With no inbox, the whole entry stays unpublished, so the poller re-routes it to *every*
+        // context and the healthy one re-dispatches each cycle.
         assertTrue(failedAttempts.size >= 2, "expected the poller to retry: $failedAttempts")
         assertTrue(
             healthyReceived.size >= 2,
@@ -634,8 +632,7 @@ private class MarkRecordingOutboxStore : OutboxStore {
 
     override suspend fun fetchUnpublished(limit: Int): List<EventEnvelope> = entries.take(limit)
 
-    // Idempotent, like a real store: re-marking an already-published id is a no-op, not a second
-    // entry — see RecordingOutboxStore.
+    // Idempotent, like a real store: re-marking an already-published id is a no-op.
     override suspend fun markPublished(ids: List<String>) {
         ids.forEach { if (it !in markedPublished) markedPublished.add(it) }
         entries.removeAll { it.id in ids }

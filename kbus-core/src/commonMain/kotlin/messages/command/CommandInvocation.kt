@@ -7,11 +7,9 @@ import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 
 /**
- * The per-command scope: a command's [UnitOfWork], the [IntegrationEventPublisher] that applies to
- * it, and the [DomainEventDispatcher] of the context that owns it — dispatching through that
- * dispatcher is what confines a command's domain events to its own context's domain handlers.
- * Occupies the parameter slots `UnitOfWork<*>` used to occupy — threading it through the
- * dispatcher/context/dependency factories costs nothing extra.
+ * Everything scoped to one command's execution: its [UnitOfWork], the [IntegrationEventPublisher]
+ * that applies to it, and the [DomainEventDispatcher] of the context that owns it. Dispatching
+ * through the latter is what confines a command's domain events to its own context's handlers.
  */
 class CommandInvocation<TResult>(
     val unitOfWork: UnitOfWork<TResult>,
@@ -20,13 +18,11 @@ class CommandInvocation<TResult>(
 )
 
 /**
- * Bus-owned: answers "which publisher applies to this command?" once, at invocation creation time,
- * instead of re-deriving it from the unit of work wherever it's needed. Delegates to
- * [integrationEventPublisherFactory], which decides whether the outbox or the base publisher
- * applies and, when it's the outbox, self-wires its flush/drain into the unit of work — this
- * factory doesn't touch the unit of work's phase API itself. [create] takes the owning context's
- * dispatcher rather than its id: a resolved dispatcher cannot be looked up wrongly, and a caller
- * that has not resolved an owner cannot supply one at all.
+ * Settles which publisher applies to a command once, when its invocation is created, rather than
+ * re-deriving it wherever a publisher is needed.
+ *
+ * [create] takes the owning context's dispatcher rather than its id, so a caller that has not
+ * already resolved an owner cannot supply one at all.
  */
 class CommandInvocationFactory(
     private val unitOfWorkFactory: UnitOfWorkFactory,

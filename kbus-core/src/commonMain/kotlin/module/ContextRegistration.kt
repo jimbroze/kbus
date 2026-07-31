@@ -10,12 +10,12 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.reflect.KClass
 
 /**
- * The only surface on which a context's event handlers can be registered. It is handed to a lambda
- * and never retained by anything a built bus exposes, so registration is confined to bus
- * construction by the shape of the API rather than by a runtime flag.
+ * The only surface on which a context's event handlers can be registered. Reachable only from a
+ * construction-time lambda and never exposed by a built bus, so late registration is
+ * unrepresentable rather than merely rejected.
  *
- * Event handlers register either as bare handler classes — the hand-written path, usable without
- * code generation — or as [LoadedEventHandler] tokens, which only the generator can mint.
+ * Handlers register either as bare classes — the hand-written path, usable without code generation
+ * — or as [LoadedEventHandler] tokens, which only code generation can mint.
  */
 class ContextRegistration(handlerLocator: HandlerLocator) {
     private val domainEventMapper = CompileTimeDomainEventMapper(handlerLocator.domainEventMapper)

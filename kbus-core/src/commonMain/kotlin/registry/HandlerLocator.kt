@@ -24,22 +24,19 @@ interface HandlerLocator : EventMapperProvider {
 
     /**
      * Every event class this locator has a handler registered for, **without instantiating any of
-     * them** — `handlersFor` creates every handler it finds, so it must not back this. Read once
-     * per context when the bus is built, to derive that context's subscriptions.
+     * them** — [handlersFor] creates every handler it finds, so it must not back this.
      */
     fun subscribedEventTypes(): Set<KClass<out Event>>
 
     /**
-     * Whether this locator owns a handler for [command], **without instantiating it** — used to
-     * find a command's owning bounded context, so this runs on every `execute` call. Do not
-     * implement this as `handlerFor(command, ...) != null`.
+     * Whether this locator owns a handler for [command], **without instantiating it**. Runs on
+     * every dispatch, so do not implement it as `handlerFor(command, ...) != null`.
      */
     fun hasHandlerFor(command: Command<*>): Boolean
 
     /**
-     * Whether this locator owns a handler for [query], **without instantiating it** — used to find
-     * a query's owning bounded context, so this runs on every `fetch` call. Do not implement this
-     * as `handlerFor(query) != null`.
+     * Whether this locator owns a handler for [query], **without instantiating it**. Runs on every
+     * dispatch, so do not implement it as `handlerFor(query) != null`.
      */
     fun hasHandlerFor(query: Query<*>): Boolean
 }

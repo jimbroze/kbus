@@ -92,16 +92,11 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One runtime per authored [BoundedContext], each dispatching integration events — and, as a
-     * [com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher], domain events — to
-     * its own handler slice. An empty [contexts] gives a single [BoundedContextId.DEFAULT] context
-     * over the bus's shared [handlerLocator], so non-modular apps are unaffected. Commands, queries
-     * and domain events all resolve per-context: a command's owning context (see [ownerRuntimeFor])
-     * determines both its handler and which context's domain handlers its domain events reach.
+     * One runtime per declared [BoundedContext]. No [contexts] gives a single default context over
+     * the bus's shared [handlerLocator], leaving non-modular apps unaffected.
      *
-     * Each runtime's [EventDispatcher] is created lazily. Its [contextFactory] transitively depends
-     * on the router these runtimes feed into, so building one eagerly here would be a circular
-     * initializer.
+     * Dispatchers are built lazily to break a cycle: a dispatcher depends on the router, which
+     * depends on these runtimes.
      */
     private val contextRuntimes: List<ContextRuntime> =
         contexts
@@ -165,12 +160,11 @@ abstract class BaseMessageBus(
                 middlewares.any { it is LifecycleAwareMiddleware }
 
     /**
-     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then any
-     * inbox pumps, then the outbox poller if one is configured — consumers before producers, so a
-     * pre-existing backlog is already draining when the poller's first tick lands. A no-op on a bus
-     * with none of these. Idempotent — calling this more than once has no further effect. Must be
-     * called before [execute]/[fetch] on a bus with background work (see [requiresStart]); there is
-     * no restart after [stop].
+     * Starts this bus's background work. Idempotent, and a no-op on a bus that has none. Must be
+     * called before [execute]/[fetch] on a bus that does; there is no restart after [stop].
+     *
+     * Consumers start before producers, so a pre-existing backlog is already draining when the
+     * outbox poller's first tick lands.
      */
     fun start() {
         if (lifecycle != Lifecycle.NEW) return
@@ -195,39 +189,18 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * Stops this bus: within one [gracePeriod] budget, calls each [LifecycleAwareMiddleware]'s
-     * [onStop][LifecycleAwareMiddleware.onStop] and then lets in-flight [eventDispatcherScope] work
-     * finish; then cancels [rootJob] (and, with it, the outbox poller and every scope derived from
-     * it) and waits, for at most another [gracePeriod], for that cancellation to complete. A no-op
-     * if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     * Stops this bus, letting in-flight event dispatch finish first. A no-op if [start] was never
+     * called. Terminal — a stopped bus cannot be restarted.
      *
-     * The `onStop` calls and the dispatch drain share one budget, sequentially: a middleware that
-     * suspends for the whole grace period starves the ones after it and the drain. That is
-     * deliberate — the alternative is a per-participant budget, which makes worst-case shutdown
-     * scale with the number of middlewares.
+     * [gracePeriod] is one shared budget, spent sequentially on each [LifecycleAwareMiddleware]'s
+     * [onStop][LifecycleAwareMiddleware.onStop] and then on draining dispatch, so a middleware that
+     * suspends for all of it starves those after it. A second [gracePeriod] bounds the wait on
+     * cancellation; a coroutine that outlives it is orphaned but left running, since cancellation
+     * is cooperative and hanging shutdown forever is the worse failure.
      *
-     * The wait on cancellation is bounded because cancellation is cooperative and there is no hard
-     * kill: a coroutine that never reaches a suspension point, or that suspends inside
-     * `NonCancellable`, would otherwise block shutdown forever. Bounding it means such a coroutine
-     * leaks — orphaned but still running — rather than hanging the application's exit. The bus is
-     * already [Lifecycle.STOPPED] by then and dispatches nothing further.
-     *
-     * The grace period is not the inbox's durability fix — an inboxed context already dispatches
-     * inline on its own pump coroutine, so a cancelled pump simply leaves its envelope unacked for
-     * the next start to retry, no draining required. What it buys completion for is the two
-     * remaining detached, non-durable paths: a post-commit domain fire-and-forget handler, and
-     * [DirectPublisher]'s launched fire-and-forget routing — both unawaited by the caller that
-     * triggered them, and both lost outright if [rootJob] is cancelled mid-flight. The outbox and
-     * inbox scopes are deliberately not drained here: they run pollers that should be cancelled
-     * promptly, and their work is durable and resumes on restart.
-     *
-     * The drain waits for quiescence, not for one snapshot of [eventDispatcherScope]'s children:
-     * work launched *during* the grace period (a fire-and-forget handler publishing a further
-     * fire-and-forget event) becomes a child only after a snapshot would have been taken, so the
-     * children are re-read until none remain. Only that scope's subtree is covered — a handler that
-     * launches onto a scope the bus doesn't own is still cancelled mid-flight — and the grace
-     * period bounds the whole loop, so work that spawns replacements faster than they complete is
-     * cut off rather than spun on forever.
+     * Only dispatch is drained. Outbox and inbox work is durable and resumes on the next start, so
+     * their pollers are cancelled promptly instead. Handlers that launch onto a scope the bus does
+     * not own are cancelled mid-flight.
      */
     suspend fun stop(gracePeriod: Duration = DEFAULT_STOP_GRACE_PERIOD) {
         if (lifecycle != Lifecycle.STARTED) return
@@ -283,11 +256,8 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * Finds the single [contextRuntimes] entry [hasHandler] answers true for — a command or query
-     * is single-owner by contract, so zero owners is [MissingHandlerException] and two or more is
-     * [AmbiguousHandlerException] rather than resolved by list order. Returns the owning runtime
-     * rather than its id, so a command's domain dispatcher is the resolved object itself and can
-     * never be re-derived wrongly.
+     * The one context owning this message. Commands and queries are single-owner by contract, so
+     * ambiguity throws rather than being resolved by list order.
      */
     private fun ownerRuntimeFor(
         messageClass: KClass<out Message>,
@@ -303,10 +273,9 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * The domain-event dispatcher of the context [contextId] names. Generated command functions
-     * know their handler's owning context statically and so skip [ownerRuntimeFor]'s search; this
-     * is the one place that turns such an id back into a dispatcher, and it throws rather than
-     * silently dispatching to no one when the id names no context on this bus.
+     * The domain-event dispatcher of the context [contextId] names, for callers that already know
+     * the owning context statically. Throws if no such context is on this bus, rather than silently
+     * dispatching to no one.
      */
     protected fun domainEventDispatcherFor(contextId: BoundedContextId): DomainEventDispatcher =
         contextRuntimes.firstOrNull { it.context.id == contextId }

@@ -18,10 +18,8 @@ import kotlin.reflect.KClass
 class GenerationHandlerLocator(
     val generationHandlerFactory: GenerationHandlerFactory,
     /**
-     * This locator's own bounded context identity (`""` for the default context) — what
-     * [hasHandlerFor] checks a command's or query's [GenerationHandlerFactory.commandModule]/
-     * [GenerationHandlerFactory.queryModule] against, since one generated factory can hold handlers
-     * for several identities.
+     * The bounded context this locator answers for (`""` for the default). Needed because one
+     * generated factory can hold handlers for several contexts.
      */
     private val contextIdentity: String = "",
 ) : HandlerLocator {
