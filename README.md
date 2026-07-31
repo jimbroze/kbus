@@ -1063,26 +1063,32 @@ Domain handlers register the same way, per context:
 billing.addDomainHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
 ```
 
-Each context is also readable off the built bus (`bus.billing`), which is how a live bus takes further event handler
-registrations.
+The lambda's receiver is the only place these registration points exist. A built bus does not expose them, so its
+handler set is fixed.
 
 There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
 context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
-handlers — a domain handler registered on `bus.billing` never fires for a command owned by another context.
+handlers — a domain handler registered on `billing` never fires for a command owned by another context.
 
 ### When handlers may be registered
 
-**Command and query handlers must be registered before the bus is constructed.** Building a bus closes registration on
-every context it is given; a later `registerHandlers` throws `HandlerRegistrationSealedException`. A command has exactly
-one owning context, and the bus is what resolves that owner, so it must be able to settle ownership while it is being
-built — that is what lets two contexts claiming the same command be reported against your wiring rather than against
-some later dispatch in production.
+**Command and query handlers must be registered before the bus is constructed.** A command has exactly one owning
+context, and the bus is what resolves that owner, so it must be able to settle ownership while it is being built — that
+is what lets two contexts claiming the same command be reported against your wiring rather than against some later
+dispatch in production. Register them on a context's `HandlerLocator` before passing the context to the bus.
 
-**Event handlers may be registered at any time,** before or after the bus exists. The `configure` lambda is the
-pre-construction path: a delegating constructor's arguments are evaluated before the constructor they delegate to, which
-is the one window where the contexts exist but the bus does not. `bus.billing.addEventHandlers(...)` on a live bus works
-too. A context's subscription set is therefore derived on demand rather than snapshotted, so a handler registered later
-starts receiving events from that moment on.
+**Event handlers must be registered before the bus is constructed too** — in the generated bus's `configure` lambda, or
+in the trailing lambda of a hand-written `BoundedContext`:
+
+```kotlin
+BoundedContext(BoundedContextId("billing"), locator) {
+    addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+}
+```
+
+Nothing enforces this at runtime, because nothing needs to: `addEventHandlers`/`addDomainHandlers` live on
+`ContextRegistration`, which is only ever handed to those lambdas. There is no `seal()` and no
+`HandlerRegistrationSealedException` — a bus that never hands back a registration point cannot be registered into.
 
 ## Domain Modeling
 

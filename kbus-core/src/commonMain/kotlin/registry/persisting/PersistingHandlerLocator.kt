@@ -29,11 +29,6 @@ class PersistingHandlerLocator(
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
-    override fun seal() {
-        commandStore.seal()
-        queryStore.seal()
-    }
-
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,

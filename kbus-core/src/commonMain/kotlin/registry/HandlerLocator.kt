@@ -19,16 +19,6 @@ interface HandlerLocator : EventMapperProvider {
         query: TQuery
     ): QueryHandler<TQuery, TResult>?
 
-    /**
-     * Refuses all further command and query registration. Called once per owning context when a bus
-     * is constructed, so a command handler registered afterwards fails loudly instead of never
-     * being found by owner lookup. Must be idempotent — contexts may share backing stores.
-     *
-     * Event handlers are deliberately exempt: the generated bus exposes its contexts only once
-     * built, so registering an event handler on a live bus is its documented API.
-     */
-    fun seal()
-
     fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>>
 
     /**

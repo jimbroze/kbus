@@ -81,9 +81,9 @@ unassigned (folded into the default context) and is deliberately distinct from a
 null value. Identity does not participate in `HandlerConflictPolicy` — cross-module command ownership is a later stage.
 `BusGenerator` groups every handler kind (command, query, domain, integration) by identity and emits one
 `GenerationHandlerLocator` per context (all sharing the one `HandlerFactory`, disambiguated by its own
-`contextIdentity`), passes them as `contexts` to the super-constructor, and exposes one `BoundedContext` accessor per
-context — `bus.orders`, `bus.default` — the one registration point for both `addEventHandlers` and
-`addDomainHandlers`. There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N
+`contextIdentity`), wraps each in a `ContextRegistration` on a nested `Contexts` holder — `orders`, `default`, the one
+registration point for both `addEventHandlers` and `addDomainHandlers` — and passes `contexts.all` to the
+super-constructor. There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N
 contexts, "which context?" has no answer for either. A generated command convenience function
 (`bus.placeOrder(...)`) knows its handler's owning context statically, so it bakes in that `BoundedContextId` and
 resolves it through `BaseMessageBus.domainEventDispatcherFor` rather than searching every context for an owner.
@@ -145,9 +145,8 @@ would be a circular initializer. `appliesTo` is a
 real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the seam Stage 3's
 `DeclaredSubscriptions` drops into) with `LocatorSubscriptions` delegating to
 `HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both locators
-answer from `PersistingEventMapper.hasMappingFor`. Laziness is an invariant here, not an optimisation, and it is
-scoped to events specifically: **event** handlers are registerable after the bus exists (see the registration-sealing
-rule below), so a construction-time snapshot would silently drop everything registered afterwards.
+answer from `PersistingEventMapper.hasMappingFor`. Now that every handler set is fixed at bus construction, laziness
+here is an optimisation rather than an invariant; `DeclaredSubscriptions` can snapshot.
 
 `ContextRuntime` is also that context's `DomainEventDispatcher`: `dispatchDomainEvent` delegates to the same deferred
 `EventDispatcher` reference `deliver` uses, so integration and domain dispatch for one context share a single
@@ -158,21 +157,22 @@ resolved. Passing the resolved dispatcher rather than a `BoundedContextId` is wh
 unrepresentable: there is no id left to look up, so `DefaultCommandDependenciesFactory` takes no lookup function and
 `InvocationDomainEventPublisher.baseDispatcher` is non-null.
 
-**Handler registration closes when the bus is constructed — for commands and queries.** `HandlerLocator.seal()` is
-called on every context's locator from `BaseMessageBus`'s `init` (via `BoundedContext.seal()`), and
-`MessageHandlerFactoryStore.registerHandlers`/`removeHandlers` then throw `HandlerRegistrationSealedException`
-(`kbus-core`, `registry`). Sealing is a precondition, not a bug fix: owner lookup is still lazy today, so a late command
-handler *would* in fact be found. What a closed handler set buys is the pair of properties the bus was built for —
-construction-time conflict detection, and an eager owner map in place of the per-dispatch scan over every context.
-Neither is sound while registration stays open. Sealing must be idempotent — two contexts may share one
-`HandlerFactoryStoreCollection`. `GenerationHandlerLocator.seal()` is a no-op: its commands and queries come from a
-generated factory fixed at compile time.
+**Handler registration closes when the bus is constructed, and the type system is what closes it.** There is no
+`seal()` and no `HandlerRegistrationSealedException`: `addDomainHandlers`/`addEventHandlers` live on
+`ContextRegistration` (`kbus-core`, `core.module`), which is only ever handed to a lambda — `BoundedContext`'s trailing
+`register: ContextRegistration.() -> Unit` for hand-written buses, and the generated bus's `configure: Contexts.() ->
+Unit` for generated ones. Nothing a constructed bus exposes can register a handler, so there is no runtime state to
+check. The generated `Contexts` holder exposes one `ContextRegistration` per context and keeps both the
+`GenerationHandlerLocator`s (private) and `all: List<BoundedContext>` (internal) to itself — the bus has no
+`bus.billing` accessor, because handing back a `BoundedContext` would reopen registration for the bus's lifetime.
 
-**Event handlers are deliberately exempt from sealing**, and this is a constraint of the generated API, not an
-oversight: a generated bus exposes its contexts only *after* construction, so `bus.billing.addEventHandlers(...)` on a
-live bus is its documented registration path (README). That exemption is exactly why `Subscriptions` stays lazy while
-command/query lookup may safely become eager. Closing it would mean giving the generated bus a pre-construction
-registration hook.
+`configure` runs in the delegating constructor's *argument list* (`Contexts(handlerFactory).apply(configure)`), which is
+the one window where the contexts exist and the bus does not — Kotlin evaluates a delegating constructor's arguments
+before the constructor it delegates to.
+
+The residual escape hatch is deliberate: a hand-written user who retains their own `HandlerLocator` (or constructs a
+`ContextRegistration` over it) can still register late, silently. Guarding that would need the runtime flag back; it is
+not worth it, since the generated path — the one users actually use — makes late registration unrepresentable.
 
 **Commands and queries resolve by owner lookup**, not through `BaseMessageBus.handlerLocator` directly:
 `execute`/`fetch` ask each context's `HandlerLocator.hasHandlerFor` (a command/query analogue of `hasHandlersFor`, same
@@ -354,12 +354,12 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   independent of every other context. `InboxConfig.ackPolicy` (`InboxAckPolicy.RequireHandlerSuccess`) is how a consumer
   demands stronger guarantees than a producer's declared `FireAndForget` — stated explicitly (the parameter is required,
   with no default), never inferred from context shape.
-- **Registration closes when the bus is built — for commands and queries only.** A command or query has exactly one
+- **Registration closes when the bus is built.** A command or query has exactly one
   owning context and the bus is what resolves that owner, so ownership must be settleable at construction — that is what
   makes conflicts reportable against the wiring rather than against the first dispatch, and an eager owner map sound.
-  `HandlerLocator.seal()` enforces it with a loud `HandlerRegistrationSealedException`. Event handlers stay open by necessity, not preference — the generated bus exposes its contexts only
-  after construction, so registering on a live bus is its documented API, and that is precisely why a context's
-  subscription set must stay derived-on-demand rather than snapshotted.
+  Event handlers close with them: registration lives on `ContextRegistration`, reachable only from a construction-time
+  lambda, so the rule is carried by the shape of the API rather than by a runtime flag that has to be checked, tested
+  and explained.
 - **No background work starts from a constructor.** A bus with an outbox, an inbox, and/or
   `LifecycleAwareMiddleware` only begins that work when the application calls `start()`; `stop(gracePeriod)` is
   `suspend` and deterministic — one grace period covers each middleware's `suspend onStop()` and then in-flight

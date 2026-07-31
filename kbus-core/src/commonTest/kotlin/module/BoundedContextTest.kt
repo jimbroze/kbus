@@ -31,12 +31,13 @@ class BoundedContextTest {
     @Test
     @OptIn(GeneratedKBusApi::class)
     fun constructor_defaultsToAFreshPersistingHandlerLocator() {
-        val context = BoundedContext(BoundedContextId("orders"))
-
-        context.addEventHandlers(
-            StorageEvent::class,
-            listOf(LoadedEventHandler(PrintEventHandler::class)),
-        )
+        val context =
+            BoundedContext(BoundedContextId("orders")) {
+                addEventHandlers(
+                    StorageEvent::class,
+                    listOf(LoadedEventHandler(PrintEventHandler::class)),
+                )
+            }
 
         assertTrue(context.handlerLocator.hasHandlersFor(StorageEvent("any", mutableListOf())))
     }
@@ -45,12 +46,12 @@ class BoundedContextTest {
     @OptIn(GeneratedKBusApi::class)
     fun addEventHandlers_registersOnTheUnderlyingLocatorsIntegrationEventMapper() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = BoundedContext(BoundedContextId("orders"), locator)
-
-        context.addEventHandlers(
-            StorageEvent::class,
-            listOf(LoadedEventHandler(PrintEventHandler::class)),
-        )
+        BoundedContext(BoundedContextId("orders"), locator) {
+            addEventHandlers(
+                StorageEvent::class,
+                listOf(LoadedEventHandler(PrintEventHandler::class)),
+            )
+        }
 
         assertTrue(locator.hasHandlersFor(StorageEvent("any", mutableListOf())))
     }
@@ -59,12 +60,12 @@ class BoundedContextTest {
     @OptIn(GeneratedKBusApi::class)
     fun addDomainHandlers_registersOnTheUnderlyingLocatorsDomainEventMapper() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = BoundedContext(BoundedContextId("orders"), locator)
-
-        context.addDomainHandlers(
-            TestDomainEvent::class,
-            listOf(LoadedEventHandler(TestDomainEventHandler::class)),
-        )
+        BoundedContext(BoundedContextId("orders"), locator) {
+            addDomainHandlers(
+                TestDomainEvent::class,
+                listOf(LoadedEventHandler(TestDomainEventHandler::class)),
+            )
+        }
 
         assertTrue(locator.hasHandlersFor(TestDomainEvent("any")))
     }
@@ -74,12 +75,12 @@ class BoundedContextTest {
     fun addEventHandlers_doesNotRegisterOnAnotherContextsLocator() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val other = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = BoundedContext(BoundedContextId("orders"), locator)
-
-        context.addEventHandlers(
-            StorageEvent::class,
-            listOf(LoadedEventHandler(PrintEventHandler::class)),
-        )
+        BoundedContext(BoundedContextId("orders"), locator) {
+            addEventHandlers(
+                StorageEvent::class,
+                listOf(LoadedEventHandler(PrintEventHandler::class)),
+            )
+        }
 
         assertFalse(other.hasHandlersFor(StorageEvent("any", mutableListOf())))
     }
@@ -87,9 +88,9 @@ class BoundedContextTest {
     @Test
     fun addEventHandlers_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = BoundedContext(BoundedContextId("orders"), locator)
-
-        context.addEventHandlers(StorageEvent::class, PrintEventHandler::class)
+        BoundedContext(BoundedContextId("orders"), locator) {
+            addEventHandlers(StorageEvent::class, PrintEventHandler::class)
+        }
 
         assertTrue(locator.hasHandlersFor(StorageEvent("any", mutableListOf())))
     }
@@ -97,9 +98,9 @@ class BoundedContextTest {
     @Test
     fun addDomainHandlers_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
-        val context = BoundedContext(BoundedContextId("orders"), locator)
-
-        context.addDomainHandlers(TestDomainEvent::class, TestDomainEventHandler::class)
+        BoundedContext(BoundedContextId("orders"), locator) {
+            addDomainHandlers(TestDomainEvent::class, TestDomainEventHandler::class)
+        }
 
         assertTrue(locator.hasHandlersFor(TestDomainEvent("any")))
     }
@@ -108,7 +109,6 @@ class BoundedContextTest {
     fun addEventHandlers_registersEveryHandlerClassGiven() {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
-        val context = BoundedContext(BoundedContextId("orders"), locator)
         stores.eventStore.registerHandlers(
             StorageEvent::class,
             listOf(
@@ -119,11 +119,13 @@ class BoundedContextTest {
             ),
         )
 
-        context.addEventHandlers(
-            StorageEvent::class,
-            PrintEventHandler::class,
-            OtherPrintEventHandler::class,
-        )
+        BoundedContext(BoundedContextId("orders"), locator) {
+            addEventHandlers(
+                StorageEvent::class,
+                PrintEventHandler::class,
+                OtherPrintEventHandler::class,
+            )
+        }
 
         assertEquals(2, locator.handlersFor(StorageEvent("any", mutableListOf())).size)
     }

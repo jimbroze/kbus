@@ -29,12 +29,6 @@ class GenerationHandlerLocator(
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
-    /**
-     * Nothing to seal: command and query handlers come from the generated
-     * [GenerationHandlerFactory], which is fixed at compile time and cannot be registered into.
-     */
-    override fun seal() = Unit
-
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,

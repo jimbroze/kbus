@@ -157,12 +157,12 @@ class GenerationTest {
                 Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                 EmptyTransactionManager(),
                 emptyList(),
-            )
-
-        bus.default.addDomainHandlers(
-            TestGeneratorEvent::class,
-            listOf(TestGeneratorEventHandler::class.loaded),
-        )
+            ) {
+                default.addDomainHandlers(
+                    TestGeneratorEvent::class,
+                    listOf(TestGeneratorEventHandler::class.loaded),
+                )
+            }
 
         val handledBefore = TestGeneratorEventHandler.timesHandled
         bus.execute(TestEventPublishingCommand())
@@ -200,40 +200,17 @@ class GenerationTest {
                     Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                     EmptyTransactionManager(),
                     listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
-                )
-
-            bus.default.addEventHandlers(
-                TestShipmentIntegration::class,
-                listOf(TestShipmentIntegrationHandler::class.loaded),
-            )
+                ) {
+                    default.addEventHandlers(
+                        TestShipmentIntegration::class,
+                        listOf(TestShipmentIntegrationHandler::class.loaded),
+                    )
+                }
 
             val handledBefore = TestShipmentIntegrationHandler.timesHandled
             bus.execute(TestShipmentCommand())
             assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
         }
-
-    /**
-     * Pre-construction registration: the `configure` lambda runs against the bus's contexts while
-     * they exist but the bus does not, which is the window a sealed registration would require.
-     */
-    @Test
-    fun test_event_handlers_can_be_registered_before_the_bus_is_constructed() = runTest {
-        val bus =
-            CompileTimeLoadedMessageBus(
-                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
-                EmptyTransactionManager(),
-                listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
-            ) {
-                default.addEventHandlers(
-                    TestShipmentIntegration::class,
-                    listOf(TestShipmentIntegrationHandler::class.loaded),
-                )
-            }
-
-        val handledBefore = TestShipmentIntegrationHandler.timesHandled
-        bus.execute(TestShipmentCommand())
-        assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
-    }
 
     @Test
     fun test_each_context_only_dispatches_its_own_integration_handlers() = runTest {
@@ -243,18 +220,19 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
-            )
-
-        // Each submodule declares its own kbus.boundedContextIdentity, so the generated bus
-        // exposes one registration point per bounded context instead of a single ambiguous mapper.
-        bus.orders.addEventHandlers(
-            OrderPlacedIntegration::class,
-            listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
-        )
-        bus.inventory.addEventHandlers(
-            StockReserved::class,
-            listOf(NotifyWarehouseHandler::class.loaded),
-        )
+            ) {
+                // Each submodule declares its own kbus.boundedContextIdentity, so the generated
+                // bus exposes one registration point per bounded context instead of a single
+                // ambiguous mapper.
+                orders.addEventHandlers(
+                    OrderPlacedIntegration::class,
+                    listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
+                )
+                inventory.addEventHandlers(
+                    StockReserved::class,
+                    listOf(NotifyWarehouseHandler::class.loaded),
+                )
+            }
 
         val ordersHandledBefore = HandleOrderPlacedIntegrationHandler.timesHandled
         val inventoryHandledBefore = NotifyWarehouseHandler.timesHandled

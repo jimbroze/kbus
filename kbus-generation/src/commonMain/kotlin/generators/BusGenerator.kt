@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.ContextRegistration
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -95,7 +96,6 @@ class BusGenerator(
         classBuilder.addType(buildContextsClass(handlerFactoryClassName, contexts))
         BusConstructorGenerator(config, contextsClassName)
             .build(classBuilder, dependenciesClassName, handlerFactoryClassName)
-        buildEventMapperProperties(classBuilder, contexts)
 
         handlers
             .filterNot { it is EventHandlerDefinition }
@@ -121,25 +121,14 @@ class BusGenerator(
             .joinToString("")
 
     /**
-     * One registration point per bounded context, for both integration and domain handlers (via
-     * [BoundedContext]'s own `addEventHandlers`/`addDomainHandlers`). There is deliberately no
-     * bus-wide `integrationEventMapper` or `domainEventMapper`: with N contexts, "which context?"
-     * has no answer for either — a command's domain events dispatch only to its owning context.
-     */
-    private fun buildEventMapperProperties(classBuilder: TypeSpec.Builder, contexts: List<String>) {
-        contexts.forEach { context ->
-            classBuilder.addProperty(
-                PropertySpec.builder(accessorName(context), BoundedContext::class.asClassName())
-                    .initializer("contexts.%L", accessorName(context))
-                    .build()
-            )
-        }
-    }
-
-    /**
-     * The bus's bounded contexts as standalone objects, constructed before the bus itself so that
-     * event handlers can be registered against them while the bus is still being built. All share
-     * the one generated handler factory, each disambiguated by its own context identity.
+     * One registration point per bounded context, for both integration and domain handlers. There
+     * is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N contexts,
+     * "which context?" has no answer for either — a command's domain events dispatch only to its
+     * owning context.
+     *
+     * Only the [ContextRegistration]s are exposed, never the [BoundedContext]s themselves: a bus
+     * that handed those back would leave registration open for its whole lifetime. All contexts
+     * share the one generated handler factory, each disambiguated by its own context identity.
      */
     private fun buildContextsClass(
         handlerFactoryClassName: ClassName,
@@ -157,14 +146,24 @@ class BusGenerator(
         contexts.forEach { context ->
             val identity = if (context == DEFAULT_CONTEXT) "" else context
             builder.addProperty(
-                PropertySpec.builder(accessorName(context), BoundedContext::class.asClassName())
+                PropertySpec.builder(
+                        locatorName(context),
+                        GenerationHandlerLocator::class.asClassName(),
+                    )
+                    .addModifiers(KModifier.PRIVATE)
                     .initializer(
-                        "%T(%L, %T(handlerFactory, %S))",
-                        BoundedContext::class,
-                        contextIdKeyBlock(identity),
+                        "%T(handlerFactory, %S)",
                         GenerationHandlerLocator::class,
                         identity,
                     )
+                    .build()
+            )
+            builder.addProperty(
+                PropertySpec.builder(
+                        accessorName(context),
+                        ContextRegistration::class.asClassName(),
+                    )
+                    .initializer("%T(%L)", ContextRegistration::class, locatorName(context))
                     .build()
             )
         }
@@ -179,13 +178,23 @@ class BusGenerator(
                     .addModifiers(KModifier.INTERNAL)
                     .initializer(
                         contexts
-                            .map { CodeBlock.of("%L", accessorName(it)) }
+                            .map { context ->
+                                val identity = if (context == DEFAULT_CONTEXT) "" else context
+                                CodeBlock.of(
+                                    "%T(%L, %L)",
+                                    BoundedContext::class,
+                                    contextIdKeyBlock(identity),
+                                    locatorName(context),
+                                )
+                            }
                             .joinToCode(", ", "listOf(", ")")
                     )
                     .build()
             )
             .build()
     }
+
+    private fun locatorName(context: String): String = "${accessorName(context)}Locator"
 
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
         val returnTypeName = handler.handlerData.returnType
