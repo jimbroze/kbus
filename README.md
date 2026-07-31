@@ -639,10 +639,10 @@ val bus = MessageBus(
 )
 ```
 
-Each context's `appliesTo` is derived, lazily, from its own locator, so an integration handler registered in one context
-never fires for another context's event, and a handler registered after the bus was constructed is subscribed to from
-that moment on. Passing no `contexts` gives a bus a single implicit `default` context over its whole handler locator —
-the behaviour of a non-modular application.
+Each context's `appliesTo` is read from its own locator when the bus is built, so an integration handler registered in
+one context never fires for another context's event, and one registered after the bus was constructed is not subscribed
+to at all. Passing no `contexts` gives a bus a single implicit `default` context over its whole handler locator — the
+behaviour of a non-modular application.
 
 **Commands and queries resolve by owner lookup across `contexts`**, not through the bus's own handler locator directly:
 exactly one context's locator must claim a given command or query (`HandlerLocator.hasHandlerFor`), or `execute`/`fetch`
