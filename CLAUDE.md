@@ -142,11 +142,11 @@ reference to that context's own `EventDispatcher` (`() -> EventDispatcher`, reso
 `dispatchDomainEvent`, not at construction) — not vestigial, but load-bearing: a dispatcher's `contextFactory`
 transitively depends on the router these runtimes feed into, so building them eagerly with a concrete `EventDispatcher`
 would be a circular initializer. `appliesTo` is a
-real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, the seam Stage 3's
-`DeclaredSubscriptions` drops into) with `LocatorSubscriptions` delegating to
-`HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both locators
-answer from `PersistingEventMapper.hasMappingFor`. Now that every handler set is fixed at bus construction, laziness
-here is an optimisation rather than an invariant; `DeclaredSubscriptions` can snapshot.
+real, **lazily derived** subscription set: `Subscriptions` (a `fun interface`, so an implementation that declares its
+event types up front can replace the derived one without touching `ContextRuntime`) with `LocatorSubscriptions`
+delegating to `HandlerLocator.hasHandlersFor` — which must never instantiate handlers (it runs on every route), so both
+locators answer from `PersistingEventMapper.hasMappingFor`. Since every handler set is now fixed at bus construction,
+that laziness is an optimisation rather than an invariant: a construction-time snapshot would be sound.
 
 `ContextRuntime` is also that context's `DomainEventDispatcher`: `dispatchDomainEvent` delegates to the same deferred
 `EventDispatcher` reference `deliver` uses, so integration and domain dispatch for one context share a single
