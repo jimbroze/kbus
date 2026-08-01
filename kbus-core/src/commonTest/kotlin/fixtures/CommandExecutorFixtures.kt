@@ -3,24 +3,30 @@ package com.jimbroze.kbus.core.fixtures
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
 class TestCommandDependenciesFactory : CommandDependenciesFactory {
     var unitOfWork: UnitOfWork<*>? = null
     var commandDependencies: CommandDependencies? = null
 
-    override fun create(invocation: CommandInvocation<*>): CommandDependencies {
+    override fun create(
+        invocation: CommandInvocation<*>,
+        nestedCommandExecutor: NestedCommandExecutor,
+    ): CommandDependencies {
         if (this.unitOfWork !== null) {
             error("Unit of work has already been set")
         }
 
-        val commandDependencies = CommandDependencies(TestDomainEventPublisher())
+        val commandDependencies =
+            CommandDependencies(TestDomainEventPublisher(), nestedCommandExecutor)
 
         this.unitOfWork = invocation.unitOfWork
         this.commandDependencies = commandDependencies
@@ -30,7 +36,14 @@ class TestCommandDependenciesFactory : CommandDependenciesFactory {
 }
 
 fun <TResult> testCommandDependencies() =
-    TestCommandDependenciesFactory().create(testInvocation<TResult>())
+    TestCommandDependenciesFactory().create(testInvocation<TResult>(), NoNestedCommandExecutor)
+
+/** For handlers under test that never nest a command. */
+object NoNestedCommandExecutor : NestedCommandExecutor {
+    override suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
+        command: TCommand
+    ): TResult = error("This test's handler is not expected to execute a nested command")
+}
 
 class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
 

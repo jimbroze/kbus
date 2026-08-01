@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.registry.persisting
 
+import com.jimbroze.kbus.core.fixtures.NoNestedCommandExecutor
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
@@ -45,7 +46,10 @@ class PersistingHandlerLocatorTest {
         val command = StorageCommand("test", mutableListOf())
 
         val initialHandler =
-            locator.handlerFor(command, CommandDependencies(TestDomainEventPublisher()))
+            locator.handlerFor(
+                command,
+                CommandDependencies(TestDomainEventPublisher(), NoNestedCommandExecutor),
+            )
         assertEquals(null, initialHandler)
     }
 
