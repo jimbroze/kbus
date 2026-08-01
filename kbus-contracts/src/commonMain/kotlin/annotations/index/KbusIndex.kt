@@ -4,6 +4,7 @@ enum class DependencyType {
     PROPERTY,
     FUNCTIONAL,
     COMMAND,
+    CONTEXT_COMMANDS,
     NON_DEPENDENCY,
 }
 

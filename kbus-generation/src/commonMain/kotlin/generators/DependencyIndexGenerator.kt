@@ -12,6 +12,7 @@ import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
@@ -160,6 +161,7 @@ class DependencyIndexGenerator(
             is FunctionalDependency -> DependencyType.FUNCTIONAL
             is PropertyDependency -> DependencyType.PROPERTY
             is CommandDependency -> DependencyType.COMMAND
+            is ContextCommandsDependency -> DependencyType.CONTEXT_COMMANDS
             is NonDependency -> DependencyType.NON_DEPENDENCY
         }
     }

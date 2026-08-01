@@ -9,11 +9,13 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
 import com.jimbroze.kbus.contracts.annotations.LoadEvent
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsFor
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.ContextCommandsGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
@@ -26,6 +28,8 @@ import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadEventVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.ksp.toClassName
 
 @Suppress("LongParameterList")
 class CodeGenerators(
@@ -37,6 +41,7 @@ class CodeGenerators(
     val bus: BusGenerator,
     val loadedEventHandlersGenerator: LoadedEventHandlersGenerator,
     val autoPublishRegistrationsGenerator: AutoPublishRegistrationsGenerator,
+    val contextCommands: ContextCommandsGenerator,
 )
 
 @Suppress("LongParameterList")
@@ -48,14 +53,20 @@ class KbusProcessor(
     private val generators: CodeGenerators,
     private val isSubModule: Boolean,
     private val indexPackagePath: String,
+    private val generatedPackagePath: String,
 ) : SymbolProcessor {
     private val dependencies = ProcessingContext()
+
+    /** Other modules' generated per-context command interfaces, by bounded context identity. */
+    private val visibleContextCommands = mutableMapOf<String, MutableSet<ClassName>>()
 
     @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val invalidSymbols = mutableListOf<KSAnnotated>()
 
         invalidSymbols.addAll(processIndexes(resolver))
+
+        if (!isSubModule) findVisibleContextCommands(resolver)
 
         invalidSymbols.addAll(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
@@ -88,6 +99,35 @@ class KbusProcessor(
         }
 
         return invalidIndexSymbols
+    }
+
+    /**
+     * Every module's generated types share one package, so a downstream module can read its
+     * dependencies' command interfaces straight out of it; the annotation is what says which
+     * context each covers.
+     */
+    @OptIn(KspExperimental::class)
+    private fun findVisibleContextCommands(resolver: Resolver) {
+        resolver
+            .getDeclarationsFromPackage(generatedPackagePath)
+            .filterIsInstance<KSClassDeclaration>()
+            .forEach { declaration ->
+                val annotation =
+                    declaration.annotations.firstOrNull {
+                        it.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                            ContextCommandsFor::class.qualifiedName
+                    } ?: return@forEach
+                val identity =
+                    annotation.arguments
+                        .firstOrNull {
+                            it.name?.asString() == ContextCommandsFor::contextIdentity.name
+                        }
+                        ?.value as? String ?: return@forEach
+
+                visibleContextCommands
+                    .getOrPut(identity) { mutableSetOf() }
+                    .add(declaration.toClassName())
+            }
     }
 
     private fun processMessages(
@@ -133,6 +173,7 @@ class KbusProcessor(
                 dependencies.locallyDeclaredHandlers,
                 sourceFiles,
             )
+            generators.contextCommands.generateInterfaces(dependencies.handlers, sourceFiles)
             generators.dependencyIndexGenerator.generateIndexClass(
                 dependencies.locallyDeclaredDependencies,
                 dependencies.locallyDeclaredHandlers,
@@ -149,6 +190,12 @@ class KbusProcessor(
             generators.handlersFactory.generateClasses(dependencies.handlers, sourceFiles)
             generators.loadedEventHandlersGenerator.generateExtensionProperties(
                 dependencies.handlers,
+                sourceFiles,
+            )
+            generators.contextCommands.generateInterfaces(dependencies.handlers, sourceFiles)
+            generators.contextCommands.generateExecutors(
+                dependencies.handlers,
+                visibleContextCommands.mapValues { (_, interfaces) -> interfaces.toList() },
                 sourceFiles,
             )
             generators.bus.generateClass(dependencies.handlers, sourceFiles)

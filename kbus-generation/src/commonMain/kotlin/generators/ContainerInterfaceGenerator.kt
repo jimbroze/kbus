@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.CommandScopedDependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
 import com.jimbroze.kbus.generation.processing.dependencies.NonDependency
@@ -31,7 +31,7 @@ class ContainerInterfaceGenerator(
             when (val metadata = dependency.metadata) {
                 is FunctionalDependency -> this.addFunctionalDependency(interfaceBuilder, metadata)
                 is PropertyDependency -> this.addPropertyDependency(interfaceBuilder, metadata)
-                is CommandDependency -> Unit
+                is CommandScopedDependency -> Unit
                 is NonDependency -> Unit
             }
         }
