@@ -661,8 +661,8 @@ point is not routable — register everything before constructing the bus.
 
 Three consequences worth knowing:
 
-- **Dispatch middleware runs once per subscribing context**, so a locking middleware acquires once per context
-  (sequentially — destinations are routed in order).
+- **Dispatch middleware runs once per subscribing context**, so a locking middleware acquires once per context.
+  Destinations are routed to concurrently, so those acquisitions overlap rather than queueing behind one another.
 - **An event no context subscribes to is silently accepted and acknowledged.** Nothing dispatches, so the dispatch
   middleware chain does not run for it either, and with an outbox the entry is marked published rather than retried
   forever.
@@ -681,6 +681,35 @@ poller to retry, the same as any other delivery failure. Routing has no dependen
 publish path always goes through, and the outbox composes with it rather than replacing it. For a destination fronted
 by a [per-context inbox](#per-context-inbox), the thing that can throw (and un-ack the entry) is the *save* to the
 inbox's store, not the handlers — dispatch to handlers happens later, off the inbox's own pump.
+
+## Event Ordering
+
+**Domain events are ordered. Integration events are not.** This is a deliberate split, not an implementation gap.
+
+Domain events run inside a command, in one process, with no retries in play, so ordering is both cheap and meaningful:
+
+- **By phase** — all immediate work, then all after-primary-work, then all post-commit work.
+- **By publication order within a phase** — publish A then B, and A's handlers for that phase finish before B's start.
+- **Not across the handlers of a single event** — those run concurrently unless the event declares `DispatchSequentially`.
+
+Integration events cross a context boundary, are retried, and may be consumed by several processes. kbus therefore
+makes **no ordering guarantee** on them, and the API deliberately offers no way to ask for one:
+
+- Publishing splits a batch by error strategy, so fire-and-forget events race the rest.
+- Routing fans out to subscribing contexts concurrently.
+- Delivery within a fetched batch is concurrent, capped by `maxConcurrentDeliveries` (default 16) on `OutboxConfig`
+  and `InboxConfig`.
+- Retries reorder by construction: a failed envelope is redelivered after later ones already succeeded.
+
+Setting `maxConcurrentDeliveries = 1` restores strict in-order delivery *within a single fetched batch, in a single
+process*. That is genuinely all it buys — nothing constrains the order of two batches, and a second process polling the
+same store interleaves with this one freely. Treat it as a throughput/isolation knob rather than an ordering feature:
+its real cost is that one slow or failing envelope holds up every envelope behind it in the batch.
+
+**If a consumer needs ordering, put a sequence number or version on the event** and let the handler detect and reject
+stale arrivals. That works across processes and survives retries, neither of which a delivery-side guarantee can offer.
+Ordering-sensitive work that genuinely must be sequenced usually belongs in a command or a domain event, where the
+ordering above is real.
 
 ## Transactional Outbox
 
@@ -886,10 +915,12 @@ A few things this stage deliberately leaves for later, since none of them requir
 
 - No dead-letter queue — a poison message retries forever, and if poison entries ever exceed the batch size, the
   oldest-first fetch stops advancing and the context wedges.
-- `pollInterval`, `batchSize`, and whether dispatch is opportunistic stay bus-wide on `InboxConfig`, not per-context.
+- `pollInterval`, `batchSize`, `maxConcurrentDeliveries` and whether dispatch is opportunistic stay bus-wide on
+  `InboxConfig`, not per-context.
 - Tombstone retention has no contract-level pruning hook; an implementation that prunes too aggressively re-opens the
   duplicate window it was closing.
-- No ordering guarantee across retries — a failed envelope is retried after later ones were already delivered.
+- No ordering guarantee — see [Event Ordering](#event-ordering); this is a design decision rather than a gap, but a
+  consumer that wants in-batch ordering has only the blunt `maxConcurrentDeliveries = 1`.
 - Middleware dispatched from an inboxed context runs on the inbox's own pump coroutine, not the caller's — a
   `LockingMiddleware`'s re-entrancy token (carried in the coroutine context) does not propagate from whatever
   triggered the original publish.

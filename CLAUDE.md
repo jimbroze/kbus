@@ -97,6 +97,14 @@ Integration events go through three stages — publish → route → dispatch �
 `EventEnvelope`s to it, and it fans them out to `EventDestination`s (local context dispatch today; external transports
 later). Delivery is at-least-once — a destination that throws is not acknowledged, so the entry is retried.
 
+### Event Ordering
+
+Domain events are ordered — by dispatch phase, then by publication order within a phase — because they run in one
+process inside a command, with no retries. Integration events have **no ordering guarantee** and the API offers no way
+to request one: publish, routing and delivery are all concurrent, and retry reorders by construction. The relay's
+concurrency limit is a throughput knob, not an ordering feature; a limit of 1 orders one batch in one process and
+nothing wider. A consumer needing order carries a sequence number on the event and rejects stale arrivals.
+
 ### Bounded Contexts
 
 A bus takes a list of `BoundedContext`s, each an authored declaration pairing an id with a `HandlerLocator` and its
@@ -145,7 +153,9 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   orchestrator; don't accumulate concerns there. Middleware is for cross-cutting invocation concerns (logging,
   locking), not transactional semantics.
 - **Integration events decouple publish from dispatch — and routing is the seam between them.** A command's return
-  never awaits integration handler execution; delivery is at-least-once.
+  never awaits integration handler execution; delivery is at-least-once and unordered. Don't offer a guarantee the
+  framework cannot hold across processes and retries — an ordering option that quietly degrades under load is worse
+  than none.
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns sit on handlers; a consumer
   that needs stronger guarantees than a producer declared states that explicitly rather than having it inferred.
 - **Registration closes when the bus is built.** A command or query has exactly one owning context, so ownership must
