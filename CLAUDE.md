@@ -83,7 +83,9 @@ and emits one context per identity.
 
 ### Middleware Pipeline
 
-Composable middleware chain wrapping handler execution. Built-in: `MessageLogger`, `Locker`.
+Composable middleware chain wrapping handler execution. Built-in: `MessageLogger`, `Locker`. Every middleware
+declares a `MiddlewareScope`, with no default: whether it re-runs for a command nested inside another command's
+invocation is the author's call, not the framework's.
 
 ### Unit of Work
 
@@ -156,6 +158,9 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   never awaits integration handler execution; delivery is at-least-once and unordered. Don't offer a guarantee the
   framework cannot hold across processes and retries — an ordering option that quietly degrades under load is worse
   than none.
+- **A command's transaction boundary is the execution path that reached it.** Same context, through the
+  handler's own dependencies: always shares the caller's Unit of Work. Cross-context, through the bus: never
+  can, because that path holds no handle to a caller's. It is not a setting either side can override.
 - **Producers own event data; consumers own consumption policy.** Handler-side concerns sit on handlers; a consumer
   that needs stronger guarantees than a producer declared states that explicitly rather than having it inferred.
 - **Registration closes when the bus is built.** A command or query has exactly one owning context, so ownership must
