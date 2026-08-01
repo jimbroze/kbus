@@ -7,7 +7,6 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
-import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
@@ -28,7 +27,7 @@ import com.jimbroze.kbus.generation.processors.KbusProcessor
 private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
 
 private const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
-private const val HANDLERS_INTERFACE_NAME = "AllHandlers"
+private const val HANDLERS_INTERFACE_NAME = "Handlers"
 private const val LOADER_CLASS_NAME = "AutoLoader"
 private const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
 private const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
@@ -119,7 +118,6 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 BaseMessageBus::class,
                 Middleware::class,
                 TransactionManager::class,
-                GenerationHandlerLocator::class,
                 OutboxConfig::class,
                 InboxConfig::class,
             ),

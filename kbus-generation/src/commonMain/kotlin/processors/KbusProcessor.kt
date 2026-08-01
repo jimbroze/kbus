@@ -125,7 +125,7 @@ class KbusProcessor(
         val sourceFiles = dependencies.sourceFiles.toList()
 
         generators.containerInterface.generateInterface(dependencies.allDependencies, sourceFiles)
-        generators.handlersInterface.generateInterface(dependencies.handlers, sourceFiles)
+        generators.handlersInterface.generateInterfaces(dependencies.handlers, sourceFiles)
         if (isSubModule) {
             generators.dependencyIndexGenerator.generateIndexClass(
                 dependencies.allDependencies,
@@ -135,7 +135,7 @@ class KbusProcessor(
             )
         } else {
             generators.autoLoader.generateAutoloader(dependencies.allDependencies, sourceFiles)
-            generators.handlersFactory.generateClass(dependencies.handlers, sourceFiles)
+            generators.handlersFactory.generateClasses(dependencies.handlers, sourceFiles)
             generators.loadedEventHandlersGenerator.generateExtensionProperties(
                 dependencies.handlers,
                 sourceFiles,

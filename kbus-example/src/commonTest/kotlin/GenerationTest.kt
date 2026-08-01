@@ -20,10 +20,13 @@ import com.jimbroze.kbus.generation.test.inventory.application.usecases.event.No
 import com.jimbroze.kbus.generation.test.inventory.application.usecases.event.StockReserved
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.ExampleWarehouseNotifier
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.InMemoryInventoryRepository
+import com.jimbroze.kbus.generation.test.orders.application.EmailService
+import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrder
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.HandleOrderPlacedIntegrationHandler
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.OrderPlacedIntegration
+import com.jimbroze.kbus.generation.test.orders.application.usecases.event.SendOrderConfirmationEmailHandler
+import com.jimbroze.kbus.generation.test.orders.domain.OrderItem
 import com.jimbroze.kbus.generation.test.orders.domain.OrderPlaced
-import com.jimbroze.kbus.generation.test.orders.infrastructure.ExampleEmailService
 import com.jimbroze.kbus.generation.test.orders.infrastructure.ExamplePaymentGateway
 import com.jimbroze.kbus.generation.test.orders.infrastructure.InMemoryOrderRepository
 import com.jimbroze.kbus.testdoubles.AutoTickingClock
@@ -41,6 +44,14 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
+
+class RecordingEmailService : EmailService {
+    val confirmedOrderIds = mutableListOf<String>()
+
+    override suspend fun sendOrderConfirmation(orderId: String, customerId: String) {
+        confirmedOrderIds.add(orderId)
+    }
+}
 
 // TODO don't add any dependencies not in module???
 class Dependencies(private val instant: Instant, applicationScope: CoroutineScope) : AutoLoader() {
@@ -75,7 +86,8 @@ class Dependencies(private val instant: Instant, applicationScope: CoroutineScop
     override val externalNestedWithExternal = ExternalNestedWithExternal(externalEmpty)
     override val orderRepository = InMemoryOrderRepository()
     override val paymentGateway = ExamplePaymentGateway()
-    override val emailService = ExampleEmailService()
+    val recordingEmailService = RecordingEmailService()
+    override val emailService: EmailService = recordingEmailService
     override val inventoryRepository = InMemoryInventoryRepository()
     override val warehouseNotifier = ExampleWarehouseNotifier()
 
@@ -213,6 +225,33 @@ class GenerationTest {
             bus.execute(TestShipmentCommand())
             assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
         }
+
+    @Test
+    fun test_a_submodule_commands_domain_event_reaches_its_own_contexts_domain_handler() = runTest {
+        val dependencies = Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope)
+        val bus =
+            CompileTimeLoadedMessageBus(
+                dependencies,
+                EmptyTransactionManager(),
+                emptyList(),
+                appScope = backgroundScope,
+            ) {
+                orders.addDomainHandlers(
+                    OrderPlaced::class,
+                    listOf(SendOrderConfirmationEmailHandler::class.loaded),
+                )
+            }
+
+        val order =
+            bus.execute(PlaceOrder("customer-1", listOf(OrderItem("book", 1, 9.99)), "card"))
+        // The handler dispatches after the transaction, so it outlives the command's return.
+        advanceVirtualTime(100)
+
+        assertEquals(
+            listOf(order.getOrNull()!!.id),
+            dependencies.recordingEmailService.confirmedOrderIds,
+        )
+    }
 
     @Test
     fun test_each_context_only_dispatches_its_own_integration_handlers() = runTest {

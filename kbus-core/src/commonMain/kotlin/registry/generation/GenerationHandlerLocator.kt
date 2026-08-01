@@ -15,38 +15,25 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
 import kotlin.reflect.KClass
 
 // TODO type-safe generated event factory
-class GenerationHandlerLocator(
-    val generationHandlerFactory: GenerationHandlerFactory,
-    /**
-     * The bounded context this locator answers for (`""` for the default). Needed because one
-     * generated factory can hold handlers for several contexts.
-     */
-    private val contextIdentity: String = "",
-) : HandlerLocator {
+class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
+    HandlerLocator {
     private val eventMapper = PersistingEventMapper()
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
-    private val commandTypes = generationHandlerFactory.commandTypesFor(contextIdentity)
-    private val queryTypes = generationHandlerFactory.queryTypesFor(contextIdentity)
+    private val commandTypes = generationHandlerFactory.commandTypes()
+    private val queryTypes = generationHandlerFactory.queryTypes()
 
-    /**
-     * A command another context owns is not resolvable here even though the shared factory can
-     * build it — resolving it would let a nested execution cross a context boundary and silently
-     * join the caller's transaction.
-     */
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
     ): CommandHandler<TCommand, TResult>? {
-        if (command::class !in commandTypes) return null
         return generationHandlerFactory.handlerFor(command, commandDependencies)
     }
 
     override fun <TQuery : Query<TResult>, TResult : KBusResult> handlerFor(
         query: TQuery
     ): QueryHandler<TQuery, TResult>? {
-        if (query::class !in queryTypes) return null
         return generationHandlerFactory.handlerFor(query)
     }
 
