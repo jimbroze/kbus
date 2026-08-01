@@ -2,7 +2,9 @@ package com.jimbroze.kbus.core.messages.command
 
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.NestedTransactionMismatchException
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
@@ -48,6 +50,7 @@ internal class InvocationNestedCommandExecutor(
                 ?: throw MissingHandlerException(command::class)
 
         handler.setPublisher(invocation.integrationEventPublisher)
+        checkTransaction(command, handler.executeInTransaction)
 
         val execute =
             createMiddlewareChain<TCommand, TResult>(
@@ -57,5 +60,20 @@ internal class InvocationNestedCommandExecutor(
             )
 
         return execute(command)
+    }
+
+    /**
+     * A nested handler cannot open a transaction of its own — it is already inside the outer
+     * command's. Anything it declares must therefore already be satisfied, or the mismatch is
+     * raised here rather than left to commit somewhere the handler did not ask for.
+     */
+    private fun checkTransaction(command: Command<*>, transactionConfig: TransactionConfig?) {
+        val running = invocation.unitOfWork.activeTransactionManager
+        val requested = transactionConfig?.transactionManagerOverride ?: running
+
+        if (transactionConfig == null) return
+        if (running != null && requested === running) return
+
+        throw NestedTransactionMismatchException(command::class, requested, running)
     }
 }

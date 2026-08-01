@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.command.NestedTransactionMismatchException
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.result.BusResult
@@ -450,5 +451,78 @@ class MessageBusNestedCommandTest {
             )
 
         assertFailsWith<MissingHandlerException> { bus.execute(CrossContextCommand()) }
+    }
+
+    @Test
+    fun aNestedCommandDeclaringNoTransactionRunsInsideOneAnyway() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        val transactionManager = RecordingTransactionManager(recorder)
+        registerOuterAndInner(stores, innerTransaction = null)
+
+        val bus =
+            MessageBus(locator, transactionManager = transactionManager, appScope = backgroundScope)
+
+        val result = bus.execute(OuterCommand("indifferent"))
+
+        assertEquals(BusResult.success("inner:indifferent"), result)
+        assertEquals(1, transactionManager.executions)
+    }
+
+    @Test
+    fun aNestedCommandDeclaringATransactionOutsideOneFails() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        registerOuterAndInner(stores, outerTransaction = null)
+
+        val bus = MessageBus(locator, transactionManager = null, appScope = backgroundScope)
+
+        assertFailsWith<NestedTransactionMismatchException> {
+            bus.execute(OuterCommand("untransacted"))
+        }
+        assertContentEquals(listOf("outer:untransacted"), recorder)
+    }
+
+    @Test
+    fun aNestedCommandOverridingWithTheRunningManagerRuns() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        val transactionManager = RecordingTransactionManager(recorder)
+        registerOuterAndInner(
+            stores,
+            outerTransaction = TransactionConfig(transactionManagerOverride = transactionManager),
+            innerTransaction = TransactionConfig(transactionManagerOverride = transactionManager),
+        )
+
+        val bus = MessageBus(locator, transactionManager = null, appScope = backgroundScope)
+
+        val result = bus.execute(OuterCommand("same-manager"))
+
+        assertEquals(BusResult.success("inner:same-manager"), result)
+        assertEquals(1, transactionManager.executions)
+    }
+
+    @Test
+    fun aNestedCommandOverridingWithADifferentManagerFails() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        val outerManager = RecordingTransactionManager(recorder)
+        val otherManager = RecordingTransactionManager(mutableListOf())
+        registerOuterAndInner(
+            stores,
+            outerTransaction = TransactionConfig(transactionManagerOverride = outerManager),
+            innerTransaction = TransactionConfig(transactionManagerOverride = otherManager),
+        )
+
+        val bus = MessageBus(locator, transactionManager = null, appScope = backgroundScope)
+
+        assertFailsWith<NestedTransactionMismatchException> {
+            bus.execute(OuterCommand("other-manager"))
+        }
+        assertEquals(0, otherManager.executions)
+        assertContentEquals(
+            listOf("transaction-begin", "outer:other-manager", "rollback"),
+            recorder,
+        )
     }
 }
