@@ -499,7 +499,7 @@ val bus = MessageBus(
 
 Commands execute within a Unit of Work that manages three phases:
 
-1. **Primary work** — The command handler executes
+1. **Primary work** — The command handler executes, along with any command it nests
 2. **Secondary work** — Domain event handlers run (within the same transaction)
 3. **Post-commit work** — Integration event handlers run (after transaction commit)
 
@@ -586,6 +586,39 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
     }
 }
 ```
+
+### Executing a Command From a Handler
+
+A command handler receives a `NestedCommandExecutor` on its `CommandDependencies`, for running a sibling command as
+part of the same piece of work:
+
+```kotlin
+class PlaceOrderHandler(
+    private val commandExecutor: NestedCommandExecutor,
+) : CommandHandler<PlaceOrder, BusResult<Unit, MessageFailure>>() {
+
+    override suspend fun handle(message: PlaceOrder): BusResult<Unit, MessageFailure> {
+        val reservation = commandExecutor.execute(ReserveStock(message.sku))
+        if (reservation is BusResult.Failure) return reservation
+
+        return BusResult.success(Unit)
+    }
+}
+```
+
+The nested command runs inside the outer command's Unit of Work: one transaction, its domain events in the outer
+command's secondary phase, its integration events on the outer command's publisher. A throwing nested handler rolls
+the whole thing back; a nested `Failure` is returned to the caller, which decides what to do with it.
+
+Only commands the same bounded context owns are reachable this way — anything else throws `MissingHandlerException`.
+Crossing a context boundary means going through the bus, which opens its own Unit of Work and therefore commits
+independently. Which side of that line a command falls on is not a setting; it is which path you called.
+
+Because a nested handler cannot open a transaction of its own, one that declares `executeInTransaction` the outer
+transaction cannot satisfy — a transaction where none is running, or a different `transactionManagerOverride` from the
+running one — throws `NestedTransactionMismatchException` rather than silently running outside what it asked for.
+
+Queries have no nested equivalent: a query has no Unit of Work, so there is nothing to share. Use the bus.
 
 ## Bus Lifecycle
 
