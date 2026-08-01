@@ -27,26 +27,34 @@ class GenerationHandlerLocator(
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
 
+    private val commandTypes = generationHandlerFactory.commandTypesFor(contextIdentity)
+    private val queryTypes = generationHandlerFactory.queryTypesFor(contextIdentity)
+
+    /**
+     * A command another context owns is not resolvable here even though the shared factory can
+     * build it — resolving it would let a nested execution cross a context boundary and silently
+     * join the caller's transaction.
+     */
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,
     ): CommandHandler<TCommand, TResult>? {
+        if (command::class !in commandTypes) return null
         return generationHandlerFactory.handlerFor(command, commandDependencies)
     }
 
     override fun <TQuery : Query<TResult>, TResult : KBusResult> handlerFor(
         query: TQuery
     ): QueryHandler<TQuery, TResult>? {
+        if (query::class !in queryTypes) return null
         return generationHandlerFactory.handlerFor(query)
     }
 
     override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
 
-    override fun handledCommandTypes(): Set<KClass<out Command<*>>> =
-        generationHandlerFactory.commandTypesFor(contextIdentity)
+    override fun handledCommandTypes(): Set<KClass<out Command<*>>> = commandTypes
 
-    override fun handledQueryTypes(): Set<KClass<out Query<*>>> =
-        generationHandlerFactory.queryTypesFor(contextIdentity)
+    override fun handledQueryTypes(): Set<KClass<out Query<*>>> = queryTypes
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
