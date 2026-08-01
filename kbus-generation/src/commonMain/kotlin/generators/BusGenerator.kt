@@ -210,14 +210,14 @@ class BusGenerator(
                 .map { parameter -> CodeBlock.of("${parameter.name}: %T", parameter.typeRef) }
                 .joinToCode(", ")
 
-        // A command's domain events must dispatch only to its own owning context, so
-        // CommandExecutor.execute needs that context's dispatcher. The owning context is known at
-        // generation time from the handler's own declared module, so it is baked in here rather
-        // than resolved by searching every context for one that owns the command.
+        // A command runs against its own owning context — its domain events dispatch there, and
+        // any command it nests resolves there. The owning context is known at generation time from
+        // the handler's own declared module, so it is baked in here rather than resolved by
+        // searching every context for one that owns the command.
         val processorArgs =
             if (handler is CommandHandlerDefinition)
                 CodeBlock.of(
-                    "%L, domainEventDispatcherFor(%L), handlerCreator",
+                    "%L, commandOwnerFor(%L), handlerCreator",
                     messageType,
                     contextIdKeyBlock(handler.handlerData.module),
                 )

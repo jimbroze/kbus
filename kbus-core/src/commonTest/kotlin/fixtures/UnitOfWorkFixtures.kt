@@ -1,12 +1,18 @@
 package com.jimbroze.kbus.core.fixtures
 
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
+import com.jimbroze.kbus.core.module.CommandOwner
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
+import kotlin.reflect.KClass
 
 class TestTransactionManager : TransactionManager {
     val executedWork = mutableListOf<Any?>()
@@ -86,5 +92,29 @@ class TestDomainEventDispatcher : DomainEventDispatcher {
         invocation: CommandInvocation<*>,
     ) {
         dispatchedEvents.add(Pair(event, invocation))
+    }
+}
+
+/**
+ * A [CommandOwner] whose handlers are supplied per command class, for tests that execute a command
+ * without a bus. Owns nothing by default.
+ */
+class TestCommandOwner(
+    override val domainEventDispatcher: TestDomainEventDispatcher = TestDomainEventDispatcher(),
+    private val handlers:
+        Map<KClass<out Command<*>>, (CommandDependencies) -> CommandHandler<*, *>> =
+        emptyMap(),
+) : CommandOwner {
+    val dependenciesPassed = mutableListOf<CommandDependencies>()
+
+    override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
+        command: TCommand,
+        commandDependencies: CommandDependencies,
+    ): CommandHandler<TCommand, TResult>? {
+        dependenciesPassed.add(commandDependencies)
+
+        @Suppress("UNCHECKED_CAST")
+        return handlers[command::class]?.invoke(commandDependencies)
+            as CommandHandler<TCommand, TResult>?
     }
 }

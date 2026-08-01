@@ -12,7 +12,6 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
-import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
@@ -24,6 +23,7 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.CommandOwner
 import com.jimbroze.kbus.core.module.ContextRuntime
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
@@ -238,7 +238,7 @@ abstract class BaseMessageBus(
         checkStarted()
         val owner = commandOwners[command::class] ?: throw MissingHandlerException(command::class)
         val handlerCreator = { commandDependencies: CommandDependencies ->
-            (owner.context.handlerLocator.handlerFor(command, commandDependencies)
+            (owner.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
         }
 
@@ -283,11 +283,11 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * The domain-event dispatcher of the context [contextId] names, for callers that already know
-     * the owning context statically. Throws if no such context is on this bus, rather than silently
-     * dispatching to no one.
+     * The context [contextId] names, for callers that already know a command's owning context
+     * statically. Throws if no such context is on this bus, rather than silently executing against
+     * no one.
      */
-    protected fun domainEventDispatcherFor(contextId: BoundedContextId): DomainEventDispatcher =
+    protected fun commandOwnerFor(contextId: BoundedContextId): CommandOwner =
         contextRuntimes.firstOrNull { it.context.id == contextId }
             ?: throw IllegalArgumentException(
                 "No bounded context with id '${contextId.value}' on this bus."

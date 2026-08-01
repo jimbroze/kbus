@@ -1,9 +1,13 @@
 package com.jimbroze.kbus.core.module
 
+import com.jimbroze.kbus.contracts.messages.command.Command
+import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
@@ -26,7 +30,10 @@ internal class ContextRuntime(
      * dispatch share the one instance, whichever reaches it first.
      */
     private val eventDispatcher: Lazy<EventDispatcher>,
-) : EventDestination, DomainEventDispatcher {
+) : EventDestination, DomainEventDispatcher, CommandOwner {
+    override val domainEventDispatcher: DomainEventDispatcher
+        get() = this
+
     /**
      * Null unless this context declares an inbox — with no durable ack there is nothing to
      * strengthen.
@@ -51,6 +58,12 @@ internal class ContextRuntime(
             )
         }
     }
+
+    override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
+        command: TCommand,
+        commandDependencies: CommandDependencies,
+    ): CommandHandler<TCommand, TResult>? =
+        context.handlerLocator.handlerFor(command, commandDependencies)
 
     override suspend fun <TEvent : DomainEvent> dispatchDomainEvent(
         event: TEvent,

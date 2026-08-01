@@ -4,10 +4,10 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.module.CommandOwner
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
@@ -20,10 +20,10 @@ class CommandExecutor(
 ) {
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
-        domainEventDispatcher: DomainEventDispatcher,
+        owner: CommandOwner,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
     ): TResult {
-        val invocation = invocationFactory.create<TResult>(domainEventDispatcher)
+        val invocation = invocationFactory.create<TResult>(owner.domainEventDispatcher)
         val handler = createHandler(commandDependenciesFactory.create(invocation))
 
         handler.setPublisher(invocation.integrationEventPublisher)
