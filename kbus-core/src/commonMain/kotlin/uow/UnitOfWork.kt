@@ -9,6 +9,12 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
  * therefore run first in their phase, ahead of anything registered while handling the command.
  */
 interface UnitOfWork<TResult> {
+    /**
+     * The transaction manager [useTransaction] asked for, or null if none has — so "no transaction"
+     * is a value a caller can test rather than a type it has to recognise.
+     */
+    val activeTransactionManager: TransactionManager?
+
     suspend fun execute(): TResult
 
     fun addSecondaryWork(subUnitOfWork: suspend () -> Unit)

@@ -75,6 +75,6 @@ class NonReturningUnitOfWorkTest {
 
         uow.useTransaction(transactionManager)
 
-        assertSame(transactionManager, delegate.transactionManager)
+        assertSame(transactionManager, delegate.activeTransactionManager)
     }
 }

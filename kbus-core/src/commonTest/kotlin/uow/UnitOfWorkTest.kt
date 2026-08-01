@@ -8,6 +8,8 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -71,6 +73,28 @@ class UnitOfWorkTest {
         unitOfWork.execute()
 
         assertEquals(0, executedWork.size)
+    }
+
+    @Test
+    fun test_active_transaction_manager_is_null_until_a_transaction_is_requested() = runTest {
+        val unitOfWork = DefaultUnitOfWork<Any?>()
+
+        assertNull(unitOfWork.activeTransactionManager)
+
+        unitOfWork.setReturningWork { "result" }
+        unitOfWork.execute()
+
+        assertNull(unitOfWork.activeTransactionManager)
+    }
+
+    @Test
+    fun test_active_transaction_manager_is_the_requested_one() = runTest {
+        val unitOfWork = DefaultUnitOfWork<Any?>()
+        val transactionManager = NonExecutingTransactionManager()
+
+        unitOfWork.useTransaction(transactionManager)
+
+        assertSame(transactionManager, unitOfWork.activeTransactionManager)
     }
 
     @Test

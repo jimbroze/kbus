@@ -41,7 +41,7 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     val secondaryWork = mutableListOf<suspend () -> Unit>()
     val postCommitWork = mutableListOf<suspend () -> Unit>()
     val executedWork = mutableListOf<suspend () -> Any?>()
-    var transactionManager: TransactionManager? = null
+    override var activeTransactionManager: TransactionManager? = null
 
     override suspend fun execute(): TResult {
         executedWork.add(primaryWork)
@@ -62,7 +62,7 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
     }
 
     override fun useTransaction(transactionManager: TransactionManager) {
-        this.transactionManager = transactionManager
+        this.activeTransactionManager = transactionManager
     }
 
     suspend fun executeAllScheduledWork() {

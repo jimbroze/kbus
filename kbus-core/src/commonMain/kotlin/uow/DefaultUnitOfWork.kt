@@ -6,7 +6,8 @@ internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TR
     private lateinit var primaryWork: suspend () -> TResult
     private val secondaryWork: MutableList<suspend () -> Unit> = mutableListOf()
     private val postCommitWork: MutableList<suspend () -> Unit> = mutableListOf()
-    private var transactionManager: TransactionManager = EmptyTransactionManager()
+    override var activeTransactionManager: TransactionManager? = null
+        private set
 
     override suspend fun execute(): TResult {
         val blockForTransaction: suspend () -> TResult = {
@@ -15,7 +16,7 @@ internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TR
             result
         }
 
-        val transactionManager = this.transactionManager
+        val transactionManager = activeTransactionManager ?: EmptyTransactionManager()
         val result = transactionManager.execute(blockForTransaction)
 
         executeAfterCommitWork()
@@ -36,7 +37,7 @@ internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TR
     }
 
     override fun useTransaction(transactionManager: TransactionManager) {
-        this.transactionManager = transactionManager
+        this.activeTransactionManager = transactionManager
     }
 
     private suspend fun executeSecondaryWork() {
