@@ -1123,9 +1123,15 @@ BoundedContext(BoundedContextId("billing"), locator) {
 }
 ```
 
-Nothing enforces this at runtime, because nothing needs to: `addEventHandlers`/`addDomainHandlers` live on
-`ContextRegistration`, which is only ever handed to those lambdas. There is no `seal()` and no
+Nothing enforces this at runtime, because nothing needs to: `addEventHandlers`/`addDomainHandlers` are reachable only
+through a `ContextRegistration`, which is only ever handed to those lambdas. There is no `seal()` and no
 `HandlerRegistrationSealedException` — a bus that never hands back a registration point cannot be registered into.
+
+Each takes either bare handler classes or, from
+`com.jimbroze.kbus.core.registry.generation`, a list of `LoadedEventHandler` tokens obtained via a generated `.loaded`
+property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
+factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it
+whenever you are using code generation. The bare-class form takes no generation dependency, for hand-written wiring.
 
 ## Domain Modeling
 
