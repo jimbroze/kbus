@@ -13,6 +13,7 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
@@ -35,12 +36,14 @@ import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
 import kotlin.reflect.KClass
 
+@Suppress("LongParameterList")
 class HandlersFactoryGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
     private val factoryClassName: String,
     private val dependenciesInterfaceName: String,
     private val handlersInterfaceName: String,
+    private val commandExecutorClassName: String,
     private val packagePath: String,
 ) {
     /**
@@ -98,7 +101,7 @@ class HandlersFactoryGenerator(
                 buildQueryTypes(handlers.filterIsInstance<QueryHandlerDefinition>().toSet())
             )
 
-        handlers.forEach { addHandlerDefinition(classBuilder, it) }
+        handlers.forEach { addHandlerDefinition(classBuilder, it, context) }
 
         val file = FileSpec.builder(packagePath, className)
         file.addAnnotation(
@@ -250,13 +253,22 @@ class HandlersFactoryGenerator(
             .build()
     }
 
-    private fun addHandlerDefinition(classBuilder: TypeSpec.Builder, handler: HandlerDefinition) {
+    private fun addHandlerDefinition(
+        classBuilder: TypeSpec.Builder,
+        handler: HandlerDefinition,
+        context: String,
+    ) {
         val returnType = handler.handlerData.handlerClass
 
         val subDependencyArgs =
             handler.handlerData.topLevelDependencies.joinToString(", ") {
-                if (it is CommandDependency) it.accessReference
-                else "dependencies.${it.accessReference}"
+                when (it) {
+                    is ContextCommandsDependency ->
+                        "${contextClassPrefix(context)}$commandExecutorClassName" +
+                            "(commandDependencies.commandExecutor)"
+                    is CommandDependency -> it.accessReference
+                    else -> "dependencies.${it.accessReference}"
+                }
             }
 
         val functionBuilder =

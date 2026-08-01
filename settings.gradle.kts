@@ -36,3 +36,5 @@ include("kbus-example")
 include("kbus-example-sub")
 
 include("kbus-example-sub-two")
+
+include("kbus-example-sub-orders-app")

@@ -13,6 +13,7 @@ import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusConfig
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.ContextCommandsGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
@@ -35,6 +36,8 @@ private const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
 private const val LOADED_DOMAIN_EVENT_HANDLERS_NAME = "LoadedDomainEventHandlers"
 private const val LOADED_INTEGRATION_EVENT_HANDLERS_NAME = "LoadedIntegrationEventHandlers"
 private const val AUTO_PUBLISH_REGISTRATIONS_NAME = "GeneratedAutoPublishRegistrations"
+private const val CONTEXT_COMMANDS_INTERFACE_NAME = "Commands"
+private const val CONTEXT_COMMAND_EXECUTOR_NAME = "CommandExecutor"
 
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
 private const val BOUNDED_CONTEXT_IDENTITY_KEY = "kbus.boundedContextIdentity"
@@ -53,6 +56,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             createGenerators(environment, config),
             config.isSubModule,
             config.indexPackagePath,
+            PACKAGE_PATH,
         )
     }
 
@@ -83,6 +87,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 config.moduleClassName(HANDLER_FACTORY_CLASS_NAME),
                 config.moduleClassName(DEPENDENCIES_INTERFACE_NAME),
                 config.moduleClassName(HANDLERS_INTERFACE_NAME),
+                CONTEXT_COMMAND_EXECUTOR_NAME,
                 PACKAGE_PATH,
             ),
             DependencyIndexGenerator(
@@ -103,6 +108,13 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 env.codeGenerator,
                 env.logger,
                 config.moduleClassName(AUTO_PUBLISH_REGISTRATIONS_NAME),
+                PACKAGE_PATH,
+            ),
+            ContextCommandsGenerator(
+                env.codeGenerator,
+                env.logger,
+                config.moduleClassName(CONTEXT_COMMANDS_INTERFACE_NAME),
+                CONTEXT_COMMAND_EXECUTOR_NAME,
                 PACKAGE_PATH,
             ),
         )

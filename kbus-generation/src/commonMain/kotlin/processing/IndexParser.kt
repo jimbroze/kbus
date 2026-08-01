@@ -9,6 +9,7 @@ import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
 import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependencies
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
@@ -166,6 +167,7 @@ private fun createDependency(
         DependencyType.PROPERTY -> PropertyDependency(typeRef)
         DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiresCommandDependencies)
         DependencyType.COMMAND -> CommandDependency(typeRef)
+        DependencyType.CONTEXT_COMMANDS -> ContextCommandsDependency(typeRef)
         DependencyType.NON_DEPENDENCY -> NonDependency(typeRef)
     }
 }

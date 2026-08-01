@@ -22,6 +22,7 @@ import com.jimbroze.kbus.generation.test.inventory.infrastructure.ExampleWarehou
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.InMemoryInventoryRepository
 import com.jimbroze.kbus.generation.test.orders.application.EmailService
 import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrder
+import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrderForRegularCustomer
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.HandleOrderPlacedIntegrationHandler
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.OrderPlacedIntegration
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.SendOrderConfirmationEmailHandler
@@ -225,6 +226,24 @@ class GenerationTest {
             bus.execute(TestShipmentCommand())
             assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
         }
+
+    @Test
+    fun test_a_handler_typed_calls_a_sibling_command_in_its_own_context() = runTest {
+        val bus =
+            CompileTimeLoadedMessageBus(
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                EmptyTransactionManager(),
+                emptyList(),
+                appScope = backgroundScope,
+            )
+
+        val result =
+            bus.execute(
+                PlaceOrderForRegularCustomer("customer-1", listOf(OrderItem("book", 1, 9.99)))
+            )
+
+        assertEquals("customer-1", result.getOrNull()!!.customerId)
+    }
 
     @Test
     fun test_a_submodule_commands_domain_event_reaches_its_own_contexts_domain_handler() = runTest {

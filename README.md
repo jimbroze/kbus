@@ -620,6 +620,29 @@ running one — throws `NestedTransactionMismatchException` rather than silently
 
 Queries have no nested equivalent: a query has no Unit of Work, so there is nothing to share. Use the bus.
 
+#### Typed Nested Execution
+
+With code generation, each bounded context also gets a typed view of its own commands: an interface named after the
+context (`OrdersCommands`, suffixed per Gradle module — `OrdersCommandsOrdersDomain`) with one function per command
+that module can see. Declare it as a constructor parameter instead of `NestedCommandExecutor` and the call site names
+the command:
+
+```kotlin
+class PlaceOrderForRegularCustomerHandler(private val ordersCommands: OrdersCommandsOrdersDomain) :
+    CommandHandler<PlaceOrderForRegularCustomer, BusResult<Order, MessageFailure>>() {
+
+    override suspend fun handle(
+        message: PlaceOrderForRegularCustomer,
+    ): BusResult<Order, MessageFailure> =
+        ordersCommands.placeOrder(PlaceOrder(message.customerId, message.items, "stored-card"))
+}
+```
+
+The interface covers the commands its module declares plus those it learns from the `@KbusIndex` metadata of the
+modules it depends on — a command in a module it cannot reference is not typed-callable, because it is not
+referenceable either. It extends `NestedCommandExecutor`, so the untyped `execute` stays available for anything the
+interface does not cover, with the same one-context limit.
+
 ## Bus Lifecycle
 
 A bus with background work — an outbox, an inbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) —
@@ -1039,6 +1062,8 @@ The KSP processor generates:
 - **`<Context>HandlerFactory`** — One factory per bounded context, creating that context's handlers with their
   dependencies resolved. A context can build no handler but its own, so a command it does not own is unresolvable
   there even when another context on the same bus owns it
+- **`<Context>Commands`** — One interface per bounded context giving typed nested execution of that context's
+  commands (see [Typed Nested Execution](#typed-nested-execution)), with the root generating the implementation
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration

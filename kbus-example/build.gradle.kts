@@ -11,6 +11,7 @@ kotlin {
             implementation(projects.testDoubles)
             implementation(projects.kbusExampleSub)
             implementation(projects.kbusExampleSubTwo)
+            implementation(projects.kbusExampleSubOrdersApp)
 
             implementation(libs.kotlinx.coroutines.core)
         }

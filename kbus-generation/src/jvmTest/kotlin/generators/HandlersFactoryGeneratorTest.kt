@@ -22,6 +22,7 @@ class HandlersFactoryGeneratorTest {
             factoryClassName = "HandlerFactory",
             dependenciesInterfaceName = "AllDependencies",
             handlersInterfaceName = "Handlers",
+            commandExecutorClassName = "CommandExecutor",
             packagePath = PACKAGE_PATH,
         )
 
