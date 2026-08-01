@@ -195,6 +195,24 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   class, module or test is coupling, and coupling a reader can't follow to a definition and a
   compiler can't check. Describe the constraint in its own terms instead.
 
+## Naming
+
+- A name should say *what a value is*, not just its shape. `known`/`unknown`, `result`, `data`,
+  `item`, `scope` force a reader to go read the surrounding code to answer "known **what**?" — the
+  type or the local block only narrows that far. Prefer `busContextIds` over `known`,
+  `fireAndForgetScope` over `scope`, `storeIdsWithNoContext` over `unknown`.
+- This applies to locals, parameters, and private fields, not just public API — a name that's clear
+  only because of a comment above it, or only by tracing every call site, is not clear.
+  Constructor/function parameters that share a concept with another name already used for it
+  elsewhere in the file or module (e.g. an ack-strategy-override function) should reuse that name,
+  not a shorter generic one — consistency across a call chain is itself a form of clarity.
+- It's fine — encouraged, even — to be a little verbose if it makes the name unambiguous to a new
+  developer. `pumpScope` beats `scope`; `storeIdsWithNoContext` beats `unknown`. A few extra
+  characters are cheap; a name a reader has to decode by reading the function body is not.
+- Watch for names that collide with language keywords or shadow their everyday meaning (e.g. an
+  `override` parameter next to Kotlin's `override` modifier) — pick something unambiguous even if
+  it's longer.
+
 ## Testing
 
 - Everything should have unit test coverage. Use Test-driven development; creating (failing) tests before writing the
