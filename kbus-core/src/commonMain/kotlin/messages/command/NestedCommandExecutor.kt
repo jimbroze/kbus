@@ -46,8 +46,10 @@ internal class InvocationNestedCommandExecutor(
         command: TCommand
     ): TResult {
         val handler =
-            owningContext.handlerFor(command, dependenciesFactory.create(invocation, this))
-                ?: throw MissingHandlerException(command::class)
+            owningContext.handlerFor(
+                command,
+                dependenciesFactory.create(owningContext, invocation, this),
+            ) ?: throw MissingHandlerException(command::class)
 
         handler.setPublisher(invocation.integrationEventPublisher)
         checkTransaction(command, handler.executeInTransaction)

@@ -81,8 +81,7 @@ class TestUnitOfWork<TResult> : UnitOfWork<TResult> {
 fun <TResult> testInvocation(
     unitOfWork: UnitOfWork<TResult> = TestUnitOfWork(),
     publisher: IntegrationEventPublisher = EmptyIntegrationEventPublisher,
-    domainEventDispatcher: DomainEventDispatcher = TestDomainEventDispatcher(),
-): CommandInvocation<TResult> = CommandInvocation(unitOfWork, publisher, domainEventDispatcher)
+): CommandInvocation<TResult> = CommandInvocation(unitOfWork, publisher)
 
 class TestDomainEventDispatcher : DomainEventDispatcher {
     val dispatchedEvents = mutableListOf<Pair<DomainEvent, CommandInvocation<*>>>()

@@ -11,6 +11,7 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
 class TestCommandDependenciesFactory : CommandDependenciesFactory {
@@ -18,6 +19,7 @@ class TestCommandDependenciesFactory : CommandDependenciesFactory {
     var commandDependencies: CommandDependencies? = null
 
     override fun create(
+        owningContext: OwningContext,
         invocation: CommandInvocation<*>,
         nestedCommandExecutor: NestedCommandExecutor,
     ): CommandDependencies {
@@ -36,7 +38,8 @@ class TestCommandDependenciesFactory : CommandDependenciesFactory {
 }
 
 fun <TResult> testCommandDependencies() =
-    TestCommandDependenciesFactory().create(testInvocation<TResult>(), NoNestedCommandExecutor)
+    TestCommandDependenciesFactory()
+        .create(TestOwningContext(), testInvocation<TResult>(), NoNestedCommandExecutor)
 
 /** For handlers under test that never nest a command. */
 object NoNestedCommandExecutor : NestedCommandExecutor {

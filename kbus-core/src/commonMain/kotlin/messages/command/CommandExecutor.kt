@@ -26,7 +26,7 @@ class CommandExecutor(
         owningContext: OwningContext,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
     ): TResult {
-        val invocation = invocationFactory.create<TResult>(owningContext.domainEventDispatcher)
+        val invocation = invocationFactory.create<TResult>()
         val nestedCommandExecutor =
             InvocationNestedCommandExecutor(
                 owningContext,
@@ -36,7 +36,9 @@ class CommandExecutor(
                 contextFactory,
             )
         val handler =
-            createHandler(commandDependenciesFactory.create(invocation, nestedCommandExecutor))
+            createHandler(
+                commandDependenciesFactory.create(owningContext, invocation, nestedCommandExecutor)
+            )
 
         handler.setPublisher(invocation.integrationEventPublisher)
 
@@ -72,6 +74,7 @@ class CommandExecutor(
 
 interface CommandDependenciesFactory {
     fun create(
+        owningContext: OwningContext,
         invocation: CommandInvocation<*>,
         nestedCommandExecutor: NestedCommandExecutor,
     ): CommandDependencies
@@ -79,11 +82,12 @@ interface CommandDependenciesFactory {
 
 class DefaultCommandDependenciesFactory : CommandDependenciesFactory {
     override fun create(
+        owningContext: OwningContext,
         invocation: CommandInvocation<*>,
         nestedCommandExecutor: NestedCommandExecutor,
     ): CommandDependencies {
         return CommandDependencies(
-            InvocationDomainEventPublisher(invocation.domainEventDispatcher, invocation),
+            InvocationDomainEventPublisher(owningContext.domainEventDispatcher, invocation),
             nestedCommandExecutor,
         )
     }
