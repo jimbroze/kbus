@@ -5,8 +5,10 @@ import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
-import com.jimbroze.kbus.core.registry.GeneratedKBusApi
-import com.jimbroze.kbus.core.registry.LoadedEventHandler
+import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
+import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
+import com.jimbroze.kbus.core.registry.generation.addDomainHandlers
+import com.jimbroze.kbus.core.registry.generation.addEventHandlers
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -89,7 +91,7 @@ class BoundedContextTest {
     fun addEventHandlers_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(BoundedContextId("orders"), locator) {
-            addEventHandlers(StorageEvent::class, PrintEventHandler::class)
+            addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
         }
 
         assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
@@ -99,7 +101,7 @@ class BoundedContextTest {
     fun addDomainHandlers_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(BoundedContextId("orders"), locator) {
-            addDomainHandlers(TestDomainEvent::class, TestDomainEventHandler::class)
+            addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
         }
 
         assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))
@@ -122,8 +124,7 @@ class BoundedContextTest {
         BoundedContext(BoundedContextId("orders"), locator) {
             addEventHandlers(
                 StorageEvent::class,
-                PrintEventHandler::class,
-                OtherPrintEventHandler::class,
+                listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
             )
         }
 

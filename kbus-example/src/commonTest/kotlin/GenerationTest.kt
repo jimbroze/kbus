@@ -8,6 +8,8 @@ import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.registry.generation.addDomainHandlers
+import com.jimbroze.kbus.core.registry.generation.addEventHandlers
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus

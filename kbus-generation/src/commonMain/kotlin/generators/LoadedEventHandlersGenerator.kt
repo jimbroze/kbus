@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.core.registry.LoadedEventHandler
+import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
@@ -53,7 +53,10 @@ class LoadedEventHandlersGenerator(
                     AnnotationSpec.builder(ClassName("kotlin", "OptIn"))
                         .addMember(
                             "%T::class",
-                            ClassName("com.jimbroze.kbus.core.registry", "GeneratedKBusApi"),
+                            ClassName(
+                                "com.jimbroze.kbus.core.registry.generation",
+                                "GeneratedKBusApi",
+                            ),
                         )
                         .build()
                 )
