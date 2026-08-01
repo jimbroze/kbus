@@ -53,7 +53,7 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
 
         val dependencies = indexParser.createDependencies(dependencyInfoAnnotations)
         for (dependency in dependencies.allDependencies) {
-            when (val result = data.tryAddDependency(dependency)) {
+            when (val result = data.tryAddDependency(dependency, learnedFromIndex = true)) {
                 is ConflictPolicy.Result.Accept -> {
                     // Successfully added
                 }
@@ -80,7 +80,8 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
                     indexParser.createHandlerFromAnnotation(
                         handlerInfoAnnotation,
                         data.allDependencies.map { it.metadata }.toSet(),
-                    )
+                    ),
+                    learnedFromIndex = true,
                 )
             when (result) {
                 is ConflictPolicy.Result.Accept -> {
@@ -108,7 +109,7 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
 
         val definitions = indexParser.createAutoPublishDefinitions(autoPublishInfoAnnotations)
         for (definition in definitions) {
-            when (val result = data.tryAddAutoPublish(definition)) {
+            when (val result = data.tryAddAutoPublish(definition, learnedFromIndex = true)) {
                 is ConflictPolicy.Result.Accept -> {
                     // Successfully added
                 }
