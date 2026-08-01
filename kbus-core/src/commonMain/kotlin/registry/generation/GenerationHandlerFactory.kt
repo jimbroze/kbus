@@ -24,13 +24,9 @@ interface GenerationHandlerFactory {
         handlerClass: KClass<EventHandler<TEvent>>
     ): EventHandler<TEvent>?
 
-    /**
-     * The commands this factory holds handlers for under [contextIdentity] — the producing module's
-     * `kbus.boundedContextIdentity`, `""` for unassigned. One factory can serve several contexts,
-     * so an identity it knows nothing about yields an empty set rather than everything.
-     */
-    fun commandTypesFor(contextIdentity: String): Set<KClass<out Command<*>>>
+    /** The commands this factory holds handlers for — one bounded context's, and only its. */
+    fun commandTypes(): Set<KClass<out Command<*>>>
 
-    /** The query equivalent of [commandTypesFor]. */
-    fun queryTypesFor(contextIdentity: String): Set<KClass<out Query<*>>>
+    /** The query equivalent of [commandTypes]. */
+    fun queryTypes(): Set<KClass<out Query<*>>>
 }

@@ -1034,8 +1034,11 @@ class PlaceOrderHandler(
 The KSP processor generates:
 
 - **`AllDependencies`** — Interface listing all required dependencies (implement this to provide them)
-- **`AllHandlers`** — Interface with factory methods for every handler
-- **`HandlerFactory`** — Factory that creates handlers with their dependencies resolved
+- **`<Context>Handlers`** — One interface per bounded context, with factory methods for that context's handlers
+  (`DefaultHandlers` for handlers whose module declares no identity, `OrdersHandlers` for `orders`, and so on)
+- **`<Context>HandlerFactory`** — One factory per bounded context, creating that context's handlers with their
+  dependencies resolved. A context can build no handler but its own, so a command it does not own is unresolvable
+  there even when another context on the same bus owns it
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
