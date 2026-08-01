@@ -20,7 +20,6 @@ import com.jimbroze.kbus.domain.event.DomainEvent
  */
 internal class ContextRuntime(
     val context: BoundedContext,
-    private val subscriptions: Subscriptions = SnapshotSubscriptions(context.handlerLocator),
     /**
      * Resolved on first delivery rather than at construction, because a dispatcher cannot be built
      * until the destinations it eventually routes to exist. [Lazy] so both integration and domain
@@ -35,10 +34,13 @@ internal class ContextRuntime(
     private val ackStrategyOverride: ((ErrorStrategy) -> ErrorStrategy)? =
         context.inbox?.ackPolicy?.errorStrategyOverride
 
+    private val subscribedEventTypes = context.handlerLocator.subscribedEventTypes()
+
     override val name: String
         get() = context.id.value
 
-    override fun appliesTo(event: IntegrationEvent): Boolean = subscriptions.contains(event)
+    override fun appliesTo(event: IntegrationEvent): Boolean =
+        subscribedEventTypes.contains(event::class)
 
     override suspend fun deliver(envelopes: List<EventEnvelope>) {
         envelopes.forEach { envelope ->
