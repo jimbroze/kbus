@@ -5,7 +5,6 @@ import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay
-import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -35,9 +34,7 @@ internal constructor(
     private val inner: EventDestination,
     private val store: InboxStore,
     private val pumpScope: CoroutineScope,
-    private val batchSize: Int,
-    private val pollInterval: Duration,
-    private val opportunisticDispatch: Boolean = true,
+    private val tuning: InboxConfig,
 ) : EventDestination {
     override val name: String
         get() = inner.name
@@ -49,15 +46,16 @@ internal constructor(
             fetch = store::fetchPending,
             deliver = { inner.deliver(listOf(it)) },
             ack = store::markConsumed,
+            maxConcurrentDeliveries = tuning.maxConcurrentDeliveries,
         )
 
     override suspend fun deliver(envelopes: List<EventEnvelope>) {
         if (envelopes.isEmpty()) return
         store.save(envelopes)
-        if (opportunisticDispatch) pumpScope.launch { drain() }
+        if (tuning.opportunisticDispatch) pumpScope.launch { drain() }
     }
 
-    internal suspend fun drain() = relay.pollOnce(batchSize)
+    internal suspend fun drain() = relay.pollOnce(tuning.batchSize)
 
-    internal suspend fun pump(): Nothing = relay.poll(batchSize, pollInterval)
+    internal suspend fun pump(): Nothing = relay.poll(tuning.batchSize, tuning.pollInterval)
 }

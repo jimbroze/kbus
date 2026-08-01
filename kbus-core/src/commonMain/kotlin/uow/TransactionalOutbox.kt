@@ -18,12 +18,17 @@ import kotlinx.coroutines.sync.withLock
  * Opt-in configuration for the transactional outbox. A peer of
  * [TransactionManager][com.jimbroze.kbus.contracts.uow.TransactionManager] on the bus constructor,
  * not middleware.
+ *
+ * [maxConcurrentDeliveries] trades ordering for throughput: see
+ * [EnvelopeRelay][com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay]. Set it to 1 to
+ * publish a batch strictly in the order the store returned it.
  */
 class OutboxConfig(
     val store: OutboxStore,
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
     val opportunisticDrain: Boolean = true,
+    val maxConcurrentDeliveries: Int = 16,
 )
 
 /**
@@ -43,12 +48,13 @@ internal constructor(
     private val drainScope: CoroutineScope,
     unitOfWork: UnitOfWork<*>,
     opportunisticDrain: Boolean = true,
+    maxConcurrentDeliveries: Int = 16,
 ) : IntegrationEventPublisher {
     private val mutex = Mutex()
     private val buffer = mutableListOf<EventEnvelope>()
     private val pendingSave = mutableListOf<EventEnvelope>()
     private var flushed = false
-    private val relay = outboxRelay(store, router)
+    private val relay = outboxRelay(store, router, maxConcurrentDeliveries)
 
     init {
         unitOfWork.addSecondaryWork { flush() }
@@ -100,8 +106,9 @@ internal constructor(
     private val router: EventRouter,
     private val drainScope: CoroutineScope,
     private val opportunisticDrain: Boolean = true,
+    maxConcurrentDeliveries: Int = 16,
 ) : IntegrationEventPublisher {
-    private val relay = outboxRelay(store, router)
+    private val relay = outboxRelay(store, router, maxConcurrentDeliveries)
 
     override suspend fun publish(events: List<IntegrationEvent>) {
         val entries = events.map { EventEnvelope.of(it) }
@@ -126,7 +133,13 @@ class OutboxCoordinator(
 
     val immediatePublisher: IntegrationEventPublisher? =
         config?.let {
-            ImmediateOutboxPublisher(it.store, router, outboxScope, it.opportunisticDrain)
+            ImmediateOutboxPublisher(
+                it.store,
+                router,
+                outboxScope,
+                it.opportunisticDrain,
+                it.maxConcurrentDeliveries,
+            )
         }
 
     private var pollerJob: Job? = null
@@ -139,6 +152,7 @@ class OutboxCoordinator(
                 outboxScope,
                 unitOfWork,
                 config.opportunisticDrain,
+                config.maxConcurrentDeliveries,
             )
         }
     }
@@ -148,7 +162,8 @@ class OutboxCoordinator(
         if (config == null || pollerJob != null) return
         pollerJob =
             outboxScope.launch {
-                outboxRelay(config.store, router).poll(config.batchSize, config.pollInterval)
+                outboxRelay(config.store, router, config.maxConcurrentDeliveries)
+                    .poll(config.batchSize, config.pollInterval)
             }
     }
 }

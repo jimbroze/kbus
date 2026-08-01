@@ -43,11 +43,18 @@ internal val InboxAckPolicy.errorStrategyOverride: ((ErrorStrategy) -> ErrorStra
  */
 class ContextInbox(val store: InboxStore, val ackPolicy: InboxAckPolicy)
 
-/** Bus-wide inbox tuning, shared by every context that declares a [ContextInbox]. */
+/**
+ * Bus-wide inbox tuning, shared by every context that declares a [ContextInbox].
+ *
+ * [maxConcurrentDeliveries] trades ordering for throughput: see
+ * [EnvelopeRelay][com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay]. Set it to 1 to
+ * consume a batch strictly in the order the store returned it.
+ */
 class InboxConfig(
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
     val opportunisticDispatch: Boolean = true,
+    val maxConcurrentDeliveries: Int = 16,
 )
 
 /**
@@ -67,14 +74,7 @@ internal class InboxCoordinator(
     val destinations: List<EventDestination> =
         contexts.map { contextRuntime ->
             contextRuntime.context.inbox?.let { inbox ->
-                EventInbox(
-                    contextRuntime,
-                    inbox.store,
-                    inboxScope,
-                    tuning.batchSize,
-                    tuning.pollInterval,
-                    tuning.opportunisticDispatch,
-                )
+                EventInbox(contextRuntime, inbox.store, inboxScope, tuning)
             } ?: contextRuntime
         }
 

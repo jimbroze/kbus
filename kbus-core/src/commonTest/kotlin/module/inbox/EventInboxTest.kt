@@ -26,7 +26,12 @@ class EventInboxTest {
     fun name_and_appliesTo_delegateToTheInnerDestination() = runTest {
         val destination = RecordingDestination(name = "orders")
         val inbox =
-            EventInbox(destination, RecordingInboxStore(), backgroundScope, 10, 10.milliseconds)
+            EventInbox(
+                destination,
+                RecordingInboxStore(),
+                backgroundScope,
+                InboxConfig(10.milliseconds, 10),
+            )
 
         assertEquals("orders", inbox.name)
         assertTrue(inbox.appliesTo(InboxTestEvent("a")))
@@ -41,9 +46,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
 
         inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
@@ -56,7 +59,13 @@ class EventInboxTest {
     @Test
     fun deliver_ofAnEmptyList_doesNothing() = runTest {
         val store = RecordingInboxStore()
-        val inbox = EventInbox(RecordingDestination(), store, backgroundScope, 10, 10.milliseconds)
+        val inbox =
+            EventInbox(
+                RecordingDestination(),
+                store,
+                backgroundScope,
+                InboxConfig(10.milliseconds, 10),
+            )
 
         inbox.deliver(emptyList())
 
@@ -66,7 +75,13 @@ class EventInboxTest {
     @Test
     fun deliver_aStoreFailurePropagates_soTheRouterCanLeaveTheEntryUnacked() = runTest {
         val store = RecordingInboxStore().apply { saveFailure = IllegalStateException("db down") }
-        val inbox = EventInbox(RecordingDestination(), store, backgroundScope, 10, 10.milliseconds)
+        val inbox =
+            EventInbox(
+                RecordingDestination(),
+                store,
+                backgroundScope,
+                InboxConfig(10.milliseconds, 10),
+            )
 
         assertFailsWith<IllegalStateException> {
             inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
@@ -77,7 +92,8 @@ class EventInboxTest {
     fun deliver_withOpportunisticDispatch_dispatchesToTheInnerDestination() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
-        val inbox = EventInbox(destination, store, backgroundScope, 10, 10.milliseconds)
+        val inbox =
+            EventInbox(destination, store, backgroundScope, InboxConfig(10.milliseconds, 10))
 
         inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
         runCurrent()
@@ -95,9 +111,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(
             listOf(EventEnvelope("1", InboxTestEvent("a")), EventEnvelope("2", InboxTestEvent("b")))
@@ -119,9 +133,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
 
@@ -148,9 +160,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(
             listOf(EventEnvelope("1", InboxTestEvent("a")), EventEnvelope("2", InboxTestEvent("b")))
@@ -171,9 +181,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
         inbox.drain()
@@ -194,9 +202,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
 
         inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
@@ -223,9 +229,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                1.hours,
-                opportunisticDispatch = false,
+                InboxConfig(1.hours, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
 
@@ -254,9 +258,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                10,
-                10.milliseconds,
-                opportunisticDispatch = false,
+                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
 
