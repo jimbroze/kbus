@@ -55,9 +55,7 @@ class KbusProcessor(
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val invalidSymbols = mutableListOf<KSAnnotated>()
 
-        if (!isSubModule) {
-            invalidSymbols.addAll(processIndexes(resolver))
-        }
+        invalidSymbols.addAll(processIndexes(resolver))
 
         invalidSymbols.addAll(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
@@ -124,16 +122,29 @@ class KbusProcessor(
 
         val sourceFiles = dependencies.sourceFiles.toList()
 
-        generators.containerInterface.generateInterface(dependencies.allDependencies, sourceFiles)
-        generators.handlersInterface.generateInterfaces(dependencies.handlers, sourceFiles)
         if (isSubModule) {
+            // A submodule generates against what it declares. What it learned from its
+            // dependencies' indexes is there to generate *with*, not to re-export.
+            generators.containerInterface.generateInterface(
+                dependencies.locallyDeclaredDependencies,
+                sourceFiles,
+            )
+            generators.handlersInterface.generateInterfaces(
+                dependencies.locallyDeclaredHandlers,
+                sourceFiles,
+            )
             generators.dependencyIndexGenerator.generateIndexClass(
-                dependencies.allDependencies,
-                dependencies.handlers,
-                dependencies.autoPublishDefinitions,
+                dependencies.locallyDeclaredDependencies,
+                dependencies.locallyDeclaredHandlers,
+                dependencies.locallyDeclaredAutoPublishDefinitions,
                 sourceFiles,
             )
         } else {
+            generators.containerInterface.generateInterface(
+                dependencies.allDependencies,
+                sourceFiles,
+            )
+            generators.handlersInterface.generateInterfaces(dependencies.handlers, sourceFiles)
             generators.autoLoader.generateAutoloader(dependencies.allDependencies, sourceFiles)
             generators.handlersFactory.generateClasses(dependencies.handlers, sourceFiles)
             generators.loadedEventHandlersGenerator.generateExtensionProperties(
