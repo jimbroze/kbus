@@ -16,6 +16,7 @@ import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -602,6 +603,8 @@ private class OutboxFailingNoopCommandHandler :
  * again on every drain, recursively.
  */
 private class PublishingViaContextMiddleware(private val event: IntegrationEvent) : Middleware {
+    override val scope = MiddlewareScope.EntryPointOnly
+
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,

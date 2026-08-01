@@ -414,6 +414,17 @@ passed to all middleware in the chain. It currently exposes `integrationEventPub
 `IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration events
 directly, independent of any command handler's own publishing.
 
+### Middleware Scope
+
+Every middleware declares a `scope`, which decides whether it re-runs for a command executed from inside another
+command's invocation:
+
+- `MiddlewareScope.EntryPointOnly` — runs only for the command that entered the bus.
+- `MiddlewareScope.EveryCommand` — also runs for each nested command.
+
+There is no default, because only a middleware's author knows whether re-entering it is safe. It has no bearing on
+event dispatch, which is its own entry point and always runs the full chain.
+
 ### Writing Custom Middleware
 
 <!--- CLEAR -->
@@ -422,11 +433,14 @@ import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import kotlin.time.TimeSource
 -->
 
 ```kotlin
 class TimingMiddleware : Middleware {
+    override val scope = MiddlewareScope.EveryCommand
+
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,

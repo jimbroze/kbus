@@ -16,6 +16,7 @@ import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -546,6 +547,8 @@ private class NeverCompletingAfterTransactionHandler(
 
 /** Suspends inside [onStop] until [gate] completes, so a test can observe stop() waiting. */
 private class GatedStopMiddleware : LifecycleAwareMiddleware {
+    override val scope = MiddlewareScope.EntryPointOnly
+
     val onStopEntered = CompletableDeferred<Unit>()
     val gate = CompletableDeferred<Unit>()
 
@@ -569,6 +572,8 @@ private class GatedStopMiddleware : LifecycleAwareMiddleware {
 
 /** Launches background work that cannot be cancelled, so `rootJob.join()` can never complete. */
 private class UncancellableWorkMiddleware : LifecycleAwareMiddleware {
+    override val scope = MiddlewareScope.EntryPointOnly
+
     val started = CompletableDeferred<Unit>()
 
     var stopCompleted = false

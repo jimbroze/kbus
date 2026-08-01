@@ -10,6 +10,7 @@ import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
@@ -35,6 +36,9 @@ class LockingMiddleware(
     private val defaultLockExpiry: Duration,
     private val defaultIgnoreLockOnTimeout: Boolean = false,
 ) : LifecycleAwareMiddleware {
+    /** Its re-entrancy guard exists precisely to stop a handler re-entering the bus. */
+    override val scope = MiddlewareScope.EntryPointOnly
+
     companion object {
         private const val KEY_PREFIX = "bus-lock-"
         private const val GLOBAL_KEY_SUFFIX = "global-channel"
