@@ -8,7 +8,7 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.module.CommandOwner
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
@@ -23,13 +23,13 @@ class CommandExecutor(
 
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
-        owner: CommandOwner,
+        owningContext: OwningContext,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
     ): TResult {
-        val invocation = invocationFactory.create<TResult>(owner.domainEventDispatcher)
+        val invocation = invocationFactory.create<TResult>(owningContext.domainEventDispatcher)
         val nestedCommandExecutor =
             InvocationNestedCommandExecutor(
-                owner,
+                owningContext,
                 invocation,
                 commandDependenciesFactory,
                 nestedMiddlewares,

@@ -217,7 +217,7 @@ class BusGenerator(
         val processorArgs =
             if (handler is CommandHandlerDefinition)
                 CodeBlock.of(
-                    "%L, commandOwnerFor(%L), handlerCreator",
+                    "%L, owningContextFor(%L), handlerCreator",
                     messageType,
                     contextIdKeyBlock(handler.handlerData.module),
                 )

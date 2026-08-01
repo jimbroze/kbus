@@ -30,7 +30,7 @@ internal class ContextRuntime(
      * dispatch share the one instance, whichever reaches it first.
      */
     private val eventDispatcher: Lazy<EventDispatcher>,
-) : EventDestination, DomainEventDispatcher, CommandOwner {
+) : EventDestination, DomainEventDispatcher, OwningContext {
     override val domainEventDispatcher: DomainEventDispatcher
         get() = this
 

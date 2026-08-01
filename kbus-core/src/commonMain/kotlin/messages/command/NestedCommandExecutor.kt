@@ -8,7 +8,7 @@ import com.jimbroze.kbus.contracts.uow.TransactionConfig
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.module.CommandOwner
+import com.jimbroze.kbus.core.module.OwningContext
 
 /**
  * Executes a command from inside another command's handler, sharing that command's transaction,
@@ -36,7 +36,7 @@ interface NestedCommandExecutor {
  * [EveryCommand][com.jimbroze.kbus.core.middleware.MiddlewareScope.EveryCommand].
  */
 internal class InvocationNestedCommandExecutor(
-    private val owner: CommandOwner,
+    private val owningContext: OwningContext,
     private val invocation: CommandInvocation<*>,
     private val dependenciesFactory: CommandDependenciesFactory,
     private val nestedMiddlewares: List<Middleware>,
@@ -46,7 +46,7 @@ internal class InvocationNestedCommandExecutor(
         command: TCommand
     ): TResult {
         val handler =
-            owner.handlerFor(command, dependenciesFactory.create(invocation, this))
+            owningContext.handlerFor(command, dependenciesFactory.create(invocation, this))
                 ?: throw MissingHandlerException(command::class)
 
         handler.setPublisher(invocation.integrationEventPublisher)

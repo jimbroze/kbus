@@ -15,7 +15,7 @@ import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
  * command the context does not own, which is how a call across a context boundary surfaces as a
  * missing handler rather than a boundary the framework polices at runtime.
  */
-interface CommandOwner {
+interface OwningContext {
     val domainEventDispatcher: DomainEventDispatcher
 
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(

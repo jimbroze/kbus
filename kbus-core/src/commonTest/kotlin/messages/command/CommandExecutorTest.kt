@@ -9,8 +9,8 @@ import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestCommandDependenciesFactory
-import com.jimbroze.kbus.core.fixtures.TestCommandOwner
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
+import com.jimbroze.kbus.core.fixtures.TestOwningContext
 import com.jimbroze.kbus.core.fixtures.TestPublisherFactories
 import com.jimbroze.kbus.core.fixtures.TestTransactionManager
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWorkFactory
@@ -50,7 +50,9 @@ class CommandExecutorTest {
             )
 
         val result =
-            executor.execute(ReturnCommand("Wassup"), TestCommandOwner()) { ReturnCommandHandler() }
+            executor.execute(ReturnCommand("Wassup"), TestOwningContext()) {
+                ReturnCommandHandler()
+            }
 
         assertEquals(BusResult.success("Wassup"), result)
     }
@@ -74,7 +76,7 @@ class CommandExecutorTest {
 
         val handler = DispatchingCommandHandler()
 
-        executor.execute(DispatchingCommand(), TestCommandOwner()) { handler }
+        executor.execute(DispatchingCommand(), TestOwningContext()) { handler }
         advanceUntilIdle()
 
         assertEquals(1, destination.delivered.size)
@@ -109,7 +111,7 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(DispatchingCommand(), TestCommandOwner()) { DispatchingCommandHandler() }
+        executor.execute(DispatchingCommand(), TestOwningContext()) { DispatchingCommandHandler() }
         unitOfWorkFactory.unitOfWork.executeAllScheduledWork()
 
         assertTrue(directDestination.delivered.isEmpty())
@@ -145,7 +147,7 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(ReturnCommand("test"), TestCommandOwner()) { ReturnCommandHandler() }
+        executor.execute(ReturnCommand("test"), TestOwningContext()) { ReturnCommandHandler() }
 
         assertIs<TransactionalOutbox>(
             capturingMiddleware.capturedContext?.integrationEventPublisher
@@ -167,7 +169,7 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(ReturnCommand("Primary"), TestCommandOwner()) { ReturnCommandHandler() }
+        executor.execute(ReturnCommand("Primary"), TestOwningContext()) { ReturnCommandHandler() }
 
         val unitOfWork = unitOfWorkFactory.unitOfWork
         assertEquals(1, unitOfWork.executedWork.size)
@@ -187,7 +189,7 @@ class CommandExecutorTest {
                 factories.invocationFactory,
             )
 
-        executor.execute(TransactionCommand("Transaction"), TestCommandOwner()) {
+        executor.execute(TransactionCommand("Transaction"), TestOwningContext()) {
             TransactionCommandHandler()
         }
 
@@ -210,7 +212,7 @@ class CommandExecutorTest {
             )
 
         assertFailsWith<IllegalStateException> {
-            executor.execute(TransactionCommand("Transaction"), TestCommandOwner()) {
+            executor.execute(TransactionCommand("Transaction"), TestOwningContext()) {
                 TransactionCommandHandler()
             }
         }
@@ -232,7 +234,7 @@ class CommandExecutorTest {
 
         val command = TransactionCommand("HandlerTransaction")
 
-        executor.execute(command, TestCommandOwner()) {
+        executor.execute(command, TestOwningContext()) {
             TransactionCommandHandler(handlerTransactionManager)
         }
 
@@ -258,7 +260,7 @@ class CommandExecutorTest {
 
         val command = TransactionCommand("Transaction")
 
-        executor.execute(command, TestCommandOwner()) {
+        executor.execute(command, TestOwningContext()) {
             TransactionCommandHandler(handlerTransactionManager)
         }
 
@@ -289,7 +291,7 @@ class CommandExecutorTest {
             ReturnCommandHandler()
         }
 
-        executor.execute(ReturnCommand("Primary"), TestCommandOwner(), createHandler)
+        executor.execute(ReturnCommand("Primary"), TestOwningContext(), createHandler)
 
         val unitOfWork = unitOfWorkFactory.unitOfWork
         assertNotNull(testDependencies)

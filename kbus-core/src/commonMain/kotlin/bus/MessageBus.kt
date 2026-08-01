@@ -23,8 +23,8 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.CommandOwner
 import com.jimbroze.kbus.core.module.ContextRuntime
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.registry.HandlerLocator
@@ -287,7 +287,7 @@ abstract class BaseMessageBus(
      * statically. Throws if no such context is on this bus, rather than silently executing against
      * no one.
      */
-    protected fun commandOwnerFor(contextId: BoundedContextId): CommandOwner =
+    protected fun owningContextFor(contextId: BoundedContextId): OwningContext =
         contextRuntimes.firstOrNull { it.context.id == contextId }
             ?: throw IllegalArgumentException(
                 "No bounded context with id '${contextId.value}' on this bus."
