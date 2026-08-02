@@ -20,7 +20,7 @@ import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeName
 
 class HandlerFactory(
-    @Suppress("unused") private val logger: KSPLogger,
+    private val logger: KSPLogger,
     val dependencyFactory: DependencyFactory,
     /**
      * This Gradle module's bounded context identity (`kbus.boundedContextIdentity`), stamped onto
@@ -55,14 +55,11 @@ class HandlerFactory(
         handlerClass: KSClassDeclaration,
         baseClassTypeArgs: List<KSTypeArgument>,
         constructorDependencies: List<Dependency>,
-    ): EventHandlerDefinition {
+    ): EventHandlerDefinition? {
         val messageClass =
             baseClassTypeArgs[0].type?.resolve()?.declaration as? KSClassDeclaration
                 ?: error("Event type argument missing or invalid")
         val kind = resolveEventKind(messageClass)
-        if (kind == EventHandlerKind.DOMAIN) {
-            requireDomainEventHandler(handlerClass, messageClass)
-        }
         val definition =
             EventHandlerDefinition(
                 HandlerData(
@@ -74,44 +71,52 @@ class HandlerFactory(
                 ),
                 kind,
             )
-        requireNoCommandOnlyDependency(handlerClass, definition)
-        return definition
+
+        val isUsable =
+            (kind != EventHandlerKind.DOMAIN || isDomainEventHandler(handlerClass, messageClass)) &&
+                !hasCommandOnlyDependency(handlerClass, definition)
+
+        return definition.takeIf { isUsable }
     }
 
     /**
      * An event is dispatched outside any one command's execution, so nothing can supply a handler
      * with what only a command's own invocation holds.
      */
-    private fun requireNoCommandOnlyDependency(
+    private fun hasCommandOnlyDependency(
         handlerClass: KSClassDeclaration,
         definition: EventHandlerDefinition,
-    ) {
-        if (definition.requiredBundle != DependencyBundle.COMMAND) return
+    ): Boolean {
+        if (definition.requiredBundle != DependencyBundle.COMMAND) return false
         val commandOnlyDependencies =
             definition.handlerData.topLevelDependencies
                 .filter { it.requiredBundle == DependencyBundle.COMMAND }
                 .joinToString(", ") { it.signature }
-        error(
+        logger.error(
             "Event handler ${handlerClass.qualifiedName?.asString()} depends on " +
-                "$commandOnlyDependencies, which only a command's own invocation can supply."
+                "$commandOnlyDependencies, which only a command's own invocation can supply.",
+            handlerClass,
         )
+        return true
     }
 
     /**
      * Rejected here rather than at the subscription the generator is about to write, so the error
      * names the handler the author wrote instead of a line of generated source.
      */
-    private fun requireDomainEventHandler(
+    private fun isDomainEventHandler(
         handlerClass: KSClassDeclaration,
         messageClass: KSClassDeclaration,
-    ) {
-        if (handlerClass.extendsType(DomainEventHandler::class.qualifiedName!!)) return
-        error(
+    ): Boolean {
+        if (handlerClass.extendsType(DomainEventHandler::class.qualifiedName!!)) return true
+        logger.error(
             "Handler ${handlerClass.qualifiedName?.asString()} handles the domain event " +
                 "${messageClass.qualifiedName?.asString()}, so it must extend DomainEventHandler " +
                 "rather than implement EventHandler directly. Either extend DomainEventHandler, " +
-                "or make the event an IntegrationEvent."
+                "or make the event an IntegrationEvent.",
+            handlerClass,
         )
+        return false
     }
 
     private fun resolveEventKind(messageClass: KSClassDeclaration): EventHandlerKind {
