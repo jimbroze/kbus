@@ -76,6 +76,27 @@ class BusGeneratorContextsTest {
     }
 
     @Test
+    fun aCommandRunsAgainstAContextResolvedWhenTheBusIsBuilt() {
+        val bus = generateBus()
+
+        assertContains(
+            bus,
+            "private val ordersOwningContext: OwningContext = " +
+                "owningContextFor(BoundedContextId(\"orders\"))",
+        )
+        assertContains(
+            bus,
+            "private val defaultOwningContext: OwningContext = " +
+                "owningContextFor(BoundedContextId.DEFAULT)",
+        )
+        assertContains(bus, "commandExecutor.execute(command, ordersOwningContext, handlerCreator)")
+        assertContains(
+            bus,
+            "commandExecutor.execute(command, defaultOwningContext, handlerCreator)",
+        )
+    }
+
+    @Test
     fun noContextIsReachableFromTheBuiltBus() {
         val bus = generateBus()
 
