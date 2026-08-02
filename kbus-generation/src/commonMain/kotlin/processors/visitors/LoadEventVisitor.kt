@@ -69,13 +69,8 @@ class LoadEventVisitor(
         classDeclaration.containingFile?.let { data.addSourceFile(it) }
 
         when (val result = data.tryAddAutoPublish(definition)) {
-            is ConflictPolicy.Result.Accept -> {
-                // Successfully added
-            }
-
-            is ConflictPolicy.Result.ExactDuplicate -> {
-                // Duplicate definition is fine
-            }
+            is ConflictPolicy.Result.Accept,
+            is ConflictPolicy.Result.ExactDuplicate -> Unit
 
             is ConflictPolicy.Result.InvalidConflict -> {
                 logger.error(result.reason, classDeclaration)

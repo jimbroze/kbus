@@ -52,14 +52,10 @@ class YieldTest {
     @Test
     fun test_delay_yields_coroutine() = runTest {
         val clock = Clock.System
-        //        val clock = TestClock(testScheduler)
         val timeSource = TimeSource.Monotonic
-        //        val timeSource = clock.asTimeSource()
-        //        val timeSource = TestClock(testScheduler).asTimeSource()
 
         locked = true
         val job1 = async {
-            //            locked = true
             delay((500).toLong())
             locked = false
 
@@ -84,32 +80,4 @@ class YieldTest {
 
         assertTrue(afterSleep <= afterUnlock)
     }
-
-    //    @Test
-    //    fun test_yield_yields_coroutine() = runTest {
-    //        val clock = Clock.System
-    //        val timeSource = TimeSource.Monotonic
-    //
-    //        val job1 = async {
-    //            locked = true
-    //            delay(500.milliseconds)
-    //            locked = false
-    //
-    //            timeSource.markNow()
-    //        }
-    //
-    //        val job2 = async {
-    //            val timeout = clock.now().plus(5.seconds)
-    //            while (locked && clock.now() <= timeout) {
-    //                yield()
-    //            }
-    //
-    //            timeSource.markNow()
-    //        }
-    //
-    //        val afterSleep = job1.await()
-    //        val afterUnlock = job2.await()
-    //
-    //        assertTrue(afterSleep < afterUnlock)
-    //    }
 }

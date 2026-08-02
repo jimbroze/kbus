@@ -68,13 +68,8 @@ class LoadVisitor(
     ) {
         for (dependency in dependencies.allDependencies) {
             when (val result = data.tryAddDependency(dependency)) {
-                is ConflictPolicy.Result.Accept -> {
-                    // Successfully added
-                }
-
-                is ConflictPolicy.Result.ExactDuplicate -> {
-                    // Duplicate dependency is fine
-                }
+                is ConflictPolicy.Result.Accept,
+                is ConflictPolicy.Result.ExactDuplicate -> Unit
 
                 is ConflictPolicy.Result.InvalidConflict -> {
                     logger.error(result.reason, handlerClass)
@@ -89,13 +84,8 @@ class LoadVisitor(
         classDeclaration: KSClassDeclaration,
     ) {
         when (val result = data.tryAddHandler(handler)) {
-            is ConflictPolicy.Result.Accept -> {
-                // Successfully added
-            }
-
-            is ConflictPolicy.Result.ExactDuplicate -> {
-                // Duplicate handler is fine
-            }
+            is ConflictPolicy.Result.Accept,
+            is ConflictPolicy.Result.ExactDuplicate -> Unit
 
             is ConflictPolicy.Result.InvalidConflict -> {
                 logger.error(result.reason, classDeclaration)

@@ -6,7 +6,6 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
-// Application layer
 interface DomainEventMapper {
     fun <TEvent : DomainEvent> addDomainHandlers(
         event: KClass<TEvent>,
@@ -14,7 +13,6 @@ interface DomainEventMapper {
     )
 }
 
-// Top layer
 interface IntegrationEventMapper {
     fun <TEvent : IntegrationEvent> addEventHandlers(
         event: KClass<TEvent>,
