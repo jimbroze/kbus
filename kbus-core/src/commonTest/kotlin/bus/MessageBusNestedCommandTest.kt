@@ -479,7 +479,7 @@ class MessageBusNestedCommandTest {
         val locator = PersistingHandlerLocator(stores)
         registerOuterAndInner(stores, outerTransaction = null)
 
-        val bus = MessageBus(locator, transactionManager = null, appScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         assertFailsWith<NestedTransactionMismatchException> {
             bus.execute(OuterCommand("untransacted"))
@@ -498,7 +498,7 @@ class MessageBusNestedCommandTest {
             innerTransaction = TransactionConfig(transactionManagerOverride = transactionManager),
         )
 
-        val bus = MessageBus(locator, transactionManager = null, appScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         val result = bus.execute(OuterCommand("same-manager"))
 
@@ -518,7 +518,7 @@ class MessageBusNestedCommandTest {
             innerTransaction = TransactionConfig(transactionManagerOverride = otherManager),
         )
 
-        val bus = MessageBus(locator, transactionManager = null, appScope = backgroundScope)
+        val bus = MessageBus(locator, appScope = backgroundScope)
 
         assertFailsWith<NestedTransactionMismatchException> {
             bus.execute(OuterCommand("other-manager"))

@@ -13,7 +13,7 @@ import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
 class CommandExecutor(
-    private val transactionManager: TransactionManager?,
+    private val transactionManager: TransactionManager,
     private val middlewares: List<Middleware>,
     private val contextFactory: MiddlewareInvocationContextFactory,
     private val commandDependenciesFactory: CommandDependenciesFactory,
@@ -60,9 +60,7 @@ class CommandExecutor(
         val transactionConfig = handler.executeInTransaction
         if (transactionConfig != null) {
             unitOfWork.useTransaction(
-                transactionConfig.transactionManagerOverride
-                    ?: transactionManager
-                    ?: error("Transaction Manager has not been set")
+                transactionConfig.transactionManagerOverride ?: transactionManager
             )
         }
 
