@@ -22,12 +22,12 @@ val bus = MessageBus(
         BoundedContext(
             BoundedContextId("orders"),
             ordersLocator,
-            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
         BoundedContext(
             BoundedContextId("inventory"),
             inventoryLocator,
-            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
