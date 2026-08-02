@@ -17,7 +17,6 @@ val ordersLocator = PersistingHandlerLocator(stores)
 val inventoryLocator = PersistingHandlerLocator(stores)
 
 val bus = MessageBus(
-    handlerLocator = PersistingHandlerLocator(stores),
     contexts = listOf(
         BoundedContext(
             BoundedContextId("orders"),
