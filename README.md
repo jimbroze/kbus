@@ -1194,7 +1194,11 @@ ksp {
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
 by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `ContextConfig`
-parameter for each, named after the identity, plus `default` for handlers from modules that declared no identity:
+parameter for each, named after the identity, plus `default` for handlers from modules that declared no identity.
+
+Because the identity becomes a Kotlin name, two identities that differ only in their separators — `order-fulfilment`,
+`order_fulfilment`, `order.fulfilment`, `orderFulfilment` — are rejected at generation time, naming both identities and
+the handlers that declared them:
 
 ```kotlin
 val bus = MyBus(
