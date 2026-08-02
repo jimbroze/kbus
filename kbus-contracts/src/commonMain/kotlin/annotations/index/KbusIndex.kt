@@ -8,6 +8,17 @@ enum class DependencyType {
     NON_DEPENDENCY,
 }
 
+/**
+ * The narrowest set of invocation-scoped dependencies something can be built from. [NONE] needs no
+ * invocation at all; [HANDLER] needs only what any handler is given; [COMMAND] needs what only a
+ * command's own invocation can supply, and so is unreachable from event dispatch.
+ */
+enum class DependencyBundle {
+    NONE,
+    HANDLER,
+    COMMAND,
+}
+
 enum class HandlerType {
     COMMAND,
     QUERY,
@@ -31,7 +42,7 @@ annotation class DependencyInfo(
     val signature: String,
     val name: String,
     val cannotBeAutoloaded: Boolean,
-    val requiresCommandDependencies: Boolean,
+    val requiredBundle: DependencyBundle,
     val topLevelDependencies: Array<String>,
 )
 

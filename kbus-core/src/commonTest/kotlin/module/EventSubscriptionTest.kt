@@ -5,6 +5,7 @@ import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
 import com.jimbroze.kbus.core.registry.generation.subscribe
@@ -50,7 +51,12 @@ class EventSubscriptionTest {
         subscribe(StorageEvent::class, PrintEventHandler::class, OtherPrintEventHandler::class)
             .registerOn(locator)
 
-        assertEquals(2, locator.handlersFor(StorageEvent("any", mutableListOf())).size)
+        assertEquals(
+            2,
+            locator
+                .handlersFor(StorageEvent("any", mutableListOf()), noPublishHandlerDependencies)
+                .size,
+        )
     }
 
     @Test

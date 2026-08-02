@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
 import com.jimbroze.kbus.core.registry.HandlerLocator
@@ -47,24 +48,27 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
     override fun handledQueryTypes(): Set<KClass<out Query<*>>> = queryTypes
 
     override fun <TEvent : IntegrationEvent> handlersFor(
-        event: TEvent
+        event: TEvent,
+        handlerDependencies: HandlerDependencies,
     ): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()
         return handlerClasses.map<KClass<EventHandler<TEvent>>, EventHandler<TEvent>> { handlerClass
             ->
-            generationHandlerFactory.eventHandler(handlerClass) ?: missingFactory(handlerClass)
+            generationHandlerFactory.eventHandler(handlerClass, handlerDependencies)
+                ?: missingFactory(handlerClass)
         }
     }
 
     override fun <TEvent : DomainEvent> domainHandlersFor(
-        event: TEvent
+        event: TEvent,
+        handlerDependencies: HandlerDependencies,
     ): List<DomainEventHandler<TEvent>> {
         val handlerClasses = eventMapper.domainHandlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()
         return handlerClasses.map<KClass<DomainEventHandler<TEvent>>, DomainEventHandler<TEvent>> {
             handlerClass ->
-            generationHandlerFactory.domainEventHandler(handlerClass)
+            generationHandlerFactory.domainEventHandler(handlerClass, handlerDependencies)
                 ?: missingFactory(handlerClass)
         }
     }

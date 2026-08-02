@@ -13,7 +13,9 @@ import com.jimbroze.kbus.core.fixtures.StorageQuery
 import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.fixtures.testCommandDependencies
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -23,6 +25,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 /** One bounded context's generated factory: [StorageCommand] and [StorageQuery] only. */
 private class FakeGenerationHandlerFactory(
@@ -48,16 +51,23 @@ private class FakeGenerationHandlerFactory(
         else null
 
     override fun <TEvent : Event> eventHandler(
-        handlerClass: KClass<EventHandler<TEvent>>
+        handlerClass: KClass<EventHandler<TEvent>>,
+        handlerDependencies: HandlerDependencies,
     ): EventHandler<TEvent>? = null
+
+    /** What the locator handed this factory the last time it built a domain handler. */
+    var dependenciesGivenToDomainHandler: HandlerDependencies? = null
+        private set
 
     @Suppress("UNCHECKED_CAST")
     override fun <TEvent : DomainEvent> domainEventHandler(
-        handlerClass: KClass<DomainEventHandler<TEvent>>
-    ): DomainEventHandler<TEvent>? =
-        if (holdsDomainEventHandler && handlerClass == TestDomainEventHandler::class)
-            TestDomainEventHandler(mutableListOf()) as DomainEventHandler<TEvent>
-        else null
+        handlerClass: KClass<DomainEventHandler<TEvent>>,
+        handlerDependencies: HandlerDependencies,
+    ): DomainEventHandler<TEvent>? {
+        if (!holdsDomainEventHandler || handlerClass != TestDomainEventHandler::class) return null
+        dependenciesGivenToDomainHandler = handlerDependencies
+        return TestDomainEventHandler(mutableListOf()) as DomainEventHandler<TEvent>
+    }
 
     override fun commandTypes(): Set<KClass<out Command<*>>> =
         if (holdsCommand) setOf(StorageCommand::class) else emptySet()
@@ -144,10 +154,25 @@ class GenerationHandlerLocatorTest {
             listOf(TestDomainEventHandler::class),
         )
 
-        val handlers = locator.domainHandlersFor(TestDomainEvent("test"))
+        val handlers =
+            locator.domainHandlersFor(TestDomainEvent("test"), noPublishHandlerDependencies)
 
         assertEquals(1, handlers.size)
         assertIs<TestDomainEventHandler>(handlers.single())
+    }
+
+    @Test
+    fun domainHandlersFor_buildsEachHandlerWithTheDependenciesItWasGiven() {
+        val factory = FakeGenerationHandlerFactory(holdsDomainEventHandler = true)
+        val locator = GenerationHandlerLocator(factory)
+        locator.domainEventMapper.addDomainHandlers(
+            TestDomainEvent::class,
+            listOf(TestDomainEventHandler::class),
+        )
+
+        locator.domainHandlersFor(TestDomainEvent("test"), noPublishHandlerDependencies)
+
+        assertSame(noPublishHandlerDependencies, factory.dependenciesGivenToDomainHandler)
     }
 
     @Test
@@ -155,7 +180,10 @@ class GenerationHandlerLocatorTest {
         val locator =
             GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsDomainEventHandler = true))
 
-        assertEquals(emptyList(), locator.domainHandlersFor(TestDomainEvent("test")))
+        assertEquals(
+            emptyList(),
+            locator.domainHandlersFor(TestDomainEvent("test"), noPublishHandlerDependencies),
+        )
     }
 
     @Test
@@ -167,7 +195,7 @@ class GenerationHandlerLocatorTest {
         )
 
         assertFailsWith<IllegalStateException> {
-            locator.domainHandlersFor(TestDomainEvent("test"))
+            locator.domainHandlersFor(TestDomainEvent("test"), noPublishHandlerDependencies)
         }
     }
 }

@@ -5,6 +5,7 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
+import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -62,15 +63,37 @@ class HandlerFactory(
         if (kind == EventHandlerKind.DOMAIN) {
             requireDomainEventHandler(handlerClass, messageClass)
         }
-        return EventHandlerDefinition(
-            HandlerData(
-                handlerClass.toClassName(),
-                messageClass.toClassName(),
-                UNIT,
-                constructorDependencies,
-                boundedContextIdentity,
-            ),
-            kind,
+        val definition =
+            EventHandlerDefinition(
+                HandlerData(
+                    handlerClass.toClassName(),
+                    messageClass.toClassName(),
+                    UNIT,
+                    constructorDependencies,
+                    boundedContextIdentity,
+                ),
+                kind,
+            )
+        requireNoCommandOnlyDependency(handlerClass, definition)
+        return definition
+    }
+
+    /**
+     * An event is dispatched outside any one command's execution, so nothing can supply a handler
+     * with what only a command's own invocation holds.
+     */
+    private fun requireNoCommandOnlyDependency(
+        handlerClass: KSClassDeclaration,
+        definition: EventHandlerDefinition,
+    ) {
+        if (definition.requiredBundle != DependencyBundle.COMMAND) return
+        val commandOnlyDependencies =
+            definition.handlerData.topLevelDependencies
+                .filter { it.requiredBundle == DependencyBundle.COMMAND }
+                .joinToString(", ") { it.signature }
+        error(
+            "Event handler ${handlerClass.qualifiedName?.asString()} depends on " +
+                "$commandOnlyDependencies, which only a command's own invocation can supply."
         )
     }
 

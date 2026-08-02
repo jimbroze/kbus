@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
 import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
+import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
@@ -108,8 +109,11 @@ class DependencyIndexGenerator(
                 dependency.cannotBeAutoloaded,
             )
             .addMember(
-                "${DependencyInfo::requiresCommandDependencies.name} = %L",
-                dependency.metadata.requiresCommandDependencies,
+                "${DependencyInfo::requiredBundle.name} = %M",
+                MemberName(
+                    DependencyBundle::class.asClassName(),
+                    dependency.metadata.requiredBundle.name,
+                ),
             )
             .addMember(
                 "${DependencyInfo::topLevelDependencies.name} = [%L]",

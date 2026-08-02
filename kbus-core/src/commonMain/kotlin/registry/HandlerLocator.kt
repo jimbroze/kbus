@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -23,13 +24,19 @@ interface HandlerLocator : EventMapperProvider {
         query: TQuery
     ): QueryHandler<TQuery, TResult>?
 
-    fun <TEvent : IntegrationEvent> handlersFor(event: TEvent): List<EventHandler<TEvent>>
+    fun <TEvent : IntegrationEvent> handlersFor(
+        event: TEvent,
+        handlerDependencies: HandlerDependencies,
+    ): List<EventHandler<TEvent>>
 
     /**
      * The domain equivalent of [handlersFor]. Separate because domain dispatch needs the handler
      * kind, not merely something that can handle the event.
      */
-    fun <TEvent : DomainEvent> domainHandlersFor(event: TEvent): List<DomainEventHandler<TEvent>>
+    fun <TEvent : DomainEvent> domainHandlersFor(
+        event: TEvent,
+        handlerDependencies: HandlerDependencies,
+    ): List<DomainEventHandler<TEvent>>
 
     /**
      * Every event class this locator has a handler registered for, **without instantiating any of

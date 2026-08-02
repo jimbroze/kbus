@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
+import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
@@ -16,6 +17,8 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
+import com.jimbroze.kbus.generation.processing.dependencies.parameterName
+import com.jimbroze.kbus.generation.processing.dependencies.parameterType
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
@@ -238,8 +241,9 @@ class HandlersFactoryGenerator(
 
         for (handler in handlers) {
             val handlerName = handler.handlerData.nameAsDependency
+            val arguments = handler.functionParameters.joinToString(", ") { it.name }
             codeBlock.addStatement(
-                "%T::class -> this.$handlerName()",
+                "%T::class -> this.$handlerName($arguments)",
                 handler.handlerData.handlerClass,
             )
         }
@@ -250,6 +254,10 @@ class HandlersFactoryGenerator(
             .addModifiers(KModifier.OVERRIDE)
             .addTypeVariables(listOf(tEvent))
             .addParameter("handlerClass", handlerClassType)
+            .addParameter(
+                DependencyBundle.HANDLER.parameterName,
+                DependencyBundle.HANDLER.parameterType,
+            )
             .returns(returnType)
             .addCode(codeBlock.build())
             .build()
@@ -296,8 +304,8 @@ class HandlersFactoryGenerator(
                     is ContextCommandsDependency ->
                         "${contextClassPrefix(context)}$commandExecutorClassName" +
                             "(commandDependencies.commandExecutor)"
-                    is CommandDependency -> it.accessReference
-                    else -> "dependencies.${it.accessReference}"
+                    is CommandDependency -> it.accessReferenceIn(handler.suppliedBundle)
+                    else -> "dependencies.${it.accessReferenceIn(handler.suppliedBundle)}"
                 }
             }
 

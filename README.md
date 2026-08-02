@@ -162,6 +162,10 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 `CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and routes
 events through the Unit of Work.
 
+Event handlers are constructed with dependencies too, but only from what an event dispatch can supply: an
+`IntegrationEventPublisher` and nothing command-scoped. An event handler declaring a `NestedCommandExecutor` or a
+`DomainEventPublisher` fails generation, because no command's invocation reached it to provide one.
+
 ### Event Dispatch & Error Strategy Matrix
 
 The safety of an error strategy depends entirely on **when** the handler executes relative to the database transaction.

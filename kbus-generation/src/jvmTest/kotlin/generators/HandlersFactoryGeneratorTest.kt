@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.generation.generators
 
+import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -111,6 +112,7 @@ class HandlersFactoryGeneratorTest {
                                     "NestedCommandExecutor",
                                 ),
                                 "commandExecutor",
+                                DependencyBundle.COMMAND,
                             )
                         ),
                         "",
@@ -142,6 +144,7 @@ class HandlersFactoryGeneratorTest {
                                     "CommandDependencies",
                                 ),
                                 CommandDependency.WHOLE_OBJECT,
+                                DependencyBundle.COMMAND,
                             )
                         ),
                         "",
@@ -201,10 +204,9 @@ class HandlersFactoryGeneratorTest {
             emptyList(),
         )
 
-        assertContains(
-            generated["DefaultHandlerFactory"],
-            "domainEventHandler(handlerClass: KClass<DomainEventHandler<TEvent>>): " +
-                "DomainEventHandler<TEvent>?",
-        )
+        val factory = generated["DefaultHandlerFactory"]
+        assertContains(factory, "handlerClass: KClass<DomainEventHandler<TEvent>>")
+        assertContains(factory, "handlerDependencies: HandlerDependencies")
+        assertContains(factory, "): DomainEventHandler<TEvent>?")
     }
 }

@@ -9,6 +9,7 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import kotlin.reflect.KClass
 
@@ -34,5 +35,5 @@ data class QueryHandlerFactory<
 
 data class EventHandlerFactory<TEvent : Event, THandler : EventHandler<TEvent>>(
     override val handlerType: KClass<THandler>,
-    val create: () -> THandler,
+    val create: (handlerDependencies: HandlerDependencies) -> THandler,
 ) : MessageHandlerFactory<TEvent, THandler>

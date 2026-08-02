@@ -106,7 +106,7 @@ class EventDispatcherTest {
             val castedHandlers = handlers.toList() as List<DomainEventHandler<DomainEvent>>
             dispatcher =
                 EventDispatcher(
-                    { castedHandlers },
+                    { _, _ -> castedHandlers },
                     emptyList(),
                     dispatcherScope = scope,
                     contextFactory = emptyContextFactory(scope.backgroundScope),
@@ -121,12 +121,12 @@ class EventDispatcherTest {
             val castedHandlers = handlers.toList() as List<EventHandler<IntegrationEvent>>
             dispatcher =
                 EventDispatcher(
-                    { emptyList() },
+                    { _, _ -> emptyList() },
                     emptyList(),
                     dispatcherScope = scope,
                     contextFactory = emptyContextFactory(scope.backgroundScope),
                 )
-            dispatcher.dispatchIntegrationEvent(event, castedHandlers)
+            dispatcher.dispatchIntegrationEvent(event, { castedHandlers })
         }
 
         suspend fun flushSecondaryWork() = unitOfWork.secondaryWork.forEach { it.invoke() }
@@ -732,7 +732,7 @@ class EventDispatcherTest {
         val invocation = testInvocation<Any?>(publisher = outbox)
         val dispatcher =
             EventDispatcher(
-                { emptyList() },
+                { _, _ -> emptyList() },
                 listOf(capturingMiddleware),
                 this,
                 contextFactory = emptyContextFactory(backgroundScope),
@@ -750,7 +750,7 @@ class EventDispatcherTest {
             val invocation = testInvocation<Any?>()
             val dispatcher =
                 EventDispatcher(
-                    { emptyList() },
+                    { _, _ -> emptyList() },
                     listOf(capturingMiddleware),
                     this,
                     contextFactory = emptyContextFactory(backgroundScope),
@@ -770,7 +770,7 @@ class EventDispatcherTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val dispatcher =
             EventDispatcher(
-                { emptyList() },
+                { _, _ -> emptyList() },
                 listOf(capturingMiddleware),
                 this,
                 contextFactory =
@@ -807,7 +807,7 @@ class EventDispatcherTest {
             val destination = RecordingDestination()
             val dispatcher =
                 EventDispatcher(
-                    { emptyList() },
+                    { _, _ -> emptyList() },
                     emptyList(),
                     this,
                     contextFactory =
@@ -821,7 +821,7 @@ class EventDispatcherTest {
 
             dispatcher.dispatchIntegrationEvent(
                 TestIntegrationEvent("test"),
-                listOf(PublishingIntegrationEventHandler()),
+                { listOf(PublishingIntegrationEventHandler()) },
             )
             advanceUntilIdle()
 

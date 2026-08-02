@@ -10,6 +10,7 @@ import com.jimbroze.kbus.core.fixtures.StorageQuery
 import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.fixtures.testCommandDependencies
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -71,7 +72,7 @@ class PersistingHandlerLocatorTest {
         val eventType = StorageEvent::class
         val event = StorageEvent("test", mutableListOf())
 
-        assertEquals(0, locator.handlersFor(event).size)
+        assertEquals(0, locator.handlersFor(event, noPublishHandlerDependencies).size)
 
         stores.eventStore.registerHandlers(
             eventType,
@@ -83,7 +84,7 @@ class PersistingHandlerLocatorTest {
             ),
         )
 
-        val handlers = locator.handlersFor(event)
+        val handlers = locator.handlersFor(event, noPublishHandlerDependencies)
         assertEquals(0, handlers.size)
     }
 
@@ -95,7 +96,7 @@ class PersistingHandlerLocatorTest {
         val domainEvent = TestDomainEvent("test")
         val integrationEvent = StorageEvent("test", mutableListOf())
 
-        assertEquals(0, locator.handlersFor(integrationEvent).size)
+        assertEquals(0, locator.handlersFor(integrationEvent, noPublishHandlerDependencies).size)
 
         stores.eventStore.registerHandlers(
             TestDomainEvent::class,
@@ -124,8 +125,8 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class),
         )
 
-        assertEquals(1, locator.domainHandlersFor(domainEvent).size)
-        assertEquals(1, locator.handlersFor(integrationEvent).size)
+        assertEquals(1, locator.domainHandlersFor(domainEvent, noPublishHandlerDependencies).size)
+        assertEquals(1, locator.handlersFor(integrationEvent, noPublishHandlerDependencies).size)
     }
 
     @Test
@@ -135,14 +136,16 @@ class PersistingHandlerLocatorTest {
 
         val event = StorageEvent("test", mutableListOf())
 
-        assertEquals(0, locator.handlersFor(event).size)
+        assertEquals(0, locator.handlersFor(event, noPublishHandlerDependencies).size)
 
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
         )
 
-        assertFailsWith<IllegalStateException> { locator.handlersFor(event) }
+        assertFailsWith<IllegalStateException> {
+            locator.handlersFor(event, noPublishHandlerDependencies)
+        }
     }
 
     @Test
@@ -153,7 +156,8 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
         )
 
-        val handlers = locator.handlersFor(StorageEvent("test", mutableListOf()))
+        val handlers =
+            locator.handlersFor(StorageEvent("test", mutableListOf()), noPublishHandlerDependencies)
 
         assertEquals(2, handlers.size)
         assertIs<PrintEventHandler>(handlers[0])
@@ -168,7 +172,8 @@ class PersistingHandlerLocatorTest {
             listOf(OtherPrintEventHandler::class, PrintEventHandler::class),
         )
 
-        val handlers = locator.handlersFor(StorageEvent("test", mutableListOf()))
+        val handlers =
+            locator.handlersFor(StorageEvent("test", mutableListOf()), noPublishHandlerDependencies)
 
         assertEquals(2, handlers.size)
         assertIs<OtherPrintEventHandler>(handlers[0])
@@ -183,7 +188,8 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class),
         )
 
-        val handlers = locator.handlersFor(StorageEvent("test", mutableListOf()))
+        val handlers =
+            locator.handlersFor(StorageEvent("test", mutableListOf()), noPublishHandlerDependencies)
 
         assertEquals(1, handlers.size)
         assertIs<PrintEventHandler>(handlers[0])
@@ -197,8 +203,10 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class),
         )
 
-        val handlers1 = locator.handlersFor(StorageEvent("test", mutableListOf()))
-        val handlers2 = locator.handlersFor(StorageEvent("test", mutableListOf()))
+        val handlers1 =
+            locator.handlersFor(StorageEvent("test", mutableListOf()), noPublishHandlerDependencies)
+        val handlers2 =
+            locator.handlersFor(StorageEvent("test", mutableListOf()), noPublishHandlerDependencies)
 
         assertIs<PrintEventHandler>(handlers1[0])
         assertIs<PrintEventHandler>(handlers2[0])

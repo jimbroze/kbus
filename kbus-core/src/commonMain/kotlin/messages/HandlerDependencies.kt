@@ -10,3 +10,8 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 interface HandlerDependencies {
     val integrationEventPublisher: IntegrationEventPublisher
 }
+
+/** What an event handler is given: no command's invocation reached it, so nothing more exists. */
+data class EventHandlerDependencies(
+    override val integrationEventPublisher: IntegrationEventPublisher
+) : HandlerDependencies

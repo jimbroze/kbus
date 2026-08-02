@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
 import com.jimbroze.kbus.core.registry.HandlerLocator
@@ -66,17 +67,21 @@ class PersistingHandlerLocator(
     override fun handledQueryTypes(): Set<KClass<out Query<*>>> = queryStore.registeredTypes()
 
     override fun <TEvent : IntegrationEvent> handlersFor(
-        event: TEvent
-    ): List<EventHandler<TEvent>> = createHandlers(event, eventMapper.handlerClassesFor(event))
+        event: TEvent,
+        handlerDependencies: HandlerDependencies,
+    ): List<EventHandler<TEvent>> =
+        createHandlers(event, eventMapper.handlerClassesFor(event), handlerDependencies)
 
     /**
      * The cast holds because a factory is looked up by the handler class that registered it, and
      * the domain mapper accepts none but [DomainEventHandler] classes.
      */
     override fun <TEvent : DomainEvent> domainHandlersFor(
-        event: TEvent
+        event: TEvent,
+        handlerDependencies: HandlerDependencies,
     ): List<DomainEventHandler<TEvent>> {
-        val handlers = createHandlers(event, eventMapper.domainHandlerClassesFor(event))
+        val handlers =
+            createHandlers(event, eventMapper.domainHandlerClassesFor(event), handlerDependencies)
         @Suppress("UNCHECKED_CAST")
         return handlers as List<DomainEventHandler<TEvent>>
     }
@@ -84,6 +89,7 @@ class PersistingHandlerLocator(
     private fun <TEvent : Event> createHandlers(
         event: TEvent,
         handlerClasses: List<KClass<out EventHandler<TEvent>>>,
+        handlerDependencies: HandlerDependencies,
     ): List<EventHandler<TEvent>> {
         if (handlerClasses.isEmpty()) return emptyList()
         @Suppress("UNCHECKED_CAST") val eventClass = event::class as KClass<TEvent>
@@ -94,7 +100,7 @@ class PersistingHandlerLocator(
         val factoriesByHandlerClass = handlerFactories.associateBy { it.handlerType }
 
         return handlerClasses.map { handlerClass ->
-            factoriesByHandlerClass[handlerClass]?.create()
+            factoriesByHandlerClass[handlerClass]?.create(handlerDependencies)
                 ?: error("No factory found for handler class: ${handlerClass.simpleName}")
         }
     }

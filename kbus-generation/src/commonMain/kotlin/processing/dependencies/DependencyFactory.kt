@@ -10,6 +10,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
+import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.core.messages.command.ContextCommands
 import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts
@@ -57,19 +58,23 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
             else null
 
         val isContextCommands = isContextCommandsInterface(parameter)
-        val commandDependencyPropertyName =
-            commandDependenciesProps.propertyNameFor(type.declaration)
-        val isCommandScoped = commandDependencyPropertyName != null || isContextCommands
-        val requiresCommandDependencies =
-            isCommandScoped || children?.requireCommandDependencies == true
+        val invocationScopedProperty = commandDependenciesProps.propertyFor(type.declaration)
+        val isCommandScoped = invocationScopedProperty != null || isContextCommands
+        val ownBundle =
+            when {
+                isContextCommands -> DependencyBundle.COMMAND
+                invocationScopedProperty != null -> invocationScopedProperty.bundle
+                else -> DependencyBundle.NONE
+            }
+        val requiredBundle = ownBundle.widestWith(children?.requiredBundle ?: DependencyBundle.NONE)
 
         val metadata =
             createDependencyMetadata(
                 type,
-                commandDependencyPropertyName,
+                invocationScopedProperty,
                 isContextCommands,
                 cannotBeDependency,
-                requiresCommandDependencies,
+                requiredBundle,
             )
 
         return NewDependencyWithChildren(
@@ -80,7 +85,7 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
             ),
             children?.allDependencies ?: emptySet(),
             parentCannotBeAutoloaded(parameter, isCommandScoped, cannotBeDependency),
-            requiresCommandDependencies,
+            requiredBundle,
         )
     }
 
@@ -96,7 +101,7 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
         val topLevelDependencies = mutableListOf<Dependency>()
         val allDependencies = mutableSetOf<DependencyWithChildren>()
         var parentCannotBeAutoloaded = false
-        var childrenRequireCommandDependencies = false
+        var childrenRequiredBundle = DependencyBundle.NONE
 
         for (childParameter in parentClass.primaryConstructor?.parameters.orEmpty()) {
             val childType = childParameter.resolveTypeUsingParent(parentType)
@@ -108,16 +113,15 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
             if (childWithGrandchildren.parentOfNewDependencyCannotBeAutoloaded) {
                 parentCannotBeAutoloaded = true
             }
-            if (childWithGrandchildren.requireCommandDependencies) {
-                childrenRequireCommandDependencies = true
-            }
+            childrenRequiredBundle =
+                childrenRequiredBundle.widestWith(childWithGrandchildren.requiredBundle)
         }
 
         return ChildrenDependencies(
             topLevelDependencies,
             allDependencies,
             parentCannotBeAutoloaded,
-            childrenRequireCommandDependencies,
+            childrenRequiredBundle,
         )
     }
 
@@ -157,19 +161,23 @@ fun KSValueParameter.resolveTypeUsingParent(parentType: KSType): KSType {
 
 private fun createDependencyMetadata(
     type: KSType,
-    commandDependencyPropertyName: String?,
+    invocationScopedProperty: CommandDependencyProperties.InvocationScopedProperty?,
     isContextCommands: Boolean,
     cannotBeDependency: Boolean,
-    requiresCommandDependencies: Boolean,
+    requiredBundle: DependencyBundle,
 ): Dependency {
     return if (isContextCommands) {
         ContextCommandsDependency(type.toTypeName())
-    } else if (commandDependencyPropertyName != null) {
-        CommandDependency(type.toTypeName(), commandDependencyPropertyName)
+    } else if (invocationScopedProperty != null) {
+        CommandDependency(
+            type.toTypeName(),
+            invocationScopedProperty.propertyName,
+            invocationScopedProperty.bundle,
+        )
     } else if (cannotBeDependency) {
         NonDependency(type.toTypeName())
-    } else if (requiresCommandDependencies) {
-        FunctionalDependency(type.toTypeName(), true)
+    } else if (requiredBundle != DependencyBundle.NONE) {
+        FunctionalDependency(type.toTypeName(), requiredBundle)
     } else {
         PropertyDependency(type.toTypeName())
     }
@@ -253,7 +261,7 @@ private data class NewDependencyWithChildren(
     val newDependency: DependencyWithChildren,
     val allChildren: Set<DependencyWithChildren>,
     val parentOfNewDependencyCannotBeAutoloaded: Boolean,
-    val requireCommandDependencies: Boolean,
+    val requiredBundle: DependencyBundle,
 ) {
     fun getAll(): Set<DependencyWithChildren> {
         return setOf(newDependency) + allChildren
@@ -264,5 +272,5 @@ private data class ChildrenDependencies(
     val topLevelChildren: List<Dependency>,
     val allDependencies: Set<DependencyWithChildren>,
     val parentCannotBeAutoloaded: Boolean,
-    val requireCommandDependencies: Boolean,
+    val requiredBundle: DependencyBundle,
 )

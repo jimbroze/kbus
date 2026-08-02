@@ -5,6 +5,7 @@ import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
@@ -167,7 +168,12 @@ class BoundedContextTest {
                 ),
         )
 
-        assertEquals(2, locator.handlersFor(StorageEvent("any", mutableListOf())).size)
+        assertEquals(
+            2,
+            locator
+                .handlersFor(StorageEvent("any", mutableListOf()), noPublishHandlerDependencies)
+                .size,
+        )
     }
 
     @Test
