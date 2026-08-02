@@ -72,10 +72,6 @@ class PersistingHandlerLocator(
     ): List<EventHandler<TEvent>> =
         createHandlers(event, eventMapper.handlerClassesFor(event), handlerDependencies)
 
-    /**
-     * The cast holds because a factory is looked up by the handler class that registered it, and
-     * the domain mapper accepts none but [DomainEventHandler] classes.
-     */
     override fun <TEvent : DomainEvent> domainHandlersFor(
         event: TEvent,
         handlerDependencies: HandlerDependencies,

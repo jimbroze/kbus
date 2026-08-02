@@ -29,10 +29,6 @@ interface HandlerLocator : EventMapperProvider {
         handlerDependencies: HandlerDependencies,
     ): List<EventHandler<TEvent>>
 
-    /**
-     * The domain equivalent of [handlersFor]. Separate because domain dispatch needs the handler
-     * kind, not merely something that can handle the event.
-     */
     fun <TEvent : DomainEvent> domainHandlersFor(
         event: TEvent,
         handlerDependencies: HandlerDependencies,

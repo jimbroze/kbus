@@ -30,10 +30,6 @@ typealias GetDomainHandlers =
             DomainEventHandler<DomainEvent>
         >
 
-/**
- * Handlers are built here rather than passed in, because what they are built with — the publisher
- * of the invocation or context that reached them — is only settled at dispatch.
- */
 typealias GetIntegrationHandlers<TEvent> =
     (handlerDependencies: HandlerDependencies) -> List<EventHandler<TEvent>>
 

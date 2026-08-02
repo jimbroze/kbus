@@ -38,11 +38,6 @@ fun <TEvent : IntegrationEvent> subscribe(
     vararg handlers: KClass<out EventHandler<TEvent>>,
 ): EventSubscription<TEvent> = IntegrationSubscription(event, handlers.toList())
 
-/**
- * Domain dispatch reads a handler's dispatch timing and hands it a publisher, neither of which a
- * bare [EventHandler] has — which is why the handler kind is required here rather than checked when
- * the event is first published.
- */
 fun <TEvent : DomainEvent> subscribeDomain(
     event: KClass<TEvent>,
     vararg handlers: KClass<out DomainEventHandler<TEvent>>,

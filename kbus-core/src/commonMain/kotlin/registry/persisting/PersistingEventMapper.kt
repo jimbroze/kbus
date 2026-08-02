@@ -55,13 +55,10 @@ class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
             ?: emptyList()
     }
 
-    /**
-     * A domain event's class can only have been registered through [addDomainHandlers], which
-     * accepts nothing but [DomainEventHandler]s — so every class returned here is one.
-     */
     fun <TEvent : DomainEvent> domainHandlerClassesFor(
         event: TEvent
     ): List<KClass<DomainEventHandler<TEvent>>> {
+        // Safe only while addDomainHandlers stays the sole way to register a domain event class.
         @Suppress("UNCHECKED_CAST")
         return mappings[event::class]?.toList() as? List<KClass<DomainEventHandler<TEvent>>>
             ?: emptyList()

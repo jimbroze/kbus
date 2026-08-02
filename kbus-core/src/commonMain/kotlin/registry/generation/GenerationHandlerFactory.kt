@@ -28,10 +28,6 @@ interface GenerationHandlerFactory {
         handlerDependencies: HandlerDependencies,
     ): EventHandler<TEvent>?
 
-    /**
-     * The domain-handler equivalent of [eventHandler]. Only handlers generated for a [DomainEvent]
-     * are reachable through it, so a domain lookup cannot return a handler that lacks the kind.
-     */
     fun <TEvent : DomainEvent> domainEventHandler(
         handlerClass: KClass<DomainEventHandler<TEvent>>,
         handlerDependencies: HandlerDependencies,
