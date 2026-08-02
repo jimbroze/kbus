@@ -21,6 +21,7 @@ annotation class KbusIndex(
     val dependencies: Array<DependencyInfo>,
     val handlers: Array<HandlerInfo>,
     val autoPublishEvents: Array<AutoPublishInfo> = [],
+    val contextCommands: Array<ContextCommandsInfo> = [],
 )
 
 @Target()
@@ -53,3 +54,15 @@ annotation class HandlerInfo(
 @Target()
 @Retention(AnnotationRetention.BINARY)
 annotation class AutoPublishInfo(val integrationEventClass: String, val domainEventClass: String)
+
+/**
+ * A typed command interface the declaring module generated, and the bounded context it covers. `""`
+ * is the unassigned identity, matching [HandlerInfo.module].
+ *
+ * Naming the interface here rather than leaving it to be discovered is what lets a module's
+ * generated code live wherever it likes: a consumer learns the type from metadata it already reads,
+ * not from where the type happens to sit.
+ */
+@Target()
+@Retention(AnnotationRetention.BINARY)
+annotation class ContextCommandsInfo(val contextIdentity: String, val interfaceClass: String)

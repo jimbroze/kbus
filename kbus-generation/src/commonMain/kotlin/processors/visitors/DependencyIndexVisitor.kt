@@ -40,6 +40,23 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
         addDependencies(kbusIndexAnnotation, data)
         addHandlers(kbusIndexAnnotation, data)
         addAutoPublishEvents(kbusIndexAnnotation, data)
+        addContextCommands(kbusIndexAnnotation, data)
+    }
+
+    private fun addContextCommands(kbusIndexAnnotation: KSAnnotation, data: ProcessingContext) {
+        val contextCommandsArg =
+            kbusIndexAnnotation.arguments.find {
+                it.name?.asString() == KbusIndex::contextCommands.name
+            }
+
+        @Suppress("UNCHECKED_CAST")
+        val contextCommandsInfoAnnotations =
+            contextCommandsArg?.value as? List<KSAnnotation> ?: emptyList()
+
+        indexParser.createContextCommandsInterfaces(contextCommandsInfoAnnotations).forEach {
+            (contextIdentity, interfaceClass) ->
+            data.addContextCommandsInterface(contextIdentity, interfaceClass)
+        }
     }
 
     private fun addDependencies(kbusIndexAnnotation: KSAnnotation, data: ProcessingContext) {

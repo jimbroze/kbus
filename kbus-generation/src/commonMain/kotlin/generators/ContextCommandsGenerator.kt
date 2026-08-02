@@ -4,12 +4,10 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsFor
 import com.jimbroze.kbus.core.messages.command.ContextCommands
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
-import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -32,17 +30,15 @@ class ContextCommandsGenerator(
     private val executorClassName: String,
     private val packagePath: String,
 ) {
-    fun generateInterfaces(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
-        commandsByContext(handlers).forEach { (context, commands) ->
+    /** Returns each generated interface against the identity of the context it covers. */
+    fun generateInterfaces(
+        handlers: Set<HandlerDefinition>,
+        sourceFiles: List<KSFile>,
+    ): Map<String, ClassName> =
+        commandsByContext(handlers).entries.associate { (context, commands) ->
             val interfaceName = contextClassPrefix(context) + commandsInterfaceName
             val builder =
-                TypeSpec.interfaceBuilder(interfaceName)
-                    .addSuperinterface(ContextCommands::class)
-                    .addAnnotation(
-                        AnnotationSpec.builder(ContextCommandsFor::class)
-                            .addMember("contextIdentity = %S", contextIdentity(context))
-                            .build()
-                    )
+                TypeSpec.interfaceBuilder(interfaceName).addSuperinterface(ContextCommands::class)
 
             commands.forEach { command ->
                 builder.addFunction(
@@ -51,8 +47,9 @@ class ContextCommandsGenerator(
             }
 
             write(interfaceName, builder.build(), sourceFiles)
+
+            contextIdentity(context) to ClassName(packagePath, interfaceName)
         }
-    }
 
     /**
      * [interfacesByContext] are the per-module interfaces this run can see beyond the ones it

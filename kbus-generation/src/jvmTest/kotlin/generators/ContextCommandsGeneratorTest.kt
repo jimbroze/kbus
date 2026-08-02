@@ -53,12 +53,26 @@ class ContextCommandsGeneratorTest {
     }
 
     @Test
-    fun anInterfaceCarriesTheIdentityOfTheContextItCovers() {
-        generator.generateInterfaces(handlers, emptyList())
+    fun everyGeneratedInterfaceIsReturnedAgainstTheIdentityOfTheContextItCovers() {
+        val interfaces = generator.generateInterfaces(handlers, emptyList())
 
-        assertContains(
-            generated["OrdersCommands"],
-            """@ContextCommandsFor(contextIdentity = "orders")""",
+        assertEquals(
+            mapOf(
+                "orders" to ClassName("com.jimbroze.kbus.generated", "OrdersCommands"),
+                "inventory" to ClassName("com.jimbroze.kbus.generated", "InventoryCommands"),
+            ),
+            interfaces,
+        )
+    }
+
+    @Test
+    fun anUnassignedContextsInterfaceIsReturnedAgainstTheEmptyIdentity() {
+        val interfaces =
+            generator.generateInterfaces(setOf(commandHandler("SendEmail", "")), emptyList())
+
+        assertEquals(
+            mapOf("" to ClassName("com.jimbroze.kbus.generated", "DefaultCommands")),
+            interfaces,
         )
     }
 
