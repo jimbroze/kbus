@@ -9,7 +9,3 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 interface HandlerDependencies {
     val integrationEventPublisher: IntegrationEventPublisher
 }
-
-data class EventHandlerDependencies(
-    override val integrationEventPublisher: IntegrationEventPublisher
-) : HandlerDependencies

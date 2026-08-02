@@ -4,9 +4,9 @@ import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.messages.EventHandlerDependencies
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.event.EventHandlerDependencies
 import com.jimbroze.kbus.core.messages.event.concurrencyFor
 import com.jimbroze.kbus.core.messages.event.dispatchPhaseFor
 import com.jimbroze.kbus.core.messages.event.errorStrategyFor
