@@ -57,15 +57,16 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
             else null
 
         val isContextCommands = isContextCommandsInterface(parameter)
-        val isCommandDependency = commandDependenciesProps.contains(type.declaration)
-        val isCommandScoped = isCommandDependency || isContextCommands
+        val commandDependencyPropertyName =
+            commandDependenciesProps.propertyNameFor(type.declaration)
+        val isCommandScoped = commandDependencyPropertyName != null || isContextCommands
         val requiresCommandDependencies =
             isCommandScoped || children?.requireCommandDependencies == true
 
         val metadata =
             createDependencyMetadata(
                 type,
-                isCommandDependency,
+                commandDependencyPropertyName,
                 isContextCommands,
                 cannotBeDependency,
                 requiresCommandDependencies,
@@ -156,15 +157,15 @@ fun KSValueParameter.resolveTypeUsingParent(parentType: KSType): KSType {
 
 private fun createDependencyMetadata(
     type: KSType,
-    isCommandDependency: Boolean,
+    commandDependencyPropertyName: String?,
     isContextCommands: Boolean,
     cannotBeDependency: Boolean,
     requiresCommandDependencies: Boolean,
 ): Dependency {
     return if (isContextCommands) {
         ContextCommandsDependency(type.toTypeName())
-    } else if (isCommandDependency) {
-        CommandDependency(type.toTypeName())
+    } else if (commandDependencyPropertyName != null) {
+        CommandDependency(type.toTypeName(), commandDependencyPropertyName)
     } else if (cannotBeDependency) {
         NonDependency(type.toTypeName())
     } else if (requiresCommandDependencies) {

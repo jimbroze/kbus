@@ -60,9 +60,21 @@ data class FunctionalDependency(
  */
 sealed interface CommandScopedDependency : Dependency
 
-data class CommandDependency(override val typeName: TypeName) : CommandScopedDependency {
-    override val prefix = "commandDependencies."
+/**
+ * [name] is the [CommandDependencies] property this is read from, or [WHOLE_OBJECT] when the
+ * handler asks for the object itself. It cannot be derived from the type: a property named other
+ * than its own decapitalised type name would generate a reference to nothing.
+ */
+data class CommandDependency(override val typeName: TypeName, override val name: String) :
+    CommandScopedDependency {
     override val requiresCommandDependencies = false
+
+    override val prefix
+        get() = if (name == WHOLE_OBJECT) "" else "commandDependencies."
+
+    companion object {
+        const val WHOLE_OBJECT = "commandDependencies"
+    }
 }
 
 /**
