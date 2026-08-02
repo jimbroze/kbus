@@ -100,7 +100,38 @@ class ProcessorCompilationTest {
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
     }
 
-    private fun compile(@Language("kotlin") source: String): JvmCompilationResult =
+    @Test
+    fun aBoundedContextIdentityOfBlankWhitespaceIsRejected() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.contracts.messages.command.Command
+                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+                import com.jimbroze.kbus.contracts.result.BusResult
+                import com.jimbroze.kbus.contracts.result.MessageFailure
+
+                class PlaceOrder : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class PlaceOrderHandler :
+                    CommandHandler<PlaceOrder, BusResult<String, MessageFailure>>() {
+                    override suspend fun handle(message: PlaceOrder) = BusResult.success("ok")
+                }
+                """,
+                boundedContextIdentity = "   ",
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
+        assertContains(result.messages, "names no bounded context")
+    }
+
+    private fun compile(
+        @Language("kotlin") source: String,
+        boundedContextIdentity: String? = null,
+    ): JvmCompilationResult =
         KotlinCompilation()
             .apply {
                 sources = listOf(SourceFile.kotlin("Handlers.kt", source.trimIndent()))
@@ -109,6 +140,9 @@ class ProcessorCompilationTest {
                 configureKsp {
                     symbolProcessorProviders.add(ContainerProcessorProvider())
                     processorOptions["kbus.indexPackage"] = "com.example.indexes"
+                    boundedContextIdentity?.let {
+                        processorOptions["kbus.boundedContextIdentity"] = it
+                    }
                 }
             }
             .compile()

@@ -71,6 +71,15 @@ class ContextIdentityCollisionsTest {
     }
 
     @Test
+    fun anIdentityNamingTheDefaultContextIsRejected() {
+        val handlers = setOf(commandHandler("PlaceOrderHandler", "default"))
+
+        assertFalse(reportContextIdentityCollisions(handlers, logger))
+        assertContains(logger.errors.single(), "'default'")
+        assertContains(logger.errors.single(), "com.example.PlaceOrderHandler")
+    }
+
+    @Test
     fun identitiesThatGenerateDistinctNamesAreAccepted() {
         val handlers =
             setOf(

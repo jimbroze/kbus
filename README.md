@@ -1198,7 +1198,12 @@ parameter for each, named after the identity, plus `default` for handlers from m
 
 Because the identity becomes a Kotlin name, two identities that differ only in their separators — `order-fulfilment`,
 `order_fulfilment`, `order.fulfilment`, `orderFulfilment` — are rejected at generation time, naming both identities and
-the handlers that declared them:
+the handlers that declared them. `default` is rejected for the same reason: it is the name of the context that owns
+every handler declaring no identity, so a module claiming it would be folded into that catch-all instead of isolated
+from it. Setting the build arg to blank whitespace is rejected too — remove it instead to leave a module's handlers in
+the default context.
+
+Each context gets a `ContextConfig` parameter named after its identity:
 
 ```kotlin
 val bus = MyBus(
