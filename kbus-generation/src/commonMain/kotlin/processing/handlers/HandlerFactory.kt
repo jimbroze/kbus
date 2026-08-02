@@ -5,7 +5,7 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -87,10 +87,10 @@ class HandlerFactory(
         handlerClass: KSClassDeclaration,
         definition: EventHandlerDefinition,
     ): Boolean {
-        if (definition.requiredBundle != DependencyBundle.COMMAND) return false
+        if (definition.requiredDependencies != RequiredDependencies.COMMAND) return false
         val commandOnlyDependencies =
             definition.handlerData.topLevelDependencies
-                .filter { it.requiredBundle == DependencyBundle.COMMAND }
+                .filter { it.requiredDependencies == RequiredDependencies.COMMAND }
                 .joinToString(", ") { it.signature }
         logger.error(
             "Event handler ${handlerClass.qualifiedName?.asString()} depends on " +

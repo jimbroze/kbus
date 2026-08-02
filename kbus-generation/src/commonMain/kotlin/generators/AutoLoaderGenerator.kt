@@ -75,7 +75,7 @@ class AutoLoaderGenerator(
 
         val arguments =
             topLevelDependencies.joinToCode(", ") {
-                CodeBlock.of("%L", it.accessReferenceIn(dependency.requiredBundle))
+                CodeBlock.of("%L", it.accessReferenceIn(dependency.requiredDependencies))
             }
 
         val parameterSpecs =
@@ -101,7 +101,7 @@ class AutoLoaderGenerator(
 
         val arguments =
             topLevelDependencies.joinToCode(", ") {
-                CodeBlock.of("%L", it.accessReferenceIn(dependency.requiredBundle))
+                CodeBlock.of("%L", it.accessReferenceIn(dependency.requiredDependencies))
             }
 
         val propertyBuilder =

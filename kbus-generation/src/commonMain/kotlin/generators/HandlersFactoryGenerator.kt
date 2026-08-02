@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
@@ -255,8 +255,8 @@ class HandlersFactoryGenerator(
             .addTypeVariables(listOf(tEvent))
             .addParameter("handlerClass", handlerClassType)
             .addParameter(
-                DependencyBundle.HANDLER.parameterName,
-                DependencyBundle.HANDLER.parameterType,
+                RequiredDependencies.HANDLER_ONLY.parameterName,
+                RequiredDependencies.HANDLER_ONLY.parameterType,
             )
             .returns(returnType)
             .addCode(codeBlock.build())
@@ -304,8 +304,8 @@ class HandlersFactoryGenerator(
                     is ContextCommandsDependency ->
                         "${contextClassPrefix(context)}$commandExecutorClassName" +
                             "(commandDependencies.commandExecutor)"
-                    is CommandDependency -> it.accessReferenceIn(handler.suppliedBundle)
-                    else -> "dependencies.${it.accessReferenceIn(handler.suppliedBundle)}"
+                    is CommandDependency -> it.accessReferenceIn(handler.suppliedDependencies)
+                    else -> "dependencies.${it.accessReferenceIn(handler.suppliedDependencies)}"
                 }
             }
 

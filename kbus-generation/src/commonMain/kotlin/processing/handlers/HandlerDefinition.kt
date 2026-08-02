@@ -2,7 +2,7 @@ package com.jimbroze.kbus.generation.processing.handlers
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
@@ -26,20 +26,18 @@ sealed interface HandlerDefinition {
 
     val functionParameters: List<FunctionalDependency.DependencyConstructorParameters>
 
-    /** The narrowest bundle this handler's own dependencies need. */
-    val requiredBundle: DependencyBundle
+    val requiredDependencies: RequiredDependencies
         get() =
-            handlerData.topLevelDependencies.fold(DependencyBundle.NONE) { widest, dependency ->
-                widest.widestWith(dependency.requiredBundle)
+            handlerData.topLevelDependencies.fold(RequiredDependencies.NONE) { widest, dependency ->
+                widest.widestWith(dependency.requiredDependencies)
             }
 
     /**
      * What its accessor is given, which its dependencies are then read from. Wider than
-     * [requiredBundle] where the handler kind fixes it: every command handler is built from a
-     * command's own dependencies whether or not it asks for anything out of them.
+     * [requiredDependencies] where the handler kind fixes it.
      */
-    val suppliedBundle: DependencyBundle
-        get() = requiredBundle
+    val suppliedDependencies: RequiredDependencies
+        get() = requiredDependencies
 }
 
 data class CommandHandlerDefinition(override val handlerData: HandlerData) : HandlerDefinition {
@@ -55,8 +53,8 @@ data class CommandHandlerDefinition(override val handlerData: HandlerData) : Han
     override val messageProcessorName: String
         get() = "commandExecutor"
 
-    override val suppliedBundle
-        get() = DependencyBundle.COMMAND
+    override val suppliedDependencies
+        get() = RequiredDependencies.COMMAND
 
     override val functionParameters: List<FunctionalDependency.DependencyConstructorParameters>
         get() =
@@ -78,7 +76,7 @@ class QueryHandlerDefinition private constructor(override val handlerData: Handl
         ): HandlerDefinition? {
             val invocationScopedDependency =
                 handlerData.topLevelDependencies.firstOrNull {
-                    it.requiredBundle != DependencyBundle.NONE
+                    it.requiredDependencies != RequiredDependencies.NONE
                 }
             if (invocationScopedDependency !== null) {
                 logger.error(
@@ -145,12 +143,12 @@ data class EventHandlerDefinition(
 
     override val functionParameters: List<FunctionalDependency.DependencyConstructorParameters>
         get() =
-            if (suppliedBundle == DependencyBundle.NONE) emptyList()
+            if (suppliedDependencies == RequiredDependencies.NONE) emptyList()
             else
                 listOf(
                     FunctionalDependency.DependencyConstructorParameters(
-                        suppliedBundle.parameterName,
-                        suppliedBundle.parameterType,
+                        suppliedDependencies.parameterName,
+                        suppliedDependencies.parameterType,
                     )
                 )
 }

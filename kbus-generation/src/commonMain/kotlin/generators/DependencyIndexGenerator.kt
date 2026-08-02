@@ -6,12 +6,12 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
 import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
 import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
@@ -109,10 +109,10 @@ class DependencyIndexGenerator(
                 dependency.cannotBeAutoloaded,
             )
             .addMember(
-                "${DependencyInfo::requiredBundle.name} = %M",
+                "${DependencyInfo::requiredDependencies.name} = %M",
                 MemberName(
-                    DependencyBundle::class.asClassName(),
-                    dependency.metadata.requiredBundle.name,
+                    RequiredDependencies::class.asClassName(),
+                    dependency.metadata.requiredDependencies.name,
                 ),
             )
             .addMember(

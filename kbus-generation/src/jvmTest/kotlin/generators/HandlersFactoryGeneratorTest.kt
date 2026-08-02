@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.generators
 
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -112,7 +112,7 @@ class HandlersFactoryGeneratorTest {
                                     "NestedCommandExecutor",
                                 ),
                                 "commandExecutor",
-                                DependencyBundle.COMMAND,
+                                RequiredDependencies.COMMAND,
                             )
                         ),
                         "",
@@ -144,7 +144,7 @@ class HandlersFactoryGeneratorTest {
                                     "CommandDependencies",
                                 ),
                                 CommandDependency.WHOLE_OBJECT,
-                                DependencyBundle.COMMAND,
+                                RequiredDependencies.COMMAND,
                             )
                         ),
                         "",

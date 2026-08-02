@@ -4,11 +4,11 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
 import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
 import com.jimbroze.kbus.contracts.annotations.index.HandlerType
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
@@ -64,8 +64,8 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
 
         val signature: String = dependencyInfoAnnotation.findArgument(DependencyInfo::signature)
         val name: String = dependencyInfoAnnotation.findArgument(DependencyInfo::name)
-        val requiredBundle: DependencyBundle =
-            dependencyInfoAnnotation.findArgument(DependencyInfo::requiredBundle)
+        val requiredDependencies: RequiredDependencies =
+            dependencyInfoAnnotation.findArgument(DependencyInfo::requiredDependencies)
         val cannotBeAutoloaded: Boolean =
             dependencyInfoAnnotation.findArgument(DependencyInfo::cannotBeAutoloaded)
         val topLevelDependencies: List<String> =
@@ -75,7 +75,8 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
 
         val dependencyTypeName = TypeResolver.resolve(signature)
 
-        val metadata = createDependency(typeOfDependency, dependencyTypeName, requiredBundle, name)
+        val metadata =
+            createDependency(typeOfDependency, dependencyTypeName, requiredDependencies, name)
 
         return DependencyWithDehydratedChildren(metadata, topLevelDependencies, cannotBeAutoloaded)
     }
@@ -177,13 +178,13 @@ private class IndexDependencies(dependencies: Set<DependencyWithDehydratedChildr
 private fun createDependency(
     dependencyType: DependencyType,
     typeRef: TypeName,
-    requiredBundle: DependencyBundle,
+    requiredDependencies: RequiredDependencies,
     name: String,
 ): Dependency {
     return when (dependencyType) {
         DependencyType.PROPERTY -> PropertyDependency(typeRef)
-        DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiredBundle)
-        DependencyType.COMMAND -> CommandDependency(typeRef, name, requiredBundle)
+        DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiredDependencies)
+        DependencyType.COMMAND -> CommandDependency(typeRef, name, requiredDependencies)
         DependencyType.CONTEXT_COMMANDS -> ContextCommandsDependency(typeRef)
         DependencyType.NON_DEPENDENCY -> NonDependency(typeRef)
     }

@@ -1,35 +1,35 @@
 package com.jimbroze.kbus.generation.processing.dependencies
 
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.squareup.kotlinpoet.TypeName
 import kotlin.reflect.KClass
 
-/** The parameter a generated accessor takes to supply [bundle], and the type it is declared as. */
-val DependencyBundle.parameterName: String
+val RequiredDependencies.parameterName: String
     get() =
         when (this) {
-            DependencyBundle.NONE -> error("Nothing invocation-scoped is supplied to this accessor")
-            DependencyBundle.HANDLER -> "handlerDependencies"
-            DependencyBundle.COMMAND -> "commandDependencies"
+            RequiredDependencies.NONE ->
+                error("Nothing invocation-scoped is supplied to this accessor")
+            RequiredDependencies.HANDLER_ONLY -> "handlerDependencies"
+            RequiredDependencies.COMMAND -> "commandDependencies"
         }
 
-val DependencyBundle.parameterType: KClass<*>
+val RequiredDependencies.parameterType: KClass<*>
     get() =
         when (this) {
-            DependencyBundle.NONE -> error("Nothing invocation-scoped is supplied to this accessor")
-            DependencyBundle.HANDLER -> HandlerDependencies::class
-            DependencyBundle.COMMAND -> CommandDependencies::class
+            RequiredDependencies.NONE ->
+                error("Nothing invocation-scoped is supplied to this accessor")
+            RequiredDependencies.HANDLER_ONLY -> HandlerDependencies::class
+            RequiredDependencies.COMMAND -> CommandDependencies::class
         }
 
 /** Whichever of the two can satisfy both. */
-fun DependencyBundle.widestWith(other: DependencyBundle): DependencyBundle =
+fun RequiredDependencies.widestWith(other: RequiredDependencies): RequiredDependencies =
     if (other.ordinal > this.ordinal) other else this
 
 sealed interface Dependency {
-    /** The narrowest bundle this can be built from — [DependencyBundle.NONE] if it needs none. */
-    val requiredBundle: DependencyBundle
+    val requiredDependencies: RequiredDependencies
 
     val name: String
         get() = NameGenerator.getNameForType(typeName)
@@ -43,13 +43,15 @@ sealed interface Dependency {
         get() = ""
 
     /**
-     * How this is referenced from inside an accessor supplied with [enclosingBundle] — which is the
-     * accessor's own parameter, not this dependency's narrower requirement.
+     * How this is referenced from inside an accessor supplied with [enclosingDependencies] — which
+     * is the accessor's own parameter, not this dependency's narrower requirement.
      */
-    fun accessReferenceIn(enclosingBundle: DependencyBundle): String =
-        "${prefixIn(enclosingBundle)}$name"
+    fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String =
+        "${prefixIn(enclosingDependencies)}$name"
 
-    fun prefixIn(@Suppress("UNUSED_PARAMETER") enclosingBundle: DependencyBundle): String = prefix
+    fun prefixIn(
+        @Suppress("UNUSED_PARAMETER") enclosingDependencies: RequiredDependencies
+    ): String = prefix
 
     fun hasConflictingNameWith(other: Dependency): Boolean {
         return this.name == other.name && this != other
@@ -57,23 +59,23 @@ sealed interface Dependency {
 }
 
 data class PropertyDependency(override val typeName: TypeName) : Dependency {
-    override val requiredBundle = DependencyBundle.NONE
+    override val requiredDependencies = RequiredDependencies.NONE
 }
 
 data class FunctionalDependency(
     override val typeName: TypeName,
-    override val requiredBundle: DependencyBundle,
+    override val requiredDependencies: RequiredDependencies,
 ) : Dependency {
     data class DependencyConstructorParameters(val name: String, val typeRef: KClass<*>)
 
     val functionParameters: List<DependencyConstructorParameters>
         get() =
-            if (requiredBundle == DependencyBundle.NONE) emptyList()
+            if (requiredDependencies == RequiredDependencies.NONE) emptyList()
             else
                 listOf(
                     DependencyConstructorParameters(
-                        requiredBundle.parameterName,
-                        requiredBundle.parameterType,
+                        requiredDependencies.parameterName,
+                        requiredDependencies.parameterType,
                     )
                 )
 
@@ -81,9 +83,10 @@ data class FunctionalDependency(
      * The enclosing accessor's parameter is passed straight through: it is always at least as wide
      * as this dependency's own requirement, so it satisfies it.
      */
-    override fun accessReferenceIn(enclosingBundle: DependencyBundle): String {
+    override fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String {
         val constructorArgNames =
-            if (requiredBundle == DependencyBundle.NONE) "" else enclosingBundle.parameterName
+            if (requiredDependencies == RequiredDependencies.NONE) ""
+            else enclosingDependencies.parameterName
         return "$prefix$name($constructorArgNames)"
     }
 }
@@ -102,15 +105,16 @@ sealed interface CommandScopedDependency : Dependency
 data class CommandDependency(
     override val typeName: TypeName,
     override val name: String,
-    override val requiredBundle: DependencyBundle,
+    override val requiredDependencies: RequiredDependencies,
 ) : CommandScopedDependency {
-    override fun prefixIn(enclosingBundle: DependencyBundle) =
-        if (isWholeBundle) "" else "${enclosingBundle.parameterName}."
+    override fun prefixIn(enclosingDependencies: RequiredDependencies) =
+        if (isWholeDependencyObject) "" else "${enclosingDependencies.parameterName}."
 
-    override fun accessReferenceIn(enclosingBundle: DependencyBundle): String =
-        if (isWholeBundle) enclosingBundle.parameterName else "${prefixIn(enclosingBundle)}$name"
+    override fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String =
+        if (isWholeDependencyObject) enclosingDependencies.parameterName
+        else "${prefixIn(enclosingDependencies)}$name"
 
-    private val isWholeBundle
+    private val isWholeDependencyObject
         get() = name == WHOLE_OBJECT
 
     companion object {
@@ -124,12 +128,12 @@ data class CommandDependency(
  * generating that handler knows, so it has none of its own.
  */
 data class ContextCommandsDependency(override val typeName: TypeName) : CommandScopedDependency {
-    override val requiredBundle = DependencyBundle.COMMAND
+    override val requiredDependencies = RequiredDependencies.COMMAND
 
     override val prefix
         get() = error("A context command executor is constructed by its context's factory")
 
-    override fun accessReferenceIn(enclosingBundle: DependencyBundle): String =
+    override fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String =
         error("A context command executor is constructed by its context's factory")
 }
 
@@ -137,8 +141,8 @@ data class NonDependency(override val typeName: TypeName) : Dependency {
     override val prefix
         get() = error("This dependency should not be used: $typeName")
 
-    override fun accessReferenceIn(enclosingBundle: DependencyBundle): String =
+    override fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String =
         error("This dependency should not be used: $typeName")
 
-    override val requiredBundle = DependencyBundle.NONE
+    override val requiredDependencies = RequiredDependencies.NONE
 }

@@ -3,22 +3,25 @@ package com.jimbroze.kbus.generation.processing.dependencies
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSDeclaration
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 
 /**
  * What a handler can ask for by declaring a constructor parameter of an invocation-scoped
- * property's type: the property name each is read from, and the narrowest bundle carrying it.
+ * property's type.
  *
- * The name is carried rather than derived from the type, because a property whose name is not its
- * own decapitalised type name would otherwise generate a reference to something that does not
- * exist. The bundle is what keeps a command-only dependency out of an event handler.
+ * Each property name is carried rather than derived from its type, because a property whose name is
+ * not its own decapitalised type name would otherwise generate a reference to something that does
+ * not exist.
  */
 class CommandDependencyProperties(
     private val propertiesByType: Map<String, InvocationScopedProperty>
 ) {
-    data class InvocationScopedProperty(val propertyName: String, val bundle: DependencyBundle)
+    data class InvocationScopedProperty(
+        val propertyName: String,
+        val requiredDependencies: RequiredDependencies,
+    )
 
     companion object {
         fun fromResolver(resolver: Resolver): CommandDependencyProperties {
@@ -30,8 +33,8 @@ class CommandDependencyProperties(
                     (type, propertyName) ->
                     InvocationScopedProperty(
                         propertyName,
-                        if (type in handlerPropertyTypes) DependencyBundle.HANDLER
-                        else DependencyBundle.COMMAND,
+                        if (type in handlerPropertyTypes) RequiredDependencies.HANDLER_ONLY
+                        else RequiredDependencies.COMMAND,
                     )
                 }
 
@@ -40,12 +43,12 @@ class CommandDependencyProperties(
                     (HandlerDependencies::class.qualifiedName!! to
                         InvocationScopedProperty(
                             CommandDependency.WHOLE_OBJECT,
-                            DependencyBundle.HANDLER,
+                            RequiredDependencies.HANDLER_ONLY,
                         )) +
                     (CommandDependencies::class.qualifiedName!! to
                         InvocationScopedProperty(
                             CommandDependency.WHOLE_OBJECT,
-                            DependencyBundle.COMMAND,
+                            RequiredDependencies.COMMAND,
                         ))
             )
         }

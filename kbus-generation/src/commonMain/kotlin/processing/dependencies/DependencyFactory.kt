@@ -10,7 +10,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
-import com.jimbroze.kbus.contracts.annotations.index.DependencyBundle
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.core.messages.command.ContextCommands
 import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts
@@ -60,13 +60,16 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
         val isContextCommands = isContextCommandsInterface(parameter)
         val invocationScopedProperty = commandDependenciesProps.propertyFor(type.declaration)
         val isCommandScoped = invocationScopedProperty != null || isContextCommands
-        val ownBundle =
+        val ownRequiredDependencies =
             when {
-                isContextCommands -> DependencyBundle.COMMAND
-                invocationScopedProperty != null -> invocationScopedProperty.bundle
-                else -> DependencyBundle.NONE
+                isContextCommands -> RequiredDependencies.COMMAND
+                invocationScopedProperty != null -> invocationScopedProperty.requiredDependencies
+                else -> RequiredDependencies.NONE
             }
-        val requiredBundle = ownBundle.widestWith(children?.requiredBundle ?: DependencyBundle.NONE)
+        val requiredDependencies =
+            ownRequiredDependencies.widestWith(
+                children?.requiredDependencies ?: RequiredDependencies.NONE
+            )
 
         val metadata =
             createDependencyMetadata(
@@ -74,7 +77,7 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
                 invocationScopedProperty,
                 isContextCommands,
                 cannotBeDependency,
-                requiredBundle,
+                requiredDependencies,
             )
 
         return NewDependencyWithChildren(
@@ -85,7 +88,7 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
             ),
             children?.allDependencies ?: emptySet(),
             parentCannotBeAutoloaded(parameter, isCommandScoped, cannotBeDependency),
-            requiredBundle,
+            requiredDependencies,
         )
     }
 
@@ -101,7 +104,7 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
         val topLevelDependencies = mutableListOf<Dependency>()
         val allDependencies = mutableSetOf<DependencyWithChildren>()
         var parentCannotBeAutoloaded = false
-        var childrenRequiredBundle = DependencyBundle.NONE
+        var childrenRequiredDependencies = RequiredDependencies.NONE
 
         for (childParameter in parentClass.primaryConstructor?.parameters.orEmpty()) {
             val childType = childParameter.resolveTypeUsingParent(parentType)
@@ -113,15 +116,15 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
             if (childWithGrandchildren.parentOfNewDependencyCannotBeAutoloaded) {
                 parentCannotBeAutoloaded = true
             }
-            childrenRequiredBundle =
-                childrenRequiredBundle.widestWith(childWithGrandchildren.requiredBundle)
+            childrenRequiredDependencies =
+                childrenRequiredDependencies.widestWith(childWithGrandchildren.requiredDependencies)
         }
 
         return ChildrenDependencies(
             topLevelDependencies,
             allDependencies,
             parentCannotBeAutoloaded,
-            childrenRequiredBundle,
+            childrenRequiredDependencies,
         )
     }
 
@@ -164,7 +167,7 @@ private fun createDependencyMetadata(
     invocationScopedProperty: CommandDependencyProperties.InvocationScopedProperty?,
     isContextCommands: Boolean,
     cannotBeDependency: Boolean,
-    requiredBundle: DependencyBundle,
+    requiredDependencies: RequiredDependencies,
 ): Dependency {
     return if (isContextCommands) {
         ContextCommandsDependency(type.toTypeName())
@@ -172,12 +175,12 @@ private fun createDependencyMetadata(
         CommandDependency(
             type.toTypeName(),
             invocationScopedProperty.propertyName,
-            invocationScopedProperty.bundle,
+            invocationScopedProperty.requiredDependencies,
         )
     } else if (cannotBeDependency) {
         NonDependency(type.toTypeName())
-    } else if (requiredBundle != DependencyBundle.NONE) {
-        FunctionalDependency(type.toTypeName(), requiredBundle)
+    } else if (requiredDependencies != RequiredDependencies.NONE) {
+        FunctionalDependency(type.toTypeName(), requiredDependencies)
     } else {
         PropertyDependency(type.toTypeName())
     }
@@ -261,7 +264,7 @@ private data class NewDependencyWithChildren(
     val newDependency: DependencyWithChildren,
     val allChildren: Set<DependencyWithChildren>,
     val parentOfNewDependencyCannotBeAutoloaded: Boolean,
-    val requiredBundle: DependencyBundle,
+    val requiredDependencies: RequiredDependencies,
 ) {
     fun getAll(): Set<DependencyWithChildren> {
         return setOf(newDependency) + allChildren
@@ -272,5 +275,5 @@ private data class ChildrenDependencies(
     val topLevelChildren: List<Dependency>,
     val allDependencies: Set<DependencyWithChildren>,
     val parentCannotBeAutoloaded: Boolean,
-    val requiredBundle: DependencyBundle,
+    val requiredDependencies: RequiredDependencies,
 )
