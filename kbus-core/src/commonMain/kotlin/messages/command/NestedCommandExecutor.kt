@@ -28,6 +28,16 @@ interface NestedCommandExecutor {
 }
 
 /**
+ * A generated, per-bounded-context view of [NestedCommandExecutor], with one function per command
+ * that context owns and the module declaring it can see. Implemented only by generated code; a
+ * handler asks for one by declaring a constructor parameter of the generated interface's type.
+ *
+ * The untyped [execute] remains available for a command the interface has no function for, and
+ * still refuses any command another context owns.
+ */
+interface ContextCommands : NestedCommandExecutor
+
+/**
  * Runs nested commands inside one [invocation]. It never touches [invocation]'s unit of work: the
  * nested handler runs within the outer command's primary work, so sharing is what the object graph
  * does rather than a flag anything consults.

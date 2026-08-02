@@ -620,6 +620,31 @@ running one — throws `NestedTransactionMismatchException` rather than silently
 
 Queries have no nested equivalent: a query has no Unit of Work, so there is nothing to share. Use the bus.
 
+#### Typed Nested Execution
+
+With code generation, each bounded context also gets a typed view of its own commands: an interface named after the
+context (`OrdersCommands`) with one function per command that module can see. Each Gradle module generates its own in
+its own package, so import the one you mean. Declare it as a constructor parameter instead of `NestedCommandExecutor`
+and the call site names the command:
+
+```kotlin
+import com.jimbroze.kbus.generated.ordersDomain.OrdersCommands
+
+class PlaceOrderForRegularCustomerHandler(private val ordersCommands: OrdersCommands) :
+    CommandHandler<PlaceOrderForRegularCustomer, BusResult<Order, MessageFailure>>() {
+
+    override suspend fun handle(
+        message: PlaceOrderForRegularCustomer,
+    ): BusResult<Order, MessageFailure> =
+        ordersCommands.placeOrder(PlaceOrder(message.customerId, message.items, "stored-card"))
+}
+```
+
+The interface covers the commands its module declares plus those it learns from the `@KbusIndex` metadata of the
+modules it depends on — a command in a module it cannot reference is not typed-callable, because it is not
+referenceable either. It extends `NestedCommandExecutor`, so the untyped `execute` stays available for anything the
+interface does not cover, with the same one-context limit.
+
 ## Bus Lifecycle
 
 A bus with background work — an outbox, an inbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) —
@@ -887,12 +912,12 @@ val bus = MessageBus(
         BoundedContext(
             BoundedContextId("orders"),
             ordersLocator,
-            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
         BoundedContext(
             BoundedContextId("inventory"),
             inventoryLocator,
-            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
@@ -906,6 +931,18 @@ table with a context column, so one context's pump physically cannot see another
 declares none keeps synchronous, un-inboxed dispatch; the two can be mixed on the same bus. Declaring the inbox on the
 context rather than in a bus-level map keyed by `BoundedContextId` means naming a context that does not exist is not
 expressible, and the store cannot drift apart from the context it belongs to.
+
+A generated bus builds its contexts for you, so the inbox arrives in that context's `ContextConfig` — under the same
+compile-time-checked name used to subscribe its event handlers:
+
+```kotlin
+CompileTimeLoadedMessageBus(
+    dependencies, transactionManager, middleware,
+    orders = ContextConfig(
+        inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+    ),
+)
+```
 
 **Dedupe is what actually kills the amplification.** The router still routes a whole envelope to every context on
 every attempt, exactly as without an inbox — nothing about routing changes. What changes is that an inboxed context's
@@ -1034,8 +1071,13 @@ class PlaceOrderHandler(
 The KSP processor generates:
 
 - **`AllDependencies`** — Interface listing all required dependencies (implement this to provide them)
-- **`AllHandlers`** — Interface with factory methods for every handler
-- **`HandlerFactory`** — Factory that creates handlers with their dependencies resolved
+- **`<Context>Handlers`** — One interface per bounded context, with factory methods for that context's handlers
+  (`DefaultHandlers` for handlers whose module declares no identity, `OrdersHandlers` for `orders`, and so on)
+- **`<Context>HandlerFactory`** — One factory per bounded context, creating that context's handlers with their
+  dependencies resolved. A context can build no handler but its own, so a command it does not own is unresolvable
+  there even when another context on the same bus owns it
+- **`<Context>Commands`** — One interface per bounded context giving typed nested execution of that context's
+  commands (see [Typed Nested Execution](#typed-nested-execution)), with the root generating the implementation
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
@@ -1115,6 +1157,20 @@ Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of fu
 these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
 module's `generatedAutoPublishRegistrations`.
 
+An index also names the typed command interfaces its module generated, against the bounded context each covers. That
+is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from
+metadata rather than discovering it by where it was written.
+
+A submodule's generated code goes in a package of its own, `com.jimbroze.kbus.generated.<subModuleName>`, so the
+several Gradle modules of one bounded context can each generate the same class names without colliding. Import the
+one you want:
+
+```kotlin
+import com.jimbroze.kbus.generated.billingDomain.OrdersCommands
+```
+
+Index classes are the exception: they all share `kbus.indexPackage` and so carry the module in their name.
+
 ### Bounded Context identity
 
 A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,
@@ -1130,25 +1186,36 @@ ksp {
 ```
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
-by the consumer. The generated bus builds one `BoundedContext` per distinct identity and exposes a typed registration
-point for each, named after the identity, plus `default` for handlers from modules that declared no identity. Register
-against them in the bus constructor's trailing `configure` lambda:
+by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `ContextConfig`
+parameter for each, named after the identity, plus `default` for handlers from modules that declared no identity:
 
 ```kotlin
-val bus = MyBus(dependencies, transactionManager, middleware) {
-    billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
-    default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
-}
+val bus = MyBus(
+    dependencies, transactionManager, middleware,
+    billing = ContextConfig(
+        subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+    ),
+    default = ContextConfig(
+        subscriptions = listOf(subscribe(AuditRecorded::class, ArchiveAuditHandler::class.loaded)),
+    ),
+)
 ```
 
-Domain handlers register the same way, per context:
+Domain handlers use `subscribeDomain`, in the same list:
 
 ```kotlin
-billing.addDomainHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+billing = ContextConfig(
+    subscriptions = listOf(subscribeDomain(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+)
 ```
 
-The lambda's receiver is the only place these registration points exist. A built bus does not expose them, so its
-handler set is fixed.
+Naming a context that does not exist does not compile, because `billing` is a parameter name rather than a key. A
+subscription is an ordinary value, so a context's subscriptions can live in their own file and be imported here:
+
+```kotlin
+val billingSubscriptions: List<EventSubscription<*>> =
+    listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
+```
 
 There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
 context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
@@ -1161,21 +1228,23 @@ context, and the bus is what resolves that owner, so it must be able to settle o
 is what lets two contexts claiming the same command be reported against your wiring rather than against some later
 dispatch in production. Register them on a context's `HandlerLocator` before passing the context to the bus.
 
-**Event handlers must be registered before the bus is constructed too** — in the generated bus's `configure` lambda, or
-in the trailing lambda of a hand-written `BoundedContext`:
+**Event handlers must be subscribed before the bus is constructed too** — as a `ContextConfig` parameter of a
+generated bus, or a constructor argument of a hand-written `BoundedContext`:
 
 ```kotlin
-BoundedContext(BoundedContextId("billing"), locator) {
-    addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
-}
+BoundedContext(
+    BoundedContextId("billing"),
+    locator,
+    subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+)
 ```
 
-Nothing enforces this at runtime, because nothing needs to: `addEventHandlers`/`addDomainHandlers` are reachable only
-through a `ContextRegistration`, which is only ever handed to those lambdas. There is no `seal()` and no
-`HandlerRegistrationSealedException` — a bus that never hands back a registration point cannot be registered into.
+Nothing enforces this at runtime, because nothing needs to: a context's subscriptions are constructor arguments, so a
+constructed context has nothing left to add to. There is no `seal()` and no `HandlerRegistrationSealedException` — a
+bus that never hands back a context cannot be subscribed into.
 
-Each takes either bare handler classes or, from
-`com.jimbroze.kbus.core.registry.generation`, a list of `LoadedEventHandler` tokens obtained via a generated `.loaded`
+`subscribe` and `subscribeDomain` take either bare handler classes or, from
+`com.jimbroze.kbus.core.registry.generation`, `LoadedEventHandler` tokens obtained via a generated `.loaded`
 property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
 factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it
 whenever you are using code generation. The bare-class form takes no generation dependency, for hand-written wiring.

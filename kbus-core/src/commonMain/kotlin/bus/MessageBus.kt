@@ -62,7 +62,7 @@ interface IMessageBus {
  */
 @Suppress("LongParameterList")
 abstract class BaseMessageBus(
-    protected val handlerLocator: HandlerLocator,
+    private val handlerLocator: HandlerLocator? = null,
     transactionManager: TransactionManager?,
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
@@ -93,14 +93,21 @@ abstract class BaseMessageBus(
         )
     /**
      * One runtime per declared [BoundedContext]. No [contexts] gives a single default context over
-     * the bus's shared [handlerLocator], leaving non-modular apps unaffected.
+     * the bus's own locator, leaving non-modular apps unaffected. A bus declaring neither has
+     * nowhere to resolve a handler from at all, so it is a wiring error rather than an empty bus.
      *
      * Dispatchers are built lazily to break a cycle: a dispatcher depends on the router, which
      * depends on these runtimes.
      */
     private val contextRuntimes: List<ContextRuntime> =
         contexts
-            .ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
+            .ifEmpty {
+                val locator =
+                    requireNotNull(handlerLocator) {
+                        "A bus needs either bounded contexts or a handler locator of its own."
+                    }
+                listOf(BoundedContext(BoundedContextId.DEFAULT, locator))
+            }
             .map { context ->
                 ContextRuntime(
                     context,

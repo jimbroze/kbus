@@ -14,6 +14,7 @@ import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
+import com.jimbroze.kbus.generation.generators.ContextCommandsGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
@@ -37,6 +38,7 @@ class CodeGenerators(
     val bus: BusGenerator,
     val loadedEventHandlersGenerator: LoadedEventHandlersGenerator,
     val autoPublishRegistrationsGenerator: AutoPublishRegistrationsGenerator,
+    val contextCommands: ContextCommandsGenerator,
 )
 
 @Suppress("LongParameterList")
@@ -51,13 +53,10 @@ class KbusProcessor(
 ) : SymbolProcessor {
     private val dependencies = ProcessingContext()
 
-    @OptIn(KspExperimental::class)
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val invalidSymbols = mutableListOf<KSAnnotated>()
 
-        if (!isSubModule) {
-            invalidSymbols.addAll(processIndexes(resolver))
-        }
+        invalidSymbols.addAll(processIndexes(resolver))
 
         invalidSymbols.addAll(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
@@ -124,20 +123,44 @@ class KbusProcessor(
 
         val sourceFiles = dependencies.sourceFiles.toList()
 
-        generators.containerInterface.generateInterface(dependencies.allDependencies, sourceFiles)
-        generators.handlersInterface.generateInterface(dependencies.handlers, sourceFiles)
         if (isSubModule) {
+            // A submodule generates against what it declares. What it learned from its
+            // dependencies' indexes is there to generate *with*, not to re-export.
+            generators.containerInterface.generateInterface(
+                dependencies.locallyDeclaredDependencies,
+                sourceFiles,
+            )
+            generators.handlersInterface.generateInterfaces(
+                dependencies.locallyDeclaredHandlers,
+                sourceFiles,
+            )
+            val contextCommandInterfaces =
+                generators.contextCommands.generateInterfaces(dependencies.handlers, sourceFiles)
             generators.dependencyIndexGenerator.generateIndexClass(
-                dependencies.allDependencies,
-                dependencies.handlers,
-                dependencies.autoPublishDefinitions,
+                dependencies.locallyDeclaredDependencies,
+                dependencies.locallyDeclaredHandlers,
+                dependencies.locallyDeclaredAutoPublishDefinitions,
+                contextCommandInterfaces,
                 sourceFiles,
             )
         } else {
+            generators.containerInterface.generateInterface(
+                dependencies.allDependencies,
+                sourceFiles,
+            )
+            generators.handlersInterface.generateInterfaces(dependencies.handlers, sourceFiles)
             generators.autoLoader.generateAutoloader(dependencies.allDependencies, sourceFiles)
-            generators.handlersFactory.generateClass(dependencies.handlers, sourceFiles)
+            generators.handlersFactory.generateClasses(dependencies.handlers, sourceFiles)
             generators.loadedEventHandlersGenerator.generateExtensionProperties(
                 dependencies.handlers,
+                sourceFiles,
+            )
+            generators.contextCommands.generateInterfaces(dependencies.handlers, sourceFiles)
+            generators.contextCommands.generateExecutors(
+                dependencies.handlers,
+                dependencies.contextCommandInterfacesFromIndexes.mapValues { (_, interfaces) ->
+                    interfaces.toList()
+                },
                 sourceFiles,
             )
             generators.bus.generateClass(dependencies.handlers, sourceFiles)

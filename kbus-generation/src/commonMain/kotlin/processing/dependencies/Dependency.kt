@@ -54,9 +54,42 @@ data class FunctionalDependency(
         }
 }
 
-data class CommandDependency(override val typeName: TypeName) : Dependency {
-    override val prefix = "commandDependencies."
+/**
+ * A dependency built from the command's own [CommandDependencies] rather than from the container,
+ * so it never appears in the generated dependency interface or autoloader.
+ */
+sealed interface CommandScopedDependency : Dependency
+
+/**
+ * [name] is the [CommandDependencies] property this is read from, or [WHOLE_OBJECT] when the
+ * handler asks for the object itself. It cannot be derived from the type: a property named other
+ * than its own decapitalised type name would generate a reference to nothing.
+ */
+data class CommandDependency(override val typeName: TypeName, override val name: String) :
+    CommandScopedDependency {
     override val requiresCommandDependencies = false
+
+    override val prefix
+        get() = if (name == WHOLE_OBJECT) "" else "commandDependencies."
+
+    companion object {
+        const val WHOLE_OBJECT = "commandDependencies"
+    }
+}
+
+/**
+ * A handler's parameter of a generated per-context command executor interface. Its access
+ * expression depends on the owning context of the handler being built, which only the factory
+ * generating that handler knows, so it has none of its own.
+ */
+data class ContextCommandsDependency(override val typeName: TypeName) : CommandScopedDependency {
+    override val requiresCommandDependencies = false
+
+    override val prefix
+        get() = error("A context command executor is constructed by its context's factory")
+
+    override val accessReference: String
+        get() = error("A context command executor is constructed by its context's factory")
 }
 
 data class NonDependency(override val typeName: TypeName) : Dependency {

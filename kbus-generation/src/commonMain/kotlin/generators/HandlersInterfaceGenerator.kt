@@ -17,12 +17,25 @@ class HandlersInterfaceGenerator(
     private val handlerInterfaceName: String,
     private val packagePath: String,
 ) {
-    fun generateInterface(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
-        val interfaceBuilder = TypeSpec.interfaceBuilder(handlerInterfaceName)
+    /** One interface per bounded context, matching that context's own handler factory. */
+    fun generateInterfaces(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
+        val handlersByContext = handlers.groupBy { contextOf(it) }
+        contextIdentities(handlers).forEach { context ->
+            generateInterface(context, handlersByContext[context].orEmpty().toSet(), sourceFiles)
+        }
+    }
+
+    private fun generateInterface(
+        context: String,
+        handlers: Set<HandlerDefinition>,
+        sourceFiles: List<KSFile>,
+    ) {
+        val interfaceName = contextClassPrefix(context) + handlerInterfaceName
+        val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
 
         handlers.forEach { addHandlerDefinition(interfaceBuilder, it) }
 
-        val file = FileSpec.builder(packagePath, handlerInterfaceName)
+        val file = FileSpec.builder(packagePath, interfaceName)
         file.addType(interfaceBuilder.build())
         file
             .build()

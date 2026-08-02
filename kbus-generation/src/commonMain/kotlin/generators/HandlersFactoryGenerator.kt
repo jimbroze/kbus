@@ -13,6 +13,7 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
@@ -35,20 +36,39 @@ import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
 import kotlin.reflect.KClass
 
+@Suppress("LongParameterList")
 class HandlersFactoryGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
     private val factoryClassName: String,
     private val dependenciesInterfaceName: String,
     private val handlersInterfaceName: String,
+    private val commandExecutorClassName: String,
     private val packagePath: String,
 ) {
-    fun generateClass(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
-        val superClassName = ClassName(packagePath, handlersInterfaceName)
+    /**
+     * One factory per bounded context, each holding only that context's handlers. Isolation is
+     * structural: a context has no way to build a handler another context owns.
+     */
+    fun generateClasses(handlers: Set<HandlerDefinition>, sourceFiles: List<KSFile>) {
+        val handlersByContext = handlers.groupBy { contextOf(it) }
+        contextIdentities(handlers).forEach { context ->
+            generateClass(context, handlersByContext[context].orEmpty().toSet(), sourceFiles)
+        }
+    }
+
+    private fun generateClass(
+        context: String,
+        handlers: Set<HandlerDefinition>,
+        sourceFiles: List<KSFile>,
+    ) {
+        val prefix = contextClassPrefix(context)
+        val className = prefix + factoryClassName
+        val superClassName = ClassName(packagePath, prefix + handlersInterfaceName)
         val dependenciesClassName = ClassName(packagePath, dependenciesInterfaceName)
 
         val classBuilder =
-            TypeSpec.classBuilder(factoryClassName)
+            TypeSpec.classBuilder(className)
                 .addSuperinterface(superClassName)
                 .addSuperinterface(GenerationHandlerFactory::class)
 
@@ -75,15 +95,15 @@ class HandlersFactoryGenerator(
                 buildEventHandlerFor(handlers.filterIsInstance<EventHandlerDefinition>().toSet())
             )
             .addFunction(
-                buildCommandTypesFor(handlers.filterIsInstance<CommandHandlerDefinition>().toSet())
+                buildCommandTypes(handlers.filterIsInstance<CommandHandlerDefinition>().toSet())
             )
             .addFunction(
-                buildQueryTypesFor(handlers.filterIsInstance<QueryHandlerDefinition>().toSet())
+                buildQueryTypes(handlers.filterIsInstance<QueryHandlerDefinition>().toSet())
             )
 
-        handlers.forEach { addHandlerDefinition(classBuilder, it) }
+        handlers.forEach { addHandlerDefinition(classBuilder, it, context) }
 
-        val file = FileSpec.builder(packagePath, factoryClassName)
+        val file = FileSpec.builder(packagePath, className)
         file.addAnnotation(
             AnnotationSpec.builder(ClassName("kotlin", "Suppress"))
                 .addMember("%S", "OPT_IN_USAGE")
@@ -205,13 +225,13 @@ class HandlersFactoryGenerator(
             .build()
     }
 
-    private fun buildCommandTypesFor(handlers: Set<CommandHandlerDefinition>): FunSpec =
-        buildMessageTypesFor("commandTypesFor", Command::class.asClassName(), handlers)
+    private fun buildCommandTypes(handlers: Set<CommandHandlerDefinition>): FunSpec =
+        buildMessageTypes("commandTypes", Command::class.asClassName(), handlers)
 
-    private fun buildQueryTypesFor(handlers: Set<QueryHandlerDefinition>): FunSpec =
-        buildMessageTypesFor("queryTypesFor", Query::class.asClassName(), handlers)
+    private fun buildQueryTypes(handlers: Set<QueryHandlerDefinition>): FunSpec =
+        buildMessageTypes("queryTypes", Query::class.asClassName(), handlers)
 
-    private fun buildMessageTypesFor(
+    private fun buildMessageTypes(
         functionName: String,
         messageClassName: ClassName,
         handlers: Set<HandlerDefinition>,
@@ -224,35 +244,31 @@ class HandlersFactoryGenerator(
                     )
             )
 
-        val codeBlock = CodeBlock.builder().add("return when (contextIdentity) {\n").indent()
-
-        for ((module, moduleHandlers) in handlers.groupBy { it.handlerData.module }) {
-            val messageClasses =
-                moduleHandlers.map { CodeBlock.of("%T::class", it.handlerData.messageClass) }
-            codeBlock.addStatement(
-                "%S -> setOf(%L)",
-                module,
-                messageClasses.joinToCode(separator = ", "),
-            )
-        }
-
-        codeBlock.addStatement("else -> emptySet()").unindent().add("}")
+        val messageClasses = handlers.map { CodeBlock.of("%T::class", it.handlerData.messageClass) }
 
         return FunSpec.builder(functionName)
             .addModifiers(KModifier.OVERRIDE)
-            .addParameter("contextIdentity", String::class)
             .returns(returnType)
-            .addCode(codeBlock.build())
+            .addCode(CodeBlock.of("return %L", messageClasses.joinToCode(", ", "setOf(", ")")))
             .build()
     }
 
-    private fun addHandlerDefinition(classBuilder: TypeSpec.Builder, handler: HandlerDefinition) {
+    private fun addHandlerDefinition(
+        classBuilder: TypeSpec.Builder,
+        handler: HandlerDefinition,
+        context: String,
+    ) {
         val returnType = handler.handlerData.handlerClass
 
         val subDependencyArgs =
             handler.handlerData.topLevelDependencies.joinToString(", ") {
-                if (it is CommandDependency) it.accessReference
-                else "dependencies.${it.accessReference}"
+                when (it) {
+                    is ContextCommandsDependency ->
+                        "${contextClassPrefix(context)}$commandExecutorClassName" +
+                            "(commandDependencies.commandExecutor)"
+                    is CommandDependency -> it.accessReference
+                    else -> "dependencies.${it.accessReference}"
+                }
             }
 
         val functionBuilder =

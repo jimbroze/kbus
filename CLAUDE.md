@@ -61,13 +61,16 @@ All handlers implement `suspend fun handle(message: TMessage)` for coroutine sup
 Annotate handlers with `@LoadMessageHandler` to trigger generation. The KSP processor (`KbusProcessor`) runs in three
 phases:
 
-1. **Index phase** — Scans `@KbusIndex` annotations to load dependency metadata from libraries
+1. **Index phase** — Scans `@KbusIndex` annotations to load dependency metadata from libraries. Every module reads
+   the indexes it can see, so what a module *learned* is tracked apart from what it *declares* — its own index
+   carries only its own declarations
 2. **Handler phase** — Scans `@LoadMessageHandler` to extract handler definitions and dependencies
 3. **Event phase** — Scans `@LoadEvent` to make events known to the processor; if the event's companion implements
    `AutoPublishesFrom`, records an auto-publish definition (integration event ← domain event)
 
-Generates: `ContainerInterface`, `HandlersInterface`, `HandlersFactory`, `AutoLoader`, a typed `Bus` class, and (only
-when at least one `@LoadEvent`/`AutoPublishesFrom` opt-in exists) `generatedAutoPublishRegistrations` — a
+Generates: `ContainerInterface`, `AutoLoader`, a typed `Bus` class, a handlers interface, handler factory and typed
+nested command executor **per bounded context**, and (only when at least one `@LoadEvent`/`AutoPublishesFrom` opt-in
+exists) `generatedAutoPublishRegistrations` — a
 `List<AutoPublishRegistration<*>>` for `AutoPublishIntegrationEvents`. Submodules (`isSubModule=true`) generate only a
 `DependencyIndex` with `@KbusIndex` metadata (including any auto-publish opt-ins) instead of full code.
 
@@ -75,6 +78,11 @@ when at least one `@LoadEvent`/`AutoPublishesFrom` opt-in exists) `generatedAuto
 belong to, orthogonal to `kbus.subModuleName` (one context can span several Gradle modules). It is stamped onto
 handler metadata at generation time and never inferred by the consumer. The generated bus groups handlers by identity
 and emits one context per identity.
+
+A context's factory holds only that context's handlers, so a command another context owns is unresolvable there
+rather than merely refused — the isolation is structural. Its typed nested executor covers the commands its module
+can see, and a module can only consume an executor interface generated *upstream* of it: KSP cannot resolve a type
+the same run is about to write.
 
 ### Handler Locators
 
@@ -212,6 +220,10 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Watch for names that collide with language keywords or shadow their everyday meaning (e.g. an
   `override` parameter next to Kotlin's `override` modifier) — pick something unambiguous even if
   it's longer.
+- **Discuss naming with me before settling on it.** When introducing a new public type, function or
+  concept — or renaming an existing one — propose two or three candidate names with a one-line
+  trade-off each and ask which I prefer, rather than picking one and moving on. Local variables and
+  private helpers don't need this; anything a reader of the API will see does.
 
 ## Testing
 

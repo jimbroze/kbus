@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
+import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
@@ -12,6 +13,7 @@ import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
@@ -23,6 +25,7 @@ import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.MemberName
@@ -41,6 +44,7 @@ class DependencyIndexGenerator(
         dependencies: Set<DependencyWithChildren>,
         handlers: Set<HandlerDefinition>,
         autoPublishDefinitions: Set<AutoPublishDefinition>,
+        contextCommandInterfaces: Map<String, ClassName>,
         sourceFiles: List<KSFile>,
     ) {
         val classBuilder = TypeSpec.classBuilder(indexClassName)
@@ -66,6 +70,16 @@ class DependencyIndexGenerator(
                     .map { definition -> CodeBlock.of("%L", this.addAutoPublish(definition)) }
                     .joinToCode(", ")
             indexAnnotationBuilder.addMember("autoPublishEvents = [%L]", autoPublishInfoSpecsBlock)
+        }
+
+        if (contextCommandInterfaces.isNotEmpty()) {
+            val contextCommandsSpecsBlock =
+                contextCommandInterfaces.entries
+                    .map { (identity, interfaceClass) ->
+                        CodeBlock.of("%L", this.addContextCommands(identity, interfaceClass))
+                    }
+                    .joinToCode(", ")
+            indexAnnotationBuilder.addMember("contextCommands = [%L]", contextCommandsSpecsBlock)
         }
 
         classBuilder.addAnnotation(indexAnnotationBuilder.build())
@@ -147,6 +161,16 @@ class DependencyIndexGenerator(
             .build()
     }
 
+    private fun addContextCommands(identity: String, interfaceClass: ClassName): AnnotationSpec {
+        return AnnotationSpec.builder(ContextCommandsInfo::class)
+            .addMember("${ContextCommandsInfo::contextIdentity.name} = %S", identity)
+            .addMember(
+                "${ContextCommandsInfo::interfaceClass.name} = %S",
+                interfaceClass.canonicalName,
+            )
+            .build()
+    }
+
     private fun topLevelDependencies(dependencies: List<Dependency>): CodeBlock {
         return dependencies
             .map { it.typeName.toString() }
@@ -160,6 +184,7 @@ class DependencyIndexGenerator(
             is FunctionalDependency -> DependencyType.FUNCTIONAL
             is PropertyDependency -> DependencyType.PROPERTY
             is CommandDependency -> DependencyType.COMMAND
+            is ContextCommandsDependency -> DependencyType.CONTEXT_COMMANDS
             is NonDependency -> DependencyType.NON_DEPENDENCY
         }
     }

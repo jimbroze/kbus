@@ -2,6 +2,7 @@
 
 package com.jimbroze.kbus.generation.processing.dependencies
 
+import com.google.devtools.ksp.getAllSuperTypes
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
@@ -9,6 +10,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
+import com.jimbroze.kbus.core.messages.command.ContextCommands
 import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
@@ -54,14 +56,18 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
                 getNewChildren(type, parameter, commandDependenciesProps)
             else null
 
-        val isCommandDependency = commandDependenciesProps.contains(type.declaration)
+        val isContextCommands = isContextCommandsInterface(parameter)
+        val commandDependencyPropertyName =
+            commandDependenciesProps.propertyNameFor(type.declaration)
+        val isCommandScoped = commandDependencyPropertyName != null || isContextCommands
         val requiresCommandDependencies =
-            isCommandDependency || children?.requireCommandDependencies == true
+            isCommandScoped || children?.requireCommandDependencies == true
 
         val metadata =
             createDependencyMetadata(
                 type,
-                isCommandDependency,
+                commandDependencyPropertyName,
+                isContextCommands,
                 cannotBeDependency,
                 requiresCommandDependencies,
             )
@@ -73,7 +79,7 @@ class DependencyFactory(@Suppress("unused") private val logger: KSPLogger) {
                 cannotBeAutoloaded(children, isExternalDependency),
             ),
             children?.allDependencies ?: emptySet(),
-            parentCannotBeAutoloaded(parameter, isCommandDependency, cannotBeDependency),
+            parentCannotBeAutoloaded(parameter, isCommandScoped, cannotBeDependency),
             requiresCommandDependencies,
         )
     }
@@ -151,12 +157,15 @@ fun KSValueParameter.resolveTypeUsingParent(parentType: KSType): KSType {
 
 private fun createDependencyMetadata(
     type: KSType,
-    isCommandDependency: Boolean,
+    commandDependencyPropertyName: String?,
+    isContextCommands: Boolean,
     cannotBeDependency: Boolean,
     requiresCommandDependencies: Boolean,
 ): Dependency {
-    return if (isCommandDependency) {
-        CommandDependency(type.toTypeName())
+    return if (isContextCommands) {
+        ContextCommandsDependency(type.toTypeName())
+    } else if (commandDependencyPropertyName != null) {
+        CommandDependency(type.toTypeName(), commandDependencyPropertyName)
     } else if (cannotBeDependency) {
         NonDependency(type.toTypeName())
     } else if (requiresCommandDependencies) {
@@ -178,8 +187,20 @@ private fun cannotBeDependency(
             parameter.packageName.asString().startsWith(prefix)
         } && canBeDependency.none { parameter.qualifiedName!!.asString() == it }
 
-    return commandDependencyProperties.contains(parameter) || disallowedByPackage
+    return commandDependencyProperties.contains(parameter) ||
+        isContextCommandsInterface(parameter) ||
+        disallowedByPackage
 }
+
+/**
+ * A generated per-context command executor. Recognised structurally rather than by name, so a
+ * module can inject one another module generated without knowing what it is called.
+ */
+private fun isContextCommandsInterface(declaration: KSDeclaration): Boolean =
+    declaration is KSClassDeclaration &&
+        declaration.getAllSuperTypes().any {
+            it.declaration.qualifiedName?.asString() == ContextCommands::class.qualifiedName
+        }
 
 private fun cannotBeAutoloaded(
     childrenOfDependency: ChildrenDependencies?,

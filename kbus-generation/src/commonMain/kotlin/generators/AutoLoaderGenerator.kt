@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.CommandScopedDependency
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyWithChildren
 import com.jimbroze.kbus.generation.processing.dependencies.FunctionalDependency
@@ -49,7 +49,7 @@ class AutoLoaderGenerator(
                     classBuilder.addProperty(
                         this.generateLoaderProperty(metadata, dependency.topLevelDependencies)
                     )
-                is CommandDependency -> Unit
+                is CommandScopedDependency -> Unit
                 is NonDependency -> Unit
             }
         }
