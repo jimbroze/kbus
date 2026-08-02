@@ -14,7 +14,20 @@ interface MiddlewareInvocationContext {
     val integrationEventPublisher: IntegrationEventPublisher
 }
 
+/**
+ * Whether a middleware re-runs for a command executed from inside another command's invocation.
+ * Governs nothing else — event dispatch is its own entry point and always runs the full chain.
+ *
+ * There is no default: only a middleware's author knows whether re-entering it is safe.
+ */
+enum class MiddlewareScope {
+    EntryPointOnly,
+    EveryCommand,
+}
+
 interface Middleware {
+    val scope: MiddlewareScope
+
     suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,

@@ -8,6 +8,8 @@ import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.registry.generation.addDomainHandlers
+import com.jimbroze.kbus.core.registry.generation.addEventHandlers
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
@@ -157,12 +159,12 @@ class GenerationTest {
                 Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                 EmptyTransactionManager(),
                 emptyList(),
-            )
-
-        bus.domainEventMapper.addDomainHandlers(
-            TestGeneratorEvent::class,
-            listOf(TestGeneratorEventHandler::class.loaded),
-        )
+            ) {
+                default.addDomainHandlers(
+                    TestGeneratorEvent::class,
+                    listOf(TestGeneratorEventHandler::class.loaded),
+                )
+            }
 
         val handledBefore = TestGeneratorEventHandler.timesHandled
         bus.execute(TestEventPublishingCommand())
@@ -200,12 +202,12 @@ class GenerationTest {
                     Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                     EmptyTransactionManager(),
                     listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
-                )
-
-            bus.default.addEventHandlers(
-                TestShipmentIntegration::class,
-                listOf(TestShipmentIntegrationHandler::class.loaded),
-            )
+                ) {
+                    default.addEventHandlers(
+                        TestShipmentIntegration::class,
+                        listOf(TestShipmentIntegrationHandler::class.loaded),
+                    )
+                }
 
             val handledBefore = TestShipmentIntegrationHandler.timesHandled
             bus.execute(TestShipmentCommand())
@@ -220,18 +222,19 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
-            )
-
-        // Each submodule declares its own kbus.boundedContextIdentity, so the generated bus
-        // exposes one registration point per bounded context instead of a single ambiguous mapper.
-        bus.orders.addEventHandlers(
-            OrderPlacedIntegration::class,
-            listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
-        )
-        bus.inventory.addEventHandlers(
-            StockReserved::class,
-            listOf(NotifyWarehouseHandler::class.loaded),
-        )
+            ) {
+                // Each submodule declares its own kbus.boundedContextIdentity, so the generated
+                // bus exposes one registration point per bounded context instead of a single
+                // ambiguous mapper.
+                orders.addEventHandlers(
+                    OrderPlacedIntegration::class,
+                    listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
+                )
+                inventory.addEventHandlers(
+                    StockReserved::class,
+                    listOf(NotifyWarehouseHandler::class.loaded),
+                )
+            }
 
         val ordersHandledBefore = HandleOrderPlacedIntegrationHandler.timesHandled
         val inventoryHandledBefore = NotifyWarehouseHandler.timesHandled

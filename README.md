@@ -414,6 +414,17 @@ passed to all middleware in the chain. It currently exposes `integrationEventPub
 `IntegrationEventPublisher` wired to the bus's real dispatch path — middleware can use it to publish integration events
 directly, independent of any command handler's own publishing.
 
+### Middleware Scope
+
+Every middleware declares a `scope`, which decides whether it re-runs for a command executed from inside another
+command's invocation:
+
+- `MiddlewareScope.EntryPointOnly` — runs only for the command that entered the bus.
+- `MiddlewareScope.EveryCommand` — also runs for each nested command.
+
+There is no default, because only a middleware's author knows whether re-entering it is safe. It has no bearing on
+event dispatch, which is its own entry point and always runs the full chain.
+
 ### Writing Custom Middleware
 
 <!--- CLEAR -->
@@ -422,11 +433,14 @@ import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import kotlin.time.TimeSource
 -->
 
 ```kotlin
 class TimingMiddleware : Middleware {
+    override val scope = MiddlewareScope.EveryCommand
+
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,
@@ -485,7 +499,7 @@ val bus = MessageBus(
 
 Commands execute within a Unit of Work that manages three phases:
 
-1. **Primary work** — The command handler executes
+1. **Primary work** — The command handler executes, along with any command it nests
 2. **Secondary work** — Domain event handlers run (within the same transaction)
 3. **Post-commit work** — Integration event handlers run (after transaction commit)
 
@@ -573,6 +587,39 @@ class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailur
 }
 ```
 
+### Executing a Command From a Handler
+
+A command handler receives a `NestedCommandExecutor` on its `CommandDependencies`, for running a sibling command as
+part of the same piece of work:
+
+```kotlin
+class PlaceOrderHandler(
+    private val commandExecutor: NestedCommandExecutor,
+) : CommandHandler<PlaceOrder, BusResult<Unit, MessageFailure>>() {
+
+    override suspend fun handle(message: PlaceOrder): BusResult<Unit, MessageFailure> {
+        val reservation = commandExecutor.execute(ReserveStock(message.sku))
+        if (reservation is BusResult.Failure) return reservation
+
+        return BusResult.success(Unit)
+    }
+}
+```
+
+The nested command runs inside the outer command's Unit of Work: one transaction, its domain events in the outer
+command's secondary phase, its integration events on the outer command's publisher. A throwing nested handler rolls
+the whole thing back; a nested `Failure` is returned to the caller, which decides what to do with it.
+
+Only commands the same bounded context owns are reachable this way — anything else throws `MissingHandlerException`.
+Crossing a context boundary means going through the bus, which opens its own Unit of Work and therefore commits
+independently. Which side of that line a command falls on is not a setting; it is which path you called.
+
+Because a nested handler cannot open a transaction of its own, one that declares `executeInTransaction` the outer
+transaction cannot satisfy — a transaction where none is running, or a different `transactionManagerOverride` from the
+running one — throws `NestedTransactionMismatchException` rather than silently running outside what it asked for.
+
+Queries have no nested equivalent: a query has no Unit of Work, so there is nothing to share. Use the bus.
+
 ## Bus Lifecycle
 
 A bus with background work — an outbox, an inbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) —
@@ -626,29 +673,43 @@ Between publish and dispatch sits a third stage: routing. Every integration publ
 `publish()`, `AutoPublishIntegrationEvents`, query middleware, and integration event handlers that publish further
 events — hands its events to an `EventRouter`, whether or not an outbox is configured. The router emits each event to
 `observe()` collectors once per routing attempt, before fan-out, then attempts delivery to every `EventDestination`
-that applies to the event. The local-dispatch destination is a `BoundedContext` — a module runtime that owns a slice of
-handlers and dispatches to them. A bus holds one per identity:
+that applies to the event. The local-dispatch destination is derived from a `BoundedContext` — the declaration a user
+constructs and registers handlers on. A bus holds one per `BoundedContextId`:
 
 ```kotlin
 val bus = MessageBus(
     handlerLocator,
-    contexts = mapOf(
-        BoundedContextId("orders") to ordersLocator,
-        BoundedContextId("inventory") to inventoryLocator,
+    contexts = listOf(
+        BoundedContext(BoundedContextId("orders"), ordersLocator),
+        BoundedContext(BoundedContextId("inventory"), inventoryLocator),
     ),
 )
 ```
 
-Each context's `appliesTo` is derived, lazily, from its own locator, so an integration handler registered in one context
-never fires for another context's event, and a handler registered after the bus was constructed is subscribed to from
-that moment on. Passing no `contexts` gives a bus a single implicit `default` context over its whole handler locator —
-the behaviour of a non-modular application. Context locators are used only for integration-event lookup; commands,
-queries and domain events still resolve through the bus's own handler locator.
+Each context's `appliesTo` is read from its own locator when the bus is built, so an integration handler registered in
+one context never fires for another context's event, and one registered after the bus was constructed is not subscribed
+to at all. Passing no `contexts` gives a bus a single implicit `default` context over its whole handler locator — the
+behaviour of a non-modular application.
+
+**Commands and queries resolve by owner lookup across `contexts`**, not through the bus's own handler locator directly:
+while the bus is being built it asks each context's locator what it handles
+(`HandlerLocator.handledCommandTypes`/`handledQueryTypes`) and indexes the result. Exactly one context must claim a
+given command or query. Two or more throws `AmbiguousHandlerException` **from the bus constructor**, so a single-owner
+conflict surfaces against the wiring at startup rather than against whichever dispatch first happens to hit it; a
+message no context claims throws `MissingHandlerException` from `execute`/`fetch`. This means that once you pass an
+explicit `contexts` list, every command and query handler must be registered on one of those contexts' locators —
+registering one only on the bus-wide `handlerLocator` is no longer enough, since that locator only backs domain-event
+dispatch and the implicit default context. Constructing a bus with two contexts sharing the same `BoundedContextId`
+also throws, at construction time. Domain events are unaffected — they still resolve through the bus's own handler
+locator.
+
+Because ownership is indexed when the bus is built, a command or query handler registered on a locator *after* that
+point is not routable — register everything before constructing the bus.
 
 Three consequences worth knowing:
 
-- **Dispatch middleware runs once per subscribing context**, so a locking middleware acquires once per context
-  (sequentially — destinations are routed in order).
+- **Dispatch middleware runs once per subscribing context**, so a locking middleware acquires once per context.
+  Destinations are routed to concurrently, so those acquisitions overlap rather than queueing behind one another.
 - **An event no context subscribes to is silently accepted and acknowledged.** Nothing dispatches, so the dispatch
   middleware chain does not run for it either, and with an outbox the entry is marked published rather than retried
   forever.
@@ -667,6 +728,35 @@ poller to retry, the same as any other delivery failure. Routing has no dependen
 publish path always goes through, and the outbox composes with it rather than replacing it. For a destination fronted
 by a [per-context inbox](#per-context-inbox), the thing that can throw (and un-ack the entry) is the *save* to the
 inbox's store, not the handlers — dispatch to handlers happens later, off the inbox's own pump.
+
+## Event Ordering
+
+**Domain events are ordered. Integration events are not.** This is a deliberate split, not an implementation gap.
+
+Domain events run inside a command, in one process, with no retries in play, so ordering is both cheap and meaningful:
+
+- **By phase** — all immediate work, then all after-primary-work, then all post-commit work.
+- **By publication order within a phase** — publish A then B, and A's handlers for that phase finish before B's start.
+- **Not across the handlers of a single event** — those run concurrently unless the event declares `DispatchSequentially`.
+
+Integration events cross a context boundary, are retried, and may be consumed by several processes. kbus therefore
+makes **no ordering guarantee** on them, and the API deliberately offers no way to ask for one:
+
+- Publishing splits a batch by error strategy, so fire-and-forget events race the rest.
+- Routing fans out to subscribing contexts concurrently.
+- Delivery within a fetched batch is concurrent, capped by `maxConcurrentDeliveries` (default 16) on `OutboxConfig`
+  and `InboxConfig`.
+- Retries reorder by construction: a failed envelope is redelivered after later ones already succeeded.
+
+Setting `maxConcurrentDeliveries = 1` restores strict in-order delivery *within a single fetched batch, in a single
+process*. That is genuinely all it buys — nothing constrains the order of two batches, and a second process polling the
+same store interleaves with this one freely. Treat it as a throughput/isolation knob rather than an ordering feature:
+its real cost is that one slow or failing envelope holds up every envelope behind it in the batch.
+
+**If a consumer needs ordering, put a sequence number or version on the event** and let the handler detect and reject
+stale arrivals. That works across processes and survives retries, neither of which a delivery-side guarantee can offer.
+Ordering-sensitive work that genuinely must be sequenced usually belongs in a command or a domain event, where the
+ordering above is real.
 
 ## Transactional Outbox
 
@@ -777,9 +867,10 @@ durable store. A failing context now only retries itself.
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
@@ -792,26 +883,29 @@ val inventoryLocator = PersistingHandlerLocator(stores)
 
 val bus = MessageBus(
     handlerLocator = PersistingHandlerLocator(stores),
-    contexts = mapOf(
-        BoundedContextId("orders") to ordersLocator,
-        BoundedContextId("inventory") to inventoryLocator,
+    contexts = listOf(
+        BoundedContext(
+            BoundedContextId("orders"),
+            ordersLocator,
+            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+        ),
+        BoundedContext(
+            BoundedContextId("inventory"),
+            inventoryLocator,
+            ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+        ),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
-    inbox = InboxConfig(
-        stores = mapOf(
-            BoundedContextId("orders") to InMemoryInboxStore(),
-            BoundedContextId("inventory") to InMemoryInboxStore(),
-        ),
-        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-    ),
 ).apply { start() }
 ```
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
 
-Each context in `InboxConfig.stores` gets its **own** `InboxStore` instance — structural isolation, not a shared table
-with a context column, so one context's pump physically cannot see another context's rows. A context absent from
-`stores` keeps today's synchronous, un-inboxed dispatch; the two can be mixed on the same bus.
+Each context declaring a `ContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
+table with a context column, so one context's pump physically cannot see another context's rows. A context that
+declares none keeps synchronous, un-inboxed dispatch; the two can be mixed on the same bus. Declaring the inbox on the
+context rather than in a bus-level map keyed by `BoundedContextId` means naming a context that does not exist is not
+expressible, and the store cannot drift apart from the context it belongs to.
 
 **Dedupe is what actually kills the amplification.** The router still routes a whole envelope to every context on
 every attempt, exactly as without an inbox — nothing about routing changes. What changes is that an inboxed context's
@@ -830,9 +924,9 @@ Two separate things determine what happens to a failing handler at the inbox —
 separately:
 
 - **`errorStrategy`** (on the event) decides whether a handler's exception ever reaches the inbox at all.
-- **`ackPolicy`** (on `InboxConfig`, per bus) decides whether the inbox accepts a producer's `FireAndForget` "don't
-  care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer is a
-  safe default to pick on a consumer's behalf.
+- **`ackPolicy`** (on the context's own `ContextInbox`) decides whether that inbox accepts a producer's `FireAndForget`
+  "don't care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer
+  is a safe default to pick on a consumer's behalf.
 
 Integration-event dispatch — at an inbox or anywhere else — always awaits its handlers before returning, regardless of
 `errorStrategy` or `concurrency`. There is no window where the inbox can ack before a handler has even started; the
@@ -846,13 +940,10 @@ handler's *exception*:
 | `FireAndForget` | Every handler still runs to completion, but an exception is swallowed rather than surfaced — the envelope is acked and tombstoned regardless, so a failing handler is never retried. |
 
 `FireAndForget`'s "never retried" row is a legitimate choice for events a producer truly doesn't care about, but a
-consumer can refuse it via `InboxConfig`'s `ackPolicy`:
+consumer can refuse it via its context's `ackPolicy`:
 
 ```kotlin
-InboxConfig(
-    stores = mapOf(BoundedContextId("orders") to InMemoryInboxStore()),
-    ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
-)
+ContextInbox(InMemoryInboxStore(), InboxAckPolicy.RequireHandlerSuccess)
 ```
 
 | `ackPolicy` | Effect |
@@ -860,7 +951,7 @@ InboxConfig(
 | `HonourEventStrategy` | Ack exactly as the table above. |
 | `RequireHandlerSuccess` | A `FireAndForget` event is dispatched as if it were `ContinueAndAggregate`: a handler failure now leaves the envelope pending and is retried. `FailFast` and `ContinueAndAggregate` events are unaffected — they already retry on failure. |
 
-`ackPolicy` is per bus, not per event: it applies uniformly to every event flowing through that context's inbox,
+`ackPolicy` is per context, not per event: it applies uniformly to every event flowing through that context's inbox,
 without the producer having to know or care which contexts consume its events with stronger guarantees.
 
 As with the outbox, handlers must still be idempotent — the inbox dedupes *transport* redelivery (the same envelope
@@ -871,10 +962,12 @@ A few things this stage deliberately leaves for later, since none of them requir
 
 - No dead-letter queue — a poison message retries forever, and if poison entries ever exceed the batch size, the
   oldest-first fetch stops advancing and the context wedges.
-- `pollInterval`, `batchSize`, and whether dispatch is opportunistic are bus-wide, not per-context.
+- `pollInterval`, `batchSize`, `maxConcurrentDeliveries` and whether dispatch is opportunistic stay bus-wide on
+  `InboxConfig`, not per-context.
 - Tombstone retention has no contract-level pruning hook; an implementation that prunes too aggressively re-opens the
   duplicate window it was closing.
-- No ordering guarantee across retries — a failed envelope is retried after later ones were already delivered.
+- No ordering guarantee — see [Event Ordering](#event-ordering); this is a design decision rather than a gap, but a
+  consumer that wants in-batch ordering has only the blunt `maxConcurrentDeliveries = 1`.
 - Middleware dispatched from an inboxed context runs on the inbox's own pump coroutine, not the caller's — a
   `LockingMiddleware`'s re-entrancy token (carried in the coroutine context) does not propagate from whatever
   triggered the original publish.
@@ -1038,15 +1131,54 @@ ksp {
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
 by the consumer. The generated bus builds one `BoundedContext` per distinct identity and exposes a typed registration
-point for each, named after the identity, plus `default` for handlers from modules that declared no identity:
+point for each, named after the identity, plus `default` for handlers from modules that declared no identity. Register
+against them in the bus constructor's trailing `configure` lambda:
 
 ```kotlin
-bus.billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
-bus.default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
+val bus = MyBus(dependencies, transactionManager, middleware) {
+    billing.addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+    default.addEventHandlers(AuditRecorded::class, listOf(ArchiveAuditHandler::class.loaded))
+}
 ```
 
-There is deliberately no bus-wide `integrationEventMapper`: with several contexts, "which context?" has no answer.
-`domainEventMapper` stays bus-wide — domain events do not cross contexts.
+Domain handlers register the same way, per context:
+
+```kotlin
+billing.addDomainHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+```
+
+The lambda's receiver is the only place these registration points exist. A built bus does not expose them, so its
+handler set is fixed.
+
+There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
+context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
+handlers — a domain handler registered on `billing` never fires for a command owned by another context.
+
+### When handlers may be registered
+
+**Command and query handlers must be registered before the bus is constructed.** A command has exactly one owning
+context, and the bus is what resolves that owner, so it must be able to settle ownership while it is being built — that
+is what lets two contexts claiming the same command be reported against your wiring rather than against some later
+dispatch in production. Register them on a context's `HandlerLocator` before passing the context to the bus.
+
+**Event handlers must be registered before the bus is constructed too** — in the generated bus's `configure` lambda, or
+in the trailing lambda of a hand-written `BoundedContext`:
+
+```kotlin
+BoundedContext(BoundedContextId("billing"), locator) {
+    addEventHandlers(InvoiceIssued::class, listOf(SyncLedgerHandler::class.loaded))
+}
+```
+
+Nothing enforces this at runtime, because nothing needs to: `addEventHandlers`/`addDomainHandlers` are reachable only
+through a `ContextRegistration`, which is only ever handed to those lambdas. There is no `seal()` and no
+`HandlerRegistrationSealedException` — a bus that never hands back a registration point cannot be registered into.
+
+Each takes either bare handler classes or, from
+`com.jimbroze.kbus.core.registry.generation`, a list of `LoadedEventHandler` tokens obtained via a generated `.loaded`
+property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
+factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it
+whenever you are using code generation. The bare-class form takes no generation dependency, for hand-written wiring.
 
 ## Domain Modeling
 

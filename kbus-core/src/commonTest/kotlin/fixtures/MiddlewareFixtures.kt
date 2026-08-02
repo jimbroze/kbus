@@ -11,6 +11,7 @@ import com.jimbroze.kbus.core.middleware.MiddlewareContext
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
@@ -58,8 +59,10 @@ fun noOutboxPublisherFactory(
 fun emptyContextFactory(scope: CoroutineScope): MiddlewareInvocationContextFactory =
     MiddlewareInvocationContextFactory(noOutboxPublisherFactory(scope))
 
-class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycle") :
-    LifecycleAwareMiddleware {
+class CapturingLifecycleMiddleware(
+    private val name: String = "CapturingLifecycle",
+    override val scope: MiddlewareScope = MiddlewareScope.EntryPointOnly,
+) : LifecycleAwareMiddleware {
     var startContext: MiddlewareContext? = null
         private set
 
@@ -83,7 +86,8 @@ class CapturingLifecycleMiddleware(private val name: String = "CapturingLifecycl
     override fun toString(): String = name
 }
 
-class PassthroughMiddleware : Middleware {
+class PassthroughMiddleware(override val scope: MiddlewareScope = MiddlewareScope.EntryPointOnly) :
+    Middleware {
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,
@@ -91,7 +95,9 @@ class PassthroughMiddleware : Middleware {
     ): TResult = nextMiddleware(message)
 }
 
-class CapturingContextMiddleware : Middleware {
+class CapturingContextMiddleware(
+    override val scope: MiddlewareScope = MiddlewareScope.EntryPointOnly
+) : Middleware {
     private val capturedContexts = mutableListOf<Pair<KClass<*>, MiddlewareInvocationContext>>()
 
     val capturedContext: MiddlewareInvocationContext?

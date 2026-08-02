@@ -6,6 +6,7 @@ import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.reflect.KClass
 
@@ -48,6 +49,8 @@ inline fun <reified TDomainEvent : DomainEvent> autoPublish(
  * call. Registrations match the domain event's exact class, not its subclasses.
  */
 class AutoPublishIntegrationEvents(registrations: List<AutoPublishRegistration<*>>) : Middleware {
+    override val scope = MiddlewareScope.EntryPointOnly
+
     constructor(vararg registrations: AutoPublishRegistration<*>) : this(registrations.toList())
 
     private val registrationsByEventClass = registrations.groupBy { it.eventClass }

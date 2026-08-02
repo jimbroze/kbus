@@ -5,9 +5,12 @@ import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import kotlin.time.TimeSource
 
 class TimingMiddleware : Middleware {
+    override val scope = MiddlewareScope.EveryCommand
+
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,

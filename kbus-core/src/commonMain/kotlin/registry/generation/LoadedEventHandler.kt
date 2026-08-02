@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.registry
+package com.jimbroze.kbus.core.registry.generation
 
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler

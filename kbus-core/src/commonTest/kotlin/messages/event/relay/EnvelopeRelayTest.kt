@@ -7,8 +7,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,6 +32,36 @@ class EnvelopeRelayTest {
         relay.relay(entries)
 
         assertEquals(entries, delivered)
+    }
+
+    @Test
+    fun relay_deliversUpToMaxConcurrentDeliveriesAtOnce() = runTest {
+        val relay =
+            EnvelopeRelay(deliver = { delay(10.seconds) }, ack = {}, maxConcurrentDeliveries = 2)
+
+        relay.relay((1..4).map { EventEnvelope("$it", RelayTestEvent("e$it")) })
+
+        // Four entries, two at a time, ten seconds each: two waves, not four.
+        assertEquals(20.seconds.inWholeMilliseconds, testScheduler.currentTime)
+    }
+
+    @Test
+    fun relay_withMaxConcurrentDeliveriesOfOne_deliversInOrder() = runTest {
+        val delivered = mutableListOf<String>()
+        val relay =
+            EnvelopeRelay(
+                deliver = {
+                    delay((10 - it.id.toInt()).seconds)
+                    delivered.add(it.id)
+                },
+                ack = {},
+                maxConcurrentDeliveries = 1,
+            )
+
+        relay.relay((1..3).map { EventEnvelope("$it", RelayTestEvent("e$it")) })
+
+        // Descending delays, so any overlap at all would reverse them.
+        assertEquals(listOf("1", "2", "3"), delivered)
     }
 
     @Test

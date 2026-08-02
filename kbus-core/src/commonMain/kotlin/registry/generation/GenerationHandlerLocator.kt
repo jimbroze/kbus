@@ -9,15 +9,20 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventMapper
-import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
 import kotlin.reflect.KClass
 
 // TODO type-safe generated event factory
-class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
-    HandlerLocator, EventMapperProvider {
+class GenerationHandlerLocator(
+    val generationHandlerFactory: GenerationHandlerFactory,
+    /**
+     * The bounded context this locator answers for (`""` for the default). Needed because one
+     * generated factory can hold handlers for several contexts.
+     */
+    private val contextIdentity: String = "",
+) : HandlerLocator {
     private val eventMapper = PersistingEventMapper()
     override val domainEventMapper = eventMapper as DomainEventMapper
     override val integrationEventMapper = eventMapper as IntegrationEventMapper
@@ -35,7 +40,13 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
         return generationHandlerFactory.handlerFor(query)
     }
 
-    override fun hasHandlersFor(event: Event): Boolean = eventMapper.hasMappingFor(event::class)
+    override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
+
+    override fun handledCommandTypes(): Set<KClass<out Command<*>>> =
+        generationHandlerFactory.commandTypesFor(contextIdentity)
+
+    override fun handledQueryTypes(): Set<KClass<out Query<*>>> =
+        generationHandlerFactory.queryTypesFor(contextIdentity)
 
     override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)

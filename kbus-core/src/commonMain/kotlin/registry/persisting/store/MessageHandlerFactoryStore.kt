@@ -35,7 +35,6 @@ class MessageHandlerFactoryStore<TMessageType : Message> {
         messageType: KClass<TMessage>,
         handlerTypes: List<KClass<out MessageHandler<TMessage>>>?,
     ) {
-
         if (handlerTypes === null) {
             this.factories.remove(messageType)
         } else {
@@ -48,9 +47,12 @@ class MessageHandlerFactoryStore<TMessageType : Message> {
         }
     }
 
-    fun <TMessage : TMessageType> isRegistered(messageType: KClass<TMessage>): Boolean {
-        return factories.contains(messageType)
-    }
+    /**
+     * Every message type currently holding at least one handler factory. A type whose handlers have
+     * all been removed is absent, so a caller never sees a registration that resolves to nothing.
+     */
+    fun registeredTypes(): Set<KClass<out TMessageType>> =
+        factories.filterValues { it.isNotEmpty() }.keys.toSet()
 
     fun <TMessage : TMessageType> getHandlers(
         messageType: KClass<TMessage>

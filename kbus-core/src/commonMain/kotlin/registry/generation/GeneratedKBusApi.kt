@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.registry
+package com.jimbroze.kbus.core.registry.generation
 
 @RequiresOptIn(
     level = RequiresOptIn.Level.ERROR,

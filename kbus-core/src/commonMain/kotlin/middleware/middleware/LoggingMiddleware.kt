@@ -7,6 +7,7 @@ import com.jimbroze.kbus.core.infrastructure.logging.Logger
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 
 class LoggingMiddleware(
     private val logger: Logger,
@@ -14,6 +15,9 @@ class LoggingMiddleware(
     private val postDispatchLevel: LogLevel,
     private val errorLevel: LogLevel,
 ) : Middleware {
+    /** Observational: a nested command is a real message being handled. */
+    override val scope = MiddlewareScope.EveryCommand
+
     override suspend fun <TMessage : Message, TResult> handle(
         message: TMessage,
         context: MiddlewareInvocationContext,

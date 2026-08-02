@@ -11,10 +11,11 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
+import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
-import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -32,10 +33,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
-/**
- * [ErrorStrategy.FailFast] so a throwing handler surfaces synchronously, matching
- * [MessageBusMultiContextTest].
- */
+/** [ErrorStrategy.FailFast] so a throwing handler surfaces synchronously. */
 private class InboxAlphaEvent(val name: String) : IntegrationEvent() {
     override val errorStrategy = ErrorStrategy.FailFast
 }
@@ -102,10 +100,7 @@ private class NonAckingOutboxStore : OutboxStore {
     }
 }
 
-/**
- * Default settings: [com.jimbroze.kbus.contracts.messages.event.Concurrency.Concurrent] +
- * FireAndForget.
- */
+/** Default settings: concurrent dispatch, fire and forget. */
 private class GatedInboxEvent(val name: String) : IntegrationEvent()
 
 private class PublishGatedInboxCommand(val name: String) :
@@ -224,16 +219,18 @@ class MessageBusInboxTest {
     fun aFailingContextIsRetriedAlone_theOutboxEntryIsAckedAndHealthyContextsDispatchOnce() =
         runTest {
             val outboxStore = RecordingOutboxStore()
-            val stores = HandlerFactoryStoreCollection()
-            val busLocator = PersistingHandlerLocator(stores)
-            registerPublishingCommand(stores)
+            val busStores = HandlerFactoryStoreCollection()
+            val busLocator = PersistingHandlerLocator(busStores)
+            registerPublishingCommand(busStores)
 
             val healthyReceived = mutableListOf<String>()
             val failedAttempts = mutableListOf<String>()
-            val healthyLocator = PersistingHandlerLocator(stores)
-            val failingLocator = PersistingHandlerLocator(stores)
-            registerAlphaHandlerIn(stores, healthyLocator, healthyReceived, "healthy")
-            registerThrowingHandlerIn(stores, failingLocator, failedAttempts)
+            val healthyStores = HandlerFactoryStoreCollection()
+            val failingStores = HandlerFactoryStoreCollection()
+            val healthyLocator = PersistingHandlerLocator(healthyStores)
+            val failingLocator = PersistingHandlerLocator(failingStores)
+            registerAlphaHandlerIn(healthyStores, healthyLocator, healthyReceived, "healthy")
+            registerThrowingHandlerIn(failingStores, failingLocator, failedAttempts)
 
             val bus =
                 MessageBus(
@@ -241,20 +238,26 @@ class MessageBusInboxTest {
                     appScope = backgroundScope,
                     outbox = OutboxConfig(store = outboxStore),
                     contexts =
-                        mapOf(
-                            BoundedContextId("healthy") to healthyLocator as HandlerLocator,
-                            BoundedContextId("failing") to failingLocator,
-                        ),
-                    inbox =
-                        InboxConfig(
-                            ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                            stores =
-                                mapOf(
-                                    BoundedContextId("healthy") to RecordingInboxStore(),
-                                    BoundedContextId("failing") to RecordingInboxStore(),
+                        listOf(
+                            BoundedContext(BoundedContextId("publisher"), busLocator),
+                            BoundedContext(
+                                BoundedContextId("healthy"),
+                                healthyLocator,
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
                                 ),
-                            pollInterval = 100.milliseconds,
+                            ),
+                            BoundedContext(
+                                BoundedContextId("failing"),
+                                failingLocator,
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
+                            ),
                         ),
+                    inbox = InboxConfig(pollInterval = 100.milliseconds),
                 )
             bus.start()
 
@@ -272,14 +275,16 @@ class MessageBusInboxTest {
     @Test
     fun aFailingContextsEnvelopeStaysPendingInItsOwnInboxOnly() = runTest {
         val outboxStore = RecordingOutboxStore()
-        val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
-        registerPublishingCommand(stores)
+        val busStores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(busStores)
+        registerPublishingCommand(busStores)
 
-        val healthyLocator = PersistingHandlerLocator(stores)
-        val failingLocator = PersistingHandlerLocator(stores)
-        registerAlphaHandlerIn(stores, healthyLocator, mutableListOf(), "healthy")
-        registerThrowingHandlerIn(stores, failingLocator, mutableListOf())
+        val healthyStores = HandlerFactoryStoreCollection()
+        val failingStores = HandlerFactoryStoreCollection()
+        val healthyLocator = PersistingHandlerLocator(healthyStores)
+        val failingLocator = PersistingHandlerLocator(failingStores)
+        registerAlphaHandlerIn(healthyStores, healthyLocator, mutableListOf(), "healthy")
+        registerThrowingHandlerIn(failingStores, failingLocator, mutableListOf())
 
         val healthyStore = RecordingInboxStore()
         val failingStore = RecordingInboxStore()
@@ -289,20 +294,20 @@ class MessageBusInboxTest {
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore),
                 contexts =
-                    mapOf(
-                        BoundedContextId("healthy") to healthyLocator as HandlerLocator,
-                        BoundedContextId("failing") to failingLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("publisher"), busLocator),
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(healthyStore, InboxAckPolicy.HonourEventStrategy),
+                        ),
+                        BoundedContext(
+                            BoundedContextId("failing"),
+                            failingLocator,
+                            ContextInbox(failingStore, InboxAckPolicy.HonourEventStrategy),
+                        ),
                     ),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores =
-                            mapOf(
-                                BoundedContextId("healthy") to healthyStore,
-                                BoundedContextId("failing") to failingStore,
-                            ),
-                        pollInterval = 100.milliseconds,
-                    ),
+                inbox = InboxConfig(pollInterval = 100.milliseconds),
             )
         bus.start()
 
@@ -336,11 +341,13 @@ class MessageBusInboxTest {
                         pollInterval = 50.milliseconds,
                         opportunisticDrain = false,
                     ),
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to RecordingInboxStore()),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
         bus.start()
@@ -357,16 +364,18 @@ class MessageBusInboxTest {
 
     @Test
     fun aContextWithoutAnInboxStore_keepsSynchronousDispatch() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
-        registerPublishingCommand(stores)
+        val busStores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(busStores)
+        registerPublishingCommand(busStores)
 
         val plainReceived = mutableListOf<String>()
         val inboxedReceived = mutableListOf<String>()
-        val plainLocator = PersistingHandlerLocator(stores)
-        val inboxedLocator = PersistingHandlerLocator(stores)
-        registerAlphaHandlerIn(stores, plainLocator, plainReceived, "plain")
-        registerSecondAlphaHandlerIn(stores, inboxedLocator, inboxedReceived, "inboxed")
+        val plainStores = HandlerFactoryStoreCollection()
+        val inboxedStores = HandlerFactoryStoreCollection()
+        val plainLocator = PersistingHandlerLocator(plainStores)
+        val inboxedLocator = PersistingHandlerLocator(inboxedStores)
+        registerAlphaHandlerIn(plainStores, plainLocator, plainReceived, "plain")
+        registerSecondAlphaHandlerIn(inboxedStores, inboxedLocator, inboxedReceived, "inboxed")
 
         val inboxedStore = RecordingInboxStore()
         val bus =
@@ -374,16 +383,16 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 contexts =
-                    mapOf(
-                        BoundedContextId("plain") to plainLocator as HandlerLocator,
-                        BoundedContextId("inboxed") to inboxedLocator,
+                    listOf(
+                        BoundedContext(BoundedContextId("publisher"), busLocator),
+                        BoundedContext(BoundedContextId("plain"), plainLocator),
+                        BoundedContext(
+                            BoundedContextId("inboxed"),
+                            inboxedLocator,
+                            ContextInbox(inboxedStore, InboxAckPolicy.HonourEventStrategy),
+                        ),
                     ),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("inboxed") to inboxedStore),
-                        opportunisticDispatch = false,
-                    ),
+                inbox = InboxConfig(opportunisticDispatch = false),
             )
         bus.start()
 
@@ -407,11 +416,13 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to RecordingInboxStore()),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
 
@@ -430,13 +441,15 @@ class MessageBusInboxTest {
         MessageBus(
             busLocator,
             appScope = backgroundScope,
-            contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
-            inbox =
-                InboxConfig(
-                    ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                    stores = mapOf(BoundedContextId("healthy") to store),
-                    pollInterval = 10.milliseconds,
+            contexts =
+                listOf(
+                    BoundedContext(
+                        BoundedContextId("healthy"),
+                        healthyLocator,
+                        ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                    )
                 ),
+            inbox = InboxConfig(pollInterval = 10.milliseconds),
         )
         advanceVirtualTime(50)
 
@@ -456,13 +469,15 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to store),
-                        pollInterval = 20.milliseconds,
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
+                inbox = InboxConfig(pollInterval = 20.milliseconds),
             )
 
         bus.start()
@@ -489,11 +504,13 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = RecordingOutboxStore()),
-                contexts = mapOf(BoundedContextId("failing") to failingLocator as HandlerLocator),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("failing") to RecordingInboxStore()),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("failing"),
+                            failingLocator,
+                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
         bus.start()
@@ -518,13 +535,15 @@ class MessageBusInboxTest {
             MessageBus(
                 busLocator,
                 appScope = backgroundScope,
-                contexts = mapOf(BoundedContextId("healthy") to healthyLocator as HandlerLocator),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to store),
-                        pollInterval = 10.milliseconds,
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
+                inbox = InboxConfig(pollInterval = 10.milliseconds),
             )
         bus.start()
         advanceVirtualTime(50)
@@ -567,11 +586,13 @@ class MessageBusInboxTest {
                 busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
-                contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
-                inbox =
-                    InboxConfig(
-                        ackPolicy = InboxAckPolicy.HonourEventStrategy,
-                        stores = mapOf(BoundedContextId("healthy") to inboxStore),
+                contexts =
+                    listOf(
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            locator,
+                            ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
+                        )
                     ),
             )
         bus.start()
@@ -627,13 +648,15 @@ class MessageBusInboxTest {
                 MessageBus(
                     busLocator,
                     appScope = backgroundScope,
-                    contexts = mapOf(BoundedContextId("healthy") to locator as HandlerLocator),
-                    inbox =
-                        InboxConfig(
-                            stores = mapOf(BoundedContextId("healthy") to inboxStore),
-                            pollInterval = 100.milliseconds,
-                            ackPolicy = InboxAckPolicy.RequireHandlerSuccess,
+                    contexts =
+                        listOf(
+                            BoundedContext(
+                                BoundedContextId("healthy"),
+                                locator,
+                                ContextInbox(inboxStore, InboxAckPolicy.RequireHandlerSuccess),
+                            )
                         ),
+                    inbox = InboxConfig(pollInterval = 100.milliseconds),
                 )
             bus.start()
 

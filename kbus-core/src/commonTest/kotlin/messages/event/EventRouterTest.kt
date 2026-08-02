@@ -9,7 +9,10 @@ import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -98,6 +101,32 @@ class EventRouterTest {
         }
 
         assertEquals(1, healthy.delivered.size)
+    }
+
+    @Test
+    fun route_doesNotMakeOneDestinationWaitForAnother() = runTest {
+        val first = RecordingDestination("first").apply { beforeDeliver = { delay(10.seconds) } }
+        val second = RecordingDestination("second").apply { beforeDeliver = { delay(10.seconds) } }
+        val router = EventRouter(listOf(first, second))
+
+        router.route(listOf(EventEnvelope.of(RouterTestEvent("test"))))
+
+        assertEquals(1, first.delivered.size)
+        assertEquals(1, second.delivered.size)
+        assertEquals(10.seconds.inWholeMilliseconds, testScheduler.currentTime)
+    }
+
+    @Test
+    fun route_aDestinationBeingCancelled_throwsCancellation_notAggregate() = runTest {
+        val cancelled =
+            RecordingDestination("cancelled").apply {
+                failure = CancellationException("shutting down")
+            }
+        val router = EventRouter(listOf(cancelled, RecordingDestination()))
+
+        assertFailsWith<CancellationException> {
+            router.route(listOf(EventEnvelope.of(RouterTestEvent("test"))))
+        }
     }
 
     @Test

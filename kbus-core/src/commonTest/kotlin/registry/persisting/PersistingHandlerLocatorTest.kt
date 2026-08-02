@@ -1,11 +1,14 @@
 package com.jimbroze.kbus.core.registry.persisting
 
+import com.jimbroze.kbus.core.fixtures.NoNestedCommandExecutor
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
+import com.jimbroze.kbus.core.fixtures.StorageQuery
+import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.TestDomainEventPublisher
@@ -14,6 +17,7 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -42,7 +46,10 @@ class PersistingHandlerLocatorTest {
         val command = StorageCommand("test", mutableListOf())
 
         val initialHandler =
-            locator.handlerFor(command, CommandDependencies(TestDomainEventPublisher()))
+            locator.handlerFor(
+                command,
+                CommandDependencies(TestDomainEventPublisher(), NoNestedCommandExecutor),
+            )
         assertEquals(null, initialHandler)
     }
 
@@ -206,19 +213,19 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun hasHandlersFor_isTrueOnlyForAnEventWithRegisteredHandlers() {
+    fun subscribedEventTypes_containsOnlyEventsWithRegisteredHandlers() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
 
-        assertTrue(locator.hasHandlersFor(StorageEvent("test", mutableListOf())))
-        assertFalse(locator.hasHandlersFor(OtherStorageEvent("test", mutableListOf())))
+        assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
+        assertFalse(locator.subscribedEventTypes().contains(OtherStorageEvent::class))
     }
 
     @Test
-    fun hasHandlersFor_doesNotInstantiateHandlers() {
+    fun subscribedEventTypes_doesNotInstantiateHandlers() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.eventStore.registerHandlers(
@@ -236,7 +243,71 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class),
         )
 
-        locator.hasHandlersFor(StorageEvent("test", mutableListOf()))
+        locator.subscribedEventTypes()
+
+        assertEquals(0, creations)
+    }
+
+    @Test
+    fun handledCommandTypes_areOnlyTheRegisteredCommands() {
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            StorageCommand::class,
+            listOf(CommandHandlerFactory(StorageCommandHandler::class) { StorageCommandHandler() }),
+        )
+        val locator = PersistingHandlerLocator(stores)
+
+        assertEquals(setOf(StorageCommand::class), locator.handledCommandTypes())
+    }
+
+    @Test
+    fun handledCommandTypes_doesNotInstantiateTheHandler() {
+        var creations = 0
+        val stores = HandlerFactoryStoreCollection()
+        stores.commandStore.registerHandlers(
+            StorageCommand::class,
+            listOf(
+                CommandHandlerFactory(StorageCommandHandler::class) {
+                    creations++
+                    StorageCommandHandler()
+                }
+            ),
+        )
+        val locator = PersistingHandlerLocator(stores)
+
+        locator.handledCommandTypes()
+
+        assertEquals(0, creations)
+    }
+
+    @Test
+    fun handledQueryTypes_areOnlyTheRegisteredQueries() {
+        val stores = HandlerFactoryStoreCollection()
+        stores.queryStore.registerHandlers(
+            StorageQuery::class,
+            listOf(QueryHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() }),
+        )
+        val locator = PersistingHandlerLocator(stores)
+
+        assertEquals(setOf(StorageQuery::class), locator.handledQueryTypes())
+    }
+
+    @Test
+    fun handledQueryTypes_doesNotInstantiateTheHandler() {
+        var creations = 0
+        val stores = HandlerFactoryStoreCollection()
+        stores.queryStore.registerHandlers(
+            StorageQuery::class,
+            listOf(
+                QueryHandlerFactory(StorageQueryHandler::class) {
+                    creations++
+                    StorageQueryHandler()
+                }
+            ),
+        )
+        val locator = PersistingHandlerLocator(stores)
+
+        locator.handledQueryTypes()
 
         assertEquals(0, creations)
     }

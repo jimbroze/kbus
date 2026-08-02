@@ -18,10 +18,8 @@ private sealed interface AutoPublishSearchResult {
 }
 
 /**
- * Discovers whether an [com.jimbroze.kbus.contracts.messages.event.Event]'s companion object opts
- * into generated auto-publish registrations by implementing
- * [AutoPublishesFrom][com.jimbroze.kbus.core.messages.event.AutoPublishesFrom], directly or via
- * intermediate (possibly generic) interfaces.
+ * Discovers whether an event's companion object opts into generated auto-publish registrations by
+ * implementing [AutoPublishesFrom], directly or via intermediate (possibly generic) interfaces.
  */
 class AutoPublishFactory(private val logger: KSPLogger) {
     fun create(classDeclaration: KSClassDeclaration): AutoPublishDefinition? {

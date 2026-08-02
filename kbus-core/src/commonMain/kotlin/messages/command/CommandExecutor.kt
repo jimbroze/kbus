@@ -4,10 +4,11 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
@@ -18,12 +19,26 @@ class CommandExecutor(
     private val commandDependenciesFactory: CommandDependenciesFactory,
     private val invocationFactory: CommandInvocationFactory,
 ) {
+    private val nestedMiddlewares = middlewares.filter { it.scope == MiddlewareScope.EveryCommand }
+
     suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
         command: TCommand,
+        owningContext: OwningContext,
         createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
     ): TResult {
         val invocation = invocationFactory.create<TResult>()
-        val handler = createHandler(commandDependenciesFactory.create(invocation))
+        val nestedCommandExecutor =
+            InvocationNestedCommandExecutor(
+                owningContext,
+                invocation,
+                commandDependenciesFactory,
+                nestedMiddlewares,
+                contextFactory,
+            )
+        val handler =
+            createHandler(
+                commandDependenciesFactory.create(owningContext, invocation, nestedCommandExecutor)
+            )
 
         handler.setPublisher(invocation.integrationEventPublisher)
 
@@ -58,14 +73,22 @@ class CommandExecutor(
 }
 
 interface CommandDependenciesFactory {
-    fun create(invocation: CommandInvocation<*>): CommandDependencies
+    fun create(
+        owningContext: OwningContext,
+        invocation: CommandInvocation<*>,
+        nestedCommandExecutor: NestedCommandExecutor,
+    ): CommandDependencies
 }
 
-class DefaultCommandDependenciesFactory(private val domainEventDispatcher: DomainEventDispatcher?) :
-    CommandDependenciesFactory {
-    override fun create(invocation: CommandInvocation<*>): CommandDependencies {
+class DefaultCommandDependenciesFactory : CommandDependenciesFactory {
+    override fun create(
+        owningContext: OwningContext,
+        invocation: CommandInvocation<*>,
+        nestedCommandExecutor: NestedCommandExecutor,
+    ): CommandDependencies {
         return CommandDependencies(
-            InvocationDomainEventPublisher(domainEventDispatcher, invocation)
+            InvocationDomainEventPublisher(owningContext.domainEventDispatcher, invocation),
+            nestedCommandExecutor,
         )
     }
 }

@@ -6,9 +6,9 @@ import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 
 /**
- * The per-command scope: a command's [UnitOfWork] plus the [IntegrationEventPublisher] that applies
- * to it. Occupies the parameter slots `UnitOfWork<*>` used to occupy — threading it through the
- * dispatcher/context/dependency factories costs nothing extra.
+ * Everything scoped to one command's execution: its [UnitOfWork] and the
+ * [IntegrationEventPublisher] that applies to it. A nested command shares its caller's invocation,
+ * which is how it inherits that transaction and publisher.
  */
 class CommandInvocation<TResult>(
     val unitOfWork: UnitOfWork<TResult>,
@@ -16,11 +16,8 @@ class CommandInvocation<TResult>(
 )
 
 /**
- * Bus-owned: answers "which publisher applies to this command?" once, at invocation creation time,
- * instead of re-deriving it from the unit of work wherever it's needed. Delegates to
- * [integrationEventPublisherFactory], which decides whether the outbox or the base publisher
- * applies and, when it's the outbox, self-wires its flush/drain into the unit of work — this
- * factory doesn't touch the unit of work's phase API itself.
+ * Settles which publisher applies to a command once, when its invocation is created, rather than
+ * re-deriving it wherever a publisher is needed.
  */
 class CommandInvocationFactory(
     private val unitOfWorkFactory: UnitOfWorkFactory,

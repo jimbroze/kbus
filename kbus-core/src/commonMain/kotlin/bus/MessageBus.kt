@@ -1,5 +1,7 @@
 package com.jimbroze.kbus.core.bus
 
+import com.jimbroze.kbus.contracts.common.AmbiguousHandlerException
+import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -21,7 +23,8 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.LocatorSubscriptions
+import com.jimbroze.kbus.core.module.ContextRuntime
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.registry.HandlerLocator
@@ -64,7 +67,7 @@ abstract class BaseMessageBus(
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-    contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+    contexts: List<BoundedContext> = emptyList(),
     inbox: InboxConfig? = null,
 ) : IMessageBus {
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
@@ -89,18 +92,43 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One [BoundedContext] per identity, each dispatching integration events to its own handler
-     * slice. Empty ⇒ a single [BoundedContextId.DEFAULT] context over the bus's shared locator.
-     * Commands, queries and domain events resolve through [handlerLocator] regardless.
+     * One runtime per declared [BoundedContext]. No [contexts] gives a single default context over
+     * the bus's shared [handlerLocator], leaving non-modular apps unaffected.
+     *
+     * Dispatchers are built lazily to break a cycle: a dispatcher depends on the router, which
+     * depends on these runtimes.
      */
-    private val boundedContexts: List<BoundedContext> =
+    private val contextRuntimes: List<ContextRuntime> =
         contexts
-            .ifEmpty { mapOf(BoundedContextId.DEFAULT to handlerLocator) }
-            .map { (id, locator) ->
-                BoundedContext(id, LocatorSubscriptions(locator), locator, { eventDispatcher })
+            .ifEmpty { listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)) }
+            .map { context ->
+                ContextRuntime(
+                    context,
+                    eventDispatcher =
+                        lazy {
+                            EventDispatcher(
+                                context.handlerLocator::handlersFor,
+                                middlewares,
+                                eventDispatcherScope,
+                                contextFactory = contextFactory,
+                            )
+                        },
+                )
             }
 
-    private val inboxCoordinator = InboxCoordinator(inbox, boundedContexts, inboxScope)
+    init {
+        val duplicates =
+            contextRuntimes.groupingBy { it.context.id }.eachCount().filterValues { it > 1 }.keys
+        require(duplicates.isEmpty()) {
+            "Duplicate BoundedContextId(s): ${duplicates.map { it.value }}. " +
+                "Each bounded context must have a unique id."
+        }
+    }
+
+    private val commandOwners = indexOwners { it.handledCommandTypes() }
+    private val queryOwners = indexOwners { it.handledQueryTypes() }
+
+    private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
     private val directPublisher = DirectPublisher(router, eventDispatcherScope)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
@@ -108,19 +136,13 @@ abstract class BaseMessageBus(
         IntegrationEventPublisherFactory(outboxCoordinator, directPublisher)
     private val contextFactory: MiddlewareInvocationContextFactory =
         MiddlewareInvocationContextFactory(integrationEventPublisherFactory)
-    protected val eventDispatcher: EventDispatcher =
-        EventDispatcher(
-            handlerLocator::handlersFor,
-            middlewares,
-            eventDispatcherScope,
-            contextFactory = contextFactory,
-        )
+
     protected val commandExecutor =
         CommandExecutor(
             transactionManager,
             middlewares,
             contextFactory,
-            DefaultCommandDependenciesFactory(eventDispatcher),
+            DefaultCommandDependenciesFactory(),
             CommandInvocationFactory(DefaultUnitOfWorkFactory(), integrationEventPublisherFactory),
         )
     protected val queryFetcher = QueryFetcher(middlewares, contextFactory)
@@ -141,12 +163,11 @@ abstract class BaseMessageBus(
                 middlewares.any { it is LifecycleAwareMiddleware }
 
     /**
-     * Starts this bus's background work: each [LifecycleAwareMiddleware]'s [onStart], then any
-     * inbox pumps, then the outbox poller if one is configured — consumers before producers, so a
-     * pre-existing backlog is already draining when the poller's first tick lands. A no-op on a bus
-     * with none of these. Idempotent — calling this more than once has no further effect. Must be
-     * called before [execute]/[fetch] on a bus with background work (see [requiresStart]); there is
-     * no restart after [stop].
+     * Starts this bus's background work. Idempotent, and a no-op on a bus that has none. Must be
+     * called before [execute]/[fetch] on a bus that does; there is no restart after [stop].
+     *
+     * Consumers start before producers, so a pre-existing backlog is already draining when the
+     * outbox poller's first tick lands.
      */
     fun start() {
         if (lifecycle != Lifecycle.NEW) return
@@ -171,39 +192,18 @@ abstract class BaseMessageBus(
     }
 
     /**
-     * Stops this bus: within one [gracePeriod] budget, calls each [LifecycleAwareMiddleware]'s
-     * [onStop][LifecycleAwareMiddleware.onStop] and then lets in-flight [eventDispatcherScope] work
-     * finish; then cancels [rootJob] (and, with it, the outbox poller and every scope derived from
-     * it) and waits, for at most another [gracePeriod], for that cancellation to complete. A no-op
-     * if [start] was never called. Terminal — a stopped bus cannot be restarted.
+     * Stops this bus, letting in-flight event dispatch finish first. A no-op if [start] was never
+     * called. Terminal — a stopped bus cannot be restarted.
      *
-     * The `onStop` calls and the dispatch drain share one budget, sequentially: a middleware that
-     * suspends for the whole grace period starves the ones after it and the drain. That is
-     * deliberate — the alternative is a per-participant budget, which makes worst-case shutdown
-     * scale with the number of middlewares.
+     * [gracePeriod] is one shared budget, spent sequentially on each [LifecycleAwareMiddleware]'s
+     * [onStop][LifecycleAwareMiddleware.onStop] and then on draining dispatch, so a middleware that
+     * suspends for all of it starves those after it. A second [gracePeriod] bounds the wait on
+     * cancellation; a coroutine that outlives it is orphaned but left running, since cancellation
+     * is cooperative and hanging shutdown forever is the worse failure.
      *
-     * The wait on cancellation is bounded because cancellation is cooperative and there is no hard
-     * kill: a coroutine that never reaches a suspension point, or that suspends inside
-     * `NonCancellable`, would otherwise block shutdown forever. Bounding it means such a coroutine
-     * leaks — orphaned but still running — rather than hanging the application's exit. The bus is
-     * already [Lifecycle.STOPPED] by then and dispatches nothing further.
-     *
-     * The grace period is not the inbox's durability fix — an inboxed context already dispatches
-     * inline on its own pump coroutine, so a cancelled pump simply leaves its envelope unacked for
-     * the next start to retry, no draining required. What it buys completion for is the two
-     * remaining detached, non-durable paths: a post-commit domain fire-and-forget handler, and
-     * [DirectPublisher]'s launched fire-and-forget routing — both unawaited by the caller that
-     * triggered them, and both lost outright if [rootJob] is cancelled mid-flight. The outbox and
-     * inbox scopes are deliberately not drained here: they run pollers that should be cancelled
-     * promptly, and their work is durable and resumes on restart.
-     *
-     * The drain waits for quiescence, not for one snapshot of [eventDispatcherScope]'s children:
-     * work launched *during* the grace period (a fire-and-forget handler publishing a further
-     * fire-and-forget event) becomes a child only after a snapshot would have been taken, so the
-     * children are re-read until none remain. Only that scope's subtree is covered — a handler that
-     * launches onto a scope the bus doesn't own is still cancelled mid-flight — and the grace
-     * period bounds the whole loop, so work that spawns replacements faster than they complete is
-     * cut off rather than spun on forever.
+     * Only dispatch is drained. Outbox and inbox work is durable and resumes on the next start, so
+     * their pollers are cancelled promptly instead. Handlers that launch onto a scope the bus does
+     * not own are cancelled mid-flight.
      */
     suspend fun stop(gracePeriod: Duration = DEFAULT_STOP_GRACE_PERIOD) {
         if (lifecycle != Lifecycle.STARTED) return
@@ -236,24 +236,62 @@ abstract class BaseMessageBus(
         command: TCommand
     ): TResult {
         checkStarted()
+        val owner = commandOwners[command::class] ?: throw MissingHandlerException(command::class)
         val handlerCreator = { commandDependencies: CommandDependencies ->
-            (handlerLocator.handlerFor(command, commandDependencies)
+            (owner.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
         }
 
-        return commandExecutor.execute(command, handlerCreator)
+        return commandExecutor.execute(command, owner, handlerCreator)
     }
 
     override suspend fun <TQuery : Query<TResult>, TResult : KBusResult> fetch(
         query: TQuery
     ): TResult {
         checkStarted()
+        val owner = queryOwners[query::class] ?: throw MissingHandlerException(query::class)
         val handlerCreator = {
-            (handlerLocator.handlerFor(query) ?: throw MissingHandlerException(query::class))
+            (owner.context.handlerLocator.handlerFor(query)
+                ?: throw MissingHandlerException(query::class))
         }
 
         return queryFetcher.fetch(query, handlerCreator)
     }
+
+    /**
+     * Which context owns each message, read once from the contexts' handlers. Handlers registered
+     * after the bus is built are not honoured, which is safe only because registration closes at
+     * construction — and is what lets single-owner conflicts be reported against the wiring here
+     * rather than against whichever dispatch happens to hit one first.
+     */
+    private fun indexOwners(
+        handledTypes: (HandlerLocator) -> Set<KClass<out Message>>
+    ): Map<KClass<out Message>, ContextRuntime> {
+        val owners = mutableMapOf<KClass<out Message>, ContextRuntime>()
+        for (runtime in contextRuntimes) {
+            for (messageClass in handledTypes(runtime.context.handlerLocator)) {
+                val existingOwner = owners.put(messageClass, runtime)
+                if (existingOwner != null) {
+                    throw AmbiguousHandlerException(
+                        messageClass,
+                        listOf(existingOwner.context.id.value, runtime.context.id.value),
+                    )
+                }
+            }
+        }
+        return owners
+    }
+
+    /**
+     * The context [contextId] names, for callers that already know a command's owning context
+     * statically. Throws if no such context is on this bus, rather than silently executing against
+     * no one.
+     */
+    protected fun owningContextFor(contextId: BoundedContextId): OwningContext =
+        contextRuntimes.firstOrNull { it.context.id == contextId }
+            ?: throw IllegalArgumentException(
+                "No bounded context with id '${contextId.value}' on this bus."
+            )
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
         router.observerRegistry.observableFor(eventClass)
@@ -269,7 +307,7 @@ class MessageBus(
     middlewares: List<Middleware> = emptyList(),
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-    contexts: Map<BoundedContextId, HandlerLocator> = emptyMap(),
+    contexts: List<BoundedContext> = emptyList(),
     inbox: InboxConfig? = null,
 ) :
     BaseMessageBus(
