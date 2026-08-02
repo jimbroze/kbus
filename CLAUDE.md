@@ -220,6 +220,10 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Watch for names that collide with language keywords or shadow their everyday meaning (e.g. an
   `override` parameter next to Kotlin's `override` modifier) — pick something unambiguous even if
   it's longer.
+- **Discuss naming with me before settling on it.** When introducing a new public type, function or
+  concept — or renaming an existing one — propose two or three candidate names with a one-line
+  trade-off each and ask which I prefer, rather than picking one and moving on. Local variables and
+  private helpers don't need this; anything a reader of the API will see does.
 
 ## Testing
 
