@@ -243,6 +243,13 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   so cancelling the result would cancel `backgroundScope` itself. Test helpers and fixtures **take a scope as a
   parameter** rather than building one — a fixture-owned scope leaks into every test that uses it, which is why the
   check has no exempt directory and no opt-out marker.
+- **What the processor *refuses* to generate is tested by compiling it**, in `kbus-generation`'s `jvmTest` source set,
+  which runs the real compiler and KSP over source a user would have written. A rejection has to reach the author, so
+  those tests assert the message and its attribution, not just that the build failed — report one with `logger.error`
+  against the offending declaration and skip the handler, never by throwing, which KSP reports as an internal error
+  with no source attached. The harness is JVM-only and cannot check an accepted *event* handler: the `.loaded` property
+  generated for one is annotated for every target, which a single-platform compilation rejects. Generated output is
+  asserted against KotlinPoet in `commonTest`; the whole pipeline end to end is covered by the example modules.
 
 ## Process
 
