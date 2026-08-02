@@ -2,6 +2,7 @@ package com.jimbroze.kbus.core.fixtures
 
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
@@ -28,7 +29,11 @@ class TestCommandDependenciesFactory : CommandDependenciesFactory {
         }
 
         val commandDependencies =
-            CommandDependencies(TestDomainEventPublisher(), nestedCommandExecutor)
+            CommandDependencies(
+                TestDomainEventPublisher(),
+                nestedCommandExecutor,
+                invocation.integrationEventPublisher,
+            )
 
         this.unitOfWork = invocation.unitOfWork
         this.commandDependencies = commandDependencies
@@ -50,12 +55,12 @@ object NoNestedCommandExecutor : NestedCommandExecutor {
 
 class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
 
-class DispatchingCommandHandler :
+class DispatchingCommandHandler(private val integrationEventPublisher: IntegrationEventPublisher) :
     CommandHandler<DispatchingCommand, BusResult<Unit, MessageFailure>>() {
     override val executeInTransaction: TransactionConfig? = null
 
     override suspend fun handle(message: DispatchingCommand): BusResult<Unit, MessageFailure> {
-        publish(TestIntegrationEvent("test-event"))
+        integrationEventPublisher.publish(listOf(TestIntegrationEvent("test-event")))
         return BusResult.success(Unit)
     }
 }

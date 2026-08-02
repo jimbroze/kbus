@@ -1,5 +1,7 @@
 package com.jimbroze.kbus.core.messages.command
 
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 
 /**
@@ -9,4 +11,5 @@ import com.jimbroze.kbus.domain.event.DomainEventPublisher
 data class CommandDependencies(
     val domainEventPublisher: DomainEventPublisher,
     val commandExecutor: NestedCommandExecutor,
-)
+    override val integrationEventPublisher: IntegrationEventPublisher,
+) : HandlerDependencies

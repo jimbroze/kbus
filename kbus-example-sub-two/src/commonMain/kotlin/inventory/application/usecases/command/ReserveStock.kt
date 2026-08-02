@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.test.inventory.application.usecases.command
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.GenericFailure
 import com.jimbroze.kbus.contracts.result.MessageFailure
@@ -19,6 +20,7 @@ class ReserveStock(val productId: String, val quantity: Int) :
 class ReserveStockHandler(
     private val inventoryRepository: InventoryRepository,
     private val stockValidator: StockValidator,
+    private val integrationEventPublisher: IntegrationEventPublisher,
 ) : CommandHandler<ReserveStock, BusResult<String, MessageFailure>>() {
     override suspend fun handle(message: ReserveStock): BusResult<String, MessageFailure> {
         val hasStock = stockValidator.hasAvailableStock(message.productId, message.quantity)
@@ -33,11 +35,13 @@ class ReserveStockHandler(
 
         val reservation = inventoryRepository.reserve(message.productId, message.quantity)
 
-        publish(
-            StockReserved(
-                reservationId = reservation.reservationId,
-                productId = reservation.productId,
-                quantity = reservation.quantity,
+        integrationEventPublisher.publish(
+            listOf(
+                StockReserved(
+                    reservationId = reservation.reservationId,
+                    productId = reservation.productId,
+                    quantity = reservation.quantity,
+                )
             )
         )
 

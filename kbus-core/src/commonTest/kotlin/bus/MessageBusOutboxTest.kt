@@ -7,6 +7,7 @@ import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
@@ -238,7 +239,7 @@ class MessageBusOutboxTest {
             OutboxImperativeCommand::class,
             listOf(
                 CommandHandlerFactory(OutboxImperativeCommandHandler::class) {
-                    OutboxImperativeCommandHandler()
+                    OutboxImperativeCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )
@@ -452,7 +453,7 @@ class MessageBusOutboxTest {
             OutboxImperativeCommand::class,
             listOf(
                 CommandHandlerFactory(OutboxImperativeCommandHandler::class) {
-                    OutboxImperativeCommandHandler()
+                    OutboxImperativeCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )
@@ -487,7 +488,7 @@ class MessageBusOutboxTest {
             OutboxImperativeCommand::class,
             listOf(
                 CommandHandlerFactory(OutboxFailingCommandHandler::class) {
-                    OutboxFailingCommandHandler()
+                    OutboxFailingCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )
@@ -557,7 +558,7 @@ class MessageBusOutboxTest {
             OutboxFlakyCommand::class,
             listOf(
                 CommandHandlerFactory(OutboxFlakyCommandHandler::class) {
-                    OutboxFlakyCommandHandler()
+                    OutboxFlakyCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )
@@ -620,18 +621,20 @@ private class PublishingViaContextMiddleware(private val event: IntegrationEvent
 private class OutboxImperativeCommand(val message: String) :
     Command<BusResult<Unit, MessageFailure>>()
 
-private class OutboxImperativeCommandHandler :
-    CommandHandler<OutboxImperativeCommand, BusResult<Unit, MessageFailure>>() {
+private class OutboxImperativeCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<OutboxImperativeCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: OutboxImperativeCommand): BusResult<Unit, MessageFailure> {
-        publish(OutboxImperativeEvent(message.message))
+        integrationEventPublisher.publish(listOf(OutboxImperativeEvent(message.message)))
         return BusResult.success(Unit)
     }
 }
 
-private class OutboxFailingCommandHandler :
-    CommandHandler<OutboxImperativeCommand, BusResult<Unit, MessageFailure>>() {
+private class OutboxFailingCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<OutboxImperativeCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: OutboxImperativeCommand): BusResult<Unit, MessageFailure> {
-        publish(OutboxImperativeEvent(message.message))
+        integrationEventPublisher.publish(listOf(OutboxImperativeEvent(message.message)))
         error("handler failed after dispatching")
     }
 }
@@ -696,10 +699,11 @@ private class OutboxFlakyEvent(val name: String) : IntegrationEvent() {
 
 private class OutboxFlakyCommand(val message: String) : Command<BusResult<Unit, MessageFailure>>()
 
-private class OutboxFlakyCommandHandler :
-    CommandHandler<OutboxFlakyCommand, BusResult<Unit, MessageFailure>>() {
+private class OutboxFlakyCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<OutboxFlakyCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: OutboxFlakyCommand): BusResult<Unit, MessageFailure> {
-        publish(OutboxFlakyEvent(message.message))
+        integrationEventPublisher.publish(listOf(OutboxFlakyEvent(message.message)))
         return BusResult.success(Unit)
     }
 }

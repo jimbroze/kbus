@@ -292,11 +292,13 @@ scope.launch {
 Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler success or
 failure.
 
-Command handlers can publish integration events:
+A handler publishes integration events by declaring an `IntegrationEventPublisher` constructor parameter. The publisher
+it is given belongs to the invocation that reached it, so it is the one carrying that command's outbox and transaction:
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.RegisterUser
@@ -304,13 +306,13 @@ import com.jimbroze.kbus.example.fixtures.UserRegistered
 -->
 
 ```kotlin
-class RegisterUserHandler :
+class RegisterUserHandler(private val integrationEventPublisher: IntegrationEventPublisher) :
     CommandHandler<RegisterUser, BusResult<String, MessageFailure>>() {
 
     override suspend fun handle(message: RegisterUser): BusResult<String, MessageFailure> {
         val userId = "generated-id"
 
-        publish(UserRegistered(userId))
+        integrationEventPublisher.publish(listOf(UserRegistered(userId)))
 
         return BusResult.success(userId)
     }
@@ -840,8 +842,9 @@ transaction to defer the save to, so the save happens up front and delivery foll
 fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever surrounding work
 triggered them, but events are never silently lost, and the same retry/DLQ policy applies uniformly across every publish
 path. Integration event handlers can themselves publish further events by extending
-`CanPublishIntegrationEvent`, the same mixin command handlers and domain event handlers use — the dispatcher wires each
-handler's publisher before dispatch, so these publishes are outbox-durable too.
+`CanPublishIntegrationEvent`, the same mixin domain event handlers use — the dispatcher wires each handler's publisher
+before dispatch, so these publishes are outbox-durable too. A command handler instead declares an
+`IntegrationEventPublisher` constructor parameter, and gets the publisher its own invocation carries.
 
 A publish call's failure semantics differ slightly by path: on the transactional (command-scoped) path, `publish`
 only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the *store save*

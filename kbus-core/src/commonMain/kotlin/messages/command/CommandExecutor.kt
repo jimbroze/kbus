@@ -40,8 +40,6 @@ class CommandExecutor(
                 commandDependenciesFactory.create(owningContext, invocation, nestedCommandExecutor)
             )
 
-        handler.setPublisher(invocation.integrationEventPublisher)
-
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
             executeInUnitOfWork(message, handler, invocation.unitOfWork)
         }
@@ -89,6 +87,7 @@ class DefaultCommandDependenciesFactory : CommandDependenciesFactory {
         return CommandDependencies(
             InvocationDomainEventPublisher(owningContext.domainEventDispatcher, invocation),
             nestedCommandExecutor,
+            invocation.integrationEventPublisher,
         )
     }
 }

@@ -6,6 +6,7 @@ import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
@@ -41,12 +42,13 @@ private class InboxAlphaEvent(val name: String) : IntegrationEvent() {
 private class PublishInboxAlphaCommand(val name: String) :
     Command<BusResult<Unit, MessageFailure>>()
 
-private class PublishInboxAlphaCommandHandler :
-    CommandHandler<PublishInboxAlphaCommand, BusResult<Unit, MessageFailure>>() {
+private class PublishInboxAlphaCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<PublishInboxAlphaCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(
         message: PublishInboxAlphaCommand
     ): BusResult<Unit, MessageFailure> {
-        publish(InboxAlphaEvent(message.name))
+        integrationEventPublisher.publish(listOf(InboxAlphaEvent(message.name)))
         return BusResult.success(Unit)
     }
 }
@@ -106,12 +108,13 @@ private class GatedInboxEvent(val name: String) : IntegrationEvent()
 private class PublishGatedInboxCommand(val name: String) :
     Command<BusResult<Unit, MessageFailure>>()
 
-private class PublishGatedInboxCommandHandler :
-    CommandHandler<PublishGatedInboxCommand, BusResult<Unit, MessageFailure>>() {
+private class PublishGatedInboxCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<PublishGatedInboxCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(
         message: PublishGatedInboxCommand
     ): BusResult<Unit, MessageFailure> {
-        publish(GatedInboxEvent(message.name))
+        integrationEventPublisher.publish(listOf(GatedInboxEvent(message.name)))
         return BusResult.success(Unit)
     }
 }
@@ -150,7 +153,7 @@ class MessageBusInboxTest {
             PublishInboxAlphaCommand::class,
             listOf(
                 CommandHandlerFactory(PublishInboxAlphaCommandHandler::class) {
-                    PublishInboxAlphaCommandHandler()
+                    PublishInboxAlphaCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )
@@ -575,7 +578,7 @@ class MessageBusInboxTest {
             PublishGatedInboxCommand::class,
             listOf(
                 CommandHandlerFactory(PublishGatedInboxCommandHandler::class) {
-                    PublishGatedInboxCommandHandler()
+                    PublishGatedInboxCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )
@@ -636,7 +639,7 @@ class MessageBusInboxTest {
                 PublishGatedInboxCommand::class,
                 listOf(
                     CommandHandlerFactory(PublishGatedInboxCommandHandler::class) {
-                        PublishGatedInboxCommandHandler()
+                        PublishGatedInboxCommandHandler(it.integrationEventPublisher)
                     }
                 ),
             )
