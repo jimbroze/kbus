@@ -58,6 +58,34 @@ class CommandExecutorTest {
     }
 
     @Test
+    fun a_handlers_publisher_dependency_is_the_one_its_own_invocation_carries() = runTest {
+        val destination = RecordingDestination()
+        val factories =
+            TestPublisherFactories(
+                backgroundScope,
+                DirectPublisher(EventRouter(listOf(destination)), this),
+            )
+        val executor =
+            CommandExecutor(
+                null,
+                emptyList(),
+                factories.contextFactory,
+                DefaultCommandDependenciesFactory(),
+                factories.invocationFactory,
+            )
+
+        executor.execute(DispatchingCommand(), TestOwningContext()) {
+            DispatchingCommandHandler(it.integrationEventPublisher)
+        }
+        advanceUntilIdle()
+
+        assertEquals(
+            "test-event",
+            (destination.delivered.single().event as TestIntegrationEvent).name,
+        )
+    }
+
+    @Test
     fun test_it_gives_handlers_access_to_bus() = runTest {
         val destination = RecordingDestination()
         val factories =
@@ -74,9 +102,9 @@ class CommandExecutorTest {
                 factories.invocationFactory,
             )
 
-        val handler = DispatchingCommandHandler()
-
-        executor.execute(DispatchingCommand(), TestOwningContext()) { handler }
+        executor.execute(DispatchingCommand(), TestOwningContext()) {
+            DispatchingCommandHandler(it.integrationEventPublisher)
+        }
         advanceUntilIdle()
 
         assertEquals(1, destination.delivered.size)
@@ -111,7 +139,9 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(DispatchingCommand(), TestOwningContext()) { DispatchingCommandHandler() }
+        executor.execute(DispatchingCommand(), TestOwningContext()) {
+            DispatchingCommandHandler(it.integrationEventPublisher)
+        }
         unitOfWorkFactory.unitOfWork.executeAllScheduledWork()
 
         assertTrue(directDestination.delivered.isEmpty())

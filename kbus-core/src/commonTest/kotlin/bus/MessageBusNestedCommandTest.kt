@@ -7,6 +7,7 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.command.NestedTransactionMismatchException
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.FailureReason
 import com.jimbroze.kbus.contracts.result.GenericFailure
@@ -44,6 +45,7 @@ private class InnerCommand(val name: String, val fail: Boolean = false) :
 
 private class InnerCommandHandler(
     private val domainEventPublisher: DomainEventPublisher,
+    private val integrationEventPublisher: IntegrationEventPublisher,
     private val recorder: MutableList<String>,
     private val publishesIntegrationEvent: Boolean,
     private val publishesDomainEvent: Boolean,
@@ -53,7 +55,8 @@ private class InnerCommandHandler(
         recorder.add("inner:${message.name}")
         if (message.fail) error("inner blew up")
         if (publishesDomainEvent) domainEventPublisher.publish(NestedDomainEvent(message.name))
-        if (publishesIntegrationEvent) publish(NestedIntegrationEvent(message.name))
+        if (publishesIntegrationEvent)
+            integrationEventPublisher.publish(listOf(NestedIntegrationEvent(message.name)))
 
         return BusResult.success("inner:${message.name}")
     }
@@ -216,6 +219,7 @@ class MessageBusNestedCommandTest {
                 CommandHandlerFactory(InnerCommandHandler::class) { deps ->
                     InnerCommandHandler(
                         deps.domainEventPublisher,
+                        deps.integrationEventPublisher,
                         recorder,
                         innerPublishesIntegrationEvent,
                         innerPublishesDomainEvent,

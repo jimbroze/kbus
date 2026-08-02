@@ -7,6 +7,7 @@ import com.jimbroze.kbus.core.registry.DomainEventMapper
 import com.jimbroze.kbus.core.registry.DuplicateEventHandlerException
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
 class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
@@ -14,7 +15,7 @@ class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
 
     override fun <TEvent : DomainEvent> addDomainHandlers(
         event: KClass<TEvent>,
-        handlers: List<KClass<out EventHandler<TEvent>>>,
+        handlers: List<KClass<out DomainEventHandler<TEvent>>>,
     ) {
         addHandlerMappings(event, handlers)
     }
@@ -51,6 +52,15 @@ class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
     fun <TEvent : Event> handlerClassesFor(event: TEvent): List<KClass<EventHandler<TEvent>>> {
         @Suppress("UNCHECKED_CAST")
         return mappings[event::class]?.toList() as? List<KClass<EventHandler<TEvent>>>
+            ?: emptyList()
+    }
+
+    fun <TEvent : DomainEvent> domainHandlerClassesFor(
+        event: TEvent
+    ): List<KClass<DomainEventHandler<TEvent>>> {
+        // Safe only while addDomainHandlers stays the sole way to register a domain event class.
+        @Suppress("UNCHECKED_CAST")
+        return mappings[event::class]?.toList() as? List<KClass<DomainEventHandler<TEvent>>>
             ?: emptyList()
     }
 }

@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
@@ -48,10 +49,11 @@ private class BetaEvent(val name: String) : IntegrationEvent()
 
 private class PublishAlphaCommand(val name: String) : Command<BusResult<Unit, MessageFailure>>()
 
-private class PublishAlphaCommandHandler :
-    CommandHandler<PublishAlphaCommand, BusResult<Unit, MessageFailure>>() {
+private class PublishAlphaCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<PublishAlphaCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(message: PublishAlphaCommand): BusResult<Unit, MessageFailure> {
-        publish(AlphaEvent(message.name))
+        integrationEventPublisher.publish(listOf(AlphaEvent(message.name)))
         return BusResult.success(Unit)
     }
 }
@@ -134,7 +136,7 @@ class MessageBusMultiContextTest {
             PublishAlphaCommand::class,
             listOf(
                 CommandHandlerFactory(PublishAlphaCommandHandler::class) {
-                    PublishAlphaCommandHandler()
+                    PublishAlphaCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )

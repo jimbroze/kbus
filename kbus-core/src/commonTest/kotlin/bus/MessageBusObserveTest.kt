@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -26,12 +27,13 @@ private class ObservedEvent(val name: String) : IntegrationEvent()
 private class PublishObservedEventCommand(val message: String) :
     Command<BusResult<Unit, MessageFailure>>()
 
-private class PublishObservedEventCommandHandler :
-    CommandHandler<PublishObservedEventCommand, BusResult<Unit, MessageFailure>>() {
+private class PublishObservedEventCommandHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : CommandHandler<PublishObservedEventCommand, BusResult<Unit, MessageFailure>>() {
     override suspend fun handle(
         message: PublishObservedEventCommand
     ): BusResult<Unit, MessageFailure> {
-        publish(ObservedEvent(message.message))
+        integrationEventPublisher.publish(listOf(ObservedEvent(message.message)))
         return BusResult.success(Unit)
     }
 }
@@ -51,7 +53,7 @@ class MessageBusObserveTest {
             PublishObservedEventCommand::class,
             listOf(
                 CommandHandlerFactory(PublishObservedEventCommandHandler::class) {
-                    PublishObservedEventCommandHandler()
+                    PublishObservedEventCommandHandler(it.integrationEventPublisher)
                 }
             ),
         )

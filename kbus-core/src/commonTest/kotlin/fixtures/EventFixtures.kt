@@ -1,11 +1,11 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.core.messages.event.EventHandlerDependencies
 import com.jimbroze.kbus.domain.event.Concurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -20,6 +20,9 @@ import kotlinx.coroutines.delay
 object EmptyIntegrationEventPublisher : IntegrationEventPublisher {
     override suspend fun publish(events: List<IntegrationEvent>) = Unit
 }
+
+/** For handlers under test that never publish. */
+val noPublishHandlerDependencies = EventHandlerDependencies(EmptyIntegrationEventPublisher)
 
 class RecordingIntegrationEventPublisher : IntegrationEventPublisher {
     val publishedEvents = mutableListOf<List<IntegrationEvent>>()
@@ -104,12 +107,14 @@ class TestDomainEventHandler(private val results: MutableList<String>) :
     }
 }
 
-/** Publishes an integration event via the [DomainEventHandler] mixin, synchronously. */
-class PublishingDomainEventHandler : DomainEventHandler<TestDomainEvent>() {
+/** Publishes an integration event from its declared publisher, synchronously. */
+class PublishingDomainEventHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : DomainEventHandler<TestDomainEvent>() {
     override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
 
     override suspend fun handle(message: TestDomainEvent) {
-        publish(TestIntegrationEvent(message.data))
+        integrationEventPublisher.publish(listOf(TestIntegrationEvent(message.data)))
     }
 }
 
@@ -578,11 +583,14 @@ class DelayingIntegrationEventHandler(
     }
 }
 
-/** Publishes an integration event via the [CanPublishIntegrationEvent] mixin. */
-class PublishingIntegrationEventHandler :
-    CanPublishIntegrationEvent(), IntegrationEventHandler<TestIntegrationEvent> {
+/** Publishes a further integration event from its declared publisher. */
+class PublishingIntegrationEventHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : IntegrationEventHandler<TestIntegrationEvent> {
     override suspend fun handle(message: TestIntegrationEvent) {
-        publish(TestIntegrationEvent("published-by-${message.name}"))
+        integrationEventPublisher.publish(
+            listOf(TestIntegrationEvent("published-by-${message.name}"))
+        )
     }
 }
 

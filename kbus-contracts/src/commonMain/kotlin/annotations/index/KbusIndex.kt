@@ -8,6 +8,13 @@ enum class DependencyType {
     NON_DEPENDENCY,
 }
 
+/** The narrowest set of invocation-scoped dependencies something can be built from. */
+enum class RequiredDependencies {
+    NONE,
+    HANDLER_ONLY,
+    COMMAND,
+}
+
 enum class HandlerType {
     COMMAND,
     QUERY,
@@ -31,7 +38,7 @@ annotation class DependencyInfo(
     val signature: String,
     val name: String,
     val cannotBeAutoloaded: Boolean,
-    val requiresCommandDependencies: Boolean,
+    val requiredDependencies: RequiredDependencies,
     val topLevelDependencies: Array<String>,
 )
 

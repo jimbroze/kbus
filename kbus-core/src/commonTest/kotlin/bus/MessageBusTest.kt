@@ -137,7 +137,11 @@ class MessageBusTest {
     ) {
         stores.commandStore.registerHandlers(
             EventCommand::class,
-            listOf(CommandHandlerFactory(EventCommandHandler::class) { EventCommandHandler() }),
+            listOf(
+                CommandHandlerFactory(EventCommandHandler::class) {
+                    EventCommandHandler(it.integrationEventPublisher)
+                }
+            ),
         )
         stores.eventStore.registerHandlers(
             StorageEvent::class,
@@ -197,7 +201,11 @@ class MessageBusTest {
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
             EventCommand::class,
-            listOf(CommandHandlerFactory(EventCommandHandler::class) { EventCommandHandler() }),
+            listOf(
+                CommandHandlerFactory(EventCommandHandler::class) {
+                    EventCommandHandler(it.integrationEventPublisher)
+                }
+            ),
         )
         stores.eventStore.registerHandlers(
             StorageEvent::class,
@@ -300,7 +308,11 @@ class MessageBusTest {
             val stores = createStoresWithStorageEventHandler()
             stores.commandStore.registerHandlers(
                 EventCommand::class,
-                listOf(CommandHandlerFactory(EventCommandHandler::class) { EventCommandHandler() }),
+                listOf(
+                    CommandHandlerFactory(EventCommandHandler::class) {
+                        EventCommandHandler(it.integrationEventPublisher)
+                    }
+                ),
             )
             val locator = PersistingHandlerLocator(stores)
             locator.integrationEventMapper.addEventHandlers(

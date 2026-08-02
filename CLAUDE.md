@@ -187,6 +187,14 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - A comment describes the current code, not its history. Write for a reader who only ever sees this
   version — never "previously X", "used to do Y", "now does Z", "moved from A to B", or similar
   before/after framing. That belongs in the commit message, not the source.
+- **The cold-reader test.** Before writing a comment, ask whether someone meeting this code for the
+  first time — with no knowledge of the diff that produced it — would have written it. If it only
+  exists because you just changed something, or because you expect a reviewer to challenge the
+  choice, it is diff commentary: put it in the commit message or as a line-level comment on the PR,
+  both of which are the right places for it and are actively wanted there. A comment defending a
+  design decision at every site that decision touches is the clearest symptom.
+- **The deletion test for KDoc.** If removing a doc comment doesn't change what a caller can safely
+  do, delete it.
 - Default to no comment. Only add one when there's a specific, non-obvious reason for the code being
   the way it is — a hidden constraint, an invariant a change could silently break, a rejected
   alternative worth ruling out — something a reader could get wrong by inspecting the code alone.
@@ -243,6 +251,13 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
   so cancelling the result would cancel `backgroundScope` itself. Test helpers and fixtures **take a scope as a
   parameter** rather than building one — a fixture-owned scope leaks into every test that uses it, which is why the
   check has no exempt directory and no opt-out marker.
+- **What the processor *refuses* to generate is tested by compiling it**, in `kbus-generation`'s `jvmTest` source set,
+  which runs the real compiler and KSP over source a user would have written. A rejection has to reach the author, so
+  those tests assert the message and its attribution, not just that the build failed — report one with `logger.error`
+  against the offending declaration and skip the handler, never by throwing, which KSP reports as an internal error
+  with no source attached. The harness is JVM-only and cannot check an accepted *event* handler: the `.loaded` property
+  generated for one is annotated for every target, which a single-platform compilation rejects. Generated output is
+  asserted against KotlinPoet in `commonTest`; the whole pipeline end to end is covered by the example modules.
 
 ## Process
 

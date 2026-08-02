@@ -9,6 +9,7 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
@@ -235,6 +236,19 @@ class TestGeneratorEventHandler(@Suppress("unused") private val clock: Clock) :
 
     companion object {
         var timesHandled = 0
+    }
+}
+
+/** Publishes an integration event from a dependency rather than from a handler-owned publisher. */
+@LoadMessageHandler
+@Suppress("unused")
+class TestPublishingGeneratorEventHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : DomainEventHandler<TestGeneratorEvent>() {
+    override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
+
+    override suspend fun handle(message: TestGeneratorEvent) {
+        integrationEventPublisher.publish(listOf(TestShipmentIntegration("from-domain-handler")))
     }
 }
 

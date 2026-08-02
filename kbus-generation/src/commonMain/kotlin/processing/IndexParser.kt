@@ -8,6 +8,7 @@ import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
 import com.jimbroze.kbus.contracts.annotations.index.HandlerType
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
@@ -63,8 +64,8 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
 
         val signature: String = dependencyInfoAnnotation.findArgument(DependencyInfo::signature)
         val name: String = dependencyInfoAnnotation.findArgument(DependencyInfo::name)
-        val requiresCommandDependencies: Boolean =
-            dependencyInfoAnnotation.findArgument(DependencyInfo::requiresCommandDependencies)
+        val requiredDependencies: RequiredDependencies =
+            dependencyInfoAnnotation.findArgument(DependencyInfo::requiredDependencies)
         val cannotBeAutoloaded: Boolean =
             dependencyInfoAnnotation.findArgument(DependencyInfo::cannotBeAutoloaded)
         val topLevelDependencies: List<String> =
@@ -75,12 +76,7 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
         val dependencyTypeName = TypeResolver.resolve(signature)
 
         val metadata =
-            createDependency(
-                typeOfDependency,
-                dependencyTypeName,
-                requiresCommandDependencies,
-                name,
-            )
+            createDependency(typeOfDependency, dependencyTypeName, requiredDependencies, name)
 
         return DependencyWithDehydratedChildren(metadata, topLevelDependencies, cannotBeAutoloaded)
     }
@@ -182,13 +178,13 @@ private class IndexDependencies(dependencies: Set<DependencyWithDehydratedChildr
 private fun createDependency(
     dependencyType: DependencyType,
     typeRef: TypeName,
-    requiresCommandDependencies: Boolean,
+    requiredDependencies: RequiredDependencies,
     name: String,
 ): Dependency {
     return when (dependencyType) {
         DependencyType.PROPERTY -> PropertyDependency(typeRef)
-        DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiresCommandDependencies)
-        DependencyType.COMMAND -> CommandDependency(typeRef, name)
+        DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiredDependencies)
+        DependencyType.COMMAND -> CommandDependency(typeRef, name, requiredDependencies)
         DependencyType.CONTEXT_COMMANDS -> ContextCommandsDependency(typeRef)
         DependencyType.NON_DEPENDENCY -> NonDependency(typeRef)
     }

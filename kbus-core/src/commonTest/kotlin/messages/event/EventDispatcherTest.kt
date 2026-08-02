@@ -74,6 +74,7 @@ import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -100,12 +101,12 @@ class EventDispatcherTest {
         val invocation = testInvocation(unitOfWork, publisher = publisher)
         lateinit var dispatcher: EventDispatcher
 
-        fun withDomainHandlers(vararg handlers: EventHandler<*>): TestEnv {
+        fun withDomainHandlers(vararg handlers: DomainEventHandler<*>): TestEnv {
             @Suppress("UNCHECKED_CAST")
-            val castedHandlers = handlers.toList() as List<EventHandler<DomainEvent>>
+            val castedHandlers = handlers.toList() as List<DomainEventHandler<DomainEvent>>
             dispatcher =
                 EventDispatcher(
-                    { castedHandlers },
+                    { _, _ -> castedHandlers },
                     emptyList(),
                     dispatcherScope = scope,
                     contextFactory = emptyContextFactory(scope.backgroundScope),
@@ -120,12 +121,12 @@ class EventDispatcherTest {
             val castedHandlers = handlers.toList() as List<EventHandler<IntegrationEvent>>
             dispatcher =
                 EventDispatcher(
-                    { emptyList() },
+                    { _, _ -> emptyList() },
                     emptyList(),
                     dispatcherScope = scope,
                     contextFactory = emptyContextFactory(scope.backgroundScope),
                 )
-            dispatcher.dispatchIntegrationEvent(event, castedHandlers)
+            dispatcher.dispatchIntegrationEvent(event, { castedHandlers })
         }
 
         suspend fun flushSecondaryWork() = unitOfWork.secondaryWork.forEach { it.invoke() }
@@ -608,7 +609,7 @@ class EventDispatcherTest {
     fun it_throws_illegal_state_exception_for_invalid_configurations() = runTest {
         data class InvalidConfig(
             val name: String,
-            val handlerFactory: (MutableList<String>) -> EventHandler<*>,
+            val handlerFactory: (MutableList<String>) -> DomainEventHandler<*>,
             val event: DomainEvent,
         )
 
@@ -731,7 +732,7 @@ class EventDispatcherTest {
         val invocation = testInvocation<Any?>(publisher = outbox)
         val dispatcher =
             EventDispatcher(
-                { emptyList() },
+                { _, _ -> emptyList() },
                 listOf(capturingMiddleware),
                 this,
                 contextFactory = emptyContextFactory(backgroundScope),
@@ -749,7 +750,7 @@ class EventDispatcherTest {
             val invocation = testInvocation<Any?>()
             val dispatcher =
                 EventDispatcher(
-                    { emptyList() },
+                    { _, _ -> emptyList() },
                     listOf(capturingMiddleware),
                     this,
                     contextFactory = emptyContextFactory(backgroundScope),
@@ -769,7 +770,7 @@ class EventDispatcherTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val dispatcher =
             EventDispatcher(
-                { emptyList() },
+                { _, _ -> emptyList() },
                 listOf(capturingMiddleware),
                 this,
                 contextFactory =
@@ -788,10 +789,10 @@ class EventDispatcherTest {
     // =========================================================================
 
     @Test
-    fun dispatchDomainEvent_wires_the_invocations_publisher_into_domain_event_handlers() = runTest {
+    fun dispatchDomainEvent_builds_domain_handlers_with_the_invocations_publisher() = runTest {
         val recordingPublisher = RecordingIntegrationEventPublisher()
         val env = TestEnv(this, recordingPublisher)
-        env.withDomainHandlers(PublishingDomainEventHandler())
+        env.withDomainHandlers(PublishingDomainEventHandler(recordingPublisher))
 
         env.dispatch(TestDomainEvent("via-domain-handler"))
 
@@ -801,12 +802,12 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun dispatchIntegrationEvent_wires_the_contexts_publisher_into_integration_event_handlers() =
+    fun dispatchIntegrationEvent_builds_integration_handlers_with_the_contexts_publisher() =
         runTest {
             val destination = RecordingDestination()
             val dispatcher =
                 EventDispatcher(
-                    { emptyList() },
+                    { _, _ -> emptyList() },
                     emptyList(),
                     this,
                     contextFactory =
@@ -820,7 +821,7 @@ class EventDispatcherTest {
 
             dispatcher.dispatchIntegrationEvent(
                 TestIntegrationEvent("test"),
-                listOf(PublishingIntegrationEventHandler()),
+                { listOf(PublishingIntegrationEventHandler(it.integrationEventPublisher)) },
             )
             advanceUntilIdle()
 

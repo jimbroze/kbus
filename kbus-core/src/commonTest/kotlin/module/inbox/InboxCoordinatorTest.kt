@@ -34,7 +34,7 @@ class InboxCoordinatorTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val eventDispatcher =
             EventDispatcher(
-                locator::handlersFor,
+                locator::domainHandlersFor,
                 emptyList(),
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
@@ -147,7 +147,7 @@ class InboxCoordinatorTest {
         )
         val eventDispatcher =
             EventDispatcher(
-                locator::handlersFor,
+                locator::domainHandlersFor,
                 emptyList(),
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),

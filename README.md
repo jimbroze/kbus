@@ -162,6 +162,10 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 `CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and routes
 events through the Unit of Work.
 
+Event handlers are constructed with dependencies too, but only from what an event dispatch can supply: an
+`IntegrationEventPublisher` and nothing command-scoped. An event handler declaring a `NestedCommandExecutor` or a
+`DomainEventPublisher` fails generation, because no command's invocation reached it to provide one.
+
 ### Event Dispatch & Error Strategy Matrix
 
 The safety of an error strategy depends entirely on **when** the handler executes relative to the database transaction.
@@ -292,11 +296,13 @@ scope.launch {
 Events are emitted to observers before handlers are invoked. Observers receive events regardless of handler success or
 failure.
 
-Command handlers can publish integration events:
+A handler publishes integration events by declaring an `IntegrationEventPublisher` constructor parameter. The publisher
+it is given belongs to the invocation that reached it, so it is the one carrying that command's outbox and transaction:
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.RegisterUser
@@ -304,13 +310,13 @@ import com.jimbroze.kbus.example.fixtures.UserRegistered
 -->
 
 ```kotlin
-class RegisterUserHandler :
+class RegisterUserHandler(private val integrationEventPublisher: IntegrationEventPublisher) :
     CommandHandler<RegisterUser, BusResult<String, MessageFailure>>() {
 
     override suspend fun handle(message: RegisterUser): BusResult<String, MessageFailure> {
         val userId = "generated-id"
 
-        publish(UserRegistered(userId))
+        integrationEventPublisher.publish(listOf(UserRegistered(userId)))
 
         return BusResult.success(userId)
     }
@@ -839,9 +845,9 @@ behaviour described above; everything else gets "save immediately, then drain op
 transaction to defer the save to, so the save happens up front and delivery follows the same
 fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever surrounding work
 triggered them, but events are never silently lost, and the same retry/DLQ policy applies uniformly across every publish
-path. Integration event handlers can themselves publish further events by extending
-`CanPublishIntegrationEvent`, the same mixin command handlers and domain event handlers use — the dispatcher wires each
-handler's publisher before dispatch, so these publishes are outbox-durable too.
+path. Integration event handlers can themselves publish further events by declaring an `IntegrationEventPublisher`
+constructor parameter, exactly as command and domain event handlers do — the publisher a handler is constructed with
+is the one belonging to whatever reached it, so these publishes are outbox-durable too.
 
 A publish call's failure semantics differ slightly by path: on the transactional (command-scoped) path, `publish`
 only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the *store save*
@@ -1242,6 +1248,12 @@ BoundedContext(
 Nothing enforces this at runtime, because nothing needs to: a context's subscriptions are constructor arguments, so a
 constructed context has nothing left to add to. There is no `seal()` and no `HandlerRegistrationSealedException` — a
 bus that never hands back a context cannot be subscribed into.
+
+`subscribeDomain` accepts only `DomainEventHandler` subclasses, not bare `EventHandler` implementations: domain
+dispatch reads a handler's `dispatchTiming` and hands it a publisher to publish integration events with, so a handler
+without those is rejected where it is written rather than when the event is first published. The processor applies the
+same rule, so a `@LoadMessageHandler` handler of a `DomainEvent` that does not extend `DomainEventHandler` fails
+generation.
 
 `subscribe` and `subscribeDomain` take either bare handler classes or, from
 `com.jimbroze.kbus.core.registry.generation`, `LoadedEventHandler` tokens obtained via a generated `.loaded`

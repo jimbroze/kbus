@@ -53,7 +53,9 @@ internal class ContextRuntime(
         envelopes.forEach { envelope ->
             eventDispatcher.value.dispatchIntegrationEvent(
                 envelope.event,
-                context.handlerLocator.handlersFor(envelope.event),
+                { handlerDependencies ->
+                    context.handlerLocator.handlersFor(envelope.event, handlerDependencies)
+                },
                 ackStrategyOverride?.invoke(envelope.event.errorStrategy),
             )
         }

@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
@@ -61,11 +62,12 @@ class TestIntegrationEventHandler(val messageOutput: MutableList<String>) :
 class EventCommand(val message: String, val listStore: MutableList<String>) :
     Command<BusResult<Unit, MessageFailure>>()
 
-class EventCommandHandler : CommandHandler<EventCommand, BusResult<Unit, MessageFailure>>() {
+class EventCommandHandler(private val integrationEventPublisher: IntegrationEventPublisher) :
+    CommandHandler<EventCommand, BusResult<Unit, MessageFailure>>() {
     override val executeInTransaction: TransactionConfig? = null
 
     override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
-        publish(StorageEvent(message.message, message.listStore))
+        integrationEventPublisher.publish(listOf(StorageEvent(message.message, message.listStore)))
         return BusResult.success(Unit)
     }
 }

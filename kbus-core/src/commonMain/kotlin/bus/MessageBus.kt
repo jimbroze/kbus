@@ -114,7 +114,7 @@ abstract class BaseMessageBus(
                     eventDispatcher =
                         lazy {
                             EventDispatcher(
-                                context.handlerLocator::handlersFor,
+                                context.handlerLocator::domainHandlersFor,
                                 middlewares,
                                 eventDispatcherScope,
                                 contextFactory = contextFactory,

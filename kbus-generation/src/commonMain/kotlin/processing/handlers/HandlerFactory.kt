@@ -5,11 +5,13 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.utility.extendsType
@@ -18,7 +20,7 @@ import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeName
 
 class HandlerFactory(
-    @Suppress("unused") private val logger: KSPLogger,
+    private val logger: KSPLogger,
     val dependencyFactory: DependencyFactory,
     /**
      * This Gradle module's bounded context identity (`kbus.boundedContextIdentity`), stamped onto
@@ -53,21 +55,68 @@ class HandlerFactory(
         handlerClass: KSClassDeclaration,
         baseClassTypeArgs: List<KSTypeArgument>,
         constructorDependencies: List<Dependency>,
-    ): EventHandlerDefinition {
+    ): EventHandlerDefinition? {
         val messageClass =
             baseClassTypeArgs[0].type?.resolve()?.declaration as? KSClassDeclaration
                 ?: error("Event type argument missing or invalid")
         val kind = resolveEventKind(messageClass)
-        return EventHandlerDefinition(
-            HandlerData(
-                handlerClass.toClassName(),
-                messageClass.toClassName(),
-                UNIT,
-                constructorDependencies,
-                boundedContextIdentity,
-            ),
-            kind,
+        val definition =
+            EventHandlerDefinition(
+                HandlerData(
+                    handlerClass.toClassName(),
+                    messageClass.toClassName(),
+                    UNIT,
+                    constructorDependencies,
+                    boundedContextIdentity,
+                ),
+                kind,
+            )
+
+        val isUsable =
+            (kind != EventHandlerKind.DOMAIN || isDomainEventHandler(handlerClass, messageClass)) &&
+                !hasCommandOnlyDependency(handlerClass, definition)
+
+        return definition.takeIf { isUsable }
+    }
+
+    /**
+     * An event is dispatched outside any one command's execution, so nothing can supply a handler
+     * with what only a command's own invocation holds.
+     */
+    private fun hasCommandOnlyDependency(
+        handlerClass: KSClassDeclaration,
+        definition: EventHandlerDefinition,
+    ): Boolean {
+        if (definition.requiredDependencies != RequiredDependencies.COMMAND) return false
+        val commandOnlyDependencies =
+            definition.handlerData.topLevelDependencies
+                .filter { it.requiredDependencies == RequiredDependencies.COMMAND }
+                .joinToString(", ") { it.signature }
+        logger.error(
+            "Event handler ${handlerClass.qualifiedName?.asString()} depends on " +
+                "$commandOnlyDependencies, which only a command's own invocation can supply.",
+            handlerClass,
         )
+        return true
+    }
+
+    /**
+     * Rejected here rather than at the subscription the generator is about to write, so the error
+     * names the handler the author wrote instead of a line of generated source.
+     */
+    private fun isDomainEventHandler(
+        handlerClass: KSClassDeclaration,
+        messageClass: KSClassDeclaration,
+    ): Boolean {
+        if (handlerClass.extendsType(DomainEventHandler::class.qualifiedName!!)) return true
+        logger.error(
+            "Handler ${handlerClass.qualifiedName?.asString()} handles the domain event " +
+                "${messageClass.qualifiedName?.asString()}, so it must extend DomainEventHandler " +
+                "rather than implement EventHandler directly. Either extend DomainEventHandler, " +
+                "or make the event an IntegrationEvent.",
+            handlerClass,
+        )
+        return false
     }
 
     private fun resolveEventKind(messageClass: KSClassDeclaration): EventHandlerKind {

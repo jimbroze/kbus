@@ -1,7 +1,10 @@
 package com.jimbroze.kbus.generation.generators
 
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.UNIT
@@ -25,6 +28,18 @@ class HandlersFactoryGeneratorTest {
             handlersInterfaceName = "Handlers",
             commandExecutorClassName = "CommandExecutor",
             packagePath = PACKAGE_PATH,
+        )
+
+    private fun eventHandler(eventName: String, kind: EventHandlerKind) =
+        EventHandlerDefinition(
+            HandlerData(
+                ClassName("com.example", "${eventName}Handler"),
+                ClassName("com.example", eventName),
+                UNIT,
+                emptyList(),
+                "",
+            ),
+            kind,
         )
 
     private fun commandHandler(commandName: String, module: String) =
@@ -97,6 +112,7 @@ class HandlersFactoryGeneratorTest {
                                     "NestedCommandExecutor",
                                 ),
                                 "commandExecutor",
+                                RequiredDependencies.COMMAND,
                             )
                         ),
                         "",
@@ -128,6 +144,7 @@ class HandlersFactoryGeneratorTest {
                                     "CommandDependencies",
                                 ),
                                 CommandDependency.WHOLE_OBJECT,
+                                RequiredDependencies.COMMAND,
                             )
                         ),
                         "",
@@ -157,5 +174,39 @@ class HandlersFactoryGeneratorTest {
             generated["InventoryHandlerFactory"],
             "override fun commandTypes(): Set<KClass<out Command<*>>> = setOf(ReserveStock::class)",
         )
+    }
+
+    @Test
+    fun aDomainEventHandlerIsOnlyReachableThroughTheDomainLookup() {
+        generator.generateClasses(
+            setOf(
+                eventHandler("OrderPlaced", EventHandlerKind.DOMAIN),
+                eventHandler("OrderShipped", EventHandlerKind.INTEGRATION),
+            ),
+            emptyList(),
+        )
+
+        val factory = generated["DefaultHandlerFactory"]
+        val domainLookup = factory.substringAfter("fun <TEvent : DomainEvent> domainEventHandler")
+        val integrationLookup =
+            factory.substringAfter("fun <TEvent : Event> eventHandler").substringBefore("fun ")
+
+        assertContains(domainLookup, "OrderPlacedHandler::class")
+        assertFalse(domainLookup.contains("OrderShippedHandler::class"))
+        assertContains(integrationLookup, "OrderShippedHandler::class")
+        assertFalse(integrationLookup.contains("OrderPlacedHandler::class"))
+    }
+
+    @Test
+    fun theDomainLookupReturnsTheDomainHandlerKind() {
+        generator.generateClasses(
+            setOf(eventHandler("OrderPlaced", EventHandlerKind.DOMAIN)),
+            emptyList(),
+        )
+
+        val factory = generated["DefaultHandlerFactory"]
+        assertContains(factory, "handlerClass: KClass<DomainEventHandler<TEvent>>")
+        assertContains(factory, "handlerDependencies: HandlerDependencies")
+        assertContains(factory, "): DomainEventHandler<TEvent>?")
     }
 }

@@ -11,6 +11,7 @@ import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
 import com.jimbroze.kbus.contracts.annotations.index.HandlerType
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
@@ -108,8 +109,11 @@ class DependencyIndexGenerator(
                 dependency.cannotBeAutoloaded,
             )
             .addMember(
-                "${DependencyInfo::requiresCommandDependencies.name} = %L",
-                dependency.metadata.requiresCommandDependencies,
+                "${DependencyInfo::requiredDependencies.name} = %M",
+                MemberName(
+                    RequiredDependencies::class.asClassName(),
+                    dependency.metadata.requiredDependencies.name,
+                ),
             )
             .addMember(
                 "${DependencyInfo::topLevelDependencies.name} = [%L]",

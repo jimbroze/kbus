@@ -304,6 +304,37 @@ class GenerationTest {
     }
 
     @Test
+    fun test_a_domain_handler_publishes_through_the_publisher_it_was_constructed_with() = runTest {
+        val handledBefore = TestShipmentIntegrationHandler.timesHandled
+        val bus =
+            CompileTimeLoadedMessageBus(
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                EmptyTransactionManager(),
+                emptyList(),
+                appScope = backgroundScope,
+                default =
+                    ContextConfig(
+                        subscriptions =
+                            listOf(
+                                subscribeDomain(
+                                    TestGeneratorEvent::class,
+                                    TestPublishingGeneratorEventHandler::class.loaded,
+                                ),
+                                subscribe(
+                                    TestShipmentIntegration::class,
+                                    TestShipmentIntegrationHandler::class.loaded,
+                                ),
+                            )
+                    ),
+            )
+
+        bus.execute(TestEventPublishingCommand())
+        advanceVirtualTime(100)
+
+        assertEquals(handledBefore + 1, TestShipmentIntegrationHandler.timesHandled)
+    }
+
+    @Test
     fun test_it_fetches_a_query_each_submodule_context_owns() = runTest {
         val dependencies = Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope)
         val bus =

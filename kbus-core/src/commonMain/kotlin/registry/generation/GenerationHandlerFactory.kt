@@ -7,7 +7,10 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
 interface GenerationHandlerFactory {
@@ -21,8 +24,14 @@ interface GenerationHandlerFactory {
     ): QueryHandler<TQuery, TResult>?
 
     fun <TEvent : Event> eventHandler(
-        handlerClass: KClass<EventHandler<TEvent>>
+        handlerClass: KClass<EventHandler<TEvent>>,
+        handlerDependencies: HandlerDependencies,
     ): EventHandler<TEvent>?
+
+    fun <TEvent : DomainEvent> domainEventHandler(
+        handlerClass: KClass<DomainEventHandler<TEvent>>,
+        handlerDependencies: HandlerDependencies,
+    ): DomainEventHandler<TEvent>?
 
     /** The commands this factory holds handlers for — one bounded context's, and only its. */
     fun commandTypes(): Set<KClass<out Command<*>>>

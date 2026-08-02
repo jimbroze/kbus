@@ -1,11 +1,12 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.event.EventHandlerDependencies
 import com.jimbroze.kbus.core.messages.event.concurrencyFor
 import com.jimbroze.kbus.core.messages.event.dispatchPhaseFor
 import com.jimbroze.kbus.core.messages.event.errorStrategyFor
@@ -24,10 +25,16 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-typealias GetHandlers<TEvent> = (event: TEvent) -> List<EventHandler<TEvent>>
+typealias GetDomainHandlers =
+    (event: DomainEvent, handlerDependencies: HandlerDependencies) -> List<
+            DomainEventHandler<DomainEvent>
+        >
+
+typealias GetIntegrationHandlers<TEvent> =
+    (handlerDependencies: HandlerDependencies) -> List<EventHandler<TEvent>>
 
 class EventDispatcher(
-    val getHandlers: GetHandlers<DomainEvent>,
+    val getHandlers: GetDomainHandlers,
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
     private val contextFactory: MiddlewareInvocationContextFactory,
@@ -42,15 +49,13 @@ class EventDispatcher(
      */
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
-        handlers: List<EventHandler<TEvent>> = emptyList(),
+        getHandlers: GetIntegrationHandlers<TEvent> = { emptyList() },
         errorStrategyOverride: ErrorStrategy? = null,
     ) {
         val errorStrategy =
             errorStrategyOverride?.let(::mapErrorStrategy) ?: errorStrategyFor(event)
         val context = contextFactory.contextFor(null)
-        handlers.forEach {
-            (it as? CanPublishIntegrationEvent)?.setPublisher(context.integrationEventPublisher)
-        }
+        val handlers = getHandlers(EventHandlerDependencies(context.integrationEventPublisher))
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             val dispatchHandlersWithErrorHandling =
@@ -72,16 +77,13 @@ class EventDispatcher(
         event: TEvent,
         invocation: CommandInvocation<*>,
     ) {
-        val handlers = getHandlers(event)
+        val handlers =
+            getHandlers(event, EventHandlerDependencies(invocation.integrationEventPublisher))
 
         val errorStrategy = errorStrategyFor(event)
         val handlersByPhase =
             handlers.groupBy { handler ->
-                val domainEventHandler = handler as DomainEventHandler<*>
-                domainEventHandler.setPublisher(invocation.integrationEventPublisher)
-                dispatchPhaseFor(domainEventHandler).also {
-                    validateDispatchPhase(it, errorStrategy)
-                }
+                dispatchPhaseFor(handler).also { validateDispatchPhase(it, errorStrategy) }
             }
 
         val finalHandler: suspend (DomainEvent) -> Unit = { message: DomainEvent ->

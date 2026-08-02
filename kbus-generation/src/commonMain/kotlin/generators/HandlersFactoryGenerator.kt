@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
+import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
@@ -12,10 +13,15 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
+import com.jimbroze.kbus.generation.processing.dependencies.parameterName
+import com.jimbroze.kbus.generation.processing.dependencies.parameterType
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
+import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
 import com.squareup.kotlinpoet.AnnotationSpec
@@ -91,9 +97,7 @@ class HandlersFactoryGenerator(
             .addFunction(
                 buildQueriesHandlersFor(handlers.filterIsInstance<QueryHandlerDefinition>().toSet())
             )
-            .addFunction(
-                buildEventHandlerFor(handlers.filterIsInstance<EventHandlerDefinition>().toSet())
-            )
+            .addFunctions(buildEventHandlerLookups(handlers))
             .addFunction(
                 buildCommandTypes(handlers.filterIsInstance<CommandHandlerDefinition>().toSet())
             )
@@ -191,14 +195,43 @@ class HandlersFactoryGenerator(
         return functionBuilder.build()
     }
 
-    private fun buildEventHandlerFor(handlers: Set<EventHandlerDefinition>): FunSpec {
-        val tEvent = TypeVariableName("TEvent", Event::class.asClassName())
+    private fun buildEventHandlerLookups(handlers: Set<HandlerDefinition>): List<FunSpec> {
+        val eventHandlersByKind =
+            handlers.filterIsInstance<EventHandlerDefinition>().groupBy { it.kind }
+
+        fun ofKind(kind: EventHandlerKind) = eventHandlersByKind[kind].orEmpty().toSet()
+
+        return listOf(
+            buildEventHandlerFor(
+                ofKind(EventHandlerKind.INTEGRATION),
+                functionName = "eventHandler",
+                handlerSuperType = EventHandler::class.asClassName(),
+                eventSuperType = Event::class.asClassName(),
+            ),
+            buildEventHandlerFor(
+                ofKind(EventHandlerKind.DOMAIN),
+                functionName = "domainEventHandler",
+                handlerSuperType = DomainEventHandler::class.asClassName(),
+                eventSuperType = DomainEvent::class.asClassName(),
+            ),
+        )
+    }
+
+    /**
+     * Each event kind gets its own lookup, so the handler kind a caller asks for is the kind it can
+     * get back — the domain path never sees a handler generated for an integration event.
+     */
+    private fun buildEventHandlerFor(
+        handlers: Set<EventHandlerDefinition>,
+        functionName: String,
+        handlerSuperType: ClassName,
+        eventSuperType: ClassName,
+    ): FunSpec {
+        val tEvent = TypeVariableName("TEvent", eventSuperType)
 
         val handlerClassType =
-            KClass::class.asClassName()
-                .parameterizedBy(EventHandler::class.asClassName().parameterizedBy(tEvent))
-        val returnType =
-            EventHandler::class.asClassName().parameterizedBy(tEvent).copy(nullable = true)
+            KClass::class.asClassName().parameterizedBy(handlerSuperType.parameterizedBy(tEvent))
+        val returnType = handlerSuperType.parameterizedBy(tEvent).copy(nullable = true)
 
         val codeBlock =
             CodeBlock.builder()
@@ -208,18 +241,23 @@ class HandlersFactoryGenerator(
 
         for (handler in handlers) {
             val handlerName = handler.handlerData.nameAsDependency
+            val arguments = handler.functionParameters.joinToString(", ") { it.name }
             codeBlock.addStatement(
-                "%T::class -> this.$handlerName()",
+                "%T::class -> this.$handlerName($arguments)",
                 handler.handlerData.handlerClass,
             )
         }
 
         codeBlock.addStatement("else -> null").unindent().add("} as %T", returnType)
 
-        return FunSpec.builder("eventHandler")
+        return FunSpec.builder(functionName)
             .addModifiers(KModifier.OVERRIDE)
             .addTypeVariables(listOf(tEvent))
             .addParameter("handlerClass", handlerClassType)
+            .addParameter(
+                RequiredDependencies.HANDLER_ONLY.parameterName,
+                RequiredDependencies.HANDLER_ONLY.parameterType,
+            )
             .returns(returnType)
             .addCode(codeBlock.build())
             .build()
@@ -266,8 +304,8 @@ class HandlersFactoryGenerator(
                     is ContextCommandsDependency ->
                         "${contextClassPrefix(context)}$commandExecutorClassName" +
                             "(commandDependencies.commandExecutor)"
-                    is CommandDependency -> it.accessReference
-                    else -> "dependencies.${it.accessReference}"
+                    is CommandDependency -> it.accessReferenceIn(handler.suppliedDependencies)
+                    else -> "dependencies.${it.accessReferenceIn(handler.suppliedDependencies)}"
                 }
             }
 
