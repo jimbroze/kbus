@@ -15,12 +15,14 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
+import com.jimbroze.kbus.generation.test.inventory.application.usecases.command.ReserveStock
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalInterface
 import com.test.external.ExternalNestedWithExternal
@@ -291,6 +293,21 @@ class TestShipmentIntegrationHandler : IntegrationEventHandler<TestShipmentInteg
     companion object {
         var timesHandled = 0
     }
+}
+
+/**
+ * Nests a command the inventory context owns. Only the untyped executor can express this at all — a
+ * typed per-context view names no function for another context's command — and it must still
+ * refuse, or a foreign handler would silently join this command's transaction.
+ */
+class NestForeignCommand : Command<BusResult<Any, MessageFailure>>()
+
+@LoadMessageHandler
+@Suppress("unused")
+class NestForeignCommandHandler(private val commandExecutor: NestedCommandExecutor) :
+    CommandHandler<NestForeignCommand, BusResult<Any, MessageFailure>>() {
+    override suspend fun handle(message: NestForeignCommand): BusResult<Any, MessageFailure> =
+        commandExecutor.execute(ReserveStock("product-1", 1))
 }
 
 class TestShipmentCommand : Command<BusResult<Any, MessageFailure>>()
