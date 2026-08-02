@@ -530,6 +530,10 @@ val bus = MessageBus(
 
 > You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
 
+Every bus has a transaction manager. A bus that wants no transactions keeps the default
+`EmptyTransactionManager()` rather than passing none, so a command handler declaring `executeInTransaction` — which
+they do by default — always has one to run in.
+
 Command handlers execute within a transaction by default. No additional configuration is needed:
 
 <!--- CLEAR -->

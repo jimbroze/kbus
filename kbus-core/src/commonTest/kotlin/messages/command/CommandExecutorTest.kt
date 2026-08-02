@@ -20,13 +20,13 @@ import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
@@ -42,7 +42,7 @@ class CommandExecutorTest {
         val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
@@ -67,7 +67,7 @@ class CommandExecutorTest {
             )
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 DefaultCommandDependenciesFactory(),
@@ -95,7 +95,7 @@ class CommandExecutorTest {
             )
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
@@ -132,7 +132,7 @@ class CommandExecutorTest {
             )
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
@@ -170,7 +170,7 @@ class CommandExecutorTest {
         val capturingMiddleware = CapturingContextMiddleware()
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 listOf(capturingMiddleware),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
@@ -192,7 +192,7 @@ class CommandExecutorTest {
             CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
@@ -230,25 +230,6 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_errors_for_executeInTransaction_if_no_transaction_manager() = runTest {
-        val factories = TestPublisherFactories(backgroundScope)
-        val executor =
-            CommandExecutor(
-                null,
-                emptyList(),
-                factories.contextFactory,
-                TestCommandDependenciesFactory(),
-                factories.invocationFactory,
-            )
-
-        assertFailsWith<IllegalStateException> {
-            executor.execute(TransactionCommand("Transaction"), TestOwningContext()) {
-                TransactionCommandHandler()
-            }
-        }
-    }
-
-    @Test
     fun test_it_uses_handler_transaction_manager_when_provided() = runTest {
         val defaultTransactionManager = TestTransactionManager()
         val handlerTransactionManager = TestTransactionManager()
@@ -276,12 +257,12 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_default_transaction_manager_can_be_null_if_handler_manager_is_provided() = runTest {
+    fun test_a_handlers_transaction_manager_overrides_an_empty_default() = runTest {
         val handlerTransactionManager = TestTransactionManager()
         val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
@@ -310,7 +291,7 @@ class CommandExecutorTest {
             CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
         val executor =
             CommandExecutor(
-                null,
+                EmptyTransactionManager(),
                 emptyList(),
                 factories.contextFactory,
                 dependenciesFactory,

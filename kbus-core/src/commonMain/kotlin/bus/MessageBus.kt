@@ -63,7 +63,7 @@ interface IMessageBus {
 @Suppress("LongParameterList")
 abstract class BaseMessageBus(
     contexts: List<BoundedContext>,
-    transactionManager: TransactionManager?,
+    transactionManager: TransactionManager,
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
@@ -76,7 +76,7 @@ abstract class BaseMessageBus(
      */
     constructor(
         handlerLocator: HandlerLocator,
-        transactionManager: TransactionManager?,
+        transactionManager: TransactionManager,
         middlewares: List<Middleware>,
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
@@ -324,7 +324,7 @@ abstract class BaseMessageBus(
 class MessageBus : BaseMessageBus {
     constructor(
         handlerLocator: HandlerLocator = PersistingHandlerLocator(),
-        transactionManager: TransactionManager? = EmptyTransactionManager(),
+        transactionManager: TransactionManager = EmptyTransactionManager(),
         middlewares: List<Middleware> = emptyList(),
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
@@ -333,7 +333,7 @@ class MessageBus : BaseMessageBus {
 
     constructor(
         contexts: List<BoundedContext>,
-        transactionManager: TransactionManager? = EmptyTransactionManager(),
+        transactionManager: TransactionManager = EmptyTransactionManager(),
         middlewares: List<Middleware> = emptyList(),
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
