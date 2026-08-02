@@ -25,7 +25,7 @@ import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.CodeGenerators
 import com.jimbroze.kbus.generation.processors.KbusProcessor
 
-private const val PACKAGE_PATH = "com.jimbroze.kbus.generated"
+private const val GENERATION_ROOT_PACKAGE_PATH = "com.jimbroze.kbus.generated"
 
 private const val DEPENDENCIES_INTERFACE_NAME = "AllDependencies"
 private const val HANDLERS_INTERFACE_NAME = "Handlers"
@@ -64,30 +64,30 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             ContainerInterfaceGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(DEPENDENCIES_INTERFACE_NAME),
-                PACKAGE_PATH,
+                DEPENDENCIES_INTERFACE_NAME,
+                config.generatedPackagePath,
             ),
             HandlersInterfaceGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(HANDLERS_INTERFACE_NAME),
-                PACKAGE_PATH,
+                HANDLERS_INTERFACE_NAME,
+                config.generatedPackagePath,
             ),
             AutoLoaderGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(DEPENDENCIES_INTERFACE_NAME),
-                config.moduleClassName(LOADER_CLASS_NAME),
-                PACKAGE_PATH,
+                DEPENDENCIES_INTERFACE_NAME,
+                LOADER_CLASS_NAME,
+                config.generatedPackagePath,
             ),
             HandlersFactoryGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(HANDLER_FACTORY_CLASS_NAME),
-                config.moduleClassName(DEPENDENCIES_INTERFACE_NAME),
-                config.moduleClassName(HANDLERS_INTERFACE_NAME),
+                HANDLER_FACTORY_CLASS_NAME,
+                DEPENDENCIES_INTERFACE_NAME,
+                HANDLERS_INTERFACE_NAME,
                 CONTEXT_COMMAND_EXECUTOR_NAME,
-                PACKAGE_PATH,
+                config.generatedPackagePath,
             ),
             DependencyIndexGenerator(
                 env.codeGenerator,
@@ -99,22 +99,22 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             LoadedEventHandlersGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(LOADED_DOMAIN_EVENT_HANDLERS_NAME),
-                config.moduleClassName(LOADED_INTEGRATION_EVENT_HANDLERS_NAME),
-                PACKAGE_PATH,
+                LOADED_DOMAIN_EVENT_HANDLERS_NAME,
+                LOADED_INTEGRATION_EVENT_HANDLERS_NAME,
+                config.generatedPackagePath,
             ),
             AutoPublishRegistrationsGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(AUTO_PUBLISH_REGISTRATIONS_NAME),
-                PACKAGE_PATH,
+                AUTO_PUBLISH_REGISTRATIONS_NAME,
+                config.generatedPackagePath,
             ),
             ContextCommandsGenerator(
                 env.codeGenerator,
                 env.logger,
-                config.moduleClassName(CONTEXT_COMMANDS_INTERFACE_NAME),
+                CONTEXT_COMMANDS_INTERFACE_NAME,
                 CONTEXT_COMMAND_EXECUTOR_NAME,
-                PACKAGE_PATH,
+                config.generatedPackagePath,
             ),
         )
 
@@ -123,16 +123,16 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             env.codeGenerator,
             env.logger,
             BusConfig(
-                config.moduleClassName(BUS_CLASS_NAME),
-                config.moduleClassName(DEPENDENCIES_INTERFACE_NAME),
-                config.moduleClassName(HANDLER_FACTORY_CLASS_NAME),
+                BUS_CLASS_NAME,
+                DEPENDENCIES_INTERFACE_NAME,
+                HANDLER_FACTORY_CLASS_NAME,
                 BaseMessageBus::class,
                 Middleware::class,
                 TransactionManager::class,
                 OutboxConfig::class,
                 InboxConfig::class,
             ),
-            PACKAGE_PATH,
+            config.generatedPackagePath,
         )
 }
 
@@ -156,12 +156,41 @@ private class KBusProcessorConfig(private val environment: SymbolProcessorEnviro
             return path
         }
 
+    /**
+     * Where this module's generated code lives: a submodule gets a package of its own, so several
+     * modules of one bounded context can each generate the same class names without colliding.
+     */
+    val generatedPackagePath: String
+        get() =
+            subModulePackageSegment?.let { "$GENERATION_ROOT_PACKAGE_PATH.$it" }
+                ?: GENERATION_ROOT_PACKAGE_PATH
+
+    /**
+     * Index classes of every module share one package, which a consumer scans without recursing, so
+     * an index name — unlike the rest of a module's generated code — still carries the module.
+     */
     fun moduleClassName(name: String): String {
         val classNameSuffix =
-            environment.options[MODULE_NAME_KEY]?.split('-', '_')?.joinToString("") { segment ->
+            subModuleNameSegments?.joinToString("") { segment ->
                 segment.replaceFirstChar { it.uppercase() }
             }
 
-        return classNameSuffix?.takeIf { it.isNotBlank() }?.let { "$name$it" } ?: name
+        return classNameSuffix?.let { "$name$it" } ?: name
     }
+
+    private val subModuleNameSegments: List<String>?
+        get() =
+            environment.options[MODULE_NAME_KEY]
+                ?.split('-', '_')
+                ?.filter { it.isNotBlank() }
+                ?.takeIf { it.isNotEmpty() }
+
+    private val subModulePackageSegment: String?
+        get() =
+            subModuleNameSegments
+                ?.mapIndexed { index, segment ->
+                    if (index == 0) segment.replaceFirstChar { it.lowercase() }
+                    else segment.replaceFirstChar { it.uppercase() }
+                }
+                ?.joinToString("")
 }

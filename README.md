@@ -623,12 +623,14 @@ Queries have no nested equivalent: a query has no Unit of Work, so there is noth
 #### Typed Nested Execution
 
 With code generation, each bounded context also gets a typed view of its own commands: an interface named after the
-context (`OrdersCommands`, suffixed per Gradle module — `OrdersCommandsOrdersDomain`) with one function per command
-that module can see. Declare it as a constructor parameter instead of `NestedCommandExecutor` and the call site names
-the command:
+context (`OrdersCommands`) with one function per command that module can see. Each Gradle module generates its own in
+its own package, so import the one you mean. Declare it as a constructor parameter instead of `NestedCommandExecutor`
+and the call site names the command:
 
 ```kotlin
-class PlaceOrderForRegularCustomerHandler(private val ordersCommands: OrdersCommandsOrdersDomain) :
+import com.jimbroze.kbus.generated.ordersDomain.OrdersCommands
+
+class PlaceOrderForRegularCustomerHandler(private val ordersCommands: OrdersCommands) :
     CommandHandler<PlaceOrderForRegularCustomer, BusResult<Order, MessageFailure>>() {
 
     override suspend fun handle(
@@ -1146,6 +1148,16 @@ module's `generatedAutoPublishRegistrations`.
 An index also names the typed command interfaces its module generated, against the bounded context each covers. That
 is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from
 metadata rather than discovering it by where it was written.
+
+A submodule's generated code goes in a package of its own, `com.jimbroze.kbus.generated.<subModuleName>`, so the
+several Gradle modules of one bounded context can each generate the same class names without colliding. Import the
+one you want:
+
+```kotlin
+import com.jimbroze.kbus.generated.billingDomain.OrdersCommands
+```
+
+Index classes are the exception: they all share `kbus.indexPackage` and so carry the module in their name.
 
 ### Bounded Context identity
 
