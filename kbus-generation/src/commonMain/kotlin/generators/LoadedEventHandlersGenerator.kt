@@ -73,7 +73,8 @@ class LoadedEventHandlersGenerator(
     private fun buildExtensionProperty(handler: EventHandlerDefinition): PropertySpec {
         val handlerClass = handler.handlerData.handlerClass
         val messageClass = handler.handlerData.messageClass
-        val returnType = LoadedEventHandler::class.asClassName().parameterizedBy(messageClass)
+        val returnType =
+            LoadedEventHandler::class.asClassName().parameterizedBy(messageClass, handlerClass)
         val receiverType = KClass::class.asClassName().parameterizedBy(handlerClass)
 
         return PropertySpec.builder("loaded", returnType)

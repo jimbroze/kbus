@@ -10,6 +10,7 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.utility.extendsType
@@ -58,6 +59,9 @@ class HandlerFactory(
             baseClassTypeArgs[0].type?.resolve()?.declaration as? KSClassDeclaration
                 ?: error("Event type argument missing or invalid")
         val kind = resolveEventKind(messageClass)
+        if (kind == EventHandlerKind.DOMAIN) {
+            requireDomainEventHandler(handlerClass, messageClass)
+        }
         return EventHandlerDefinition(
             HandlerData(
                 handlerClass.toClassName(),
@@ -67,6 +71,23 @@ class HandlerFactory(
                 boundedContextIdentity,
             ),
             kind,
+        )
+    }
+
+    /**
+     * Rejected here rather than at the subscription the generator is about to write, so the error
+     * names the handler the author wrote instead of a line of generated source.
+     */
+    private fun requireDomainEventHandler(
+        handlerClass: KSClassDeclaration,
+        messageClass: KSClassDeclaration,
+    ) {
+        if (handlerClass.extendsType(DomainEventHandler::class.qualifiedName!!)) return
+        error(
+            "Handler ${handlerClass.qualifiedName?.asString()} handles the domain event " +
+                "${messageClass.qualifiedName?.asString()}, so it must extend DomainEventHandler " +
+                "rather than implement EventHandler directly. Either extend DomainEventHandler, " +
+                "or make the event an IntegrationEvent."
         )
     }
 

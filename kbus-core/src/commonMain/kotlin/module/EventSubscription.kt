@@ -5,6 +5,7 @@ import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.registry.EventMapperProvider
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
 /**
@@ -18,7 +19,7 @@ sealed class EventSubscription<TEvent : Event> {
 
 internal class DomainSubscription<TEvent : DomainEvent>(
     private val event: KClass<TEvent>,
-    private val handlers: List<KClass<out EventHandler<TEvent>>>,
+    private val handlers: List<KClass<out DomainEventHandler<TEvent>>>,
 ) : EventSubscription<TEvent>() {
     override fun registerOn(mappers: EventMapperProvider) =
         mappers.domainEventMapper.addDomainHandlers(event, handlers)
@@ -37,7 +38,12 @@ fun <TEvent : IntegrationEvent> subscribe(
     vararg handlers: KClass<out EventHandler<TEvent>>,
 ): EventSubscription<TEvent> = IntegrationSubscription(event, handlers.toList())
 
+/**
+ * Domain dispatch reads a handler's dispatch timing and hands it a publisher, neither of which a
+ * bare [EventHandler] has — which is why the handler kind is required here rather than checked when
+ * the event is first published.
+ */
 fun <TEvent : DomainEvent> subscribeDomain(
     event: KClass<TEvent>,
-    vararg handlers: KClass<out EventHandler<TEvent>>,
+    vararg handlers: KClass<out DomainEventHandler<TEvent>>,
 ): EventSubscription<TEvent> = DomainSubscription(event, handlers.toList())

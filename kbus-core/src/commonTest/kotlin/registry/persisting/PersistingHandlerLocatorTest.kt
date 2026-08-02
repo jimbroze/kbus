@@ -131,7 +131,7 @@ class PersistingHandlerLocatorTest {
             listOf(PrintEventHandler::class),
         )
 
-        assertEquals(1, locator.handlersFor(domainEvent).size)
+        assertEquals(1, locator.domainHandlersFor(domainEvent).size)
         assertEquals(1, locator.handlersFor(integrationEvent).size)
     }
 

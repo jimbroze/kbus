@@ -1243,6 +1243,12 @@ Nothing enforces this at runtime, because nothing needs to: a context's subscrip
 constructed context has nothing left to add to. There is no `seal()` and no `HandlerRegistrationSealedException` — a
 bus that never hands back a context cannot be subscribed into.
 
+`subscribeDomain` accepts only `DomainEventHandler` subclasses, not bare `EventHandler` implementations: domain
+dispatch reads a handler's `dispatchTiming` and hands it a publisher to publish integration events with, so a handler
+without those is rejected where it is written rather than when the event is first published. The processor applies the
+same rule, so a `@LoadMessageHandler` handler of a `DomainEvent` that does not extend `DomainEventHandler` fails
+generation.
+
 `subscribe` and `subscribeDomain` take either bare handler classes or, from
 `com.jimbroze.kbus.core.registry.generation`, `LoadedEventHandler` tokens obtained via a generated `.loaded`
 property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a

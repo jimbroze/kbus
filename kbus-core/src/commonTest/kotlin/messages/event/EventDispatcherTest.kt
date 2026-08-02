@@ -74,6 +74,7 @@ import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -100,9 +101,9 @@ class EventDispatcherTest {
         val invocation = testInvocation(unitOfWork, publisher = publisher)
         lateinit var dispatcher: EventDispatcher
 
-        fun withDomainHandlers(vararg handlers: EventHandler<*>): TestEnv {
+        fun withDomainHandlers(vararg handlers: DomainEventHandler<*>): TestEnv {
             @Suppress("UNCHECKED_CAST")
-            val castedHandlers = handlers.toList() as List<EventHandler<DomainEvent>>
+            val castedHandlers = handlers.toList() as List<DomainEventHandler<DomainEvent>>
             dispatcher =
                 EventDispatcher(
                     { castedHandlers },
@@ -608,7 +609,7 @@ class EventDispatcherTest {
     fun it_throws_illegal_state_exception_for_invalid_configurations() = runTest {
         data class InvalidConfig(
             val name: String,
-            val handlerFactory: (MutableList<String>) -> EventHandler<*>,
+            val handlerFactory: (MutableList<String>) -> DomainEventHandler<*>,
             val event: DomainEvent,
         )
 

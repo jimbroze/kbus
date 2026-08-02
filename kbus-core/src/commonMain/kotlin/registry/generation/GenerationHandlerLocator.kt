@@ -4,6 +4,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
@@ -12,6 +13,8 @@ import com.jimbroze.kbus.core.registry.DomainEventMapper
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventMapper
 import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
 // TODO type-safe generated event factory
@@ -43,16 +46,32 @@ class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFa
 
     override fun handledQueryTypes(): Set<KClass<out Query<*>>> = queryTypes
 
-    override fun <TEvent : Event> handlersFor(event: TEvent): List<EventHandler<TEvent>> {
+    override fun <TEvent : IntegrationEvent> handlersFor(
+        event: TEvent
+    ): List<EventHandler<TEvent>> {
         val handlerClasses = eventMapper.handlerClassesFor(event)
         if (handlerClasses.isEmpty()) return emptyList()
         return handlerClasses.map<KClass<EventHandler<TEvent>>, EventHandler<TEvent>> { handlerClass
             ->
-            generationHandlerFactory.eventHandler(handlerClass)
-                ?: error(
-                    "No generated factory for ${handlerClass.simpleName}. " +
-                        "Annotate it with @LoadMessageHandler."
-                )
+            generationHandlerFactory.eventHandler(handlerClass) ?: missingFactory(handlerClass)
         }
     }
+
+    override fun <TEvent : DomainEvent> domainHandlersFor(
+        event: TEvent
+    ): List<DomainEventHandler<TEvent>> {
+        val handlerClasses = eventMapper.domainHandlerClassesFor(event)
+        if (handlerClasses.isEmpty()) return emptyList()
+        return handlerClasses.map<KClass<DomainEventHandler<TEvent>>, DomainEventHandler<TEvent>> {
+            handlerClass ->
+            generationHandlerFactory.domainEventHandler(handlerClass)
+                ?: missingFactory(handlerClass)
+        }
+    }
+
+    private fun missingFactory(handlerClass: KClass<*>): Nothing =
+        error(
+            "No generated factory for ${handlerClass.simpleName}. " +
+                "Annotate it with @LoadMessageHandler."
+        )
 }

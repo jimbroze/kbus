@@ -24,10 +24,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-typealias GetHandlers<TEvent> = (event: TEvent) -> List<EventHandler<TEvent>>
+typealias GetDomainHandlers = (event: DomainEvent) -> List<DomainEventHandler<DomainEvent>>
 
 class EventDispatcher(
-    val getHandlers: GetHandlers<DomainEvent>,
+    val getHandlers: GetDomainHandlers,
     val middlewares: List<Middleware>,
     private val dispatcherScope: CoroutineScope,
     private val contextFactory: MiddlewareInvocationContextFactory,
@@ -77,11 +77,8 @@ class EventDispatcher(
         val errorStrategy = errorStrategyFor(event)
         val handlersByPhase =
             handlers.groupBy { handler ->
-                val domainEventHandler = handler as DomainEventHandler<*>
-                domainEventHandler.setPublisher(invocation.integrationEventPublisher)
-                dispatchPhaseFor(domainEventHandler).also {
-                    validateDispatchPhase(it, errorStrategy)
-                }
+                handler.setPublisher(invocation.integrationEventPublisher)
+                dispatchPhaseFor(handler).also { validateDispatchPhase(it, errorStrategy) }
             }
 
         val finalHandler: suspend (DomainEvent) -> Unit = { message: DomainEvent ->

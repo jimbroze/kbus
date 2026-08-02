@@ -11,11 +11,16 @@ import com.jimbroze.kbus.core.fixtures.StorageCommand
 import com.jimbroze.kbus.core.fixtures.StorageCommandHandler
 import com.jimbroze.kbus.core.fixtures.StorageQuery
 import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
+import com.jimbroze.kbus.core.fixtures.TestDomainEvent
+import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.testCommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
@@ -23,6 +28,7 @@ import kotlin.test.assertNull
 private class FakeGenerationHandlerFactory(
     private val holdsCommand: Boolean = false,
     private val holdsQuery: Boolean = false,
+    private val holdsDomainEventHandler: Boolean = false,
 ) : GenerationHandlerFactory {
     @Suppress("UNCHECKED_CAST")
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
@@ -44,6 +50,14 @@ private class FakeGenerationHandlerFactory(
     override fun <TEvent : Event> eventHandler(
         handlerClass: KClass<EventHandler<TEvent>>
     ): EventHandler<TEvent>? = null
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <TEvent : DomainEvent> domainEventHandler(
+        handlerClass: KClass<DomainEventHandler<TEvent>>
+    ): DomainEventHandler<TEvent>? =
+        if (holdsDomainEventHandler && handlerClass == TestDomainEventHandler::class)
+            TestDomainEventHandler(mutableListOf()) as DomainEventHandler<TEvent>
+        else null
 
     override fun commandTypes(): Set<KClass<out Command<*>>> =
         if (holdsCommand) setOf(StorageCommand::class) else emptySet()
@@ -119,5 +133,41 @@ class GenerationHandlerLocatorTest {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
 
         assertNull(locator.handlerFor(StorageQuery(0, mutableListOf())))
+    }
+
+    @Test
+    fun domainHandlersFor_buildsTheSubscribedHandlersFromItsFactory() {
+        val locator =
+            GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsDomainEventHandler = true))
+        locator.domainEventMapper.addDomainHandlers(
+            TestDomainEvent::class,
+            listOf(TestDomainEventHandler::class),
+        )
+
+        val handlers = locator.domainHandlersFor(TestDomainEvent("test"))
+
+        assertEquals(1, handlers.size)
+        assertIs<TestDomainEventHandler>(handlers.single())
+    }
+
+    @Test
+    fun domainHandlersFor_findsNoHandlersForAnUnsubscribedEvent() {
+        val locator =
+            GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsDomainEventHandler = true))
+
+        assertEquals(emptyList(), locator.domainHandlersFor(TestDomainEvent("test")))
+    }
+
+    @Test
+    fun domainHandlersFor_failsWhenTheContextsFactoryCannotBuildASubscribedHandler() {
+        val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
+        locator.domainEventMapper.addDomainHandlers(
+            TestDomainEvent::class,
+            listOf(TestDomainEventHandler::class),
+        )
+
+        assertFailsWith<IllegalStateException> {
+            locator.domainHandlersFor(TestDomainEvent("test"))
+        }
     }
 }

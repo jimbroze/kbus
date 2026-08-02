@@ -35,7 +35,7 @@ class ContextRuntimeTest {
     ): ContextRuntime {
         val eventDispatcher =
             EventDispatcher(
-                locator::handlersFor,
+                locator::domainHandlersFor,
                 emptyList(),
                 dispatcherScope,
                 contextFactory = emptyContextFactory(dispatcherScope),
