@@ -115,7 +115,7 @@ class InboxCoordinatorTest {
         val store = RecordingInboxStore()
         val alpha = context(BoundedContextId("alpha"), backgroundScope, honouringInbox(store))
         store.save(listOf(EventEnvelope.of(TestIntegrationEvent("from-before-crash"))))
-        val config = InboxConfig(pollInterval = 10.milliseconds)
+        val config = InboxTuning(pollInterval = 10.milliseconds)
         val coordinator = InboxCoordinator(config, listOf(alpha), backgroundScope)
 
         coordinator.startConsuming()

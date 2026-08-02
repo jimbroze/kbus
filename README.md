@@ -774,7 +774,7 @@ makes **no ordering guarantee** on them, and the API deliberately offers no way 
 - Publishing splits a batch by error strategy, so fire-and-forget events race the rest.
 - Routing fans out to subscribing contexts concurrently.
 - Delivery within a fetched batch is concurrent, capped by `maxConcurrentDeliveries` (default 16) on `OutboxConfig`
-  and `InboxConfig`.
+  and `InboxTuning`.
 - Retries reorder by construction: a failed envelope is redelivered after later ones already succeeded.
 
 Setting `maxConcurrentDeliveries = 1` restores strict in-order delivery *within a single fetched batch, in a single
@@ -1003,7 +1003,7 @@ A few things this stage deliberately leaves for later, since none of them requir
 - No dead-letter queue — a poison message retries forever, and if poison entries ever exceed the batch size, the
   oldest-first fetch stops advancing and the context wedges.
 - `pollInterval`, `batchSize`, `maxConcurrentDeliveries` and whether dispatch is opportunistic stay bus-wide on
-  `InboxConfig`, not per-context.
+  `InboxTuning`, not per-context.
 - Tombstone retention has no contract-level pruning hook; an implementation that prunes too aggressively re-opens the
   duplicate window it was closing.
 - No ordering guarantee — see [Event Ordering](#event-ordering); this is a design decision rather than a gap, but a

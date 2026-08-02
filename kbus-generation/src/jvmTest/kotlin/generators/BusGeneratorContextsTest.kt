@@ -3,7 +3,7 @@ package com.jimbroze.kbus.generation.generators
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
@@ -27,7 +27,7 @@ class BusGeneratorContextsTest {
                 middlewareClass = Middleware::class,
                 transactionManagerClass = TransactionManager::class,
                 outboxConfigClass = OutboxConfig::class,
-                inboxConfigClass = InboxConfig::class,
+                inboxTuningClass = InboxTuning::class,
             ),
             packagePath = "com.jimbroze.kbus.generated",
         )
