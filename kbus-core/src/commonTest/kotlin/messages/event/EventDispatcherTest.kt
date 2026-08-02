@@ -789,10 +789,10 @@ class EventDispatcherTest {
     // =========================================================================
 
     @Test
-    fun dispatchDomainEvent_wires_the_invocations_publisher_into_domain_event_handlers() = runTest {
+    fun dispatchDomainEvent_builds_domain_handlers_with_the_invocations_publisher() = runTest {
         val recordingPublisher = RecordingIntegrationEventPublisher()
         val env = TestEnv(this, recordingPublisher)
-        env.withDomainHandlers(PublishingDomainEventHandler())
+        env.withDomainHandlers(PublishingDomainEventHandler(recordingPublisher))
 
         env.dispatch(TestDomainEvent("via-domain-handler"))
 
@@ -802,7 +802,7 @@ class EventDispatcherTest {
     }
 
     @Test
-    fun dispatchIntegrationEvent_wires_the_contexts_publisher_into_integration_event_handlers() =
+    fun dispatchIntegrationEvent_builds_integration_handlers_with_the_contexts_publisher() =
         runTest {
             val destination = RecordingDestination()
             val dispatcher =
@@ -821,7 +821,7 @@ class EventDispatcherTest {
 
             dispatcher.dispatchIntegrationEvent(
                 TestIntegrationEvent("test"),
-                { listOf(PublishingIntegrationEventHandler()) },
+                { listOf(PublishingIntegrationEventHandler(it.integrationEventPublisher)) },
             )
             advanceUntilIdle()
 

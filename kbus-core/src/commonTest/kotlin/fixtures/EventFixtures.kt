@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -108,12 +107,14 @@ class TestDomainEventHandler(private val results: MutableList<String>) :
     }
 }
 
-/** Publishes an integration event via the [DomainEventHandler] mixin, synchronously. */
-class PublishingDomainEventHandler : DomainEventHandler<TestDomainEvent>() {
+/** Publishes an integration event from its declared publisher, synchronously. */
+class PublishingDomainEventHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : DomainEventHandler<TestDomainEvent>() {
     override val dispatchTiming = DispatchTiming.ImmediatelyInTransaction
 
     override suspend fun handle(message: TestDomainEvent) {
-        publish(TestIntegrationEvent(message.data))
+        integrationEventPublisher.publish(listOf(TestIntegrationEvent(message.data)))
     }
 }
 
@@ -582,11 +583,14 @@ class DelayingIntegrationEventHandler(
     }
 }
 
-/** Publishes an integration event via the [CanPublishIntegrationEvent] mixin. */
-class PublishingIntegrationEventHandler :
-    CanPublishIntegrationEvent(), IntegrationEventHandler<TestIntegrationEvent> {
+/** Publishes a further integration event from its declared publisher. */
+class PublishingIntegrationEventHandler(
+    private val integrationEventPublisher: IntegrationEventPublisher
+) : IntegrationEventHandler<TestIntegrationEvent> {
     override suspend fun handle(message: TestIntegrationEvent) {
-        publish(TestIntegrationEvent("published-by-${message.name}"))
+        integrationEventPublisher.publish(
+            listOf(TestIntegrationEvent("published-by-${message.name}"))
+        )
     }
 }
 

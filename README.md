@@ -845,10 +845,9 @@ behaviour described above; everything else gets "save immediately, then drain op
 transaction to defer the save to, so the save happens up front and delivery follows the same
 fire-and-forget/poller-backstop pattern. The trade-off: non-command saves aren't atomic with whatever surrounding work
 triggered them, but events are never silently lost, and the same retry/DLQ policy applies uniformly across every publish
-path. Integration event handlers can themselves publish further events by extending
-`CanPublishIntegrationEvent`, the same mixin domain event handlers use — the dispatcher wires each handler's publisher
-before dispatch, so these publishes are outbox-durable too. A command handler instead declares an
-`IntegrationEventPublisher` constructor parameter, and gets the publisher its own invocation carries.
+path. Integration event handlers can themselves publish further events by declaring an `IntegrationEventPublisher`
+constructor parameter, exactly as command and domain event handlers do — the publisher a handler is constructed with
+is the one belonging to whatever reached it, so these publishes are outbox-durable too.
 
 A publish call's failure semantics differ slightly by path: on the transactional (command-scoped) path, `publish`
 only fails if the *buffering* itself fails (essentially never); on every other path, `publish` fails if the *store save*

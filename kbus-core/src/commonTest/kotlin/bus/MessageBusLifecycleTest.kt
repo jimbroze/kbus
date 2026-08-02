@@ -3,9 +3,9 @@ package com.jimbroze.kbus.core.bus
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
@@ -336,7 +336,7 @@ class MessageBusLifecycleTest {
             LifecycleDomainEvent::class,
             listOf(
                 EventHandlerFactory(RepublishingAfterTransactionHandler::class) {
-                    RepublishingAfterTransactionHandler(50)
+                    RepublishingAfterTransactionHandler(50, it.integrationEventPublisher)
                 }
             ),
         )
@@ -384,7 +384,7 @@ class MessageBusLifecycleTest {
             LifecycleDomainEvent::class,
             listOf(
                 EventHandlerFactory(RepublishingAfterTransactionHandler::class) {
-                    RepublishingAfterTransactionHandler(delayMs)
+                    RepublishingAfterTransactionHandler(delayMs, it.integrationEventPublisher)
                 }
             ),
         )
@@ -396,7 +396,7 @@ class MessageBusLifecycleTest {
             LifecycleIntegrationEvent::class,
             listOf(
                 EventHandlerFactory(SelfRepublishingIntegrationHandler::class) {
-                    SelfRepublishingIntegrationHandler(delayMs)
+                    SelfRepublishingIntegrationHandler(delayMs, it.integrationEventPublisher)
                 }
             ),
         )
@@ -602,13 +602,15 @@ private class UncancellableWorkMiddleware : LifecycleAwareMiddleware {
 private class LifecycleIntegrationEvent(val message: String) : IntegrationEvent()
 
 /** Publishes a further detached hop — the integration routing — from inside a detached handler. */
-private class RepublishingAfterTransactionHandler(private val delayMs: Long) :
-    DomainEventHandler<LifecycleDomainEvent>() {
+private class RepublishingAfterTransactionHandler(
+    private val delayMs: Long,
+    private val integrationEventPublisher: IntegrationEventPublisher,
+) : DomainEventHandler<LifecycleDomainEvent>() {
     override val dispatchTiming = DispatchTiming.AfterTransaction
 
     override suspend fun handle(message: LifecycleDomainEvent) {
         delay(delayMs.milliseconds)
-        publish(LifecycleIntegrationEvent(message.message))
+        integrationEventPublisher.publish(listOf(LifecycleIntegrationEvent(message.message)))
     }
 }
 
@@ -623,10 +625,12 @@ private class DelayingLifecycleIntegrationHandler(
 }
 
 /** Publishes its own successor on every dispatch, so detached work never runs out. */
-private class SelfRepublishingIntegrationHandler(private val delayMs: Long) :
-    CanPublishIntegrationEvent(), IntegrationEventHandler<LifecycleIntegrationEvent> {
+private class SelfRepublishingIntegrationHandler(
+    private val delayMs: Long,
+    private val integrationEventPublisher: IntegrationEventPublisher,
+) : IntegrationEventHandler<LifecycleIntegrationEvent> {
     override suspend fun handle(message: LifecycleIntegrationEvent) {
         delay(delayMs.milliseconds)
-        publish(LifecycleIntegrationEvent(message.message))
+        integrationEventPublisher.publish(listOf(LifecycleIntegrationEvent(message.message)))
     }
 }

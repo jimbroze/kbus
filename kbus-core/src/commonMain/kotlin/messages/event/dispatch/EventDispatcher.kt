@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.CanPublishIntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
@@ -61,9 +60,6 @@ class EventDispatcher(
             errorStrategyOverride?.let(::mapErrorStrategy) ?: errorStrategyFor(event)
         val context = contextFactory.contextFor(null)
         val handlers = getHandlers(EventHandlerDependencies(context.integrationEventPublisher))
-        handlers.forEach {
-            (it as? CanPublishIntegrationEvent)?.setPublisher(context.integrationEventPublisher)
-        }
 
         val finalHandler: suspend (TEvent) -> Unit = { message: TEvent ->
             val dispatchHandlersWithErrorHandling =
@@ -91,7 +87,6 @@ class EventDispatcher(
         val errorStrategy = errorStrategyFor(event)
         val handlersByPhase =
             handlers.groupBy { handler ->
-                handler.setPublisher(invocation.integrationEventPublisher)
                 dispatchPhaseFor(handler).also { validateDispatchPhase(it, errorStrategy) }
             }
 

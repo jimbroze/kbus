@@ -61,7 +61,6 @@ internal class InvocationNestedCommandExecutor(
                 dependenciesFactory.create(owningContext, invocation, this),
             ) ?: throw MissingHandlerException(command::class)
 
-        handler.setPublisher(invocation.integrationEventPublisher)
         checkTransaction(command, handler.executeInTransaction)
 
         val execute =
