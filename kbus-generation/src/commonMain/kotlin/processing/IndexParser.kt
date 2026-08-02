@@ -3,6 +3,7 @@ package com.jimbroze.kbus.generation.processing
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
+import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
 import com.jimbroze.kbus.contracts.annotations.index.DependencyType
 import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
@@ -23,6 +24,7 @@ import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
 import com.jimbroze.kbus.generation.utility.findArgument
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.TypeName
 
 class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
@@ -126,6 +128,19 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
                 TypeResolver.resolveClassName(integrationEventClassSignature),
                 TypeResolver.resolveClassName(domainEventClassSignature),
             )
+        }
+    }
+
+    fun createContextCommandsInterfaces(
+        contextCommandsInfoAnnotations: List<KSAnnotation>
+    ): List<Pair<String, ClassName>> {
+        return contextCommandsInfoAnnotations.map { contextCommandsInfoAnnotation ->
+            val contextIdentity: String =
+                contextCommandsInfoAnnotation.findArgument(ContextCommandsInfo::contextIdentity)
+            val interfaceClassSignature: String =
+                contextCommandsInfoAnnotation.findArgument(ContextCommandsInfo::interfaceClass)
+
+            contextIdentity to TypeResolver.resolveClassName(interfaceClassSignature)
         }
     }
 }

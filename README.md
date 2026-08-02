@@ -1143,6 +1143,10 @@ Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of fu
 these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
 module's `generatedAutoPublishRegistrations`.
 
+An index also names the typed command interfaces its module generated, against the bounded context each covers. That
+is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from
+metadata rather than discovering it by where it was written.
+
 ### Bounded Context identity
 
 A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,

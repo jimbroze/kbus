@@ -56,7 +56,6 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             createGenerators(environment, config),
             config.isSubModule,
             config.indexPackagePath,
-            PACKAGE_PATH,
         )
     }
 
