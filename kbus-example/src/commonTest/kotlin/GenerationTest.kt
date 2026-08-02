@@ -14,7 +14,7 @@ import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import com.jimbroze.kbus.core.module.ContextConfig
 import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.generation.subscribe
 import com.jimbroze.kbus.core.registry.generation.subscribeDomain
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
@@ -419,7 +419,8 @@ class GenerationTest {
                 emptyList(),
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = InMemoryOutboxStore(), pollInterval = 10.seconds),
-                inbox = InboxConfig(opportunisticDispatch = false, pollInterval = 50.milliseconds),
+                inboxTuning =
+                    InboxTuning(opportunisticDispatch = false, pollInterval = 50.milliseconds),
                 inventory =
                     ContextConfig(
                         inbox = ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),

@@ -25,8 +25,8 @@ import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextRuntime
 import com.jimbroze.kbus.core.module.OwningContext
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
+import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -62,14 +62,34 @@ interface IMessageBus {
  */
 @Suppress("LongParameterList")
 abstract class BaseMessageBus(
-    private val handlerLocator: HandlerLocator? = null,
-    transactionManager: TransactionManager?,
+    contexts: List<BoundedContext>,
+    transactionManager: TransactionManager,
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-    contexts: List<BoundedContext> = emptyList(),
-    inbox: InboxConfig? = null,
+    inboxTuning: InboxTuning? = null,
 ) : IMessageBus {
+    /**
+     * A bus over a single implicit default context, for apps that draw no context boundaries. The
+     * locator and a set of contexts are alternatives, not a pair, so neither can be silently
+     * ignored in favour of the other.
+     */
+    constructor(
+        handlerLocator: HandlerLocator,
+        transactionManager: TransactionManager,
+        middlewares: List<Middleware>,
+        appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+        outbox: OutboxConfig? = null,
+        inboxTuning: InboxTuning? = null,
+    ) : this(
+        listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)),
+        transactionManager,
+        middlewares,
+        appScope,
+        outbox,
+        inboxTuning,
+    )
+
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
     protected val rootScope =
         CoroutineScope(appScope.coroutineContext + rootJob + CoroutineName("KBus-Root"))
@@ -92,38 +112,31 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One runtime per declared [BoundedContext]. No [contexts] gives a single default context over
-     * the bus's own locator, leaving non-modular apps unaffected. A bus declaring neither has
-     * nowhere to resolve a handler from at all, so it is a wiring error rather than an empty bus.
+     * One runtime per declared [BoundedContext].
      *
      * Dispatchers are built lazily to break a cycle: a dispatcher depends on the router, which
      * depends on these runtimes.
      */
     private val contextRuntimes: List<ContextRuntime> =
-        contexts
-            .ifEmpty {
-                val locator =
-                    requireNotNull(handlerLocator) {
-                        "A bus needs either bounded contexts or a handler locator of its own."
-                    }
-                listOf(BoundedContext(BoundedContextId.DEFAULT, locator))
-            }
-            .map { context ->
-                ContextRuntime(
-                    context,
-                    eventDispatcher =
-                        lazy {
-                            EventDispatcher(
-                                context.handlerLocator::domainHandlersFor,
-                                middlewares,
-                                eventDispatcherScope,
-                                contextFactory = contextFactory,
-                            )
-                        },
-                )
-            }
+        contexts.map { context ->
+            ContextRuntime(
+                context,
+                eventDispatcher =
+                    lazy {
+                        EventDispatcher(
+                            context.handlerLocator::domainHandlersFor,
+                            middlewares,
+                            eventDispatcherScope,
+                            contextFactory = contextFactory,
+                        )
+                    },
+            )
+        }
 
     init {
+        require(contextRuntimes.isNotEmpty()) {
+            "A bus needs at least one bounded context to resolve handlers from."
+        }
         val duplicates =
             contextRuntimes.groupingBy { it.context.id }.eachCount().filterValues { it > 1 }.keys
         require(duplicates.isEmpty()) {
@@ -135,7 +148,7 @@ abstract class BaseMessageBus(
     private val commandOwners = indexOwners { it.handledCommandTypes() }
     private val queryOwners = indexOwners { it.handledQueryTypes() }
 
-    private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
+    private val inboxCoordinator = InboxCoordinator(inboxTuning, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
     private val directPublisher = DirectPublisher(router, eventDispatcherScope)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
@@ -308,21 +321,22 @@ abstract class BaseMessageBus(
 
 // TODO change KSP to use extension functions?
 @Suppress("LongParameterList")
-class MessageBus(
-    handlerLocator: HandlerLocator = PersistingHandlerLocator(),
-    transactionManager: TransactionManager? = EmptyTransactionManager(),
-    middlewares: List<Middleware> = emptyList(),
-    appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    outbox: OutboxConfig? = null,
-    contexts: List<BoundedContext> = emptyList(),
-    inbox: InboxConfig? = null,
-) :
-    BaseMessageBus(
-        handlerLocator,
-        transactionManager,
-        middlewares,
-        appScope,
-        outbox,
-        contexts,
-        inbox,
-    )
+class MessageBus : BaseMessageBus {
+    constructor(
+        handlerLocator: HandlerLocator = PersistingHandlerLocator(),
+        transactionManager: TransactionManager = EmptyTransactionManager(),
+        middlewares: List<Middleware> = emptyList(),
+        appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+        outbox: OutboxConfig? = null,
+        inboxTuning: InboxTuning? = null,
+    ) : super(handlerLocator, transactionManager, middlewares, appScope, outbox, inboxTuning)
+
+    constructor(
+        contexts: List<BoundedContext>,
+        transactionManager: TransactionManager = EmptyTransactionManager(),
+        middlewares: List<Middleware> = emptyList(),
+        appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+        outbox: OutboxConfig? = null,
+        inboxTuning: InboxTuning? = null,
+    ) : super(contexts, transactionManager, middlewares, appScope, outbox, inboxTuning)
+}

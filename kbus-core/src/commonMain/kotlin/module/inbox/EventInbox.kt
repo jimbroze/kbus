@@ -34,7 +34,7 @@ internal constructor(
     private val inner: EventDestination,
     private val store: InboxStore,
     private val pumpScope: CoroutineScope,
-    private val tuning: InboxConfig,
+    private val tuning: InboxTuning,
 ) : EventDestination {
     override val name: String
         get() = inner.name

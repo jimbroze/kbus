@@ -16,7 +16,7 @@ import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -237,7 +237,6 @@ class MessageBusInboxTest {
 
             val bus =
                 MessageBus(
-                    busLocator,
                     appScope = backgroundScope,
                     outbox = OutboxConfig(store = outboxStore),
                     contexts =
@@ -262,7 +261,7 @@ class MessageBusInboxTest {
                                     ),
                             ),
                         ),
-                    inbox = InboxConfig(pollInterval = 100.milliseconds),
+                    inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
                 )
             bus.start()
 
@@ -295,7 +294,6 @@ class MessageBusInboxTest {
         val failingStore = RecordingInboxStore()
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore),
                 contexts =
@@ -312,7 +310,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(failingStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                     ),
-                inbox = InboxConfig(pollInterval = 100.milliseconds),
+                inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
             )
         bus.start()
 
@@ -329,7 +327,6 @@ class MessageBusInboxTest {
     fun aRedeliveredEnvelopeIsDedupedOnItsId_soHandlersRunOnce() = runTest {
         val outboxStore = NonAckingOutboxStore()
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
 
         val received = mutableListOf<String>()
@@ -338,7 +335,6 @@ class MessageBusInboxTest {
 
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 outbox =
                     OutboxConfig(
@@ -389,7 +385,6 @@ class MessageBusInboxTest {
         val inboxedStore = RecordingInboxStore()
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 contexts =
                     listOf(
@@ -401,7 +396,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(inboxedStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                     ),
-                inbox = InboxConfig(opportunisticDispatch = false),
+                inboxTuning = InboxTuning(opportunisticDispatch = false),
             )
         bus.start()
 
@@ -416,14 +411,12 @@ class MessageBusInboxTest {
     @Test
     fun aBusWithAnInboxButNoOutbox_mustBeStarted() = runTest {
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
         val healthyLocator = PersistingHandlerLocator(stores)
         registerAlphaHandlerIn(stores, healthyLocator, mutableListOf(), "healthy")
 
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 contexts =
                     listOf(
@@ -446,13 +439,11 @@ class MessageBusInboxTest {
     fun nothingPumpsBeforeStart() = runTest {
         val store = RecordingInboxStore()
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
         val healthyLocator = PersistingHandlerLocator(stores)
         registerAlphaHandlerIn(stores, healthyLocator, mutableListOf(), "healthy")
 
         MessageBus(
-            busLocator,
             appScope = backgroundScope,
             contexts =
                 listOf(
@@ -462,7 +453,7 @@ class MessageBusInboxTest {
                         inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                     )
                 ),
-            inbox = InboxConfig(pollInterval = 10.milliseconds),
+            inboxTuning = InboxTuning(pollInterval = 10.milliseconds),
         )
         advanceVirtualTime(50)
 
@@ -473,14 +464,12 @@ class MessageBusInboxTest {
     fun stop_haltsThePumps() = runTest {
         val store = RecordingInboxStore()
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
         val healthyLocator = PersistingHandlerLocator(stores)
         registerAlphaHandlerIn(stores, healthyLocator, mutableListOf(), "healthy")
 
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 contexts =
                     listOf(
@@ -490,7 +479,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
-                inbox = InboxConfig(pollInterval = 20.milliseconds),
+                inboxTuning = InboxTuning(pollInterval = 20.milliseconds),
             )
 
         bus.start()
@@ -507,14 +496,12 @@ class MessageBusInboxTest {
     @Test
     fun aFailingIntegrationHandlerNeverFailsTheCommand() = runTest {
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
         val failingLocator = PersistingHandlerLocator(stores)
         registerThrowingHandlerIn(stores, failingLocator, mutableListOf())
 
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = RecordingOutboxStore()),
                 contexts =
@@ -543,14 +530,12 @@ class MessageBusInboxTest {
         val store = RecordingInboxStore()
         store.save(listOf(EventEnvelope.of(InboxAlphaEvent("from-before-crash"))))
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         val healthyReceived = mutableListOf<String>()
         val healthyLocator = PersistingHandlerLocator(stores)
         registerAlphaHandlerIn(stores, healthyLocator, healthyReceived, "healthy")
 
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 contexts =
                     listOf(
@@ -560,7 +545,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
-                inbox = InboxConfig(pollInterval = 10.milliseconds),
+                inboxTuning = InboxTuning(pollInterval = 10.milliseconds),
             )
         bus.start()
         advanceVirtualTime(50)
@@ -573,7 +558,6 @@ class MessageBusInboxTest {
     fun aDefaultSettingsEventIsNotAckedUntilItsHandlerCompletes() = runTest {
         val outboxStore = RecordingOutboxStore()
         val stores = HandlerFactoryStoreCollection()
-        val busLocator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
             PublishGatedInboxCommand::class,
             listOf(
@@ -600,7 +584,6 @@ class MessageBusInboxTest {
         val inboxStore = RecordingInboxStore()
         val bus =
             MessageBus(
-                busLocator,
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
                 contexts =
@@ -634,7 +617,6 @@ class MessageBusInboxTest {
     fun requireHandlerSuccess_leavesAFailedDefaultSettingsEventPending_andRetriesOnTheNextTick() =
         runTest {
             val stores = HandlerFactoryStoreCollection()
-            val busLocator = PersistingHandlerLocator(stores)
             stores.commandStore.registerHandlers(
                 PublishGatedInboxCommand::class,
                 listOf(
@@ -663,7 +645,6 @@ class MessageBusInboxTest {
             val inboxStore = RecordingInboxStore()
             val bus =
                 MessageBus(
-                    busLocator,
                     appScope = backgroundScope,
                     contexts =
                         listOf(
@@ -674,7 +655,7 @@ class MessageBusInboxTest {
                                     ContextInbox(inboxStore, InboxAckPolicy.RequireHandlerSuccess),
                             )
                         ),
-                    inbox = InboxConfig(pollInterval = 100.milliseconds),
+                    inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
                 )
             bus.start()
 

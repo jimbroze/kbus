@@ -50,7 +50,7 @@ class ContextInbox(val store: InboxStore, val ackPolicy: InboxAckPolicy)
  * [EnvelopeRelay][com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay]. Set it to 1 to
  * consume a batch strictly in the order the store returned it.
  */
-class InboxConfig(
+class InboxTuning(
     val pollInterval: Duration = 30.seconds,
     val batchSize: Int = 100,
     val opportunisticDispatch: Boolean = true,
@@ -61,15 +61,15 @@ class InboxConfig(
  * Gives every context that declares a [ContextInbox] durable, independently acknowledged delivery,
  * and leaves the rest dispatching synchronously.
  *
- * A null [config] means default tuning, not "no inboxes" — whether a context has one is the
- * context's own declaration.
+ * A null [configuredTuning] means default tuning, not "no inboxes" — whether a context has one is
+ * the context's own declaration.
  */
 internal class InboxCoordinator(
-    config: InboxConfig?,
+    configuredTuning: InboxTuning?,
     contexts: List<ContextRuntime>,
     private val inboxScope: CoroutineScope,
 ) {
-    private val tuning = config ?: InboxConfig()
+    private val tuning = configuredTuning ?: InboxTuning()
 
     val destinations: List<EventDestination> =
         contexts.map { contextRuntime ->
