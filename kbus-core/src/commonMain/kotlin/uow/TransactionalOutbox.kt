@@ -95,10 +95,7 @@ internal constructor(
 
 /**
  * Outbox-backed publish with no transaction to coordinate with: saves durably first, then delivers
- * opportunistically. Stateless — safe to share as a single long-lived instance. This is the
- * null-[UnitOfWork] counterpart to [TransactionalOutbox]: with nothing to flush on, "publish"
- * collapses to exactly the already-flushed path — save then drain — so it needs no buffer, mutex,
- * or flush bookkeeping.
+ * opportunistically. Stateless — safe to share as a single long-lived instance.
  */
 class ImmediateOutboxPublisher
 internal constructor(

@@ -10,24 +10,18 @@ import kotlinx.coroutines.launch
 
 /**
  * Decorates [inner] with a durable, per-context inbox. [deliver] collapses to *save durably and
- * return* — the router acks immediately, whatever [inner] does happens later, off [store], via
- * [drain] (an opportunistic single tick) and [pump] (the scheduled loop). [inner] and the router
- * are otherwise untouched: this is a decorator, not a branch inside [inner].
+ * return*: the router acks on the save, and whatever [inner] does happens later, off [store], via
+ * [drain] (one opportunistic tick) and [pump] (the scheduled loop).
  *
- * The drain reads from [store], never from the batch just saved — the store is the only truth about
- * what is still pending, so a drain also sweeps up whatever a previous failed drain left behind,
- * and a re-saved duplicate is filtered by [InboxStore.fetchPending] rather than by ad-hoc logic
- * here. [inner]'s `deliver` is called once per entry (`listOf(it)`, not the whole batch), which is
- * what makes the ack per-entry: a throwing handler for one envelope only leaves that envelope
- * unacked, not its siblings.
+ * Both read from [store] rather than from the batch just saved, so a tick also sweeps up what a
+ * previous failed one left behind. [inner] is delivered one entry at a time, which is what makes
+ * the ack per-entry: a throwing handler leaves that envelope unacked and not its siblings.
  *
- * [relay]'s single-flight mutex is what stops an opportunistic [drain] racing a [pump] tick — both
- * call [EnvelopeRelay.pollOnce], so the loser blocks until the winner has fetched, delivered and
- * acked. This is per-process only; cross-process overlap remains [store]'s problem via
- * [InboxStore.fetchPending], exactly as for the outbox.
+ * Racing a [drain] against a [pump] tick is safe within a process; cross-process overlap remains
+ * [store]'s to resolve via [InboxStore.fetchPending], as for the outbox.
  *
- * A [store] failure propagates out of [deliver], so the router records a failed destination and the
- * producer's outbox retries — the only remaining way an inboxed context can un-ack an envelope.
+ * A [store] failure propagates out of [deliver], leaving the producer's outbox to retry — the only
+ * remaining way an inboxed context can un-ack an envelope.
  */
 class EventInbox
 internal constructor(

@@ -18,20 +18,16 @@ import kotlinx.coroutines.coroutineScope
  * event again. Exactly-once observe would require deduping on [EventEnvelope.id] against a durable
  * store — the same id-keyed machinery a consuming inbox will need.
  *
- * Per envelope: emit to observers, then attempt **every** accepting [EventDestination]
- * concurrently, collecting failures rather than stopping at the first one — a slow or sick
- * destination neither delays nor denies delivery to the healthy ones, which only dedupe a duplicate
- * on retry. If any destination failed, throws [AggregateException] so the caller (the outbox)
- * leaves the entry unpublished for the poller to retry; destinations that succeeded will see that
- * retry as a duplicate, which is what at-least-once already requires them to tolerate.
+ * Every accepting [EventDestination] is attempted concurrently and failures are collected rather
+ * than short-circuited, so one sick destination neither delays nor denies the healthy ones. Any
+ * failure throws [AggregateException], leaving the entry unpublished for the poller; the
+ * destinations that did succeed see the retry as a duplicate, which at-least-once already requires
+ * them to tolerate.
  *
  * Concurrency is per destination, never within one: a destination receives its whole accepted batch
- * in a single [EventDestination.deliver] call, so ordering guarantees within a destination are its
- * own to make. A [CancellationException] from a destination is rethrown rather than collected —
- * dispatch commonly runs inside a cancellable coroutine (a launched publish, an inbox pump), and
- * wrapping a cancellation into an [AggregateException] would turn a normal shutdown signal into a
- * genuine, uncaught error. It cancels the in-flight siblings too, which is the point: the caller is
- * shutting down, and their entries stay unpublished for the poller.
+ * in a single [EventDestination.deliver] call, so ordering within a destination is its own to make.
+ * A [CancellationException] is rethrown rather than collected, so a shutdown signal stays a
+ * shutdown signal.
  */
 class EventRouter(
     private val destinations: List<EventDestination>,

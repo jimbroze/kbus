@@ -43,9 +43,7 @@ class EventDispatcher(
      * [errorStrategyOverride] lets a consumer (an inboxed [BoundedContext][com.jimbroze.kbus.core
      * .module.BoundedContext] via its ack policy) require stronger delivery guarantees than the
      * event declared — e.g. treating [ErrorStrategy.FireAndForget] as
-     * [ErrorStrategy.ContinueAndAggregate] so a handler failure is never silently acked. It carries
-     * the public [ErrorStrategy] type rather than the dispatcher-internal [EventErrorStrategy],
-     * since this method is itself public API.
+     * [ErrorStrategy.ContinueAndAggregate] so a handler failure is never silently acked.
      */
     suspend fun <TEvent : IntegrationEvent> dispatchIntegrationEvent(
         event: TEvent,
@@ -111,10 +109,9 @@ class EventDispatcher(
     }
 
     /**
-     * Each returned closure reports its own outcome instead of writing into a closure-shared list —
-     * only [EventErrorStrategy.CONTINUE_AND_AGGREGATE]'s result is ever inspected (by
-     * [dispatchHandlersWithConcurrency]), but a uniform return type lets all three strategies share
-     * the same concurrent/sequential dispatch machinery.
+     * Each closure returns the exception its handler threw, or null. Only
+     * [EventErrorStrategy.CONTINUE_AND_AGGREGATE] ever has that value inspected; the other two
+     * return null throughout so all three can share one dispatch path.
      */
     private fun <TEvent : Event> dispatchHandlersWithErrorHandling(
         handlers: List<EventHandler<TEvent>>,
@@ -161,12 +158,6 @@ class EventDispatcher(
         }
     }
 
-    /**
-     * Aggregation happens here, once, after every handler has run — not via a last-index sentinel
-     * inside the per-handler closures, which raced under [EventConcurrency.CONCURRENT] (the
-     * lexically-last handler can finish before an earlier one throws, and a shared mutable list is
-     * unsafe across concurrently-running coroutines).
-     */
     private fun dispatchHandlersWithConcurrency(
         concurrency: EventConcurrency,
         handlerDispatchFunctions: List<suspend () -> Exception?>,
@@ -188,15 +179,9 @@ class EventDispatcher(
     }
 
     /**
-     * Only [DispatchPhase.POST_COMMIT] detaches: [dispatchPhaseFor] never returns `null`, so `phase
-     * == null` here means an *integration* event (there is no post-commit-work coordinator to
-     * detach from on that path — see [dispatchIntegrationEvent]), and integration dispatch always
-     * awaits its handlers. The remaining detach is what stops a command's return from waiting on a
-     * domain event handler scheduled [after transaction commit][DispatchPhase .POST_COMMIT];
-     * [validateDispatchPhase] already rejects [EventErrorStrategy.FAIL_FAST]/
-     * [EventErrorStrategy.CONTINUE_AND_AGGREGATE] at that phase, so `phase == POST_COMMIT` here
-     * implies [EventErrorStrategy.FIRE_AND_FORGET] — the strategy check is kept for clarity, not
-     * because it can fail.
+     * Detaching at [DispatchPhase.POST_COMMIT] is what stops a command's return waiting on a
+     * handler scheduled for after its transaction commits. Every other phase, and every integration
+     * event, is awaited.
      */
     private suspend fun dispatchConcurrently(
         phase: DispatchPhase?,

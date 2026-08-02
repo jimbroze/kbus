@@ -280,9 +280,8 @@ abstract class BaseMessageBus(
 
     /**
      * Which context owns each message, read once from the contexts' handlers. Handlers registered
-     * after the bus is built are not honoured, which is safe only because registration closes at
-     * construction — and is what lets single-owner conflicts be reported against the wiring here
-     * rather than against whichever dispatch happens to hit one first.
+     * after the bus is built are not honoured; registration closes at construction, which is what
+     * lets a single-owner conflict be reported against the wiring rather than against a dispatch.
      */
     private fun indexOwners(
         handledTypes: (HandlerLocator) -> Set<KClass<out Message>>

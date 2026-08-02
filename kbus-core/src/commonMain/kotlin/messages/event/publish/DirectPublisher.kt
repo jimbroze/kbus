@@ -9,19 +9,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The no-outbox ingress: mints envelopes and routes them, with no durability. The only
- * caller-facing integration-publish path (the inbox pump, the outbox poller and the outbox drain
- * are all background coroutines with nobody waiting on them), so it is what preserves today's
- * publish-boundary timing now that dispatch itself always awaits its handlers: a batch is
- * partitioned by each event's own [ErrorStrategy], not split per event (that would multiply
- * [EventRouter]'s observer emissions and turn one batched save into several) — the
- * [ErrorStrategy.FireAndForget] group is launched on [fireAndForgetScope] (the producer said it
- * doesn't care, so publish doesn't wait on it), every other strategy is routed and awaited so a
- * destination failure still propagates to the publishing caller.
+ * The no-outbox ingress: mints envelopes and routes them, with no durability.
  *
- * [fireAndForgetScope] is required: [FireAndForget][ErrorStrategy.FireAndForget] routing launched
- * on a scope the bus does not own is work that `stop(gracePeriod)` can neither drain nor
- * `rootJob.cancelAndJoin()` cancel, so it must be the bus's own `eventDispatcherScope`.
+ * A batch is partitioned by each event's own [ErrorStrategy] rather than split per event, so one
+ * batch remains one routing attempt. The [ErrorStrategy.FireAndForget] group is launched on
+ * [fireAndForgetScope] and not waited on; every other strategy is awaited, so a destination failure
+ * reaches the publishing caller.
+ *
+ * [fireAndForgetScope] must be a scope the bus owns, or the work it launches is beyond the reach of
+ * both the stop grace period and cancellation.
  */
 class DirectPublisher(
     private val router: EventRouter,
