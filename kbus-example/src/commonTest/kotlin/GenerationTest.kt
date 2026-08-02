@@ -11,11 +11,12 @@ import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.module.ContextConfig
 import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxConfig
-import com.jimbroze.kbus.core.registry.generation.addDomainHandlers
-import com.jimbroze.kbus.core.registry.generation.addEventHandlers
+import com.jimbroze.kbus.core.registry.generation.subscribe
+import com.jimbroze.kbus.core.registry.generation.subscribeDomain
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generated.AutoLoader
@@ -32,7 +33,6 @@ import com.jimbroze.kbus.generation.test.orders.application.EmailService
 import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrder
 import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrderForRegularCustomer
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.HandleOrderPlacedIntegrationHandler
-import com.jimbroze.kbus.generation.test.orders.application.usecases.event.OrderPlacedIntegration
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.SendOrderConfirmationEmailHandler
 import com.jimbroze.kbus.generation.test.orders.application.usecases.query.GetOrderById
 import com.jimbroze.kbus.generation.test.orders.domain.OrderItem
@@ -188,12 +188,17 @@ class GenerationTest {
                 Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                 EmptyTransactionManager(),
                 emptyList(),
-            ) {
-                default.addDomainHandlers(
-                    TestGeneratorEvent::class,
-                    listOf(TestGeneratorEventHandler::class.loaded),
-                )
-            }
+                default =
+                    ContextConfig(
+                        subscriptions =
+                            listOf(
+                                subscribeDomain(
+                                    TestGeneratorEvent::class,
+                                    TestGeneratorEventHandler::class.loaded,
+                                )
+                            )
+                    ),
+            )
 
         val handledBefore = TestGeneratorEventHandler.timesHandled
         bus.execute(TestEventPublishingCommand())
@@ -231,12 +236,17 @@ class GenerationTest {
                     Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                     EmptyTransactionManager(),
                     listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
-                ) {
-                    default.addEventHandlers(
-                        TestShipmentIntegration::class,
-                        listOf(TestShipmentIntegrationHandler::class.loaded),
-                    )
-                }
+                    default =
+                        ContextConfig(
+                            subscriptions =
+                                listOf(
+                                    subscribe(
+                                        TestShipmentIntegration::class,
+                                        TestShipmentIntegrationHandler::class.loaded,
+                                    )
+                                )
+                        ),
+                )
 
             val handledBefore = TestShipmentIntegrationHandler.timesHandled
             bus.execute(TestShipmentCommand())
@@ -270,12 +280,17 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 emptyList(),
                 appScope = backgroundScope,
-            ) {
-                orders.addDomainHandlers(
-                    OrderPlaced::class,
-                    listOf(SendOrderConfirmationEmailHandler::class.loaded),
-                )
-            }
+                orders =
+                    ContextConfig(
+                        subscriptions =
+                            listOf(
+                                subscribeDomain(
+                                    OrderPlaced::class,
+                                    SendOrderConfirmationEmailHandler::class.loaded,
+                                )
+                            )
+                    ),
+            )
 
         val order =
             bus.execute(PlaceOrder("customer-1", listOf(OrderItem("book", 1, 9.99)), "card"))
@@ -333,12 +348,17 @@ class GenerationTest {
                 emptyList(),
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
-            ) {
-                inventory.addEventHandlers(
-                    StockReserved::class,
-                    listOf(NotifyWarehouseHandler::class.loaded),
-                )
-            }
+                inventory =
+                    ContextConfig(
+                        subscriptions =
+                            listOf(
+                                subscribe(
+                                    StockReserved::class,
+                                    NotifyWarehouseHandler::class.loaded,
+                                )
+                            )
+                    ),
+            )
         bus.start()
         // Let the poller's immediate first (empty) pass settle into its long sleep.
         advanceVirtualTime(50)
@@ -369,13 +389,18 @@ class GenerationTest {
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = InMemoryOutboxStore(), pollInterval = 10.seconds),
                 inbox = InboxConfig(opportunisticDispatch = false, pollInterval = 50.milliseconds),
-            ) {
-                inventory.useInbox(ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy))
-                inventory.addEventHandlers(
-                    StockReserved::class,
-                    listOf(NotifyWarehouseHandler::class.loaded),
-                )
-            }
+                inventory =
+                    ContextConfig(
+                        inbox = ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
+                        subscriptions =
+                            listOf(
+                                subscribe(
+                                    StockReserved::class,
+                                    NotifyWarehouseHandler::class.loaded,
+                                )
+                            ),
+                    ),
+            )
         bus.start()
         advanceVirtualTime(50)
 
@@ -409,12 +434,17 @@ class GenerationTest {
                         pollInterval = 50.milliseconds,
                         opportunisticDrain = false,
                     ),
-            ) {
-                inventory.addEventHandlers(
-                    StockReserved::class,
-                    listOf(NotifyWarehouseHandler::class.loaded),
-                )
-            }
+                inventory =
+                    ContextConfig(
+                        subscriptions =
+                            listOf(
+                                subscribe(
+                                    StockReserved::class,
+                                    NotifyWarehouseHandler::class.loaded,
+                                )
+                            )
+                    ),
+            )
         bus.start()
 
         val handledBefore = NotifyWarehouseHandler.timesHandled
@@ -461,19 +491,9 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
-            ) {
-                // Each submodule declares its own kbus.boundedContextIdentity, so the generated
-                // bus exposes one registration point per bounded context instead of a single
-                // ambiguous mapper.
-                orders.addEventHandlers(
-                    OrderPlacedIntegration::class,
-                    listOf(HandleOrderPlacedIntegrationHandler::class.loaded),
-                )
-                inventory.addEventHandlers(
-                    StockReserved::class,
-                    listOf(NotifyWarehouseHandler::class.loaded),
-                )
-            }
+                orders = ContextConfig(subscriptions = orderSubscriptions),
+                inventory = ContextConfig(subscriptions = inventorySubscriptions),
+            )
 
         val ordersHandledBefore = HandleOrderPlacedIntegrationHandler.timesHandled
         val inventoryHandledBefore = NotifyWarehouseHandler.timesHandled

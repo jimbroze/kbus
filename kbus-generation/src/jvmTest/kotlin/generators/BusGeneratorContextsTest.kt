@@ -52,25 +52,33 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun eachContextIsBuiltWithTheInboxItsRegistrationDeclared() {
+    fun eachContextIsBuiltFromTheConfigPassedUnderItsOwnName() {
         val bus = generateBus()
 
         assertContains(
             bus,
-            "BoundedContext(BoundedContextId(\"orders\"), ordersLocator, orders.inbox)",
+            "BoundedContext(BoundedContextId(\"orders\"), ordersLocator, " +
+                "ordersConfig.inbox, ordersConfig.subscriptions)",
         )
         assertContains(
             bus,
-            "BoundedContext(BoundedContextId.DEFAULT, defaultLocator, default.inbox)",
+            "BoundedContext(BoundedContextId.DEFAULT, defaultLocator, " +
+                "defaultConfig.inbox, defaultConfig.subscriptions)",
         )
     }
 
-    /**
-     * The registrations are configured after `Contexts` is constructed, so an eagerly built list
-     * would capture every context before its inbox had been declared.
-     */
     @Test
-    fun theContextListIsBuiltLazily() {
-        assertContains(generateBus(), "internal val all: List<BoundedContext> by lazy {")
+    fun theBusTakesOneContextConfigParameterPerContext() {
+        val bus = generateBus()
+
+        assertContains(bus, "default: ContextConfig = ContextConfig()")
+        assertContains(bus, "orders: ContextConfig = ContextConfig()")
+    }
+
+    @Test
+    fun noContextIsReachableFromTheBuiltBus() {
+        val bus = generateBus()
+
+        assertContains(bus, "private val contexts: Contexts")
     }
 }

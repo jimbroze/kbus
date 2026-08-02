@@ -8,7 +8,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.ContextRegistration
+import com.jimbroze.kbus.core.module.ContextConfig
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -19,13 +19,11 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
-import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
-import com.squareup.kotlinpoet.UNIT
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.writeTo
@@ -97,20 +95,23 @@ class BusGenerator(
     }
 
     /**
-     * One registration point per bounded context, for both integration and domain handlers. There
+     * One configuration point per bounded context, for both integration and domain handlers. There
      * is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N contexts,
      * "which context?" has no answer for either — a command's domain events dispatch only to its
      * owning context.
      *
-     * Only the [ContextRegistration]s are exposed, never the [BoundedContext]s themselves: a bus
-     * that handed those back would leave registration open for its whole lifetime. Each context
-     * locates handlers through its own factory, so it can build no handler but its own.
+     * The built [BoundedContext]s are never exposed, so nothing can subscribe to a context once the
+     * bus holding it exists. Each context locates handlers through its own factory, so it can build
+     * no handler but its own.
      */
     private fun buildContextsClass(factoryClassNames: Map<String, ClassName>): TypeSpec {
         val constructorBuilder =
             FunSpec.constructorBuilder().addModifiers(KModifier.INTERNAL).apply {
                 factoryClassNames.forEach { (context, className) ->
                     addParameter(factoryName(context), className)
+                }
+                factoryClassNames.keys.forEach { context ->
+                    addParameter(contextAccessorName(context), ContextConfig::class)
                 }
             }
         val builder =
@@ -127,11 +128,9 @@ class BusGenerator(
                     .build()
             )
             builder.addProperty(
-                PropertySpec.builder(
-                        contextAccessorName(context),
-                        ContextRegistration::class.asClassName(),
-                    )
-                    .initializer("%T(%L)", ContextRegistration::class, locatorName(context))
+                PropertySpec.builder(configName(context), ContextConfig::class)
+                    .addModifiers(KModifier.PRIVATE)
+                    .initializer(contextAccessorName(context))
                     .build()
             )
         }
@@ -140,34 +139,28 @@ class BusGenerator(
             .build()
     }
 
-    /**
-     * Built lazily because the registrations are configured after `Contexts` is constructed;
-     * reading it eagerly would capture every context before its inbox had been declared.
-     */
     private fun buildContextListProperty(contexts: List<String>): PropertySpec =
         PropertySpec.builder(
                 "all",
                 List::class.asClassName().parameterizedBy(BoundedContext::class.asClassName()),
             )
             .addModifiers(KModifier.INTERNAL)
-            .delegate(
+            .initializer(
                 CodeBlock.builder()
-                    .beginControlFlow("lazy")
                     .add(
                         contexts
                             .map { context ->
                                 CodeBlock.of(
-                                    "%T(%L, %L, %L.inbox)",
+                                    "%T(%L, %L, %L.inbox, %L.subscriptions)",
                                     BoundedContext::class,
                                     contextIdKeyBlock(contextIdentity(context)),
                                     locatorName(context),
-                                    contextAccessorName(context),
+                                    configName(context),
+                                    configName(context),
                                 )
                             }
                             .joinToCode(", ", "listOf(", ")")
                     )
-                    .add("\n")
-                    .endControlFlow()
                     .build()
             )
             .build()
@@ -179,6 +172,8 @@ class BusGenerator(
         ClassName(packagePath, contextClassPrefix(context) + config.handlerFactoryName)
 
     private fun locatorName(context: String): String = "${contextAccessorName(context)}Locator"
+
+    private fun configName(context: String): String = "${contextAccessorName(context)}Config"
 
     private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
         val returnTypeName = handler.handlerData.returnType
@@ -291,18 +286,15 @@ private class BusConstructorGenerator(
     private val contextsClassName: ClassName,
 ) {
     /**
-     * Registration against a context has to happen before the bus exists, so that a bus can close
-     * registration as it is built. A delegating constructor's arguments are evaluated before the
-     * constructor it delegates to, which is the only window where the contexts exist but the bus
-     * does not.
+     * A context is described entirely by the value passed under its own name, so what a context
+     * subscribes to is fixed before the bus exists and nothing can add to it afterwards.
      */
-    private fun configureParameter(): ParameterSpec =
-        ParameterSpec.builder(
-                "configure",
-                LambdaTypeName.get(receiver = contextsClassName, returnType = UNIT),
-            )
-            .defaultValue("{}")
-            .build()
+    private fun contextConfigParameters(contexts: Collection<String>): List<ParameterSpec> =
+        contexts.map {
+            ParameterSpec.builder(contextAccessorName(it), ContextConfig::class)
+                .defaultValue("%T()", ContextConfig::class)
+                .build()
+        }
 
     private fun middlewareListParameter(): ParameterSpec =
         ParameterSpec.builder(
@@ -395,14 +387,15 @@ private class BusConstructorGenerator(
             .addParameter(appScopeParameter())
             .addParameter(outboxParameter())
             .addParameter(inboxParameter())
-            .addParameter(configureParameter())
+            .apply { contextConfigParameters(factoryClassNames.keys).forEach(::addParameter) }
             .callThisConstructor(
                 factoryNames.map { CodeBlock.of(it) } +
                     listOf(
                         CodeBlock.of(
-                            "%T(%L).apply(configure)",
+                            "%T(%L)",
                             contextsClassName,
-                            factoryNames.joinToString(", "),
+                            (factoryNames + factoryClassNames.keys.map { contextAccessorName(it) })
+                                .joinToString(", "),
                         ),
                         CodeBlock.of("transactionManager"),
                         CodeBlock.of("middleware"),
@@ -425,7 +418,7 @@ private class BusConstructorGenerator(
             .addParameter(appScopeParameter())
             .addParameter(outboxParameter())
             .addParameter(inboxParameter())
-            .addParameter(configureParameter())
+            .apply { contextConfigParameters(factoryClassNames.keys).forEach(::addParameter) }
             .callThisConstructor(
                 factoryClassNames.values.map { CodeBlock.of("%T(loader)", it) } +
                     listOf(
@@ -434,8 +427,8 @@ private class BusConstructorGenerator(
                         CodeBlock.of("appScope"),
                         CodeBlock.of("outbox"),
                         CodeBlock.of("inbox"),
-                        CodeBlock.of("configure"),
-                    )
+                    ) +
+                    factoryClassNames.keys.map { CodeBlock.of(contextAccessorName(it)) }
             )
             .build()
 }
