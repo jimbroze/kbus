@@ -40,6 +40,7 @@ class NestedTransactionMismatchException(
 private fun describe(transactionManager: TransactionManager?): String =
     transactionManager?.let { "a ${it::class.simpleName} transaction" } ?: "no transaction"
 
+// TODO move to a persisted-store specific package?
 class TooManyHandlersException(
     message: String = "Only one handler can be registered for a command or query"
 ) : Exception(message) {
