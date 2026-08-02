@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.generation.generators
 
+import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
 import com.squareup.kotlinpoet.ClassName
@@ -74,6 +75,72 @@ class HandlersFactoryGeneratorTest {
         val ordersFactory = generated["OrdersHandlerFactory"]
         assertTrue(ordersFactory.contains("PlaceOrder"), ordersFactory)
         assertFalse(ordersFactory.contains("ReserveStock"), ordersFactory)
+    }
+
+    /**
+     * The accessor is the property's own name, not one derived from its type — `commandExecutor`
+     * holds a `NestedCommandExecutor`, so a type-derived name would reference nothing.
+     */
+    @Test
+    fun aCommandScopedDependencyIsReadFromThePropertyHoldingIt() {
+        generator.generateClasses(
+            setOf(
+                CommandHandlerDefinition(
+                    HandlerData(
+                        ClassName("com.example", "NestForeignCommandHandler"),
+                        ClassName("com.example", "NestForeignCommand"),
+                        UNIT,
+                        listOf(
+                            CommandDependency(
+                                ClassName(
+                                    "com.jimbroze.kbus.core.messages.command",
+                                    "NestedCommandExecutor",
+                                ),
+                                "commandExecutor",
+                            )
+                        ),
+                        "",
+                    )
+                )
+            ),
+            emptyList(),
+        )
+
+        assertContains(
+            generated["DefaultHandlerFactory"],
+            "NestForeignCommandHandler(commandDependencies.commandExecutor)",
+        )
+    }
+
+    @Test
+    fun aHandlerAskingForTheWholeCommandDependenciesObjectIsGivenItUnqualified() {
+        generator.generateClasses(
+            setOf(
+                CommandHandlerDefinition(
+                    HandlerData(
+                        ClassName("com.example", "WholeDepsCommandHandler"),
+                        ClassName("com.example", "WholeDepsCommand"),
+                        UNIT,
+                        listOf(
+                            CommandDependency(
+                                ClassName(
+                                    "com.jimbroze.kbus.core.messages.command",
+                                    "CommandDependencies",
+                                ),
+                                CommandDependency.WHOLE_OBJECT,
+                            )
+                        ),
+                        "",
+                    )
+                )
+            ),
+            emptyList(),
+        )
+
+        assertContains(
+            generated["DefaultHandlerFactory"],
+            "WholeDepsCommandHandler(commandDependencies)",
+        )
     }
 
     @Test

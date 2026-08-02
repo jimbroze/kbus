@@ -62,6 +62,7 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
         }
 
         val signature: String = dependencyInfoAnnotation.findArgument(DependencyInfo::signature)
+        val name: String = dependencyInfoAnnotation.findArgument(DependencyInfo::name)
         val requiresCommandDependencies: Boolean =
             dependencyInfoAnnotation.findArgument(DependencyInfo::requiresCommandDependencies)
         val cannotBeAutoloaded: Boolean =
@@ -74,7 +75,12 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
         val dependencyTypeName = TypeResolver.resolve(signature)
 
         val metadata =
-            createDependency(typeOfDependency, dependencyTypeName, requiresCommandDependencies)
+            createDependency(
+                typeOfDependency,
+                dependencyTypeName,
+                requiresCommandDependencies,
+                name,
+            )
 
         return DependencyWithDehydratedChildren(metadata, topLevelDependencies, cannotBeAutoloaded)
     }
@@ -177,11 +183,12 @@ private fun createDependency(
     dependencyType: DependencyType,
     typeRef: TypeName,
     requiresCommandDependencies: Boolean,
+    name: String,
 ): Dependency {
     return when (dependencyType) {
         DependencyType.PROPERTY -> PropertyDependency(typeRef)
         DependencyType.FUNCTIONAL -> FunctionalDependency(typeRef, requiresCommandDependencies)
-        DependencyType.COMMAND -> CommandDependency(typeRef)
+        DependencyType.COMMAND -> CommandDependency(typeRef, name)
         DependencyType.CONTEXT_COMMANDS -> ContextCommandsDependency(typeRef)
         DependencyType.NON_DEPENDENCY -> NonDependency(typeRef)
     }
