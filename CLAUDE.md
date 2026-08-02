@@ -187,6 +187,14 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - A comment describes the current code, not its history. Write for a reader who only ever sees this
   version — never "previously X", "used to do Y", "now does Z", "moved from A to B", or similar
   before/after framing. That belongs in the commit message, not the source.
+- **The cold-reader test.** Before writing a comment, ask whether someone meeting this code for the
+  first time — with no knowledge of the diff that produced it — would have written it. If it only
+  exists because you just changed something, or because you expect a reviewer to challenge the
+  choice, it is diff commentary: put it in the commit message or as a line-level comment on the PR,
+  both of which are the right places for it and are actively wanted there. A comment defending a
+  design decision at every site that decision touches is the clearest symptom.
+- **The deletion test for KDoc.** If removing a doc comment doesn't change what a caller can safely
+  do, delete it.
 - Default to no comment. Only add one when there's a specific, non-obvious reason for the code being
   the way it is — a hidden constraint, an invariant a change could silently break, a rejected
   alternative worth ruling out — something a reader could get wrong by inspecting the code alone.
