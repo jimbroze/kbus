@@ -24,6 +24,8 @@ import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextRuntime
+import com.jimbroze.kbus.core.module.ContextRuntimeFactory
+import com.jimbroze.kbus.core.module.DefaultContexts
 import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.module.inbox.InboxTuning
@@ -56,40 +58,30 @@ interface IMessageBus {
 }
 
 /**
+ * SKETCH ONLY — Option A. Not wired up, does not compile as a whole, no tests.
+ *
+ * [TContexts] is whatever the subclass calls its own set of contexts. A generated bus names each
+ * context as a property, so `contexts.orders` is a typechecked read and no id is round-tripped
+ * through a lookup. A hand-written bus uses [DefaultContexts] and gains nothing, which is right:
+ * it does not know its contexts statically either.
+ *
+ * The single-locator convenience constructor moves to [MessageBus]: a secondary constructor cannot
+ * pick a different [TContexts], so the "one implicit default context" shortcut belongs to the
+ * subclass that fixes the type.
+ *
  * @param appScope the scope every bus-owned scope derives from. Its dispatcher is inherited, not
  *   overridden, so a supplied dispatcher governs dispatch, outbox, inbox and middleware coroutines
  *   too — a scope carrying none leaves them on [Dispatchers.Default].
  */
 @Suppress("LongParameterList")
-abstract class BaseMessageBus(
-    contexts: List<BoundedContext>,
+abstract class BaseMessageBus<TContexts>(
+    buildContexts: (ContextRuntimeFactory) -> TContexts,
     transactionManager: TransactionManager,
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
     inboxTuning: InboxTuning? = null,
 ) : IMessageBus {
-    /**
-     * A bus over a single implicit default context, for apps that draw no context boundaries. The
-     * locator and a set of contexts are alternatives, not a pair, so neither can be silently
-     * ignored in favour of the other.
-     */
-    constructor(
-        handlerLocator: HandlerLocator,
-        transactionManager: TransactionManager,
-        middlewares: List<Middleware>,
-        appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-        outbox: OutboxConfig? = null,
-        inboxTuning: InboxTuning? = null,
-    ) : this(
-        listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)),
-        transactionManager,
-        middlewares,
-        appScope,
-        outbox,
-        inboxTuning,
-    )
-
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
     protected val rootScope =
         CoroutineScope(appScope.coroutineContext + rootJob + CoroutineName("KBus-Root"))
@@ -112,26 +104,31 @@ abstract class BaseMessageBus(
                 CoroutineName("KBus-Inbox")
         )
     /**
-     * One runtime per declared [BoundedContext].
-     *
      * Dispatchers are built lazily to break a cycle: a dispatcher depends on the router, which
      * depends on these runtimes.
      */
-    private val contextRuntimes: List<ContextRuntime> =
-        contexts.map { context ->
-            ContextRuntime(
-                context,
-                eventDispatcher =
-                    lazy {
-                        EventDispatcher(
-                            context.handlerLocator::domainHandlersFor,
-                            middlewares,
-                            eventDispatcherScope,
-                            contextFactory = contextFactory,
-                        )
-                    },
-            )
+    private val contextRuntimeFactory =
+        ContextRuntimeFactory { context ->
+            lazy {
+                EventDispatcher(
+                    context.handlerLocator::domainHandlersFor,
+                    middlewares,
+                    eventDispatcherScope,
+                    contextFactory = contextFactory,
+                )
+            }
         }
+
+    /**
+     * This bus's contexts, named by whoever declared them.
+     *
+     * [buildContexts] runs while this constructor does, so it may capture only its own constructor
+     * arguments — a subclass property read from it is still null.
+     */
+    protected val contexts: TContexts = buildContexts(contextRuntimeFactory)
+
+    /** One runtime per context built through [contextRuntimeFactory], in declaration order. */
+    private val contextRuntimes: List<ContextRuntime> = contextRuntimeFactory.built
 
     init {
         require(contextRuntimes.isNotEmpty()) {
@@ -301,16 +298,7 @@ abstract class BaseMessageBus(
         return owners
     }
 
-    /**
-     * The context [contextId] names, for callers that already know a command's owning context
-     * statically. Throws if no such context is on this bus, rather than silently executing against
-     * no one.
-     */
-    protected fun owningContextFor(contextId: BoundedContextId): OwningContext =
-        contextRuntimes.firstOrNull { it.context.id == contextId }
-            ?: throw IllegalArgumentException(
-                "No bounded context with id '${contextId.value}' on this bus."
-            )
+    // owningContextFor is gone: a subclass reads its contexts off `contexts`, by name.
 
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
         router.observerRegistry.observableFor(eventClass)
@@ -320,7 +308,12 @@ abstract class BaseMessageBus(
 
 // TODO change KSP to use extension functions?
 @Suppress("LongParameterList")
-class MessageBus : BaseMessageBus {
+class MessageBus : BaseMessageBus<DefaultContexts> {
+    /**
+     * A bus over a single implicit default context, for apps that draw no context boundaries. The
+     * locator and a set of contexts are alternatives, not a pair, so neither can be silently
+     * ignored in favour of the other.
+     */
     constructor(
         handlerLocator: HandlerLocator = PersistingHandlerLocator(),
         transactionManager: TransactionManager = EmptyTransactionManager(),
@@ -328,7 +321,22 @@ class MessageBus : BaseMessageBus {
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
         inboxTuning: InboxTuning? = null,
-    ) : super(handlerLocator, transactionManager, middlewares, appScope, outbox, inboxTuning)
+    ) : super(
+        { runtimeFactory ->
+            DefaultContexts(
+                listOf(
+                    runtimeFactory.runtimeFor(
+                        BoundedContext(BoundedContextId.DEFAULT, handlerLocator)
+                    )
+                )
+            )
+        },
+        transactionManager,
+        middlewares,
+        appScope,
+        outbox,
+        inboxTuning,
+    )
 
     constructor(
         contexts: List<BoundedContext>,
@@ -337,5 +345,12 @@ class MessageBus : BaseMessageBus {
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
         inboxTuning: InboxTuning? = null,
-    ) : super(contexts, transactionManager, middlewares, appScope, outbox, inboxTuning)
+    ) : super(
+        { runtimeFactory -> DefaultContexts(contexts.map(runtimeFactory::runtimeFor)) },
+        transactionManager,
+        middlewares,
+        appScope,
+        outbox,
+        inboxTuning,
+    )
 }
