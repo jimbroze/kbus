@@ -932,6 +932,15 @@ declares none keeps synchronous, un-inboxed dispatch; the two can be mixed on th
 context rather than in a bus-level map keyed by `BoundedContextId` means naming a context that does not exist is not
 expressible, and the store cannot drift apart from the context it belongs to.
 
+On a generated bus the contexts are built for you, so a context declares its inbox through its own registration
+accessor — the same compile-time-checked name used to register its event handlers:
+
+```kotlin
+CompileTimeLoadedMessageBus(dependencies, transactionManager, middleware) {
+    orders.useInbox(ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy))
+}
+```
+
 **Dedupe is what actually kills the amplification.** The router still routes a whole envelope to every context on
 every attempt, exactly as without an inbox — nothing about routing changes. What changes is that an inboxed context's
 `deliver` collapses to `InboxStore.save`, which is idempotent per `EventEnvelope.id`: a re-routed envelope that's still

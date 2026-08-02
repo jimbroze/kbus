@@ -12,16 +12,25 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
  * a bus settle which context owns each command and report conflicts while wiring up rather than on
  * a later dispatch.
  *
- * Declaring an [inbox] gives this context durable, independently acknowledged delivery of the
- * integration events it subscribes to; a context that declares none dispatches synchronously.
+ * Declaring an inbox gives this context durable, independently acknowledged delivery of the
+ * integration events it subscribes to; a context that declares none dispatches synchronously. It
+ * can be named either as the [inbox] argument or by calling
+ * [useInbox][ContextRegistration.useInbox] in [register], but not both — a context declaring it
+ * twice is a wiring mistake, reported here rather than resolved by a precedence rule.
  */
 class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
-    internal val inbox: ContextInbox? = null,
+    inbox: ContextInbox? = null,
     register: ContextRegistration.() -> Unit = {},
 ) {
-    init {
-        ContextRegistration(handlerLocator).register()
-    }
+    private val registration =
+        ContextRegistration(handlerLocator).apply {
+            register()
+            require(inbox == null || this.inbox == null) {
+                "Context ${id.value} declares an inbox twice: as an argument and via useInbox"
+            }
+        }
+
+    internal val inbox: ContextInbox? = registration.inbox ?: inbox
 }

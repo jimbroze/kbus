@@ -5,6 +5,9 @@ import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
+import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
+import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
 import com.jimbroze.kbus.core.registry.generation.addDomainHandlers
@@ -14,7 +17,10 @@ import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -105,6 +111,48 @@ class BoundedContextTest {
         }
 
         assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))
+    }
+
+    @Test
+    fun useInbox_declaresTheInboxTheContextConsumesThrough() {
+        val declaredInbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
+
+        val context = BoundedContext(BoundedContextId("orders")) { useInbox(declaredInbox) }
+
+        assertSame(declaredInbox, context.inbox)
+    }
+
+    @Test
+    fun constructor_declaresTheInboxTheContextConsumesThrough() {
+        val declaredInbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
+
+        val context =
+            BoundedContext(BoundedContextId("orders"), PersistingHandlerLocator(), declaredInbox)
+
+        assertSame(declaredInbox, context.inbox)
+    }
+
+    @Test
+    fun constructor_leavesAContextDeclaringNoInboxWithout() {
+        val context = BoundedContext(BoundedContextId("orders"))
+
+        assertNull(context.inbox)
+    }
+
+    @Test
+    fun constructor_rejectsAnInboxDeclaredBothAsAnArgumentAndThroughUseInbox() {
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                BoundedContext(
+                    BoundedContextId("orders"),
+                    PersistingHandlerLocator(),
+                    ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                ) {
+                    useInbox(ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy))
+                }
+            }
+
+        assertTrue(failure.message!!.contains("orders"))
     }
 
     @Test
