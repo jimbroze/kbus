@@ -5,32 +5,23 @@ import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 
 /**
- * One bounded context's handlers, declared by the user and passed to a bus. Event handlers are
- * registered in the [register] lambda; commands and queries go through [handlerLocator] directly.
+ * One bounded context's handlers, declared by the user and passed to a bus. Event handlers arrive
+ * as [subscriptions]; commands and queries go through [handlerLocator] directly.
  *
- * Registration is confined to that lambda so a constructed context has a fixed handler set, letting
- * a bus settle which context owns each command and report conflicts while wiring up rather than on
- * a later dispatch.
+ * A context is described entirely by its constructor arguments, so a constructed context has a
+ * fixed handler set: a bus can settle which context owns each command and report conflicts while
+ * wiring up rather than on a later dispatch.
  *
- * Declaring an inbox gives this context durable, independently acknowledged delivery of the
- * integration events it subscribes to; a context that declares none dispatches synchronously. It
- * can be named either as the [inbox] argument or by calling
- * [useInbox][ContextRegistration.useInbox] in [register], but not both — a context declaring it
- * twice is a wiring mistake, reported here rather than resolved by a precedence rule.
+ * Declaring an [inbox] gives this context durable, independently acknowledged delivery of the
+ * integration events it subscribes to; a context that declares none dispatches synchronously.
  */
 class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
-    inbox: ContextInbox? = null,
-    register: ContextRegistration.() -> Unit = {},
+    internal val inbox: ContextInbox? = null,
+    subscriptions: List<EventSubscription<*>> = emptyList(),
 ) {
-    private val registration =
-        ContextRegistration(handlerLocator).apply {
-            register()
-            require(inbox == null || this.inbox == null) {
-                "Context ${id.value} declares an inbox twice: as an argument and via useInbox"
-            }
-        }
-
-    internal val inbox: ContextInbox? = registration.inbox ?: inbox
+    init {
+        subscriptions.forEach { it.registerOn(handlerLocator) }
+    }
 }

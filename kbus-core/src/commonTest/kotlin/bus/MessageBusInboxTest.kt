@@ -243,18 +243,20 @@ class MessageBusInboxTest {
                             BoundedContext(
                                 BoundedContextId("healthy"),
                                 healthyLocator,
-                                ContextInbox(
-                                    RecordingInboxStore(),
-                                    InboxAckPolicy.HonourEventStrategy,
-                                ),
+                                inbox =
+                                    ContextInbox(
+                                        RecordingInboxStore(),
+                                        InboxAckPolicy.HonourEventStrategy,
+                                    ),
                             ),
                             BoundedContext(
                                 BoundedContextId("failing"),
                                 failingLocator,
-                                ContextInbox(
-                                    RecordingInboxStore(),
-                                    InboxAckPolicy.HonourEventStrategy,
-                                ),
+                                inbox =
+                                    ContextInbox(
+                                        RecordingInboxStore(),
+                                        InboxAckPolicy.HonourEventStrategy,
+                                    ),
                             ),
                         ),
                     inbox = InboxConfig(pollInterval = 100.milliseconds),
@@ -299,12 +301,12 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("healthy"),
                             healthyLocator,
-                            ContextInbox(healthyStore, InboxAckPolicy.HonourEventStrategy),
+                            inbox = ContextInbox(healthyStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                         BoundedContext(
                             BoundedContextId("failing"),
                             failingLocator,
-                            ContextInbox(failingStore, InboxAckPolicy.HonourEventStrategy),
+                            inbox = ContextInbox(failingStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                     ),
                 inbox = InboxConfig(pollInterval = 100.milliseconds),
@@ -346,7 +348,11 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("healthy"),
                             healthyLocator,
-                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                            inbox =
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
                         )
                     ),
             )
@@ -389,7 +395,7 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("inboxed"),
                             inboxedLocator,
-                            ContextInbox(inboxedStore, InboxAckPolicy.HonourEventStrategy),
+                            inbox = ContextInbox(inboxedStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                     ),
                 inbox = InboxConfig(opportunisticDispatch = false),
@@ -421,7 +427,11 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("healthy"),
                             healthyLocator,
-                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                            inbox =
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
                         )
                     ),
             )
@@ -446,7 +456,7 @@ class MessageBusInboxTest {
                     BoundedContext(
                         BoundedContextId("healthy"),
                         healthyLocator,
-                        ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                        inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                     )
                 ),
             inbox = InboxConfig(pollInterval = 10.milliseconds),
@@ -474,7 +484,7 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("healthy"),
                             healthyLocator,
-                            ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                            inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
                 inbox = InboxConfig(pollInterval = 20.milliseconds),
@@ -509,7 +519,11 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("failing"),
                             failingLocator,
-                            ContextInbox(RecordingInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                            inbox =
+                                ContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
                         )
                     ),
             )
@@ -540,7 +554,7 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("healthy"),
                             healthyLocator,
-                            ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
+                            inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
                 inbox = InboxConfig(pollInterval = 10.milliseconds),
@@ -591,7 +605,7 @@ class MessageBusInboxTest {
                         BoundedContext(
                             BoundedContextId("healthy"),
                             locator,
-                            ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
+                            inbox = ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
             )
@@ -653,7 +667,8 @@ class MessageBusInboxTest {
                             BoundedContext(
                                 BoundedContextId("healthy"),
                                 locator,
-                                ContextInbox(inboxStore, InboxAckPolicy.RequireHandlerSuccess),
+                                inbox =
+                                    ContextInbox(inboxStore, InboxAckPolicy.RequireHandlerSuccess),
                             )
                         ),
                     inbox = InboxConfig(pollInterval = 100.milliseconds),
