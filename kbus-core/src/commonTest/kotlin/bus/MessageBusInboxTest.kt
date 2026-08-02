@@ -16,7 +16,7 @@ import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.inbox.ContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
+import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -261,7 +261,7 @@ class MessageBusInboxTest {
                                     ),
                             ),
                         ),
-                    inbox = InboxConfig(pollInterval = 100.milliseconds),
+                    inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
                 )
             bus.start()
 
@@ -310,7 +310,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(failingStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                     ),
-                inbox = InboxConfig(pollInterval = 100.milliseconds),
+                inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
             )
         bus.start()
 
@@ -396,7 +396,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(inboxedStore, InboxAckPolicy.HonourEventStrategy),
                         ),
                     ),
-                inbox = InboxConfig(opportunisticDispatch = false),
+                inboxTuning = InboxTuning(opportunisticDispatch = false),
             )
         bus.start()
 
@@ -453,7 +453,7 @@ class MessageBusInboxTest {
                         inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                     )
                 ),
-            inbox = InboxConfig(pollInterval = 10.milliseconds),
+            inboxTuning = InboxTuning(pollInterval = 10.milliseconds),
         )
         advanceVirtualTime(50)
 
@@ -479,7 +479,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
-                inbox = InboxConfig(pollInterval = 20.milliseconds),
+                inboxTuning = InboxTuning(pollInterval = 20.milliseconds),
             )
 
         bus.start()
@@ -545,7 +545,7 @@ class MessageBusInboxTest {
                             inbox = ContextInbox(store, InboxAckPolicy.HonourEventStrategy),
                         )
                     ),
-                inbox = InboxConfig(pollInterval = 10.milliseconds),
+                inboxTuning = InboxTuning(pollInterval = 10.milliseconds),
             )
         bus.start()
         advanceVirtualTime(50)
@@ -655,7 +655,7 @@ class MessageBusInboxTest {
                                     ContextInbox(inboxStore, InboxAckPolicy.RequireHandlerSuccess),
                             )
                         ),
-                    inbox = InboxConfig(pollInterval = 100.milliseconds),
+                    inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
                 )
             bus.start()
 

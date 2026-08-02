@@ -37,7 +37,7 @@ data class BusConfig(
     val middlewareClass: KClass<*>,
     val transactionManagerClass: KClass<*>,
     val outboxConfigClass: KClass<*>,
-    val inboxConfigClass: KClass<*>,
+    val inboxTuningClass: KClass<*>,
 )
 
 private const val CONTEXTS_CLASS = "Contexts"
@@ -73,7 +73,7 @@ class BusGenerator(
                 .addSuperclassConstructorParameter("appScope = appScope")
                 .addSuperclassConstructorParameter("outbox = outbox")
                 .addSuperclassConstructorParameter("contexts = contexts.all")
-                .addSuperclassConstructorParameter("inbox = inbox")
+                .addSuperclassConstructorParameter("inboxTuning = inboxTuning")
 
         val contextsClassName = ClassName(packagePath, config.busClassName, CONTEXTS_CLASS)
         classBuilder.addType(buildContextsClass(factoryClassNames))
@@ -316,8 +316,11 @@ private class BusConstructorGenerator(
             .defaultValue("null")
             .build()
 
-    private fun inboxParameter(): ParameterSpec =
-        ParameterSpec.builder("inbox", config.inboxConfigClass.asClassName().copy(nullable = true))
+    private fun inboxTuningParameter(): ParameterSpec =
+        ParameterSpec.builder(
+                "inboxTuning",
+                config.inboxTuningClass.asClassName().copy(nullable = true),
+            )
             .defaultValue("null")
             .build()
 
@@ -341,7 +344,7 @@ private class BusConstructorGenerator(
                     .addParameter(middlewareListParameter())
                     .addParameter(appScopeParameter())
                     .addParameter(outboxParameter())
-                    .addParameter(inboxParameter())
+                    .addParameter(inboxTuningParameter())
                     .build()
             )
             .apply {
@@ -386,7 +389,7 @@ private class BusConstructorGenerator(
             .addParameter(middlewareListParameter())
             .addParameter(appScopeParameter())
             .addParameter(outboxParameter())
-            .addParameter(inboxParameter())
+            .addParameter(inboxTuningParameter())
             .apply { contextConfigParameters(factoryClassNames.keys).forEach(::addParameter) }
             .callThisConstructor(
                 factoryNames.map { CodeBlock.of(it) } +
@@ -401,7 +404,7 @@ private class BusConstructorGenerator(
                         CodeBlock.of("middleware"),
                         CodeBlock.of("appScope"),
                         CodeBlock.of("outbox"),
-                        CodeBlock.of("inbox"),
+                        CodeBlock.of("inboxTuning"),
                     )
             )
             .build()
@@ -417,7 +420,7 @@ private class BusConstructorGenerator(
             .addParameter(middlewareListParameter())
             .addParameter(appScopeParameter())
             .addParameter(outboxParameter())
-            .addParameter(inboxParameter())
+            .addParameter(inboxTuningParameter())
             .apply { contextConfigParameters(factoryClassNames.keys).forEach(::addParameter) }
             .callThisConstructor(
                 factoryClassNames.values.map { CodeBlock.of("%T(loader)", it) } +
@@ -426,7 +429,7 @@ private class BusConstructorGenerator(
                         CodeBlock.of("middleware"),
                         CodeBlock.of("appScope"),
                         CodeBlock.of("outbox"),
-                        CodeBlock.of("inbox"),
+                        CodeBlock.of("inboxTuning"),
                     ) +
                     factoryClassNames.keys.map { CodeBlock.of(contextAccessorName(it)) }
             )

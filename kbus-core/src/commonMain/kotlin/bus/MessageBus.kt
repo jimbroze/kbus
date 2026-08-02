@@ -25,8 +25,8 @@ import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextRuntime
 import com.jimbroze.kbus.core.module.OwningContext
-import com.jimbroze.kbus.core.module.inbox.InboxConfig
 import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
+import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
@@ -67,7 +67,7 @@ abstract class BaseMessageBus(
     protected val middlewares: List<Middleware>,
     appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     outbox: OutboxConfig? = null,
-    inbox: InboxConfig? = null,
+    inboxTuning: InboxTuning? = null,
 ) : IMessageBus {
     /**
      * A bus over a single implicit default context, for apps that draw no context boundaries. The
@@ -80,14 +80,14 @@ abstract class BaseMessageBus(
         middlewares: List<Middleware>,
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
-        inbox: InboxConfig? = null,
+        inboxTuning: InboxTuning? = null,
     ) : this(
         listOf(BoundedContext(BoundedContextId.DEFAULT, handlerLocator)),
         transactionManager,
         middlewares,
         appScope,
         outbox,
-        inbox,
+        inboxTuning,
     )
 
     protected val rootJob = SupervisorJob(parent = appScope.coroutineContext[Job])
@@ -148,7 +148,7 @@ abstract class BaseMessageBus(
     private val commandOwners = indexOwners { it.handledCommandTypes() }
     private val queryOwners = indexOwners { it.handledQueryTypes() }
 
-    private val inboxCoordinator = InboxCoordinator(inbox, contextRuntimes, inboxScope)
+    private val inboxCoordinator = InboxCoordinator(inboxTuning, contextRuntimes, inboxScope)
     private val router = EventRouter(inboxCoordinator.destinations)
     private val directPublisher = DirectPublisher(router, eventDispatcherScope)
     private val outboxCoordinator = OutboxCoordinator(outbox, router, outboxScope)
@@ -328,8 +328,8 @@ class MessageBus : BaseMessageBus {
         middlewares: List<Middleware> = emptyList(),
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
-        inbox: InboxConfig? = null,
-    ) : super(handlerLocator, transactionManager, middlewares, appScope, outbox, inbox)
+        inboxTuning: InboxTuning? = null,
+    ) : super(handlerLocator, transactionManager, middlewares, appScope, outbox, inboxTuning)
 
     constructor(
         contexts: List<BoundedContext>,
@@ -337,6 +337,6 @@ class MessageBus : BaseMessageBus {
         middlewares: List<Middleware> = emptyList(),
         appScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
         outbox: OutboxConfig? = null,
-        inbox: InboxConfig? = null,
-    ) : super(contexts, transactionManager, middlewares, appScope, outbox, inbox)
+        inboxTuning: InboxTuning? = null,
+    ) : super(contexts, transactionManager, middlewares, appScope, outbox, inboxTuning)
 }

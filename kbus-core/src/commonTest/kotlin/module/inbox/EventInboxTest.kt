@@ -30,7 +30,7 @@ class EventInboxTest {
                 destination,
                 RecordingInboxStore(),
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10),
+                InboxTuning(10.milliseconds, 10),
             )
 
         assertEquals("orders", inbox.name)
@@ -46,7 +46,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
 
         inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
@@ -64,7 +64,7 @@ class EventInboxTest {
                 RecordingDestination(),
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10),
+                InboxTuning(10.milliseconds, 10),
             )
 
         inbox.deliver(emptyList())
@@ -80,7 +80,7 @@ class EventInboxTest {
                 RecordingDestination(),
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10),
+                InboxTuning(10.milliseconds, 10),
             )
 
         assertFailsWith<IllegalStateException> {
@@ -93,7 +93,7 @@ class EventInboxTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =
-            EventInbox(destination, store, backgroundScope, InboxConfig(10.milliseconds, 10))
+            EventInbox(destination, store, backgroundScope, InboxTuning(10.milliseconds, 10))
 
         inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
         runCurrent()
@@ -111,7 +111,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(
             listOf(EventEnvelope("1", InboxTestEvent("a")), EventEnvelope("2", InboxTestEvent("b")))
@@ -133,7 +133,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
 
@@ -160,7 +160,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(
             listOf(EventEnvelope("1", InboxTestEvent("a")), EventEnvelope("2", InboxTestEvent("b")))
@@ -181,7 +181,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
         inbox.drain()
@@ -202,7 +202,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
 
         inbox.deliver(listOf(EventEnvelope("1", InboxTestEvent("a"))))
@@ -229,7 +229,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(1.hours, 10, opportunisticDispatch = false),
+                InboxTuning(1.hours, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
 
@@ -258,7 +258,7 @@ class EventInboxTest {
                 destination,
                 store,
                 backgroundScope,
-                InboxConfig(10.milliseconds, 10, opportunisticDispatch = false),
+                InboxTuning(10.milliseconds, 10, opportunisticDispatch = false),
             )
         store.save(listOf(EventEnvelope("1", InboxTestEvent("a"))))
 
