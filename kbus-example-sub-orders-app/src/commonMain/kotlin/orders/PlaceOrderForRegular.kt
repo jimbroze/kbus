@@ -5,7 +5,7 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.generated.OrdersCommandsKbusExampleSub
+import com.jimbroze.kbus.generated.kbusExampleSub.OrdersCommands
 import com.jimbroze.kbus.generation.test.orders.domain.Order
 import com.jimbroze.kbus.generation.test.orders.domain.OrderItem
 
@@ -15,9 +15,8 @@ class PlaceOrderForRegularCustomer(val customerId: String, val items: List<Order
 
 @LoadMessageHandler
 @Suppress("unused")
-class PlaceOrderForRegularCustomerHandler(
-    private val ordersCommands: OrdersCommandsKbusExampleSub
-) : CommandHandler<PlaceOrderForRegularCustomer, BusResult<Order, MessageFailure>>() {
+class PlaceOrderForRegularCustomerHandler(private val ordersCommands: OrdersCommands) :
+    CommandHandler<PlaceOrderForRegularCustomer, BusResult<Order, MessageFailure>>() {
     override suspend fun handle(
         message: PlaceOrderForRegularCustomer
     ): BusResult<Order, MessageFailure> =
