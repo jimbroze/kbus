@@ -135,32 +135,42 @@ class BusGenerator(
                     .build()
             )
         }
-        val contexts = factoryClassNames.keys.toList()
-
         return builder
-            .addProperty(
-                PropertySpec.builder(
-                        "all",
-                        List::class.asClassName()
-                            .parameterizedBy(BoundedContext::class.asClassName()),
-                    )
-                    .addModifiers(KModifier.INTERNAL)
-                    .initializer(
+            .addProperty(buildContextListProperty(factoryClassNames.keys.toList()))
+            .build()
+    }
+
+    /**
+     * Built lazily because the registrations are configured after `Contexts` is constructed;
+     * reading it eagerly would capture every context before its inbox had been declared.
+     */
+    private fun buildContextListProperty(contexts: List<String>): PropertySpec =
+        PropertySpec.builder(
+                "all",
+                List::class.asClassName().parameterizedBy(BoundedContext::class.asClassName()),
+            )
+            .addModifiers(KModifier.INTERNAL)
+            .delegate(
+                CodeBlock.builder()
+                    .beginControlFlow("lazy")
+                    .add(
                         contexts
                             .map { context ->
                                 CodeBlock.of(
-                                    "%T(%L, %L)",
+                                    "%T(%L, %L, %L.inbox)",
                                     BoundedContext::class,
                                     contextIdKeyBlock(contextIdentity(context)),
                                     locatorName(context),
+                                    contextAccessorName(context),
                                 )
                             }
                             .joinToCode(", ", "listOf(", ")")
                     )
+                    .add("\n")
+                    .endControlFlow()
                     .build()
             )
             .build()
-    }
 
     private fun factoryName(context: String): String =
         factoryPropertyName(context, config.handlerFactoryName)
