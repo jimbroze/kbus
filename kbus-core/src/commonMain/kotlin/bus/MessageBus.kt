@@ -279,17 +279,6 @@ abstract class BaseMessageBus<TContexts>(
         return owners
     }
 
-    /**
-     * The context [contextId] names, for callers that already know a command's owning context
-     * statically. Throws if no such context is on this bus, rather than silently executing against
-     * no one.
-     */
-    protected fun owningContextFor(contextId: BoundedContextId): OwningContext =
-        contextRuntimes.firstOrNull { it.context.id == contextId }
-            ?: throw IllegalArgumentException(
-                "No bounded context with id '${contextId.value}' on this bus."
-            )
-
     fun <TEvent : IntegrationEvent> observe(eventClass: KClass<TEvent>): Flow<TEvent> =
         router.observerRegistry.observableFor(eventClass)
 

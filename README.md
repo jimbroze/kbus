@@ -1196,6 +1196,12 @@ Identity is stamped by the producing module's KSP run and recorded on each handl
 by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `ContextConfig`
 parameter for each, named after the identity, plus `default` for handlers from modules that declared no identity.
 
+Those contexts live in a generated nested `Contexts` class, one property per identity, which the bus hands to
+`BaseMessageBus` as a factory taking a `ContextBuilder`. Registering a context on that builder is what produces the
+context the bus runs, so a generated `execute` reaches its command's context by name — `boundedContexts.billing` —
+rather than by looking an id up at runtime, and a declared context can never be one the bus is unaware of. Contexts
+are not otherwise reachable: nothing outside the bus can subscribe to a context once the bus holding it exists.
+
 Because the identity becomes a Kotlin name, two identities that differ only in their separators — `order-fulfilment`,
 `order_fulfilment`, `order.fulfilment`, `orderFulfilment` — are rejected at generation time, naming both identities and
 the handlers that declared them. `default` is rejected for the same reason: it is the name of the context that owns
