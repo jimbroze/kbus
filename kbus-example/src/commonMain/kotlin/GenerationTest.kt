@@ -14,7 +14,7 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.bus.BaseMessageBus
+import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
@@ -153,7 +153,7 @@ class InterfacesCommand(val messageData: String?) : Command<BusResult<Any, Messa
 
 @Suppress("unused")
 @LoadMessageHandler
-class InterfacesCommandHandler(private val bus: BaseMessageBus, private val clock: Clock) :
+class InterfacesCommandHandler(private val bus: IMessageBus, private val clock: Clock) :
     CommandHandler<InterfacesCommand, BusResult<Any, MessageFailure>>() {
     override suspend fun handle(message: InterfacesCommand): BusResult<Any, MessageFailure> {
         return BusResult.success("success")

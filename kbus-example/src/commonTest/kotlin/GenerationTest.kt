@@ -3,7 +3,7 @@
 package com.jimbroze.kbus.generation.test
 
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
-import com.jimbroze.kbus.core.bus.BaseMessageBus
+import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
@@ -91,7 +91,7 @@ class Dependencies(private val instant: Instant, applicationScope: CoroutineScop
 
     override val clock: Clock = FixedClock(instant)
     val tickingClock: Clock = AutoTickingClock(instant)
-    override val baseMessageBus: BaseMessageBus = messageBus
+    override val baseMessageBus: IMessageBus = messageBus
 
     override val containsString = ContainsString("a string")
     override val containsFunction = ContainsFunction { a, b -> a + b }
