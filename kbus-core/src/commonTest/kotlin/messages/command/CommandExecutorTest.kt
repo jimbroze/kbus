@@ -50,7 +50,7 @@ class CommandExecutorTest {
             )
 
         val result =
-            executor.execute(ReturnCommand("Wassup"), TestOwningContext()) {
+            executor.execute(ReturnCommand("Wassup"), TestOwningContext()) { _, _ ->
                 ReturnCommandHandler()
             }
 
@@ -74,8 +74,8 @@ class CommandExecutorTest {
                 factories.invocationFactory,
             )
 
-        executor.execute(DispatchingCommand(), TestOwningContext()) {
-            DispatchingCommandHandler(it.integrationEventPublisher)
+        executor.execute(DispatchingCommand(), TestOwningContext()) { commandDependencies, _ ->
+            DispatchingCommandHandler(commandDependencies.integrationEventPublisher)
         }
         advanceUntilIdle()
 
@@ -102,8 +102,8 @@ class CommandExecutorTest {
                 factories.invocationFactory,
             )
 
-        executor.execute(DispatchingCommand(), TestOwningContext()) {
-            DispatchingCommandHandler(it.integrationEventPublisher)
+        executor.execute(DispatchingCommand(), TestOwningContext()) { commandDependencies, _ ->
+            DispatchingCommandHandler(commandDependencies.integrationEventPublisher)
         }
         advanceUntilIdle()
 
@@ -139,8 +139,8 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(DispatchingCommand(), TestOwningContext()) {
-            DispatchingCommandHandler(it.integrationEventPublisher)
+        executor.execute(DispatchingCommand(), TestOwningContext()) { commandDependencies, _ ->
+            DispatchingCommandHandler(commandDependencies.integrationEventPublisher)
         }
         unitOfWorkFactory.unitOfWork.executeAllScheduledWork()
 
@@ -177,7 +177,9 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(ReturnCommand("test"), TestOwningContext()) { ReturnCommandHandler() }
+        executor.execute(ReturnCommand("test"), TestOwningContext()) { _, _ ->
+            ReturnCommandHandler()
+        }
 
         assertIs<TransactionalOutbox>(
             capturingMiddleware.capturedContext?.integrationEventPublisher
@@ -199,7 +201,9 @@ class CommandExecutorTest {
                 invocationFactory,
             )
 
-        executor.execute(ReturnCommand("Primary"), TestOwningContext()) { ReturnCommandHandler() }
+        executor.execute(ReturnCommand("Primary"), TestOwningContext()) { _, _ ->
+            ReturnCommandHandler()
+        }
 
         val unitOfWork = unitOfWorkFactory.unitOfWork
         assertEquals(1, unitOfWork.executedWork.size)
@@ -219,7 +223,7 @@ class CommandExecutorTest {
                 factories.invocationFactory,
             )
 
-        executor.execute(TransactionCommand("Transaction"), TestOwningContext()) {
+        executor.execute(TransactionCommand("Transaction"), TestOwningContext()) { _, _ ->
             TransactionCommandHandler()
         }
 
@@ -245,7 +249,7 @@ class CommandExecutorTest {
 
         val command = TransactionCommand("HandlerTransaction")
 
-        executor.execute(command, TestOwningContext()) {
+        executor.execute(command, TestOwningContext()) { _, _ ->
             TransactionCommandHandler(handlerTransactionManager)
         }
 
@@ -271,7 +275,7 @@ class CommandExecutorTest {
 
         val command = TransactionCommand("Transaction")
 
-        executor.execute(command, TestOwningContext()) {
+        executor.execute(command, TestOwningContext()) { _, _ ->
             TransactionCommandHandler(handlerTransactionManager)
         }
 
@@ -297,10 +301,11 @@ class CommandExecutorTest {
                 dependenciesFactory,
                 invocationFactory,
             )
-        val createHandler: (CommandDependencies) -> ReturnCommandHandler = { commandDependencies ->
-            testDependencies = commandDependencies
-            ReturnCommandHandler()
-        }
+        val createHandler: (CommandDependencies, NestedCommandExecutor) -> ReturnCommandHandler =
+            { commandDependencies, _ ->
+                testDependencies = commandDependencies
+                ReturnCommandHandler()
+            }
 
         executor.execute(ReturnCommand("Primary"), TestOwningContext(), createHandler)
 
@@ -309,4 +314,33 @@ class CommandExecutorTest {
         assertSame(testDependencies, dependenciesFactory.commandDependencies)
         assertSame(unitOfWork, dependenciesFactory.unitOfWork)
     }
+
+    @Test
+    fun theHandlerCreatorIsGivenTheContextsViewOfTheSameNestedExecutorTheDependenciesCarry() =
+        runTest {
+            val owningContext = TestOwningContext()
+            var passedCommands: NestedCommandExecutor? = null
+            var passedDependencies: CommandDependencies? = null
+            val executor =
+                CommandExecutor(
+                    EmptyTransactionManager(),
+                    emptyList(),
+                    TestPublisherFactories(backgroundScope).contextFactory,
+                    DefaultCommandDependenciesFactory(),
+                    CommandInvocationFactory(
+                        TestUnitOfWorkFactory(),
+                        noOutboxPublisherFactory(backgroundScope),
+                    ),
+                )
+
+            executor.execute(ReturnCommand("Primary"), owningContext) { dependencies, commands ->
+                passedDependencies = dependencies
+                passedCommands = commands
+                ReturnCommandHandler()
+            }
+
+            assertEquals(1, owningContext.typedCommandsPassed.size)
+            assertSame(owningContext.typedCommandsPassed.single(), passedCommands)
+            assertSame(passedDependencies!!.commandExecutor, passedCommands)
+        }
 }

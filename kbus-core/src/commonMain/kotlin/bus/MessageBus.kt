@@ -12,6 +12,7 @@ import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
@@ -239,7 +240,7 @@ abstract class BaseMessageBus<TContexts>(
     ): TResult {
         checkStarted()
         val owner = commandOwners[command::class] ?: throw MissingHandlerException(command::class)
-        val handlerCreator = { commandDependencies: CommandDependencies ->
+        val handlerCreator = { commandDependencies: CommandDependencies, _: NestedCommandExecutor ->
             (owner.handlerFor(command, commandDependencies)
                 ?: throw MissingHandlerException(command::class))
         }

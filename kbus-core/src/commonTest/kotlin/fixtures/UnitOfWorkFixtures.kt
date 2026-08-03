@@ -7,8 +7,9 @@ import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
-import com.jimbroze.kbus.core.module.OwningContext
+import com.jimbroze.kbus.core.module.CommandOwningContext
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -95,7 +96,7 @@ class TestDomainEventDispatcher : DomainEventDispatcher {
 }
 
 /**
- * An [OwningContext] whose handlers are supplied per command class, for tests that execute a
+ * A [CommandOwningContext] whose handlers are supplied per command class, for tests that execute a
  * command without a bus. Owns nothing by default.
  */
 class TestOwningContext(
@@ -103,8 +104,17 @@ class TestOwningContext(
     private val handlers:
         Map<KClass<out Command<*>>, (CommandDependencies) -> CommandHandler<*, *>> =
         emptyMap(),
-) : OwningContext {
+) : CommandOwningContext<NestedCommandExecutor> {
     val dependenciesPassed = mutableListOf<CommandDependencies>()
+
+    val typedCommandsPassed = mutableListOf<NestedCommandExecutor>()
+
+    override fun typedCommands(
+        nestedCommandExecutor: NestedCommandExecutor
+    ): NestedCommandExecutor {
+        typedCommandsPassed.add(nestedCommandExecutor)
+        return nestedCommandExecutor
+    }
 
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,

@@ -6,11 +6,12 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.CommandOwningContext
 import com.jimbroze.kbus.core.module.ContextBuilder
 import com.jimbroze.kbus.core.module.ContextConfig
-import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -71,7 +72,11 @@ private fun configName(context: String): String = "${contextAccessorName(context
  * always one the bus runs.
  */
 private fun buildContextProperty(context: String): PropertySpec =
-    PropertySpec.builder(contextAccessorName(context), OwningContext::class)
+    PropertySpec.builder(
+            contextAccessorName(context),
+            CommandOwningContext::class.asClassName()
+                .parameterizedBy(NestedCommandExecutor::class.asClassName()),
+        )
         .initializer(
             "builder.register(%T(%L, %L, %L.inbox, %L.subscriptions))",
             BoundedContext::class,
@@ -192,9 +197,14 @@ class BusGenerator(
         val processMethod = handler.processorMethodName
 
         val factoryParameters = handler.functionParameters.joinToString(", ") { it.name }
-        val factoryParametersWithTypes =
+        val handlerCreatorParameters =
             handler.functionParameters
                 .map { parameter -> CodeBlock.of("${parameter.name}: %T", parameter.typeRef) }
+                .plus(
+                    if (handler is CommandHandlerDefinition)
+                        listOf(CodeBlock.of("_: %T", NestedCommandExecutor::class))
+                    else emptyList()
+                )
                 .joinToCode(", ")
 
         // A command runs against its own owning context: its domain events dispatch there, and
@@ -218,7 +228,7 @@ class BusGenerator(
         functionBuilder.addCode(
             CodeBlock.builder()
                 .addStatement("checkStarted()")
-                .beginControlFlow("val handlerCreator = { %L ->", factoryParametersWithTypes)
+                .beginControlFlow("val handlerCreator = { %L ->", handlerCreatorParameters)
                 .addStatement(
                     "%L.%L($factoryParameters)",
                     factoryName(contextOf(handler)),

@@ -108,9 +108,9 @@ class BusGeneratorContextsTest {
         val bus = generateBus()
 
         assertContains(bus, "buildContexts = { builder -> CompileTimeLoadedMessageBus.Contexts(")
-        assertContains(bus, "public val orders: OwningContext =")
+        assertContains(bus, "public val orders: CommandOwningContext<NestedCommandExecutor> =")
         assertContains(bus, "builder.register(BoundedContext(BoundedContextId(\"orders\")")
-        assertContains(bus, "public val default: OwningContext =")
+        assertContains(bus, "public val default: CommandOwningContext<NestedCommandExecutor> =")
         assertContains(bus, "builder.register(BoundedContext(BoundedContextId.DEFAULT")
     }
 

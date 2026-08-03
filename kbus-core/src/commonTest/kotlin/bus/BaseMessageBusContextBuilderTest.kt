@@ -5,10 +5,11 @@ import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.module.CommandOwningContext
 import com.jimbroze.kbus.core.module.ContextBuilder
-import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -40,12 +41,12 @@ private class NamedContextBus(
         appScope,
     ) {
     class Contexts(builder: ContextBuilder, alphaLocator: PersistingHandlerLocator) {
-        val alpha: OwningContext =
+        val alpha: CommandOwningContext<NestedCommandExecutor> =
             builder.register(BoundedContext(BoundedContextId("alpha"), alphaLocator))
     }
 
     suspend fun executeAlpha(command: AlphaCommand): BusResult<String, MessageFailure> {
-        val handlerCreator = { commandDependencies: CommandDependencies ->
+        val handlerCreator = { commandDependencies: CommandDependencies, _: NestedCommandExecutor ->
             boundedContexts.alpha.handlerFor(command, commandDependencies)!!
         }
         return commandExecutor.execute(command, boundedContexts.alpha, handlerCreator)

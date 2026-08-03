@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.core.module
 
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 
 /**
@@ -11,6 +12,6 @@ class ContextBuilder
 internal constructor(private val eventDispatcherFor: (BoundedContext) -> Lazy<EventDispatcher>) {
     internal val registeredContexts = mutableListOf<ContextRuntime>()
 
-    fun register(context: BoundedContext): OwningContext =
+    fun register(context: BoundedContext): CommandOwningContext<NestedCommandExecutor> =
         ContextRuntime(context, eventDispatcherFor(context)).also { registeredContexts += it }
 }
