@@ -100,10 +100,6 @@ class HandlerFactory(
         return true
     }
 
-    /**
-     * Rejected here rather than at the subscription the generator is about to write, so the error
-     * names the handler the author wrote instead of a line of generated source.
-     */
     private fun isDomainEventHandler(
         handlerClass: KSClassDeclaration,
         messageClass: KSClassDeclaration,

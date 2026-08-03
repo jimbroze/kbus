@@ -19,6 +19,7 @@ import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
 import com.jimbroze.kbus.generation.generators.HandlersFactoryGenerator
 import com.jimbroze.kbus.generation.generators.HandlersInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.LoadedEventHandlersGenerator
+import com.jimbroze.kbus.generation.generators.reportContextIdentityCollisions
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishFactory
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyProperties
@@ -43,7 +44,7 @@ class CodeGenerators(
 
 @Suppress("LongParameterList")
 class KbusProcessor(
-    @Suppress("unused") private val logger: KSPLogger,
+    private val logger: KSPLogger,
     private val handlerFactory: HandlerFactory,
     private val indexParser: IndexParser,
     private val autoPublishFactory: AutoPublishFactory,
@@ -120,6 +121,7 @@ class KbusProcessor(
 
     override fun finish() {
         if (dependencies.isEmpty()) return
+        if (!reportContextIdentityCollisions(dependencies.handlers, logger)) return
 
         val sourceFiles = dependencies.sourceFiles.toList()
 

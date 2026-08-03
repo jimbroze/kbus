@@ -79,10 +79,6 @@ data class FunctionalDependency(
                     )
                 )
 
-    /**
-     * The enclosing accessor's parameter is passed straight through: it is always at least as wide
-     * as this dependency's own requirement, so it satisfies it.
-     */
     override fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String {
         val constructorArgNames =
             if (requiredDependencies == RequiredDependencies.NONE) ""

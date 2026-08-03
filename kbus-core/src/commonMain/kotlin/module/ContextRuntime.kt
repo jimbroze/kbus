@@ -18,16 +18,12 @@ import com.jimbroze.kbus.domain.event.DomainEvent
  * Delivers events to one [BoundedContext]'s handlers, and to no other context's. Both integration
  * and domain dispatch for the context go through here, so a handler registered on one context never
  * fires for another's event.
- *
- * The bus derives this once its own middleware, scope and dependency wiring exist, which is why a
- * [BoundedContext] cannot hold it: none of that wiring is available where a user declares one.
  */
 internal class ContextRuntime(
     val context: BoundedContext,
     /**
-     * Resolved on first delivery rather than at construction, because a dispatcher cannot be built
-     * until the destinations it eventually routes to exist. [Lazy] so both integration and domain
-     * dispatch share the one instance, whichever reaches it first.
+     * Resolved on first delivery: a dispatcher cannot be built until the destinations it routes to
+     * exist. Shared by integration and domain dispatch, whichever reaches it first.
      */
     private val eventDispatcher: Lazy<EventDispatcher>,
 ) : EventDestination, DomainEventDispatcher, OwningContext {

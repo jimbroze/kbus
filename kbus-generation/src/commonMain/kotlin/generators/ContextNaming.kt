@@ -19,12 +19,12 @@ internal fun contextIdentity(context: String): String =
  * declared none. A context defining only commands or only domain handlers still needs its own
  * entry, or its handlers would be unreachable by owner lookup.
  */
-internal fun contextIdentities(handlers: Set<HandlerDefinition>): List<String> {
-    val modules =
-        handlers.map { it.handlerData.module }.filter { it.isNotBlank() }.distinct().sorted()
+internal fun contextIdentities(handlers: Set<HandlerDefinition>): List<String> =
+    listOf(DEFAULT_CONTEXT) + declaredContextIdentities(handlers)
 
-    return listOf(DEFAULT_CONTEXT) + modules
-}
+/** The identities handlers were stamped with, excluding the default context nothing declares. */
+internal fun declaredContextIdentities(handlers: Set<HandlerDefinition>): List<String> =
+    handlers.map { it.handlerData.module }.filter { it.isNotBlank() }.distinct().sorted()
 
 /** `order-fulfilment` -> `orderFulfilment`, for properties and accessors. */
 internal fun contextAccessorName(context: String): String =
@@ -36,9 +36,6 @@ internal fun contextAccessorName(context: String): String =
         }
         .joinToString("")
 
-/**
- * `order-fulfilment` -> `OrderFulfilment`, the prefix every per-context generated type carries.
- * Types generated per context must agree on this or generated code will not compile against itself.
- */
+/** `order-fulfilment` -> `OrderFulfilment`, the prefix every per-context generated type carries. */
 internal fun contextClassPrefix(context: String): String =
     contextAccessorName(context).replaceFirstChar { it.uppercase() }

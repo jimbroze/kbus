@@ -71,12 +71,8 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
         val dependencies = indexParser.createDependencies(dependencyInfoAnnotations)
         for (dependency in dependencies.allDependencies) {
             when (val result = data.tryAddDependency(dependency, learnedFromIndex = true)) {
-                is ConflictPolicy.Result.Accept -> {
-                    // Successfully added
-                }
-                is ConflictPolicy.Result.ExactDuplicate -> {
-                    // Duplicate dependency is fine
-                }
+                is ConflictPolicy.Result.Accept,
+                is ConflictPolicy.Result.ExactDuplicate -> Unit
                 is ConflictPolicy.Result.InvalidConflict -> {
                     logger.error(result.reason, dependenciesArg)
                 }
@@ -101,12 +97,8 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
                     learnedFromIndex = true,
                 )
             when (result) {
-                is ConflictPolicy.Result.Accept -> {
-                    // Successfully added
-                }
-                is ConflictPolicy.Result.ExactDuplicate -> {
-                    // Duplicate handler is fine
-                }
+                is ConflictPolicy.Result.Accept,
+                is ConflictPolicy.Result.ExactDuplicate -> Unit
                 is ConflictPolicy.Result.InvalidConflict -> {
                     logger.error(result.reason, handlerInfoAnnotation)
                 }
@@ -127,12 +119,8 @@ class DependencyIndexVisitor(private val indexParser: IndexParser, private val l
         val definitions = indexParser.createAutoPublishDefinitions(autoPublishInfoAnnotations)
         for (definition in definitions) {
             when (val result = data.tryAddAutoPublish(definition, learnedFromIndex = true)) {
-                is ConflictPolicy.Result.Accept -> {
-                    // Successfully added
-                }
-                is ConflictPolicy.Result.ExactDuplicate -> {
-                    // Duplicate definition is fine
-                }
+                is ConflictPolicy.Result.Accept,
+                is ConflictPolicy.Result.ExactDuplicate -> Unit
                 is ConflictPolicy.Result.InvalidConflict -> {
                     logger.error(result.reason, autoPublishEventsArg)
                 }

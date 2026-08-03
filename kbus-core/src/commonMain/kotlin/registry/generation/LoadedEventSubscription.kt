@@ -10,9 +10,8 @@ import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
 /**
- * Subscribes handlers the code generator has already validated. Passing a [LoadedEventHandler]
- * rather than a bare handler class is what makes "this handler has a generated factory" a
- * compile-time claim instead of a dispatch-time discovery.
+ * Subscribes handlers the code generator has already validated. A [LoadedEventHandler] makes "this
+ * handler has a generated factory" a compile-time claim rather than a dispatch-time discovery.
  */
 fun <TEvent : DomainEvent> subscribeDomain(
     event: KClass<TEvent>,

@@ -17,8 +17,7 @@ import kotlinx.coroutines.sync.withPermit
 /**
  * The one delivery loop shared by the outbox drain, the immediate publisher, the outbox poller, and
  * every per-context inbox pump: fetch a batch, deliver each entry individually, ack the ones that
- * succeeded. [fetch] defaults to an empty batch so the two push-only call sites (drain, immediate
- * publish) construct with just [deliver] and [ack] and need no dummy fetcher.
+ * succeeded. A push-only caller can omit [fetch].
  *
  * [maxConcurrentDeliveries] is how many entries of a batch may be in flight at once, and with it
  * the only ordering control this delivery path offers. A value of 1 delivers strictly in the order
@@ -28,9 +27,8 @@ import kotlinx.coroutines.sync.withPermit
  * ordered". Even at 1 the guarantee is per batch and per process: nothing constrains the order of
  * two batches, and a second process polling the same store interleaves with this one freely.
  *
- * [pollOnce] is single-flight via [pollMutex]: both an inbox's opportunistic drain and its
- * scheduled pump tick call [pollOnce], and serialising them (rather than deduping) is what lets
- * [EventInbox.pump] be a bare [poll] loop instead of a re-implemented one.
+ * [pollOnce] is single-flight: an opportunistic drain and a scheduled pump tick can both call it,
+ * and the loser waits for the winner rather than skipping its own turn.
  */
 internal class EnvelopeRelay(
     private val fetch: suspend (Int) -> List<EventEnvelope> = { emptyList() },
@@ -42,9 +40,8 @@ internal class EnvelopeRelay(
 
     /**
      * Delivers each entry individually, acking only the ones that did not throw. A failed entry is
-     * left unacked for the next poll to retry, which is why a batch's successes are acked even when
-     * an earlier entry failed: holding them back to preserve order would need a dead-letter path to
-     * stop one permanently-failing entry blocking its batch forever.
+     * left unacked for the next poll; its successful siblings are still acked, so one
+     * permanently-failing entry cannot block its batch forever.
      */
     suspend fun relay(entries: List<EventEnvelope>) {
         if (entries.isEmpty()) return

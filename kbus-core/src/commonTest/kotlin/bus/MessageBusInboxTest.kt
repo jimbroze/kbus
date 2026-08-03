@@ -96,10 +96,7 @@ private class NonAckingOutboxStore : OutboxStore {
         return entries.take(limit)
     }
 
-    override suspend fun markPublished(ids: List<String>) {
-        // Never acks: simulates a producer that can't mark entries published, so every poll
-        // re-routes the same envelope.
-    }
+    override suspend fun markPublished(ids: List<String>) = Unit
 }
 
 /** Default settings: concurrent dispatch, fire and forget. */

@@ -9,6 +9,7 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.ContextConfig
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -54,6 +55,28 @@ private fun contextIdKeyBlock(module: String): CodeBlock =
     if (module.isBlank()) CodeBlock.of("%T.DEFAULT", BoundedContextId::class)
     else CodeBlock.of("%T(%S)", BoundedContextId::class, module)
 
+/** The bus property holding the context a handler's declared module runs in. */
+private fun owningContextPropertyName(module: String): String =
+    contextAccessorName(module.ifBlank { DEFAULT_CONTEXT }) + "OwningContext"
+
+/**
+ * The context each command runs against, resolved once while the bus is built. A command's owning
+ * context is known statically, so an id naming no context on this bus is a wiring mistake and fails
+ * there rather than on the first command that happens to reach it.
+ */
+private fun buildOwningContextProperties(handlers: Set<HandlerDefinition>): List<PropertySpec> =
+    handlers
+        .filterIsInstance<CommandHandlerDefinition>()
+        .map { it.handlerData.module }
+        .distinct()
+        .sorted()
+        .map { module ->
+            PropertySpec.builder(owningContextPropertyName(module), OwningContext::class)
+                .addModifiers(KModifier.PRIVATE)
+                .initializer("owningContextFor(%L)", contextIdKeyBlock(module))
+                .build()
+        }
+
 class BusGenerator(
     private val codeGenerator: CodeGenerator,
     @Suppress("unused") private val logger: KSPLogger,
@@ -80,6 +103,8 @@ class BusGenerator(
         BusConstructorGenerator(config, contextsClassName)
             .build(classBuilder, dependenciesClassName, factoryClassNames)
 
+        buildOwningContextProperties(handlers).forEach(classBuilder::addProperty)
+
         handlers
             .filterNot { it is EventHandlerDefinition }
             .forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
@@ -95,14 +120,9 @@ class BusGenerator(
     }
 
     /**
-     * One configuration point per bounded context, for both integration and domain handlers. There
-     * is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with N contexts,
-     * "which context?" has no answer for either — a command's domain events dispatch only to its
-     * owning context.
-     *
-     * The built [BoundedContext]s are never exposed, so nothing can subscribe to a context once the
-     * bus holding it exists. Each context locates handlers through its own factory, so it can build
-     * no handler but its own.
+     * One configuration point per bounded context, covering both its integration and its domain
+     * handlers. The built [BoundedContext]s are never exposed, so nothing can subscribe to a
+     * context once the bus holding it exists, and each locates handlers through its own factory.
      */
     private fun buildContextsClass(factoryClassNames: Map<String, ClassName>): TypeSpec {
         val constructorBuilder =
@@ -189,16 +209,15 @@ class BusGenerator(
                 .map { parameter -> CodeBlock.of("${parameter.name}: %T", parameter.typeRef) }
                 .joinToCode(", ")
 
-        // A command runs against its own owning context — its domain events dispatch there, and
-        // any command it nests resolves there. The owning context is known at generation time from
-        // the handler's own declared module, so it is baked in here rather than resolved by
-        // searching every context for one that owns the command.
+        // A command runs against its own owning context: its domain events dispatch there, and
+        // any command it nests resolves there. Which context that is comes from the handler's own
+        // declared module, known at generation time.
         val processorArgs =
             if (handler is CommandHandlerDefinition)
                 CodeBlock.of(
-                    "%L, owningContextFor(%L), handlerCreator",
+                    "%L, %L, handlerCreator",
                     messageType,
-                    contextIdKeyBlock(handler.handlerData.module),
+                    owningContextPropertyName(handler.handlerData.module),
                 )
             else CodeBlock.of("%L, handlerCreator", messageType)
 

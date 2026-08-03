@@ -1,5 +1,6 @@
 package com.jimbroze.kbus.generation.provider
 
+import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
@@ -46,6 +47,7 @@ private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
         val config = KBusProcessorConfig(environment)
+        config.reportUnusableOptions(environment.logger)
         val dependencyFactory = DependencyFactory(environment.logger)
 
         return KbusProcessor(
@@ -145,7 +147,22 @@ private class KBusProcessorConfig(private val environment: SymbolProcessorEnviro
      * context often spans several Gradle modules, which are separate submodules but one identity.
      */
     val boundedContextIdentity: String
-        get() = environment.options[BOUNDED_CONTEXT_IDENTITY_KEY].orEmpty()
+        get() = environment.options[BOUNDED_CONTEXT_IDENTITY_KEY]?.trim().orEmpty()
+
+    /**
+     * A build arg that cannot mean what it was set to. Blank whitespace reads as an identity but
+     * names no context, so every handler in the module would be folded into the default one.
+     */
+    fun reportUnusableOptions(logger: KSPLogger) {
+        val declaredIdentity = environment.options[BOUNDED_CONTEXT_IDENTITY_KEY]
+        if (declaredIdentity != null && declaredIdentity.isBlank()) {
+            logger.error(
+                "$BOUNDED_CONTEXT_IDENTITY_KEY is set to blank whitespace, which names no bounded " +
+                    "context. Give it an identity, or remove the build arg to leave this " +
+                    "module's handlers in the default context."
+            )
+        }
+    }
 
     val indexPackagePath: String
         get() {

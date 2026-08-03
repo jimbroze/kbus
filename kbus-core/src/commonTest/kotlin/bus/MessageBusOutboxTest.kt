@@ -154,13 +154,9 @@ class MessageBusOutboxTest {
     }
 
     /**
-     * The post-commit drain is registered as `unitOfWork.addPostCommitWork { drain() }`, and
-     * `drain` itself is an unawaited `outboxScope.launch` — so nothing about `bus.execute()`
-     * returning happens-before the handler running, even though dispatch itself awaits its handlers
-     * (it just does so on `outboxScope`, not on the command's calling coroutine). Asserting "not
-     * yet delivered" against wall-clock timing alone would race that launch. Gating the handler on
-     * a [CompletableDeferred] makes the assertion deterministic: it cannot have recorded anything
-     * until the test releases it.
+     * Nothing about `bus.execute()` returning happens-before the drained handler running, so
+     * asserting "not yet delivered" on timing alone would race. Gating the handler makes it
+     * deterministic: it cannot record anything until the test releases it.
      */
     @Test
     fun middleware_published_event_is_captured_by_the_outbox_and_not_delivered_before_commit() =
@@ -308,14 +304,9 @@ class MessageBusOutboxTest {
         }
 
     /**
-     * Middleware wraps the whole command execution, strictly outside `transactionManager.execute()`
-     * — but the outbox now defers its store write until `flush()`, which `CommandInvocationFactory`
-     * registers as the *first* secondary work item on the command's unit of work. `flush()` only
-     * runs once primary work completes without throwing, so a middleware-published event for a
-     * command whose handler fails is never flushed to the store: it lived only in the outbox's
-     * in-memory buffer, which is discarded along with the rest of that never-completed unit of
-     * work. Nothing is ever staged, so there's nothing to roll back and nothing left for the poller
-     * to find — the event is genuinely rollback-safe, not merely captured-but-undelivered.
+     * A middleware publishes outside the transaction, but the store write is deferred to a flush
+     * that only runs once primary work has completed. A failing handler therefore stages nothing:
+     * the event is rollback-safe, not merely captured-but-undelivered.
      */
     @Test
     fun middleware_published_event_is_rolled_back_and_never_delivered_when_the_command_fails() =
