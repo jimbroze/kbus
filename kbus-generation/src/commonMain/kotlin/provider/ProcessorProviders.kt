@@ -33,6 +33,7 @@ private const val HANDLERS_INTERFACE_NAME = "Handlers"
 private const val LOADER_CLASS_NAME = "AutoLoader"
 private const val HANDLER_FACTORY_CLASS_NAME = "HandlerFactory"
 private const val BUS_CLASS_NAME = "CompileTimeLoadedMessageBus"
+private const val CONTEXT_CLASS_NAME = "Context"
 private const val DEPENDENCIES_INDEX_NAME = "DependenciesIndex"
 private const val LOADED_DOMAIN_EVENT_HANDLERS_NAME = "LoadedDomainEventHandlers"
 private const val LOADED_INTEGRATION_EVENT_HANDLERS_NAME = "LoadedIntegrationEventHandlers"
@@ -128,6 +129,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 BUS_CLASS_NAME,
                 DEPENDENCIES_INTERFACE_NAME,
                 HANDLER_FACTORY_CLASS_NAME,
+                CONTEXT_CLASS_NAME,
                 BaseMessageBus::class,
                 Middleware::class,
                 TransactionManager::class,

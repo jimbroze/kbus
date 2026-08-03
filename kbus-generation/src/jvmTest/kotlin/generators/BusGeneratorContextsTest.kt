@@ -25,6 +25,7 @@ class BusGeneratorContextsTest {
                 busClassName = "CompileTimeLoadedMessageBus",
                 dependenciesInterfaceName = "AllDependencies",
                 handlerFactoryName = "HandlerFactory",
+                contextClassName = "Context",
                 busSuperClass = BaseMessageBus::class,
                 middlewareClass = Middleware::class,
                 transactionManagerClass = TransactionManager::class,
@@ -108,10 +109,23 @@ class BusGeneratorContextsTest {
         val bus = generateBus()
 
         assertContains(bus, "buildContexts = { builder -> CompileTimeLoadedMessageBus.Contexts(")
-        assertContains(bus, "public val orders: CommandOwningContext<NestedCommandExecutor> =")
+        assertContains(bus, "public val orders: OrdersContext =")
         assertContains(bus, "builder.register(BoundedContext(BoundedContextId(\"orders\")")
-        assertContains(bus, "public val default: CommandOwningContext<NestedCommandExecutor> =")
+        assertContains(bus, "public val default: DefaultContext =")
         assertContains(bus, "builder.register(BoundedContext(BoundedContextId.DEFAULT")
+    }
+
+    @Test
+    fun eachContextGetsItsOwnTypeDelegatingToTheContextItRegistered() {
+        val bus = generateBus()
+
+        assertContains(
+            bus,
+            "public class OrdersContext(\n" +
+                "  registeredContext: CommandOwningContext<NestedCommandExecutor>,\n" +
+                ") : CommandOwningContext<NestedCommandExecutor> by registeredContext",
+        )
+        assertContains(bus, "public class DefaultContext(")
     }
 
     @Test

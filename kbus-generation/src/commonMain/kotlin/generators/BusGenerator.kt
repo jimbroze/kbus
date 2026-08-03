@@ -36,6 +36,7 @@ data class BusConfig(
     val busClassName: String,
     val dependenciesInterfaceName: String,
     val handlerFactoryName: String,
+    val contextClassName: String,
     val busSuperClass: KClass<*>,
     val middlewareClass: KClass<*>,
     val transactionManagerClass: KClass<*>,
@@ -71,14 +72,11 @@ private fun configName(context: String): String = "${contextAccessorName(context
  * A context exists only as the result of registering it, so a context [CONTEXTS_CLASS] declares is
  * always one the bus runs.
  */
-private fun buildContextProperty(context: String): PropertySpec =
-    PropertySpec.builder(
-            contextAccessorName(context),
-            CommandOwningContext::class.asClassName()
-                .parameterizedBy(NestedCommandExecutor::class.asClassName()),
-        )
+private fun buildContextProperty(context: String, contextClassName: ClassName): PropertySpec =
+    PropertySpec.builder(contextAccessorName(context), contextClassName)
         .initializer(
-            "builder.register(%T(%L, %L, %L.inbox, %L.subscriptions))",
+            "%T(builder.register(%T(%L, %L, %L.inbox, %L.subscriptions)))",
+            contextClassName,
             BoundedContext::class,
             contextIdKeyBlock(contextIdentity(context)),
             locatorName(context),
@@ -86,6 +84,25 @@ private fun buildContextProperty(context: String): PropertySpec =
             configName(context),
         )
         .build()
+
+/**
+ * One bounded context as the bus holds it. Distinct per context so that what a command is executed
+ * against and what built its handler cannot come from two different contexts and still compile.
+ */
+private fun buildContextClass(contextClassName: ClassName): TypeSpec {
+    val registeredContext =
+        CommandOwningContext::class.asClassName()
+            .parameterizedBy(NestedCommandExecutor::class.asClassName())
+
+    return TypeSpec.classBuilder(contextClassName)
+        .primaryConstructor(
+            FunSpec.constructorBuilder()
+                .addParameter("registeredContext", registeredContext)
+                .build()
+        )
+        .addSuperinterface(registeredContext, "registeredContext")
+        .build()
+}
 
 class BusGenerator(
     private val codeGenerator: CodeGenerator,
@@ -126,6 +143,9 @@ class BusGenerator(
 
         val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
+        factoryClassNames.keys.forEach { context ->
+            file.addType(buildContextClass(contextClassNameFor(context)))
+        }
         file
             .build()
             .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
@@ -177,10 +197,13 @@ class BusGenerator(
                     .initializer("%T(%L)", GenerationHandlerLocator::class, factoryName(context))
                     .build()
             )
-            builder.addProperty(buildContextProperty(context))
+            builder.addProperty(buildContextProperty(context, contextClassNameFor(context)))
         }
         return builder.build()
     }
+
+    private fun contextClassNameFor(context: String): ClassName =
+        ClassName(packagePath, contextClassPrefix(context) + config.contextClassName)
 
     private fun factoryName(context: String): String =
         factoryPropertyName(context, config.handlerFactoryName)
