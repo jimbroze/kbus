@@ -11,6 +11,7 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.UNIT
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertFalse
 
 class BusGeneratorContextsTest {
     private val generated = GeneratedSources()
@@ -76,30 +77,35 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun aCommandRunsAgainstAContextResolvedWhenTheBusIsBuilt() {
+    fun aCommandRunsAgainstItsOwnContext() {
         val bus = generateBus()
 
         assertContains(
             bus,
-            "private val ordersOwningContext: OwningContext = " +
-                "owningContextFor(BoundedContextId(\"orders\"))",
+            "commandExecutor.execute(command, boundedContexts.orders, handlerCreator)",
         )
         assertContains(
             bus,
-            "private val defaultOwningContext: OwningContext = " +
-                "owningContextFor(BoundedContextId.DEFAULT)",
+            "commandExecutor.execute(command, boundedContexts.default, handlerCreator)",
         )
-        assertContains(bus, "commandExecutor.execute(command, ordersOwningContext, handlerCreator)")
-        assertContains(
-            bus,
-            "commandExecutor.execute(command, defaultOwningContext, handlerCreator)",
-        )
+    }
+
+    @Test
+    fun everyContextIsRegisteredOnTheBusThatBuiltIt() {
+        val bus = generateBus()
+
+        assertContains(bus, "buildContexts = { builder -> CompileTimeLoadedMessageBus.Contexts(")
+        assertContains(bus, "public val orders: OwningContext =")
+        assertContains(bus, "builder.register(BoundedContext(BoundedContextId(\"orders\")")
+        assertContains(bus, "public val default: OwningContext =")
+        assertContains(bus, "builder.register(BoundedContext(BoundedContextId.DEFAULT")
     }
 
     @Test
     fun noContextIsReachableFromTheBuiltBus() {
         val bus = generateBus()
 
-        assertContains(bus, "private val contexts: Contexts")
+        assertFalse(bus.contains("val contexts: Contexts"))
+        assertContains(bus, "public class Contexts internal constructor(")
     }
 }
