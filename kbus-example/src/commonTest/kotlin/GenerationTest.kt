@@ -91,7 +91,7 @@ class Dependencies(private val instant: Instant, applicationScope: CoroutineScop
 
     override val clock: Clock = FixedClock(instant)
     val tickingClock: Clock = AutoTickingClock(instant)
-    override val baseMessageBus: IMessageBus = messageBus
+    override val iMessageBus: IMessageBus = messageBus
 
     override val containsString = ContainsString("a string")
     override val containsFunction = ContainsFunction { a, b -> a + b }
