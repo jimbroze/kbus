@@ -655,6 +655,11 @@ modules it depends on — a command in a module it cannot reference is not typed
 referenceable either. It extends `NestedCommandExecutor`, so the untyped `execute` stays available for anything the
 interface does not cover, with the same one-context limit.
 
+Which context a handler's commands come from is a type fact, not a convention the generator upholds. A context is
+typed by the commands it owns, and supplies them itself when a command runs against it, so a handler built for one
+context cannot be run against another — the two contexts no longer share a type, and the mismatch is a compile error
+rather than a missing handler at dispatch.
+
 ## Bus Lifecycle
 
 A bus with background work — an outbox, an inbox, and/or any `LifecycleAwareMiddleware` (e.g. `LockingMiddleware`) —
@@ -1085,6 +1090,9 @@ The KSP processor generates:
   there even when another context on the same bus owns it
 - **`<Context>Commands`** — One interface per bounded context giving typed nested execution of that context's
   commands (see [Typed Nested Execution](#typed-nested-execution)), with the root generating the implementation
+- **`<Context>Context`** — One class per bounded context, pairing the context with its own handler factory and the
+  commands it owns. A bus function reaches its factory through it, so the context a command runs against and the
+  factory that built its handler cannot be two different contexts
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
@@ -1199,8 +1207,10 @@ parameter for each, named after the identity, plus `default` for handlers from m
 Those contexts live in a generated nested `Contexts` class, one property per identity, which the bus hands to
 `BaseMessageBus` as a factory taking a `ContextBuilder`. Registering a context on that builder is what produces the
 context the bus runs, so a generated `execute` reaches its command's context by name — `boundedContexts.billing` —
-rather than by looking an id up at runtime, and a declared context can never be one the bus is unaware of. Contexts
-are not otherwise reachable: nothing outside the bus can subscribe to a context once the bus holding it exists.
+rather than by looking an id up at runtime, and a declared context can never be one the bus is unaware of. Each
+property has that context's own type, which is also where its handler factory lives, so naming the wrong context does
+not compile. Contexts are not otherwise reachable: nothing outside the bus can subscribe to a context once the bus
+holding it exists.
 
 Because the identity becomes a Kotlin name, two identities that differ only in their separators — `order-fulfilment`,
 `order_fulfilment`, `order.fulfilment`, `orderFulfilment` — are rejected at generation time, naming both identities and
