@@ -3,6 +3,7 @@
 package com.jimbroze.kbus.generation.test
 
 import com.jimbroze.kbus.contracts.common.MissingHandlerException
+import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
@@ -447,9 +448,25 @@ class GenerationTest {
         )
     }
 
+    @Test
+    fun test_a_generated_bus_with_an_outbox_refuses_a_command_before_start() = runTest {
+        val bus =
+            CompileTimeLoadedMessageBus(
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                EmptyTransactionManager(),
+                emptyList(),
+                appScope = backgroundScope,
+                outbox = OutboxConfig(store = InMemoryOutboxStore()),
+            )
+
+        assertFailsWith<IllegalStateException> { bus.execute(ReserveStock("product-1", 1)) }
+        assertFailsWith<IllegalStateException> { bus.fetch(GetStockLevel("product-1")) }
+    }
+
     /**
-     * `opportunisticDrain = false` leaves the poller as the only thing that delivers, so a command
-     * executed after `stop` isolates whether the background work is still running.
+     * `opportunisticDrain = false` leaves the poller as the only thing that delivers, so an entry
+     * written straight to the store after `stop` isolates whether the background work is still
+     * running.
      */
     @Test
     fun test_a_stopped_bus_no_longer_polls_its_outbox() = runTest {
@@ -486,7 +503,9 @@ class GenerationTest {
 
         bus.stop(1.seconds)
         val handledAtStop = NotifyWarehouseHandler.timesHandled
-        bus.execute(ReserveStock("product-2", 1))
+        outboxStore.save(
+            listOf(EventEnvelope("after-stop", StockReserved("reservation-2", "product-2", 1)))
+        )
         advanceVirtualTime(500)
 
         assertEquals(

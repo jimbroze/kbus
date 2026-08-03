@@ -224,7 +224,11 @@ abstract class BaseMessageBus<TContexts>(
         withTimeoutOrNull(gracePeriod) { rootJob.join() }
     }
 
-    private fun checkStarted() =
+    /**
+     * Throws unless this bus is ready to dispatch. Every path into [commandExecutor] or
+     * [queryFetcher] must call this first, including those a subclass adds.
+     */
+    protected fun checkStarted() =
         check(!requiresStart || lifecycle == Lifecycle.STARTED) {
             "This bus has background work (an outbox, an inbox, and/or lifecycle-aware " +
                 "middleware) and must be started with start() before dispatching messages."

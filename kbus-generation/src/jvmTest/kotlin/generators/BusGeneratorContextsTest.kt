@@ -11,6 +11,7 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.UNIT
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 class BusGeneratorContextsTest {
@@ -87,6 +88,18 @@ class BusGeneratorContextsTest {
         assertContains(
             bus,
             "commandExecutor.execute(command, boundedContexts.default, handlerCreator)",
+        )
+    }
+
+    @Test
+    fun everyTypedDispatchFunctionRefusesToRunOnAnUnstartedBus() {
+        val bus = generateBus()
+
+        assertEquals(
+            2,
+            Regex("""public suspend fun \w+\(\w+: \w+\) \{\n\s*checkStarted\(\)""")
+                .findAll(bus)
+                .count(),
         )
     }
 

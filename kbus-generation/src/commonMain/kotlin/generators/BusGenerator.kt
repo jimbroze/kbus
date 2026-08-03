@@ -217,6 +217,7 @@ class BusGenerator(
 
         functionBuilder.addCode(
             CodeBlock.builder()
+                .addStatement("checkStarted()")
                 .beginControlFlow("val handlerCreator = { %L ->", factoryParametersWithTypes)
                 .addStatement(
                     "%L.%L($factoryParameters)",
