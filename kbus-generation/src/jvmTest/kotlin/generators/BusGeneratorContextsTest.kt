@@ -7,6 +7,7 @@ import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerData
+import com.jimbroze.kbus.generation.processing.handlers.QueryHandlerDefinition
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.UNIT
 import kotlin.test.Test
@@ -26,6 +27,7 @@ class BusGeneratorContextsTest {
                 dependenciesInterfaceName = "AllDependencies",
                 handlerFactoryName = "HandlerFactory",
                 contextClassName = "Context",
+                commandExecutorClassName = "CommandExecutor",
                 busSuperClass = BaseMessageBus::class,
                 middlewareClass = Middleware::class,
                 transactionManagerClass = TransactionManager::class,
@@ -45,6 +47,19 @@ class BusGeneratorContextsTest {
                 module,
             )
         )
+
+    private fun queryHandler(queryName: String, module: String) =
+        QueryHandlerDefinition.create(
+            HandlerData(
+                ClassName("com.example", "${queryName}Handler"),
+                ClassName("com.example", queryName),
+                UNIT,
+                emptyList(),
+                module,
+            ),
+            SilentLogger,
+            null,
+        )!!
 
     private fun generateBus(): String {
         generator.generateClass(
@@ -125,17 +140,35 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun eachContextGetsItsOwnTypeDelegatingToTheContextItRegistered() {
+    fun eachContextOwnsItsCommandsAsItsOwnType() {
         val bus = generateBus()
 
         assertContains(
             bus,
             "public class OrdersContext(\n" +
-                "  registeredContext: CommandOwningContext<NestedCommandExecutor>,\n" +
+                "  registeredContext: OwningContext,\n" +
                 "  public val handlerFactory: OrdersHandlerFactory,\n" +
-                ") : CommandOwningContext<NestedCommandExecutor> by registeredContext",
+                ") : OwningContext by registeredContext,\n" +
+                "    CommandOwningContext<OrdersCommandExecutor>",
         )
-        assertContains(bus, "public class DefaultContext(")
+        assertContains(
+            bus,
+            "override fun typedCommands(nestedCommandExecutor: NestedCommandExecutor): " +
+                "OrdersCommandExecutor = OrdersCommandExecutor(nestedCommandExecutor)",
+        )
+    }
+
+    @Test
+    fun aContextOwningNoCommandsFallsBackToTheUntypedExecutor() {
+        generator.generateClass(setOf(queryHandler("GetOrder", "orders")), emptyList())
+        val bus = generated["CompileTimeLoadedMessageBus"]
+
+        assertContains(bus, "CommandOwningContext<NestedCommandExecutor>")
+        assertContains(
+            bus,
+            "override fun typedCommands(nestedCommandExecutor: NestedCommandExecutor): " +
+                "NestedCommandExecutor = nestedCommandExecutor",
+        )
     }
 
     @Test

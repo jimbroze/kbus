@@ -12,6 +12,7 @@ import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.CommandOwningContext
 import com.jimbroze.kbus.core.module.ContextBuilder
 import com.jimbroze.kbus.core.module.ContextConfig
+import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -25,6 +26,7 @@ import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.asClassName
@@ -37,6 +39,7 @@ data class BusConfig(
     val dependenciesInterfaceName: String,
     val handlerFactoryName: String,
     val contextClassName: String,
+    val commandExecutorClassName: String,
     val busSuperClass: KClass<*>,
     val middlewareClass: KClass<*>,
     val transactionManagerClass: KClass<*>,
@@ -48,6 +51,8 @@ private const val CONTEXTS_CLASS = "Contexts"
 
 /** The per-context property through which the bus reaches that context's handler factory. */
 private const val HANDLER_FACTORY_PROPERTY = "handlerFactory"
+
+private const val NESTED_EXECUTOR_PARAMETER = "nestedCommandExecutor"
 
 private val COROUTINE_SCOPE = ClassName("kotlinx.coroutines", "CoroutineScope")
 private val DISPATCHERS = ClassName("kotlinx.coroutines", "Dispatchers")
@@ -97,22 +102,36 @@ private fun buildContextProperty(
  * One bounded context as the bus holds it. Distinct per context so that what a command is executed
  * against and what built its handler cannot come from two different contexts and still compile.
  */
-private fun buildContextClass(contextClassName: ClassName, factoryClassName: ClassName): TypeSpec {
-    val registeredContext =
-        CommandOwningContext::class.asClassName()
-            .parameterizedBy(NestedCommandExecutor::class.asClassName())
+private fun buildContextClass(
+    contextClassName: ClassName,
+    factoryClassName: ClassName,
+    commandsType: TypeName,
+): TypeSpec {
+    val untypedCommands = NestedCommandExecutor::class.asClassName()
+    val mintCommands =
+        if (commandsType == untypedCommands) CodeBlock.of("%L", NESTED_EXECUTOR_PARAMETER)
+        else CodeBlock.of("%T(%L)", commandsType, NESTED_EXECUTOR_PARAMETER)
 
     return TypeSpec.classBuilder(contextClassName)
         .primaryConstructor(
             FunSpec.constructorBuilder()
-                .addParameter("registeredContext", registeredContext)
+                .addParameter("registeredContext", OwningContext::class)
                 .addParameter(HANDLER_FACTORY_PROPERTY, factoryClassName)
                 .build()
         )
-        .addSuperinterface(registeredContext, "registeredContext")
+        .addSuperinterface(OwningContext::class, "registeredContext")
+        .addSuperinterface(CommandOwningContext::class.asClassName().parameterizedBy(commandsType))
         .addProperty(
             PropertySpec.builder(HANDLER_FACTORY_PROPERTY, factoryClassName)
                 .initializer(HANDLER_FACTORY_PROPERTY)
+                .build()
+        )
+        .addFunction(
+            FunSpec.builder("typedCommands")
+                .addModifiers(KModifier.OVERRIDE)
+                .addParameter(NESTED_EXECUTOR_PARAMETER, untypedCommands)
+                .returns(commandsType)
+                .addStatement("return %L", mintCommands)
                 .build()
         )
         .build()
@@ -150,7 +169,7 @@ class BusGenerator(
 
         handlers
             .filterNot { it is EventHandlerDefinition }
-            .forEach { classBuilder.addFunction(buildHandlerFunction(it)) }
+            .forEach { classBuilder.addFunction(buildHandlerFunction(it, handlers)) }
 
         classBuilder.addFunction(buildDeprecatedExecute())
         classBuilder.addFunction(buildDeprecatedFetch())
@@ -158,7 +177,13 @@ class BusGenerator(
         val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
         factoryClassNames.forEach { (context, factoryClassName) ->
-            file.addType(buildContextClass(contextClassNameFor(context), factoryClassName))
+            file.addType(
+                buildContextClass(
+                    contextClassNameFor(context),
+                    factoryClassName,
+                    commandsTypeFor(context, handlers),
+                )
+            )
         }
         file
             .build()
@@ -221,13 +246,19 @@ class BusGenerator(
     private fun contextClassNameFor(context: String): ClassName =
         ClassName(packagePath, contextClassPrefix(context) + config.contextClassName)
 
+    private fun commandsTypeFor(context: String, handlers: Set<HandlerDefinition>): TypeName =
+        contextCommandsType(context, handlers, packagePath, config.commandExecutorClassName)
+
     private fun factoryName(context: String): String =
         factoryPropertyName(context, config.handlerFactoryName)
 
     private fun factoryClassNameFor(context: String): ClassName =
         ClassName(packagePath, contextClassPrefix(context) + config.handlerFactoryName)
 
-    private fun buildHandlerFunction(handler: HandlerDefinition): FunSpec {
+    private fun buildHandlerFunction(
+        handler: HandlerDefinition,
+        handlers: Set<HandlerDefinition>,
+    ): FunSpec {
         val returnTypeName = handler.handlerData.returnType
 
         val messageType = handler.messageBaseClass.simpleName.replaceFirstChar { it.lowercase() }
@@ -235,13 +266,26 @@ class BusGenerator(
         val messageProcessor = handler.messageProcessorName
         val processMethod = handler.processorMethodName
 
-        val factoryParameters = handler.functionParameters.joinToString(", ") { it.name }
+        val context = contextOf(handler)
+        val takesContextCommands = contextCommandsTypeOf(handler) != null
+        val commandsParameterName =
+            if (takesContextCommands) contextCommandsParameterName(context) else "_"
+        val factoryParameters =
+            (handler.functionParameters.map { it.name } +
+                    if (takesContextCommands) listOf(commandsParameterName) else emptyList())
+                .joinToString(", ")
         val handlerCreatorParameters =
             handler.functionParameters
                 .map { parameter -> CodeBlock.of("${parameter.name}: %T", parameter.typeRef) }
                 .plus(
                     if (handler is CommandHandlerDefinition)
-                        listOf(CodeBlock.of("_: %T", NestedCommandExecutor::class))
+                        listOf(
+                            CodeBlock.of(
+                                "%L: %T",
+                                commandsParameterName,
+                                commandsTypeFor(context, handlers),
+                            )
+                        )
                     else emptyList()
                 )
                 .joinToCode(", ")

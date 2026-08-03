@@ -130,6 +130,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 DEPENDENCIES_INTERFACE_NAME,
                 HANDLER_FACTORY_CLASS_NAME,
                 CONTEXT_CLASS_NAME,
+                CONTEXT_COMMAND_EXECUTOR_NAME,
                 BaseMessageBus::class,
                 Middleware::class,
                 TransactionManager::class,

@@ -33,7 +33,7 @@ class HandlersInterfaceGenerator(
         val interfaceName = contextClassPrefix(context) + handlerInterfaceName
         val interfaceBuilder = TypeSpec.interfaceBuilder(interfaceName)
 
-        handlers.forEach { addHandlerDefinition(interfaceBuilder, it) }
+        handlers.forEach { addHandlerDefinition(interfaceBuilder, it, context) }
 
         val file = FileSpec.builder(packagePath, interfaceName)
         file.addType(interfaceBuilder.build())
@@ -45,6 +45,7 @@ class HandlersInterfaceGenerator(
     private fun addHandlerDefinition(
         interfaceBuilder: TypeSpec.Builder,
         handler: HandlerDefinition,
+        context: String,
     ) {
         val functionBuilder =
             FunSpec.builder(handler.handlerData.nameAsDependency)
@@ -53,6 +54,9 @@ class HandlersInterfaceGenerator(
 
         for (functionParameter in handler.functionParameters) {
             functionBuilder.addParameter(functionParameter.name, functionParameter.typeRef)
+        }
+        contextCommandsTypeOf(handler)?.let { commandsType ->
+            functionBuilder.addParameter(contextCommandsParameterName(context), commandsType)
         }
 
         interfaceBuilder.addFunction(functionBuilder.build())

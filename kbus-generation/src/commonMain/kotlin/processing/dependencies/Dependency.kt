@@ -119,18 +119,18 @@ data class CommandDependency(
 }
 
 /**
- * A handler's parameter of a generated per-context command executor interface. Its access
- * expression depends on the owning context of the handler being built, which only the factory
- * generating that handler knows, so it has none of its own.
+ * A handler's parameter of a generated per-context command executor interface. It is handed to the
+ * accessor building the handler rather than read from anything, because only its context can supply
+ * a value bound to that context.
  */
 data class ContextCommandsDependency(override val typeName: TypeName) : CommandScopedDependency {
     override val requiredDependencies = RequiredDependencies.COMMAND
 
     override val prefix
-        get() = error("A context command executor is constructed by its context's factory")
+        get() = ""
 
     override fun accessReferenceIn(enclosingDependencies: RequiredDependencies): String =
-        error("A context command executor is constructed by its context's factory")
+        error("A handler's context commands are named by the context generating its accessor")
 }
 
 data class NonDependency(override val typeName: TypeName) : Dependency {
