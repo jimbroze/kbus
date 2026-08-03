@@ -46,6 +46,9 @@ data class BusConfig(
 
 private const val CONTEXTS_CLASS = "Contexts"
 
+/** The per-context property through which the bus reaches that context's handler factory. */
+private const val HANDLER_FACTORY_PROPERTY = "handlerFactory"
+
 private val COROUTINE_SCOPE = ClassName("kotlinx.coroutines", "CoroutineScope")
 private val DISPATCHERS = ClassName("kotlinx.coroutines", "Dispatchers")
 
@@ -72,16 +75,21 @@ private fun configName(context: String): String = "${contextAccessorName(context
  * A context exists only as the result of registering it, so a context [CONTEXTS_CLASS] declares is
  * always one the bus runs.
  */
-private fun buildContextProperty(context: String, contextClassName: ClassName): PropertySpec =
+private fun buildContextProperty(
+    context: String,
+    contextClassName: ClassName,
+    factoryName: String,
+): PropertySpec =
     PropertySpec.builder(contextAccessorName(context), contextClassName)
         .initializer(
-            "%T(builder.register(%T(%L, %L, %L.inbox, %L.subscriptions)))",
+            "%T(builder.register(%T(%L, %L, %L.inbox, %L.subscriptions)), %L)",
             contextClassName,
             BoundedContext::class,
             contextIdKeyBlock(contextIdentity(context)),
             locatorName(context),
             configName(context),
             configName(context),
+            factoryName,
         )
         .build()
 
@@ -89,7 +97,7 @@ private fun buildContextProperty(context: String, contextClassName: ClassName): 
  * One bounded context as the bus holds it. Distinct per context so that what a command is executed
  * against and what built its handler cannot come from two different contexts and still compile.
  */
-private fun buildContextClass(contextClassName: ClassName): TypeSpec {
+private fun buildContextClass(contextClassName: ClassName, factoryClassName: ClassName): TypeSpec {
     val registeredContext =
         CommandOwningContext::class.asClassName()
             .parameterizedBy(NestedCommandExecutor::class.asClassName())
@@ -98,9 +106,15 @@ private fun buildContextClass(contextClassName: ClassName): TypeSpec {
         .primaryConstructor(
             FunSpec.constructorBuilder()
                 .addParameter("registeredContext", registeredContext)
+                .addParameter(HANDLER_FACTORY_PROPERTY, factoryClassName)
                 .build()
         )
         .addSuperinterface(registeredContext, "registeredContext")
+        .addProperty(
+            PropertySpec.builder(HANDLER_FACTORY_PROPERTY, factoryClassName)
+                .initializer(HANDLER_FACTORY_PROPERTY)
+                .build()
+        )
         .build()
 }
 
@@ -143,8 +157,8 @@ class BusGenerator(
 
         val file = FileSpec.builder(packagePath, config.busClassName)
         file.addType(classBuilder.build())
-        factoryClassNames.keys.forEach { context ->
-            file.addType(buildContextClass(contextClassNameFor(context)))
+        factoryClassNames.forEach { (context, factoryClassName) ->
+            file.addType(buildContextClass(contextClassNameFor(context), factoryClassName))
         }
         file
             .build()
@@ -197,7 +211,9 @@ class BusGenerator(
                     .initializer("%T(%L)", GenerationHandlerLocator::class, factoryName(context))
                     .build()
             )
-            builder.addProperty(buildContextProperty(context, contextClassNameFor(context)))
+            builder.addProperty(
+                buildContextProperty(context, contextClassNameFor(context), factoryName(context))
+            )
         }
         return builder.build()
     }
@@ -253,8 +269,9 @@ class BusGenerator(
                 .addStatement("checkStarted()")
                 .beginControlFlow("val handlerCreator = { %L ->", handlerCreatorParameters)
                 .addStatement(
-                    "%L.%L($factoryParameters)",
-                    factoryName(contextOf(handler)),
+                    "boundedContexts.%L.%L.%L($factoryParameters)",
+                    contextPropertyName(handler.handlerData.module),
+                    HANDLER_FACTORY_PROPERTY,
                     handler.handlerData.nameAsDependency,
                 )
                 .endControlFlow()
@@ -387,16 +404,6 @@ private class BusConstructorGenerator(private val config: BusConfig) {
                     }
                     .build()
             )
-            .apply {
-                factoryClassNames.forEach { (context, className) ->
-                    addProperty(
-                        PropertySpec.builder(factoryName(context), className)
-                            .initializer(factoryName(context))
-                            .addModifiers(KModifier.PRIVATE)
-                            .build()
-                    )
-                }
-            }
             .addFunction(buildLoaderConstructor(dependenciesClassName, factoryClassNames))
     }
 

@@ -93,6 +93,15 @@ class BusGeneratorContextsTest {
     }
 
     @Test
+    fun aHandlerIsBuiltByTheFactoryOfTheContextTheCommandRunsAgainst() {
+        val bus = generateBus()
+
+        assertContains(bus, "boundedContexts.orders.handlerFactory.placeOrderHandler(")
+        assertContains(bus, "boundedContexts.default.handlerFactory.sendEmailHandler(")
+        assertFalse(bus.contains("private val ordersHandlerFactory: OrdersHandlerFactory ="))
+    }
+
+    @Test
     fun everyTypedDispatchFunctionRefusesToRunOnAnUnstartedBus() {
         val bus = generateBus()
 
@@ -123,6 +132,7 @@ class BusGeneratorContextsTest {
             bus,
             "public class OrdersContext(\n" +
                 "  registeredContext: CommandOwningContext<NestedCommandExecutor>,\n" +
+                "  public val handlerFactory: OrdersHandlerFactory,\n" +
                 ") : CommandOwningContext<NestedCommandExecutor> by registeredContext",
         )
         assertContains(bus, "public class DefaultContext(")
