@@ -28,6 +28,7 @@ import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadEventVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
+import com.squareup.kotlinpoet.ClassName
 
 @Suppress("LongParameterList")
 class CodeGenerators(
@@ -53,11 +54,14 @@ class KbusProcessor(
     private val indexPackagePath: String,
 ) : SymbolProcessor {
     private val dependencies = ProcessingContext()
+    private var contextCommandInterfaces: Map<String, ClassName>? = null
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val invalidSymbols = mutableListOf<KSAnnotated>()
 
         invalidSymbols.addAll(processIndexes(resolver))
+
+        generateContextCommandInterfaces(resolver)
 
         invalidSymbols.addAll(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
@@ -66,6 +70,34 @@ class KbusProcessor(
         invalidSymbols.addAll(processEvents(resolver))
 
         return invalidSymbols
+    }
+
+    /**
+     * A handler naming its own context's commands cannot be resolved until that interface exists,
+     * so the interfaces are written before any handler is read. Only the base class a command
+     * handler extends is needed for this, which resolves whatever its constructor names.
+     */
+    private fun generateContextCommandInterfaces(resolver: Resolver) {
+        if (contextCommandInterfaces != null) return
+
+        val annotatedHandlers =
+            resolver
+                .getSymbolsWithAnnotation(LoadMessageHandler::class.qualifiedName.toString())
+                .filterIsInstance<KSClassDeclaration>()
+                .toList()
+
+        val locallyDeclaredCommands =
+            annotatedHandlers
+                .mapNotNull { handlerFactory.createCommandHandlerSignature(it) }
+                .toSet()
+
+        val sourceFiles = annotatedHandlers.mapNotNull { it.containingFile }.distinct()
+
+        contextCommandInterfaces =
+            generators.contextCommands.generateInterfaces(
+                locallyDeclaredCommands + dependencies.handlers,
+                sourceFiles,
+            )
     }
 
     @OptIn(KspExperimental::class)
@@ -136,13 +168,11 @@ class KbusProcessor(
                 dependencies.locallyDeclaredHandlers,
                 sourceFiles,
             )
-            val contextCommandInterfaces =
-                generators.contextCommands.generateInterfaces(dependencies.handlers, sourceFiles)
             generators.dependencyIndexGenerator.generateIndexClass(
                 dependencies.locallyDeclaredDependencies,
                 dependencies.locallyDeclaredHandlers,
                 dependencies.locallyDeclaredAutoPublishDefinitions,
-                contextCommandInterfaces,
+                contextCommandInterfaces.orEmpty(),
                 sourceFiles,
             )
         } else {
@@ -157,7 +187,6 @@ class KbusProcessor(
                 dependencies.handlers,
                 sourceFiles,
             )
-            generators.contextCommands.generateInterfaces(dependencies.handlers, sourceFiles)
             generators.contextCommands.generateExecutors(
                 dependencies.handlers,
                 dependencies.contextCommandInterfacesFromIndexes.mapValues { (_, interfaces) ->

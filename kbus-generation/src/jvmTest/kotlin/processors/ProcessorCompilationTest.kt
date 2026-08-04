@@ -5,6 +5,7 @@ import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
 import com.tschuchort.compiletesting.configureKsp
+import com.tschuchort.compiletesting.sourcesGeneratedBySymbolProcessor
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -98,6 +99,53 @@ class ProcessorCompilationTest {
             )
 
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+    }
+
+    /**
+     * A handler can name the typed commands its own module generates. That type does not exist when
+     * the handler is first read, so a handler left deferred by it never reaches the generated
+     * factory — silently, since nothing about it is an error.
+     */
+    @Test
+    fun aHandlerCanBeGivenTheTypedCommandsItsOwnModuleGenerates() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.contracts.messages.command.Command
+                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+                import com.jimbroze.kbus.contracts.result.BusResult
+                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.generated.DefaultCommands
+
+                class PlaceOrder : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class PlaceOrderHandler :
+                    CommandHandler<PlaceOrder, BusResult<String, MessageFailure>>() {
+                    override suspend fun handle(message: PlaceOrder) = BusResult.success("ok")
+                }
+
+                class PlaceOrderForRegular : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class PlaceOrderForRegularHandler(private val commands: DefaultCommands) :
+                    CommandHandler<PlaceOrderForRegular, BusResult<String, MessageFailure>>() {
+                    override suspend fun handle(message: PlaceOrderForRegular) =
+                        commands.placeOrder(PlaceOrder())
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        assertContains(
+            result.sourcesGeneratedBySymbolProcessor
+                .single { it.name == "DefaultHandlers.kt" }
+                .readText(),
+            "placeOrderForRegularHandler",
+        )
     }
 
     @Test
