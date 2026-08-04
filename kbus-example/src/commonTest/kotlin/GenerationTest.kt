@@ -31,6 +31,7 @@ import com.jimbroze.kbus.generation.test.inventory.application.usecases.query.Ge
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.ExampleWarehouseNotifier
 import com.jimbroze.kbus.generation.test.inventory.infrastructure.InMemoryInventoryRepository
 import com.jimbroze.kbus.generation.test.orders.application.EmailService
+import com.jimbroze.kbus.generation.test.orders.application.usecases.command.CancelAndReplaceOrder
 import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrder
 import com.jimbroze.kbus.generation.test.orders.application.usecases.command.PlaceOrderForRegularCustomer
 import com.jimbroze.kbus.generation.test.orders.application.usecases.event.HandleOrderPlacedIntegrationHandler
@@ -270,6 +271,22 @@ class GenerationTest {
             )
 
         assertEquals("customer-1", result.getOrNull()!!.customerId)
+    }
+
+    @Test
+    fun test_a_handler_typed_calls_a_sibling_command_declared_in_the_same_module() = runTest {
+        val bus =
+            CompileTimeLoadedMessageBus(
+                Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
+                EmptyTransactionManager(),
+                emptyList(),
+                appScope = backgroundScope,
+            )
+
+        val result =
+            bus.execute(CancelAndReplaceOrder("customer-2", listOf(OrderItem("pen", 2, 1.50))))
+
+        assertEquals("customer-2", result.getOrNull()!!.customerId)
     }
 
     @Test
