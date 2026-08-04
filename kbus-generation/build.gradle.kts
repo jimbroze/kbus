@@ -2,7 +2,7 @@ description = "Code generation module for Kbus: A Kotlin message bus framework"
 
 plugins {
     kotlin("multiplatform")
-    alias(libs.plugins.devtools.ksp)
+    id("com.google.devtools.ksp")
     id("kbus.publish")
 }
 

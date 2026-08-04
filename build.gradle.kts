@@ -14,7 +14,12 @@ plugins {
 }
 
 allprojects {
-    group = "com.jimbroze"
+    // A layer name repeats in every context, and a project's module identity is group + name — so
+    // without the context in the group, `orders:contracts` and `inventory:contracts` are one module
+    // and Gradle silently resolves both to whichever it saw first.
+    group =
+        if (path.startsWith(":examples:contexts:")) "com.jimbroze.examples.${parent!!.name}"
+        else "com.jimbroze"
     version = System.getenv("VERSION_OVERRIDE") ?: "0.5.0"
 
     apply(plugin = "com.ncorti.ktfmt.gradle")

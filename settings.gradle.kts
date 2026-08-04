@@ -31,10 +31,18 @@ include("kbus-core")
 
 include("kbus-generation")
 
-include("kbus-example")
+include("kbus-generation-fixtures")
 
-include("kbus-example-sub")
+include("kbus-generation-fixtures-sub")
 
-include("kbus-example-sub-two")
+include("examples:app")
 
-include("kbus-example-sub-orders-app")
+include("examples:docs-samples")
+
+listOf(
+        "orders" to listOf("contracts", "domain", "application", "infrastructure", "acl"),
+        "inventory" to listOf("contracts", "domain", "application", "infrastructure"),
+    )
+    .forEach { (context, layers) ->
+        layers.forEach { layer -> include("examples:contexts:$context:$layer") }
+    }
