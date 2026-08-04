@@ -72,7 +72,7 @@ class GetUserHandler :
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-messages-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-messages-01.kt).
 
 ### Create the Bus and Dispatch Messages
 
@@ -117,7 +117,7 @@ suspend fun main() {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-bus-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-bus-01.kt).
 
 ## Message Types
 
@@ -157,7 +157,7 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-events-01.kt).
 
 `CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and routes
 events through the Unit of Work.
@@ -237,7 +237,7 @@ class SendShipmentNotification : DomainEventHandler<OrderShipped>() {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-events-02.kt).
 
 #### Integration Events
 
@@ -266,7 +266,7 @@ class SyncToExternalCRM :
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-01.kt).
 
 #### Observing Integration Events
 
@@ -323,7 +323,7 @@ class RegisterUserHandler(private val integrationEventPublisher: IntegrationEven
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-02.kt).
 
 #### Auto-Publishing Integration Events from Domain Events
 
@@ -365,7 +365,7 @@ val busWithAutoPublish = MessageBus(
 )
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-03.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-03.kt).
 
 Registering every mapping by hand doesn't scale in a generated bus. Annotate the integration event with `@LoadEvent`
 and code generation collects every `AutoPublishesFrom` companion it finds into a generated
@@ -394,7 +394,7 @@ suspend fun main() {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-01.kt).
 
 Create results with companion functions:
 
@@ -410,7 +410,7 @@ val success = BusResult.success("value")
 val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-02.kt).
 
 ## Middleware
 
@@ -463,7 +463,7 @@ class TimingMiddleware : Middleware {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-middleware-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-middleware-01.kt).
 
 ### Using Middleware
 
@@ -492,7 +492,7 @@ val bus = MessageBus(
 )
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-middleware-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-middleware-02.kt).
 
 ### Built-in Middleware
 
@@ -528,7 +528,7 @@ val bus = MessageBus(
 )
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
 
 Every bus has a transaction manager. A bus that wants no transactions keeps the default
 `EmptyTransactionManager()` rather than passing none, so a command handler declaring `executeInTransaction` — which
@@ -554,7 +554,7 @@ class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, Messa
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
 
 You can provide a `TransactionManager` override to individual command handlers via `TransactionConfig`:
 
@@ -582,7 +582,7 @@ class TransferFundsHandler(
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
 
 To opt out of transaction execution, set `executeInTransaction` to `null`:
 
@@ -831,7 +831,7 @@ val bus = MessageBus(
 ).apply { start() }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
 
 An outbox is background work, so the bus must be [started](#bus-lifecycle) before it dispatches messages — `start()` is
 what launches the poller.
@@ -940,7 +940,7 @@ val bus = MessageBus(
 ).apply { start() }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
 
 Each context declaring a `ContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
 table with a context column, so one context's pump physically cannot see another context's rows. A context that
@@ -1080,7 +1080,7 @@ class PlaceOrderHandler(
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-generation-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-generation-01.kt).
 
 ### Generated Code
 
@@ -1329,7 +1329,7 @@ class CartId(private val value: String) : Identifier {
 class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-modeling-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-modeling-01.kt).
 
 ## Supported Platforms
 
