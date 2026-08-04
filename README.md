@@ -655,6 +655,10 @@ modules it depends on — a command in a module it cannot reference is not typed
 referenceable either. It extends `NestedCommandExecutor`, so the untyped `execute` stays available for anything the
 interface does not cover, with the same one-context limit.
 
+A handler can be given the interface its own module generates, not only one from a module it depends on. The
+interfaces are written before any handler is read, so a handler naming the type its own build is about to produce
+still resolves.
+
 Which context a handler's commands come from is a type fact, not a convention the generator upholds. A context is
 typed by the commands it owns, and supplies them itself when a command runs against it, so a handler built for one
 context cannot be run against another — the two contexts no longer share a type, and the mismatch is a compile error

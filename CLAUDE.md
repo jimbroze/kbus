@@ -80,9 +80,7 @@ handler metadata at generation time and never inferred by the consumer. The gene
 and emits one context per identity.
 
 A context's factory holds only that context's handlers, so a command another context owns is unresolvable there
-rather than merely refused — the isolation is structural. Its typed nested executor covers the commands its module
-can see, and a module can only consume an executor interface generated *upstream* of it: KSP cannot resolve a type
-the same run is about to write.
+rather than merely refused — the isolation is structural.
 
 ### Handler Locators
 
