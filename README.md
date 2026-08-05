@@ -412,6 +412,29 @@ val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something 
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-02.kt).
 
+Transform a result without unpacking it. `mapFailure` is what a handler forwarding another message's result needs:
+each message declares its own failure type, so passing one straight through does not type-check.
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
+import com.jimbroze.kbus.example.fixtures.MyCommand
+import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
+-->
+
+```kotlin
+suspend fun main() {
+    val result = bus.execute(MyCommand())
+
+    println(result.mapSuccess { it.length }.getOrNull())
+    println(result.mapFailure { GenericMessageFailure(GenericFailure("could not do the thing")) })
+    println(result.collapse({ "Value: $it" }, { "Error: ${it.reason.message}" }))
+}
+```
+
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-03.kt).
+
 ## Middleware
 
 Middleware wraps handler execution in a composable pipeline. Each middleware can run logic before and after the next

@@ -27,6 +27,32 @@ sealed class BusResult<out TValue : Any?, out TMessageFailure : MessageFailure> 
 
     fun failureOrNull(): TMessageFailure? = if (this is Failure) messageFailure else null
 
+    fun <TNewValue : Any?> mapSuccess(
+        transform: (TValue) -> TNewValue
+    ): BusResult<TNewValue, TMessageFailure> =
+        when (this) {
+            is Success -> Success(transform(value))
+            is Failure -> this
+        }
+
+    /**
+     * Restates a failure in the terms of the message being answered, so a handler forwarding
+     * another message's result keeps its own declared failure type.
+     */
+    fun <TNewFailure : MessageFailure> mapFailure(
+        transform: (TMessageFailure) -> TNewFailure
+    ): BusResult<TValue, TNewFailure> =
+        when (this) {
+            is Success -> this
+            is Failure -> Failure(transform(messageFailure))
+        }
+
+    fun <TOut> collapse(onSuccess: (TValue) -> TOut, onFailure: (TMessageFailure) -> TOut): TOut =
+        when (this) {
+            is Success -> onSuccess(value)
+            is Failure -> onFailure(messageFailure)
+        }
+
     companion object {
         fun <TValue : Any?> success(value: TValue): BusResult<TValue, Nothing> = Success(value)
 

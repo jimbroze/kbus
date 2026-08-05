@@ -105,4 +105,53 @@ class BusResultTest {
         assertTrue(result.isSuccess)
         assertNull(result.getOrNull())
     }
+
+    @Test
+    fun success_mapSuccess_appliesTheTransformToTheValue() {
+        val result = BusResult.success(2).mapSuccess { it * 3 }
+
+        assertEquals(6, result.getOrNull())
+    }
+
+    @Test
+    fun failure_mapSuccess_leavesTheFailureUntouched() {
+        val failure = TestMessageFailure(TestFailureReason("error"))
+        val result = BusResult.failure(failure).mapSuccess { "mapped" }
+
+        assertEquals(failure, result.failureOrNull())
+    }
+
+    @Test
+    fun failure_mapFailure_appliesTheTransformToTheFailure() {
+        val mapped = TestMessageFailure(TestFailureReason("mapped"))
+        val result =
+            BusResult.failure(TestMessageFailure(TestFailureReason("error"))).mapFailure { mapped }
+
+        assertEquals(mapped, result.failureOrNull())
+    }
+
+    @Test
+    fun success_mapFailure_keepsTheValue() {
+        val result =
+            BusResult.success("value").mapFailure { TestMessageFailure(TestFailureReason("other")) }
+
+        assertEquals("value", result.getOrNull())
+    }
+
+    @Test
+    fun success_collapse_takesTheSuccessBranch() {
+        val result = BusResult.success(2)
+
+        assertEquals("value 2", result.collapse({ "value $it" }, { "failed" }))
+    }
+
+    @Test
+    fun failure_collapse_takesTheFailureBranch() {
+        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
+
+        assertEquals(
+            "failed error",
+            result.collapse({ "value $it" }, { "failed ${it.reason.message}" }),
+        )
+    }
 }
