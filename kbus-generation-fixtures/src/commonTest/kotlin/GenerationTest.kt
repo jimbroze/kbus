@@ -16,8 +16,8 @@ import com.jimbroze.kbus.core.module.BoundedContextConfig
 import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxTuning
-import com.jimbroze.kbus.core.registry.generation.subscribe
-import com.jimbroze.kbus.core.registry.generation.subscribeDomain
+import com.jimbroze.kbus.core.registry.generation.domainSubscription
+import com.jimbroze.kbus.core.registry.generation.integrationSubscription
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generated.AutoLoader
@@ -173,9 +173,9 @@ class GenerationTest {
                 emptyList(),
                 default =
                     BoundedContextConfig(
-                        subscriptions =
+                        domainSubscriptions =
                             listOf(
-                                subscribeDomain(
+                                domainSubscription(
                                     TestGeneratorEvent::class,
                                     TestGeneratorEventHandler::class.loaded,
                                 )
@@ -218,7 +218,7 @@ class GenerationTest {
                     Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                     EmptyTransactionManager(),
                     listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
-                    default = BoundedContextConfig(subscriptions = defaultSubscriptions),
+                    default = BoundedContextConfig(integrationSubscriptions = defaultSubscriptions),
                 )
 
             val handledBefore = TestShipmentIntegrationHandler.timesHandled
@@ -253,9 +253,9 @@ class GenerationTest {
                 appScope = backgroundScope,
                 depot =
                     BoundedContextConfig(
-                        subscriptions =
+                        domainSubscriptions =
                             listOf(
-                                subscribeDomain(
+                                domainSubscription(
                                     ArrivalRecorded::class,
                                     AuditArrivalHandler::class.loaded,
                                 )
@@ -282,17 +282,20 @@ class GenerationTest {
                 appScope = backgroundScope,
                 default =
                     BoundedContextConfig(
-                        subscriptions =
+                        domainSubscriptions =
                             listOf(
-                                subscribeDomain(
+                                domainSubscription(
                                     TestGeneratorEvent::class,
                                     TestPublishingGeneratorEventHandler::class.loaded,
-                                ),
-                                subscribe(
+                                )
+                            ),
+                        integrationSubscriptions =
+                            listOf(
+                                integrationSubscription(
                                     TestShipmentIntegration::class,
                                     TestShipmentIntegrationHandler::class.loaded,
-                                ),
-                            )
+                                )
+                            ),
                     ),
             )
 
@@ -341,7 +344,7 @@ class GenerationTest {
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
-                depot = BoundedContextConfig(subscriptions = depotSubscriptions),
+                depot = BoundedContextConfig(integrationSubscriptions = depotSubscriptions),
             )
         bus.start()
         // Let the poller's immediate first (empty) pass settle into its long sleep.
@@ -377,7 +380,7 @@ class GenerationTest {
                 depot =
                     BoundedContextConfig(
                         inbox = BoundedContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
-                        subscriptions = depotSubscriptions,
+                        integrationSubscriptions = depotSubscriptions,
                     ),
             )
         bus.start()
@@ -429,7 +432,7 @@ class GenerationTest {
                         pollInterval = 50.milliseconds,
                         opportunisticDrain = false,
                     ),
-                depot = BoundedContextConfig(subscriptions = depotSubscriptions),
+                depot = BoundedContextConfig(integrationSubscriptions = depotSubscriptions),
             )
         bus.start()
 
@@ -477,8 +480,8 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
-                default = BoundedContextConfig(subscriptions = defaultSubscriptions),
-                depot = BoundedContextConfig(subscriptions = depotSubscriptions),
+                default = BoundedContextConfig(integrationSubscriptions = defaultSubscriptions),
+                depot = BoundedContextConfig(integrationSubscriptions = depotSubscriptions),
             )
 
         val defaultHandledBefore = TestShipmentIntegrationHandler.timesHandled

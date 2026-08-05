@@ -76,12 +76,12 @@ class BusGeneratorContextsTest {
         assertContains(
             bus,
             "BoundedContext(BoundedContextId(\"orders\"), ordersLocator, " +
-                "ordersConfig.inbox, ordersConfig.subscriptions)",
+                "ordersConfig.inbox, ordersConfig.domainSubscriptions, ordersConfig.integrationSubscriptions)",
         )
         assertContains(
             bus,
             "BoundedContext(BoundedContextId.DEFAULT, defaultLocator, " +
-                "defaultConfig.inbox, defaultConfig.subscriptions)",
+                "defaultConfig.inbox, defaultConfig.domainSubscriptions, defaultConfig.integrationSubscriptions)",
         )
     }
 

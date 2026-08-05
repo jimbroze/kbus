@@ -1229,19 +1229,20 @@ Each context gets a `BoundedContextConfig` parameter named after its identity:
 val bus = MyBus(
     dependencies, transactionManager, middleware,
     billing = BoundedContextConfig(
-        subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+        integrationSubscriptions = listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
     ),
     default = BoundedContextConfig(
-        subscriptions = listOf(subscribe(AuditRecorded::class, ArchiveAuditHandler::class.loaded)),
+        integrationSubscriptions = listOf(integrationSubscription(AuditRecorded::class, ArchiveAuditHandler::class.loaded)),
     ),
 )
 ```
 
-Domain handlers use `subscribeDomain`, in the same list:
+Domain handlers go in their own parameter, because the two kinds carry different guarantees — a domain handler runs
+inside the command's transaction, an integration handler after it commits:
 
 ```kotlin
 billing = BoundedContextConfig(
-    subscriptions = listOf(subscribeDomain(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+    domainSubscriptions = listOf(domainSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
 )
 ```
 
@@ -1249,8 +1250,8 @@ Naming a context that does not exist does not compile, because `billing` is a pa
 subscription is an ordinary value, so a context's subscriptions can live in their own file and be imported here:
 
 ```kotlin
-val billingSubscriptions: List<EventSubscription<*>> =
-    listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
+val billingSubscriptions: List<IntegrationEventSubscription<*>> =
+    listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
 ```
 
 There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
@@ -1271,7 +1272,7 @@ generated bus, or a constructor argument of a hand-written `BoundedContext`:
 BoundedContext(
     BoundedContextId("billing"),
     locator,
-    subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+    integrationSubscriptions = listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
 )
 ```
 
@@ -1279,13 +1280,13 @@ Nothing enforces this at runtime, because nothing needs to: a context's subscrip
 constructed context has nothing left to add to. There is no `seal()` and no `HandlerRegistrationSealedException` — a
 bus that never hands back a context cannot be subscribed into.
 
-`subscribeDomain` accepts only `DomainEventHandler` subclasses, not bare `EventHandler` implementations: domain
+`domainSubscription` accepts only `DomainEventHandler` subclasses, not bare `EventHandler` implementations: domain
 dispatch reads a handler's `dispatchTiming` and hands it a publisher to publish integration events with, so a handler
 without those is rejected where it is written rather than when the event is first published. The processor applies the
 same rule, so a `@LoadMessageHandler` handler of a `DomainEvent` that does not extend `DomainEventHandler` fails
 generation.
 
-`subscribe` and `subscribeDomain` take either bare handler classes or, from
+`integrationSubscription` and `domainSubscription` take either bare handler classes or, from
 `com.jimbroze.kbus.core.registry.generation`, `LoadedEventHandler` tokens obtained via a generated `.loaded`
 property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
 factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it

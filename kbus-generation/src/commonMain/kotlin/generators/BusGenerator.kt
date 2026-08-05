@@ -87,11 +87,13 @@ private fun buildContextProperty(
 ): PropertySpec =
     PropertySpec.builder(contextAccessorName(context), contextClassName)
         .initializer(
-            "%T(builder.register(%T(%L, %L, %L.inbox, %L.subscriptions)), %L)",
+            "%T(builder.register(%T(%L, %L, %L.inbox, %L.domainSubscriptions, " +
+                "%L.integrationSubscriptions)), %L)",
             contextClassName,
             BoundedContext::class,
             contextIdKeyBlock(contextIdentity(context)),
             locatorName(context),
+            configName(context),
             configName(context),
             configName(context),
             factoryName,

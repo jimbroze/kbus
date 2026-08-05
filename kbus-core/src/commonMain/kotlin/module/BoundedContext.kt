@@ -6,7 +6,9 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 
 /**
  * One bounded context's handlers, declared by the user and passed to a bus. Event handlers arrive
- * as [subscriptions]; commands and queries go through [handlerLocator] directly.
+ * as subscriptions, split by dispatch kind because the two carry different guarantees — domain
+ * events run inside the command's transaction, integration events after it commits. Commands and
+ * queries go through [handlerLocator] directly.
  *
  * A context is described entirely by its constructor arguments, so a constructed context has a
  * fixed handler set: a bus can settle which context owns each command and report conflicts while
@@ -19,9 +21,11 @@ class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
     internal val inbox: BoundedContextInbox? = null,
-    subscriptions: List<EventSubscription<*>> = emptyList(),
+    domainSubscriptions: List<DomainEventSubscription<*>> = emptyList(),
+    integrationSubscriptions: List<IntegrationEventSubscription<*>> = emptyList(),
 ) {
     init {
-        subscriptions.forEach { it.registerOn(handlerLocator) }
+        domainSubscriptions.forEach { it.registerOn(handlerLocator) }
+        integrationSubscriptions.forEach { it.registerOn(handlerLocator) }
     }
 }

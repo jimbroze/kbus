@@ -9,5 +9,6 @@ import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
  */
 class BoundedContextConfig(
     val inbox: BoundedContextInbox? = null,
-    val subscriptions: List<EventSubscription<*>> = emptyList(),
+    val domainSubscriptions: List<DomainEventSubscription<*>> = emptyList(),
+    val integrationSubscriptions: List<IntegrationEventSubscription<*>> = emptyList(),
 )

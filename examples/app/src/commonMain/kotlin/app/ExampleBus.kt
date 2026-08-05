@@ -8,8 +8,8 @@ import com.jimbroze.kbus.core.middleware.middleware.autoPublish
 import com.jimbroze.kbus.core.module.BoundedContextConfig
 import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.registry.generation.subscribe
-import com.jimbroze.kbus.core.registry.generation.subscribeDomain
+import com.jimbroze.kbus.core.registry.generation.domainSubscription
+import com.jimbroze.kbus.core.registry.generation.integrationSubscription
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.example.inventory.application.usecases.event.integration.NotifyWarehouseHandler
 import com.jimbroze.kbus.example.inventory.contracts.StockReserved
@@ -50,16 +50,19 @@ fun exampleBus(
                             InMemoryInboxStore(),
                             InboxAckPolicy.HonourEventStrategy,
                         ),
-                    subscriptions =
+                    domainSubscriptions =
                         listOf(
-                            subscribeDomain(
+                            domainSubscription(
                                 OrderPlaced::class,
                                 SendOrderConfirmationEmailHandler::class.loaded,
-                            ),
-                            subscribe(
+                            )
+                        ),
+                    integrationSubscriptions =
+                        listOf(
+                            integrationSubscription(
                                 StockReserved::class,
                                 RecordStockReservedHandler::class.loaded,
-                            ),
+                            )
                         ),
                 ),
             inventory =
@@ -69,9 +72,12 @@ fun exampleBus(
                             InMemoryInboxStore(),
                             InboxAckPolicy.HonourEventStrategy,
                         ),
-                    subscriptions =
+                    integrationSubscriptions =
                         listOf(
-                            subscribe(StockReserved::class, NotifyWarehouseHandler::class.loaded)
+                            integrationSubscription(
+                                StockReserved::class,
+                                NotifyWarehouseHandler::class.loaded,
+                            )
                         ),
                 ),
         )
