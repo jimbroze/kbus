@@ -57,10 +57,11 @@ typed `CompileTimeLoadedMessageBus`, and turns on the framework's opt-in machine
 outbox, a per-context inbox for each context, auto-publishing of `OrderPlaced` as
 `OrderPlacedIntegration`, and each context's event subscriptions.
 
-An anti-corruption layer cannot simply take the bus: typed dispatch lives only on the concrete
-generated bus class, which is assembled downstream of every context, and the untyped `execute` on it
-is deliberately unusable. So `InventoryStockReservations` takes the one call it makes as a function,
-and `app` binds it to the typed bus.
+An anti-corruption layer cannot simply take the bus: the concrete generated bus class is assembled
+downstream of every context, and naming its untyped `execute` is a compile error. So
+`InventoryStockReservations` takes a `CommandGateway<ReserveStock, ReserveStockResult>` — the one
+command it is entitled to send — and `app` binds it to the generated `ReserveStockGateway`, which
+exists only because something can handle `ReserveStock`.
 
 ## Per-module KSP configuration
 

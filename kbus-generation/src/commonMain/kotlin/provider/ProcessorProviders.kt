@@ -13,6 +13,7 @@ import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusConfig
 import com.jimbroze.kbus.generation.generators.BusGenerator
+import com.jimbroze.kbus.generation.generators.CommandGatewayGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.ContextCommandsGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
@@ -40,6 +41,7 @@ private const val LOADED_INTEGRATION_EVENT_HANDLERS_NAME = "LoadedIntegrationEve
 private const val AUTO_PUBLISH_REGISTRATIONS_NAME = "GeneratedAutoPublishRegistrations"
 private const val CONTEXT_COMMANDS_INTERFACE_NAME = "Commands"
 private const val CONTEXT_COMMAND_EXECUTOR_NAME = "CommandExecutor"
+private const val COMMAND_GATEWAY_CLASS_SUFFIX = "Gateway"
 
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
 private const val BOUNDED_CONTEXT_IDENTITY_KEY = "kbus.boundedContextIdentity"
@@ -119,6 +121,18 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
                 CONTEXT_COMMAND_EXECUTOR_NAME,
                 config.generatedPackagePath,
             ),
+            createCommandGatewayGenerator(env, config),
+        )
+
+    private fun createCommandGatewayGenerator(
+        env: SymbolProcessorEnvironment,
+        config: KBusProcessorConfig,
+    ) =
+        CommandGatewayGenerator(
+            env.codeGenerator,
+            env.logger,
+            COMMAND_GATEWAY_CLASS_SUFFIX,
+            config.generatedPackagePath,
         )
 
     private fun createBusGenerator(env: SymbolProcessorEnvironment, config: KBusProcessorConfig) =

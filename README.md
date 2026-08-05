@@ -659,6 +659,26 @@ A handler can be given the interface its own module generates, not only one from
 interfaces are written before any handler is read, so a handler naming the type its own build is about to produce
 still resolves.
 
+#### Sending a Command Across a Boundary
+
+Nested execution stops at the context boundary, and the generated bus is assembled downstream of every context, so a
+module cannot simply take it. What it can take is a `CommandGateway<TCommand, TResult>` — the one command it is
+entitled to send, as a constructor parameter:
+
+```kotlin
+class InventoryStockReservations(
+    private val reserveStock: CommandGateway<ReserveStock, ReserveStockResult>
+) : StockReservations {
+    override suspend fun reserve(productId: String, quantity: Int): Boolean =
+        reserveStock.execute(ReserveStock(productId, quantity)).getOrNull() != null
+}
+```
+
+The generator writes one implementation per command that has a handler — `ReserveStockGateway`, taking the bus — so
+being handed a gateway is a compile-time claim that something can handle what it sends. Wire it where the bus is
+built. The command goes through the bus like any other: its own Unit of Work, committing independently of whatever
+called it.
+
 Which context a handler's commands come from is a type fact, not a convention the generator upholds. A context is
 typed by the commands it owns, and supplies them itself when a command runs against it, so a handler built for one
 context cannot be run against another — the two contexts no longer share a type, and the mismatch is a compile error

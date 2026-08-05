@@ -339,6 +339,10 @@ class BusGenerator(
 
         return FunSpec.builder("execute")
             .addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
+            .addKdoc(
+                "Reachable through [IMessageBus], which is how a generated command gateway holds " +
+                    "this bus, so the untyped path works even though naming it here is an error."
+            )
             .addAnnotation(
                 AnnotationSpec.builder(Deprecated::class)
                     .addMember(
@@ -352,7 +356,7 @@ class BusGenerator(
             .addTypeVariable(tResult)
             .addParameter("command", tCommand)
             .returns(tResult)
-            .addStatement("error(%S)", "Should not be called directly on the compile-time bus.")
+            .addStatement("return super.execute(command)")
             .build()
     }
 
@@ -366,6 +370,10 @@ class BusGenerator(
 
         return FunSpec.builder("fetch")
             .addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
+            .addKdoc(
+                "Reachable through [IMessageBus], which is how a generated command gateway holds " +
+                    "this bus, so the untyped path works even though naming it here is an error."
+            )
             .addAnnotation(
                 AnnotationSpec.builder(Deprecated::class)
                     .addMember(
@@ -379,7 +387,7 @@ class BusGenerator(
             .addTypeVariable(tResult)
             .addParameter("query", tQuery)
             .returns(tResult)
-            .addStatement("error(%S)", "Should not be called directly on the compile-time bus.")
+            .addStatement("return super.fetch(query)")
             .build()
     }
 }

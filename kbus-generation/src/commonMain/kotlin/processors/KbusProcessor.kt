@@ -13,6 +13,7 @@ import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
+import com.jimbroze.kbus.generation.generators.CommandGatewayGenerator
 import com.jimbroze.kbus.generation.generators.ContainerInterfaceGenerator
 import com.jimbroze.kbus.generation.generators.ContextCommandsGenerator
 import com.jimbroze.kbus.generation.generators.DependencyIndexGenerator
@@ -41,6 +42,7 @@ class CodeGenerators(
     val loadedEventHandlersGenerator: LoadedEventHandlersGenerator,
     val autoPublishRegistrationsGenerator: AutoPublishRegistrationsGenerator,
     val contextCommands: ContextCommandsGenerator,
+    val commandGateways: CommandGatewayGenerator,
 )
 
 @Suppress("LongParameterList")
@@ -194,6 +196,7 @@ class KbusProcessor(
                 },
                 sourceFiles,
             )
+            generators.commandGateways.generateGateways(dependencies.handlers, sourceFiles)
             generators.bus.generateClass(dependencies.handlers, sourceFiles)
             generators.autoPublishRegistrationsGenerator.generateRegistrations(
                 dependencies.autoPublishDefinitions,

@@ -8,6 +8,7 @@ import com.jimbroze.kbus.example.orders.infrastructure.ExamplePaymentGateway
 import com.jimbroze.kbus.example.orders.infrastructure.InMemoryOrderRepository
 import com.jimbroze.kbus.generated.AutoLoader
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
+import com.jimbroze.kbus.generated.ReserveStockGateway
 
 /**
  * Binds every port the contexts declare to an adapter. Nothing above this module knows which
@@ -24,5 +25,7 @@ class ExampleContainer(private val bus: () -> CompileTimeLoadedMessageBus) : Aut
     override val inventoryRepository = InMemoryInventoryRepository()
     override val warehouseNotifier = ExampleWarehouseNotifier()
 
-    override val stockReservations by lazy { InventoryStockReservations { bus().execute(it) } }
+    override val stockReservations by lazy {
+        InventoryStockReservations(ReserveStockGateway(bus()))
+    }
 }
