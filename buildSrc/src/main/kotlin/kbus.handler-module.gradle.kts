@@ -23,11 +23,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
 }
 
 // An index class name and package are derived from the submodule name, which therefore has to be
-// unique across the build — layer names alone repeat in every context.
+// unique across the build.
 afterEvaluate {
     val identity = boundedContext.identity.get()
     extensions.configure<KspExtension> {
-        arg("kbus.subModuleName", "$identity-${project.name}")
+        arg("kbus.subModuleName", project.name)
         arg("kbus.boundedContextIdentity", identity)
         arg("kbus.indexPackage", "com.jimbroze.kbus.example.indexes")
     }

@@ -7,8 +7,8 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.kbusContracts)
             implementation(projects.kbusCore)
-            api(projects.examples.contexts.inventory.contracts)
-            api(projects.examples.contexts.inventory.domain)
+            api(projects.examples.contexts.inventoryContracts)
+            api(projects.examples.contexts.inventoryDomain)
         }
     }
 }

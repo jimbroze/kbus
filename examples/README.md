@@ -12,6 +12,10 @@ examples/
   docs-samples/      the snippets Knit extracts from the root README
 ```
 
+A layer's Gradle project carries its context in its name — `:examples:contexts:orders-application`
+lives in `contexts/orders/application` — because a Gradle module is identified by its group and its
+name alone, and every context here repeats the same layer names.
+
 ## Layers
 
 **`contracts`** is the context's whole public API: its commands, its queries, and the integration
@@ -69,8 +73,8 @@ plugins { id("kbus.handler-module") }
 boundedContext { identity = "orders" }
 ```
 
-One identity spans several Gradle modules; the plugin derives the submodule name from it so index
-class names stay unique across a build in which every context repeats the same layer names.
+One identity spans several Gradle modules; the plugin derives the submodule name from the module's
+own name, so index class names stay unique across the build.
 
 ## Running
 

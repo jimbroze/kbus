@@ -5,9 +5,9 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.kbusContracts)
             implementation(projects.kbusCore)
-            implementation(projects.examples.contexts.orders.application)
+            implementation(projects.examples.contexts.ordersApplication)
             // The only module in this context that names another context's messages.
-            implementation(projects.examples.contexts.inventory.contracts)
+            implementation(projects.examples.contexts.inventoryContracts)
         }
     }
 }

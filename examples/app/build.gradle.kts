@@ -10,16 +10,16 @@ kotlin {
             implementation(projects.kbusCore)
             implementation(projects.kbusDomain)
 
-            implementation(projects.examples.contexts.orders.contracts)
-            implementation(projects.examples.contexts.orders.domain)
-            implementation(projects.examples.contexts.orders.application)
-            implementation(projects.examples.contexts.orders.infrastructure)
-            implementation(projects.examples.contexts.orders.acl)
+            implementation(projects.examples.contexts.ordersContracts)
+            implementation(projects.examples.contexts.ordersDomain)
+            implementation(projects.examples.contexts.ordersApplication)
+            implementation(projects.examples.contexts.ordersInfrastructure)
+            implementation(projects.examples.contexts.ordersAcl)
 
-            implementation(projects.examples.contexts.inventory.contracts)
-            implementation(projects.examples.contexts.inventory.domain)
-            implementation(projects.examples.contexts.inventory.application)
-            implementation(projects.examples.contexts.inventory.infrastructure)
+            implementation(projects.examples.contexts.inventoryContracts)
+            implementation(projects.examples.contexts.inventoryDomain)
+            implementation(projects.examples.contexts.inventoryApplication)
+            implementation(projects.examples.contexts.inventoryInfrastructure)
 
             implementation(libs.kotlinx.coroutines.core)
         }

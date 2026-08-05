@@ -39,10 +39,17 @@ include("examples:app")
 
 include("examples:docs-samples")
 
+// A Gradle module's identity is its group plus its *name*, and a name is only the last path
+// segment — so a layer named per context would give two modules one identity, which Gradle
+// resolves to whichever it saw first. The name carries the context; the directories still nest.
 listOf(
         "orders" to listOf("contracts", "domain", "application", "infrastructure", "acl"),
         "inventory" to listOf("contracts", "domain", "application", "infrastructure"),
     )
     .forEach { (context, layers) ->
-        layers.forEach { layer -> include("examples:contexts:$context:$layer") }
+        layers.forEach { layer ->
+            include("examples:contexts:$context-$layer")
+            project(":examples:contexts:$context-$layer").projectDir =
+                file("examples/contexts/$context/$layer")
+        }
     }
