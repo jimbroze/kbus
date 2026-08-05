@@ -3,14 +3,14 @@ package com.jimbroze.kbus.example.orders.application.usecases.command
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
 import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.example.orders.application.OrderRepository
 import com.jimbroze.kbus.example.orders.application.PaymentGateway
 import com.jimbroze.kbus.example.orders.application.StockReservations
 import com.jimbroze.kbus.example.orders.contracts.OrderId
 import com.jimbroze.kbus.example.orders.contracts.PlaceOrder
+import com.jimbroze.kbus.example.orders.contracts.PlaceOrderFailure
+import com.jimbroze.kbus.example.orders.contracts.PlaceOrderResult
 import com.jimbroze.kbus.example.orders.domain.Order
 import com.jimbroze.kbus.example.orders.domain.OrderItem
 import com.jimbroze.kbus.example.orders.domain.OrderStatus
@@ -22,8 +22,8 @@ class PlaceOrderHandler(
     private val paymentGateway: PaymentGateway,
     private val stockReservations: StockReservations,
     private val domainEventPublisher: DomainEventPublisher,
-) : CommandHandler<PlaceOrder, BusResult<OrderId, MessageFailure>>() {
-    override suspend fun handle(message: PlaceOrder): BusResult<OrderId, MessageFailure> {
+) : CommandHandler<PlaceOrder, PlaceOrderResult>() {
+    override suspend fun handle(message: PlaceOrder): PlaceOrderResult {
         val items = message.lines.map { OrderItem(it.productId, it.quantity, it.unitPrice) }
         val total = items.sumOf { it.quantity * it.unitPrice }
 
@@ -31,9 +31,10 @@ class PlaceOrderHandler(
             items.firstOrNull { !stockReservations.reserve(it.productId, it.quantity) }
 
         return when {
-            itemWithNoStock != null -> failure("No stock for product ${itemWithNoStock.productId}")
+            itemWithNoStock != null ->
+                BusResult.failure(PlaceOrderFailure.OutOfStock(itemWithNoStock.productId))
             !paymentGateway.charge(message.customerId, total, message.paymentMethodId) ->
-                failure("Payment failed")
+                BusResult.failure(PlaceOrderFailure.PaymentDeclined(message.customerId))
             else -> BusResult.success(OrderId(confirm(message.customerId, items, total).id))
         }
     }
@@ -52,11 +53,4 @@ class PlaceOrderHandler(
         order.place()
         return orderRepository.save(order)
     }
-
-    private fun failure(description: String) =
-        BusResult.failure(
-            object : MessageFailure {
-                override val reason = GenericFailure(description)
-            }
-        )
 }

@@ -1,9 +1,7 @@
 package com.jimbroze.kbus.example.orders.acl
 
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.example.inventory.contracts.ReservationId
 import com.jimbroze.kbus.example.inventory.contracts.ReserveStock
+import com.jimbroze.kbus.example.inventory.contracts.ReserveStockResult
 import com.jimbroze.kbus.example.orders.application.StockReservations
 
 /**
@@ -17,7 +15,7 @@ import com.jimbroze.kbus.example.orders.application.StockReservations
  * and an order that later fails will not undo it. A compensating command is this context's job.
  */
 class InventoryStockReservations(
-    private val sendReserveStock: suspend (ReserveStock) -> BusResult<ReservationId, MessageFailure>
+    private val sendReserveStock: suspend (ReserveStock) -> ReserveStockResult
 ) : StockReservations {
     override suspend fun reserve(productId: String, quantity: Int): Boolean =
         sendReserveStock(ReserveStock(productId, quantity)).getOrNull() != null
