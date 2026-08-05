@@ -46,7 +46,7 @@ with KSP code generation for compile-time type-safe handler resolution (zero ref
   `docs-samples/` holds the snippets Knit extracts from README.md. See `examples/README.md`
 - **testDoubles** — Shared test fixtures
 - **buildSrc** — Custom Gradle plugins (`kbus.multiplatform`, `kbus.publish`,
-  `kbus.bounded-context-layer`)
+  `kbus.handler-module`)
 
 ## Architecture
 

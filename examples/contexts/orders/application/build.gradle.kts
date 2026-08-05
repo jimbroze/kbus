@@ -1,4 +1,4 @@
-plugins { id("kbus.bounded-context-layer") }
+plugins { id("kbus.handler-module") }
 
 boundedContext { identity = "orders" }
 

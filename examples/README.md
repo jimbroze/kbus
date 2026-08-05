@@ -60,11 +60,11 @@ and `app` binds it to the typed bus.
 
 ## Per-module KSP configuration
 
-Every layer module that declares handlers applies `kbus.bounded-context-layer` and names its
+Every layer module that declares handlers applies `kbus.handler-module` and names its
 context:
 
 ```kotlin
-plugins { id("kbus.bounded-context-layer") }
+plugins { id("kbus.handler-module") }
 
 boundedContext { identity = "orders" }
 ```
