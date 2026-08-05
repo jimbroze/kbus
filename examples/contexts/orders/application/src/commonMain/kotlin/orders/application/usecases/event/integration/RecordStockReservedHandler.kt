@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.example.orders.application.usecases.event
+package com.jimbroze.kbus.example.orders.application.usecases.event.integration
 
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler

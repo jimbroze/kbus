@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.example.app
 
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
-import com.jimbroze.kbus.example.inventory.application.usecases.event.NotifyWarehouseHandler
+import com.jimbroze.kbus.example.inventory.application.usecases.event.integration.NotifyWarehouseHandler
 import com.jimbroze.kbus.example.inventory.contracts.GetStockLevel
-import com.jimbroze.kbus.example.orders.application.usecases.event.RecordStockReservedHandler
+import com.jimbroze.kbus.example.orders.application.usecases.event.integration.RecordStockReservedHandler
 import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrder
 import com.jimbroze.kbus.example.orders.contracts.GetOrderById
 import com.jimbroze.kbus.example.orders.contracts.OrderLine

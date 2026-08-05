@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.example.orders.application.usecases.event
+package com.jimbroze.kbus.example.orders.application.usecases.event.mappings
 
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.example.orders.contracts.OrderPlacedIntegration

@@ -11,11 +11,11 @@ import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.generation.subscribe
 import com.jimbroze.kbus.core.registry.generation.subscribeDomain
 import com.jimbroze.kbus.core.uow.OutboxConfig
-import com.jimbroze.kbus.example.inventory.application.usecases.event.NotifyWarehouseHandler
+import com.jimbroze.kbus.example.inventory.application.usecases.event.integration.NotifyWarehouseHandler
 import com.jimbroze.kbus.example.inventory.contracts.StockReserved
-import com.jimbroze.kbus.example.orders.application.usecases.event.OrderPlacedMapper
-import com.jimbroze.kbus.example.orders.application.usecases.event.RecordStockReservedHandler
-import com.jimbroze.kbus.example.orders.application.usecases.event.SendOrderConfirmationEmailHandler
+import com.jimbroze.kbus.example.orders.application.usecases.event.mappings.OrderPlacedMapper
+import com.jimbroze.kbus.example.orders.application.usecases.event.integration.RecordStockReservedHandler
+import com.jimbroze.kbus.example.orders.application.usecases.event.domain.SendOrderConfirmationEmailHandler
 import com.jimbroze.kbus.example.orders.domain.OrderPlaced
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generated.loaded
