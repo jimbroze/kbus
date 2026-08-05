@@ -911,7 +911,7 @@ import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -928,12 +928,12 @@ val bus = MessageBus(
         BoundedContext(
             BoundedContextId("orders"),
             ordersLocator,
-            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
         BoundedContext(
             BoundedContextId("inventory"),
             inventoryLocator,
-            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
@@ -942,20 +942,20 @@ val bus = MessageBus(
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
 
-Each context declaring a `ContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
+Each context declaring a `BoundedContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
 table with a context column, so one context's pump physically cannot see another context's rows. A context that
 declares none keeps synchronous, un-inboxed dispatch; the two can be mixed on the same bus. Declaring the inbox on the
 context rather than in a bus-level map keyed by `BoundedContextId` means naming a context that does not exist is not
 expressible, and the store cannot drift apart from the context it belongs to.
 
-A generated bus builds its contexts for you, so the inbox arrives in that context's `ContextConfig` — under the same
+A generated bus builds its contexts for you, so the inbox arrives in that context's `BoundedContextConfig` — under the same
 compile-time-checked name used to subscribe its event handlers:
 
 ```kotlin
 CompileTimeLoadedMessageBus(
     dependencies, transactionManager, middleware,
-    orders = ContextConfig(
-        inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+    orders = BoundedContextConfig(
+        inbox = BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
     ),
 )
 ```
@@ -977,7 +977,7 @@ Two separate things determine what happens to a failing handler at the inbox —
 separately:
 
 - **`errorStrategy`** (on the event) decides whether a handler's exception ever reaches the inbox at all.
-- **`ackPolicy`** (on the context's own `ContextInbox`) decides whether that inbox accepts a producer's `FireAndForget`
+- **`ackPolicy`** (on the context's own `BoundedContextInbox`) decides whether that inbox accepts a producer's `FireAndForget`
   "don't care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer
   is a safe default to pick on a consumer's behalf.
 
@@ -996,7 +996,7 @@ handler's *exception*:
 consumer can refuse it via its context's `ackPolicy`:
 
 ```kotlin
-ContextInbox(InMemoryInboxStore(), InboxAckPolicy.RequireHandlerSuccess)
+BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.RequireHandlerSuccess)
 ```
 
 | `ackPolicy` | Effect |
@@ -1205,7 +1205,7 @@ ksp {
 ```
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
-by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `ContextConfig`
+by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `BoundedContextConfig`
 parameter for each, named after the identity, plus `default` for handlers from modules that declared no identity.
 
 Those contexts live in a generated nested `Contexts` class, one property per identity, which the bus hands to
@@ -1223,15 +1223,15 @@ every handler declaring no identity, so a module claiming it would be folded int
 from it. Setting the build arg to blank whitespace is rejected too — remove it instead to leave a module's handlers in
 the default context.
 
-Each context gets a `ContextConfig` parameter named after its identity:
+Each context gets a `BoundedContextConfig` parameter named after its identity:
 
 ```kotlin
 val bus = MyBus(
     dependencies, transactionManager, middleware,
-    billing = ContextConfig(
+    billing = BoundedContextConfig(
         subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
     ),
-    default = ContextConfig(
+    default = BoundedContextConfig(
         subscriptions = listOf(subscribe(AuditRecorded::class, ArchiveAuditHandler::class.loaded)),
     ),
 )
@@ -1240,7 +1240,7 @@ val bus = MyBus(
 Domain handlers use `subscribeDomain`, in the same list:
 
 ```kotlin
-billing = ContextConfig(
+billing = BoundedContextConfig(
     subscriptions = listOf(subscribeDomain(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
 )
 ```
@@ -1264,7 +1264,7 @@ context, and the bus is what resolves that owner, so it must be able to settle o
 is what lets two contexts claiming the same command be reported against your wiring rather than against some later
 dispatch in production. Register them on a context's `HandlerLocator` before passing the context to the bus.
 
-**Event handlers must be subscribed before the bus is constructed too** — as a `ContextConfig` parameter of a
+**Event handlers must be subscribed before the bus is constructed too** — as a `BoundedContextConfig` parameter of a
 generated bus, or a constructor argument of a hand-written `BoundedContext`:
 
 ```kotlin

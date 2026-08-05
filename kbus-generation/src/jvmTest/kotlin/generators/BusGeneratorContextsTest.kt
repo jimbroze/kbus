@@ -86,11 +86,11 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun theBusTakesOneContextConfigParameterPerContext() {
+    fun theBusTakesOneBoundedContextConfigParameterPerContext() {
         val bus = generateBus()
 
-        assertContains(bus, "default: ContextConfig = ContextConfig()")
-        assertContains(bus, "orders: ContextConfig = ContextConfig()")
+        assertContains(bus, "default: BoundedContextConfig = BoundedContextConfig()")
+        assertContains(bus, "orders: BoundedContextConfig = BoundedContextConfig()")
     }
 
     @Test

@@ -5,17 +5,17 @@ import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.autoPublish
-import com.jimbroze.kbus.core.module.ContextConfig
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.BoundedContextConfig
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.generation.subscribe
 import com.jimbroze.kbus.core.registry.generation.subscribeDomain
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.example.inventory.application.usecases.event.integration.NotifyWarehouseHandler
 import com.jimbroze.kbus.example.inventory.contracts.StockReserved
-import com.jimbroze.kbus.example.orders.application.usecases.event.mappings.OrderPlacedMapper
-import com.jimbroze.kbus.example.orders.application.usecases.event.integration.RecordStockReservedHandler
 import com.jimbroze.kbus.example.orders.application.usecases.event.domain.SendOrderConfirmationEmailHandler
+import com.jimbroze.kbus.example.orders.application.usecases.event.integration.RecordStockReservedHandler
+import com.jimbroze.kbus.example.orders.application.usecases.event.mappings.OrderPlacedMapper
 import com.jimbroze.kbus.example.orders.domain.OrderPlaced
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generated.loaded
@@ -44,8 +44,12 @@ fun exampleBus(
             appScope = appScope,
             outbox = OutboxConfig(store = InMemoryOutboxStore(), pollInterval = 10.seconds),
             orders =
-                ContextConfig(
-                    inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                BoundedContextConfig(
+                    inbox =
+                        BoundedContextInbox(
+                            InMemoryInboxStore(),
+                            InboxAckPolicy.HonourEventStrategy,
+                        ),
                     subscriptions =
                         listOf(
                             subscribeDomain(
@@ -59,8 +63,12 @@ fun exampleBus(
                         ),
                 ),
             inventory =
-                ContextConfig(
-                    inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+                BoundedContextConfig(
+                    inbox =
+                        BoundedContextInbox(
+                            InMemoryInboxStore(),
+                            InboxAckPolicy.HonourEventStrategy,
+                        ),
                     subscriptions =
                         listOf(
                             subscribe(StockReserved::class, NotifyWarehouseHandler::class.loaded)

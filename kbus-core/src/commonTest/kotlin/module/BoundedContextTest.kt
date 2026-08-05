@@ -7,7 +7,7 @@ import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
@@ -126,7 +126,8 @@ class BoundedContextTest {
 
     @Test
     fun inbox_isTheOneTheContextConsumesThrough() {
-        val declaredInbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
+        val declaredInbox =
+            BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
 
         val context =
             BoundedContext(BoundedContextId("orders"), PersistingHandlerLocator(), declaredInbox)

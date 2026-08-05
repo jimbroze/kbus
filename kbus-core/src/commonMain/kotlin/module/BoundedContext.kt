@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.module
 
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 
@@ -18,7 +18,7 @@ import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 class BoundedContext(
     val id: BoundedContextId,
     internal val handlerLocator: HandlerLocator = PersistingHandlerLocator(),
-    internal val inbox: ContextInbox? = null,
+    internal val inbox: BoundedContextInbox? = null,
     subscriptions: List<EventSubscription<*>> = emptyList(),
 ) {
     init {

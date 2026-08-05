@@ -29,7 +29,7 @@ class InboxCoordinatorTest {
     private fun context(
         id: BoundedContextId,
         dispatcherScope: CoroutineScope,
-        inbox: ContextInbox? = null,
+        inbox: BoundedContextInbox? = null,
     ): ContextRuntime {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val eventDispatcher =
@@ -46,7 +46,7 @@ class InboxCoordinatorTest {
     }
 
     private fun honouringInbox(store: RecordingInboxStore = RecordingInboxStore()) =
-        ContextInbox(store, InboxAckPolicy.HonourEventStrategy)
+        BoundedContextInbox(store, InboxAckPolicy.HonourEventStrategy)
 
     @Test
     fun destinations_forContextsDeclaringNoInbox_areTheContextsThemselves() = runTest {
@@ -129,7 +129,7 @@ class InboxCoordinatorTest {
         id: BoundedContextId,
         attempts: MutableList<String>,
         dispatcherScope: CoroutineScope,
-        inbox: ContextInbox? = null,
+        inbox: BoundedContextInbox? = null,
     ): ContextRuntime {
         val stores = HandlerFactoryStoreCollection()
         stores.eventStore.registerHandlers(
@@ -168,7 +168,7 @@ class InboxCoordinatorTest {
                 BoundedContextId("alpha"),
                 alphaAttempts,
                 backgroundScope,
-                ContextInbox(alphaStore, InboxAckPolicy.RequireHandlerSuccess),
+                BoundedContextInbox(alphaStore, InboxAckPolicy.RequireHandlerSuccess),
             )
         val beta = throwingContext(BoundedContextId("beta"), betaAttempts, backgroundScope)
 

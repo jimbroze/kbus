@@ -8,10 +8,10 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.module.BoundedContext
+import com.jimbroze.kbus.core.module.BoundedContextConfig
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.CommandOwningContext
 import com.jimbroze.kbus.core.module.ContextBuilder
-import com.jimbroze.kbus.core.module.ContextConfig
 import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
@@ -220,7 +220,7 @@ class BusGenerator(
                     addParameter(factoryName(context), className)
                 }
                 factoryClassNames.keys.forEach { context ->
-                    addParameter(configName(context), ContextConfig::class)
+                    addParameter(configName(context), BoundedContextConfig::class)
                 }
             }
         val builder =
@@ -390,8 +390,8 @@ private class BusConstructorGenerator(private val config: BusConfig) {
      */
     private fun contextConfigParameters(contexts: Collection<String>): List<ParameterSpec> =
         contexts.map {
-            ParameterSpec.builder(contextAccessorName(it), ContextConfig::class)
-                .defaultValue("%T()", ContextConfig::class)
+            ParameterSpec.builder(contextAccessorName(it), BoundedContextConfig::class)
+                .defaultValue("%T()", BoundedContextConfig::class)
                 .build()
         }
 

@@ -12,8 +12,8 @@ import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
-import com.jimbroze.kbus.core.module.ContextConfig
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.BoundedContextConfig
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.generation.subscribe
@@ -172,7 +172,7 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 emptyList(),
                 default =
-                    ContextConfig(
+                    BoundedContextConfig(
                         subscriptions =
                             listOf(
                                 subscribeDomain(
@@ -218,7 +218,7 @@ class GenerationTest {
                     Dependencies(Instant.parse("2024-02-23T19:01:09Z"), backgroundScope),
                     EmptyTransactionManager(),
                     listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
-                    default = ContextConfig(subscriptions = defaultSubscriptions),
+                    default = BoundedContextConfig(subscriptions = defaultSubscriptions),
                 )
 
             val handledBefore = TestShipmentIntegrationHandler.timesHandled
@@ -252,7 +252,7 @@ class GenerationTest {
                 emptyList(),
                 appScope = backgroundScope,
                 depot =
-                    ContextConfig(
+                    BoundedContextConfig(
                         subscriptions =
                             listOf(
                                 subscribeDomain(
@@ -281,7 +281,7 @@ class GenerationTest {
                 emptyList(),
                 appScope = backgroundScope,
                 default =
-                    ContextConfig(
+                    BoundedContextConfig(
                         subscriptions =
                             listOf(
                                 subscribeDomain(
@@ -341,7 +341,7 @@ class GenerationTest {
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
                 outbox = OutboxConfig(store = outboxStore, pollInterval = 10.seconds),
-                depot = ContextConfig(subscriptions = depotSubscriptions),
+                depot = BoundedContextConfig(subscriptions = depotSubscriptions),
             )
         bus.start()
         // Let the poller's immediate first (empty) pass settle into its long sleep.
@@ -375,8 +375,8 @@ class GenerationTest {
                 inboxTuning =
                     InboxTuning(opportunisticDispatch = false, pollInterval = 50.milliseconds),
                 depot =
-                    ContextConfig(
-                        inbox = ContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
+                    BoundedContextConfig(
+                        inbox = BoundedContextInbox(inboxStore, InboxAckPolicy.HonourEventStrategy),
                         subscriptions = depotSubscriptions,
                     ),
             )
@@ -429,7 +429,7 @@ class GenerationTest {
                         pollInterval = 50.milliseconds,
                         opportunisticDrain = false,
                     ),
-                depot = ContextConfig(subscriptions = depotSubscriptions),
+                depot = BoundedContextConfig(subscriptions = depotSubscriptions),
             )
         bus.start()
 
@@ -477,8 +477,8 @@ class GenerationTest {
                 EmptyTransactionManager(),
                 listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
                 appScope = backgroundScope,
-                default = ContextConfig(subscriptions = defaultSubscriptions),
-                depot = ContextConfig(subscriptions = depotSubscriptions),
+                default = BoundedContextConfig(subscriptions = defaultSubscriptions),
+                depot = BoundedContextConfig(subscriptions = depotSubscriptions),
             )
 
         val defaultHandledBefore = TestShipmentIntegrationHandler.timesHandled
