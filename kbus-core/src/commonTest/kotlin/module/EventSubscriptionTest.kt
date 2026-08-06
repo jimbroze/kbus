@@ -8,8 +8,8 @@ import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
-import com.jimbroze.kbus.core.registry.generation.subscribe
-import com.jimbroze.kbus.core.registry.generation.subscribeDomain
+import com.jimbroze.kbus.core.registry.generation.domainSubscription
+import com.jimbroze.kbus.core.registry.generation.integrationSubscription
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -23,21 +23,22 @@ class EventSubscriptionTest {
     private val locator = PersistingHandlerLocator(stores)
 
     @Test
-    fun subscribe_makesTheEventOneTheLocatorIsSubscribedTo() {
-        subscribe(StorageEvent::class, PrintEventHandler::class).registerOn(locator)
+    fun integrationSubscription_makesTheEventOneTheLocatorIsSubscribedTo() {
+        integrationSubscription(StorageEvent::class, PrintEventHandler::class).registerOn(locator)
 
         assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
-    fun subscribeDomain_makesTheDomainEventOneTheLocatorIsSubscribedTo() {
-        subscribeDomain(TestDomainEvent::class, TestDomainEventHandler::class).registerOn(locator)
+    fun domainSubscription_makesTheDomainEventOneTheLocatorIsSubscribedTo() {
+        domainSubscription(TestDomainEvent::class, TestDomainEventHandler::class)
+            .registerOn(locator)
 
         assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))
     }
 
     @Test
-    fun subscribe_registersEveryHandlerGivenInOneCall() {
+    fun integrationSubscription_registersEveryHandlerGivenInOneCall() {
         stores.eventStore.registerHandlers(
             StorageEvent::class,
             listOf(
@@ -48,7 +49,11 @@ class EventSubscriptionTest {
             ),
         )
 
-        subscribe(StorageEvent::class, PrintEventHandler::class, OtherPrintEventHandler::class)
+        integrationSubscription(
+                StorageEvent::class,
+                PrintEventHandler::class,
+                OtherPrintEventHandler::class,
+            )
             .registerOn(locator)
 
         assertEquals(
@@ -60,16 +65,16 @@ class EventSubscriptionTest {
     }
 
     @Test
-    fun subscribe_subscribesToNothingWhenGivenNoHandlers() {
-        subscribe(StorageEvent::class).registerOn(locator)
+    fun integrationSubscription_subscribesToNothingWhenGivenNoHandlers() {
+        integrationSubscription(StorageEvent::class).registerOn(locator)
 
         assertFalse(locator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun subscribe_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
-        subscribe(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))
+    fun integrationSubscription_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
+        integrationSubscription(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))
             .registerOn(locator)
 
         assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
@@ -77,8 +82,11 @@ class EventSubscriptionTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun subscribeDomain_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
-        subscribeDomain(TestDomainEvent::class, LoadedEventHandler(TestDomainEventHandler::class))
+    fun domainSubscription_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
+        domainSubscription(
+                TestDomainEvent::class,
+                LoadedEventHandler(TestDomainEventHandler::class),
+            )
             .registerOn(locator)
 
         assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))

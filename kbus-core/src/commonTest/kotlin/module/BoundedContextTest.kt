@@ -7,12 +7,12 @@ import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
-import com.jimbroze.kbus.core.registry.generation.subscribe
-import com.jimbroze.kbus.core.registry.generation.subscribeDomain
+import com.jimbroze.kbus.core.registry.generation.domainSubscription
+import com.jimbroze.kbus.core.registry.generation.integrationSubscription
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -42,9 +42,12 @@ class BoundedContextTest {
         val context =
             BoundedContext(
                 BoundedContextId("orders"),
-                subscriptions =
+                integrationSubscriptions =
                     listOf(
-                        subscribe(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))
+                        integrationSubscription(
+                            StorageEvent::class,
+                            LoadedEventHandler(PrintEventHandler::class),
+                        )
                     ),
             )
 
@@ -53,13 +56,18 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun subscribe_registersOnTheUnderlyingLocatorsIntegrationEventMapper() {
+    fun integrationSubscription_registersOnTheUnderlyingLocatorsIntegrationEventMapper() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions =
-                listOf(subscribe(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))),
+            integrationSubscriptions =
+                listOf(
+                    integrationSubscription(
+                        StorageEvent::class,
+                        LoadedEventHandler(PrintEventHandler::class),
+                    )
+                ),
         )
 
         assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
@@ -67,14 +75,14 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun subscribeDomain_registersOnTheUnderlyingLocatorsDomainEventMapper() {
+    fun domainSubscription_registersOnTheUnderlyingLocatorsDomainEventMapper() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions =
+            domainSubscriptions =
                 listOf(
-                    subscribeDomain(
+                    domainSubscription(
                         TestDomainEvent::class,
                         LoadedEventHandler(TestDomainEventHandler::class),
                     )
@@ -86,39 +94,45 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun subscribe_doesNotRegisterOnAnotherContextsLocator() {
+    fun integrationSubscription_doesNotRegisterOnAnotherContextsLocator() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val other = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions =
-                listOf(subscribe(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))),
+            integrationSubscriptions =
+                listOf(
+                    integrationSubscription(
+                        StorageEvent::class,
+                        LoadedEventHandler(PrintEventHandler::class),
+                    )
+                ),
         )
 
         assertFalse(other.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
-    fun subscribe_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
+    fun integrationSubscription_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions = listOf(subscribe(StorageEvent::class, PrintEventHandler::class)),
+            integrationSubscriptions =
+                listOf(integrationSubscription(StorageEvent::class, PrintEventHandler::class)),
         )
 
         assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
-    fun subscribeDomain_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
+    fun domainSubscription_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions =
-                listOf(subscribeDomain(TestDomainEvent::class, TestDomainEventHandler::class)),
+            domainSubscriptions =
+                listOf(domainSubscription(TestDomainEvent::class, TestDomainEventHandler::class)),
         )
 
         assertTrue(locator.subscribedEventTypes().contains(TestDomainEvent::class))
@@ -126,7 +140,8 @@ class BoundedContextTest {
 
     @Test
     fun inbox_isTheOneTheContextConsumesThrough() {
-        val declaredInbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
+        val declaredInbox =
+            BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
 
         val context =
             BoundedContext(BoundedContextId("orders"), PersistingHandlerLocator(), declaredInbox)
@@ -142,7 +157,7 @@ class BoundedContextTest {
     }
 
     @Test
-    fun subscribe_registersEveryHandlerClassGiven() {
+    fun integrationSubscription_registersEveryHandlerClassGiven() {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.eventStore.registerHandlers(
@@ -158,9 +173,9 @@ class BoundedContextTest {
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions =
+            integrationSubscriptions =
                 listOf(
-                    subscribe(
+                    integrationSubscription(
                         StorageEvent::class,
                         PrintEventHandler::class,
                         OtherPrintEventHandler::class,
@@ -183,11 +198,10 @@ class BoundedContextTest {
         BoundedContext(
             BoundedContextId("orders"),
             locator,
-            subscriptions =
-                listOf(
-                    subscribe(StorageEvent::class, PrintEventHandler::class),
-                    subscribeDomain(TestDomainEvent::class, TestDomainEventHandler::class),
-                ),
+            domainSubscriptions =
+                listOf(domainSubscription(TestDomainEvent::class, TestDomainEventHandler::class)),
+            integrationSubscriptions =
+                listOf(integrationSubscription(StorageEvent::class, PrintEventHandler::class)),
         )
 
         assertTrue(

@@ -166,6 +166,38 @@ class HandlerFactory(
         )
     }
 
+    /**
+     * A command handler's message and return types, taken from the base class it extends. Nothing
+     * here reads the handler's constructor, so this answers for a handler whose dependencies cannot
+     * yet be resolved.
+     */
+    fun createCommandHandlerSignature(handlerClass: KSClassDeclaration): CommandHandlerDefinition? {
+        val handlerBaseClassReference = findBaseClass(handlerClass)
+        val isCommandHandler =
+            handlerBaseClassReference?.resolve()?.declaration?.qualifiedName?.asString() ==
+                CommandHandler::class.qualifiedName
+
+        val baseClassTypeArgs =
+            handlerBaseClassReference?.element?.typeArguments?.takeIf {
+                isCommandHandler && it.size >= 2
+            }
+        val messageClass =
+            baseClassTypeArgs?.first()?.type?.resolve()?.declaration as? KSClassDeclaration
+        val returnType = baseClassTypeArgs?.get(1)?.type
+
+        return if (messageClass == null || returnType == null) null
+        else
+            CommandHandlerDefinition(
+                HandlerData(
+                    handlerClass.toClassName(),
+                    messageClass.toClassName(),
+                    returnType.toTypeName(),
+                    emptyList(),
+                    boundedContextIdentity,
+                )
+            )
+    }
+
     private fun findBaseClass(classDeclaration: KSClassDeclaration): KSTypeReference? {
         val classSuperType =
             classDeclaration.superTypes.firstOrNull {

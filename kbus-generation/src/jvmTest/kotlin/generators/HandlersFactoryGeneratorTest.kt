@@ -2,6 +2,7 @@ package com.jimbroze.kbus.generation.generators
 
 import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
+import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerKind
@@ -127,6 +128,40 @@ class HandlersFactoryGeneratorTest {
             "NestForeignCommandHandler(commandDependencies.commandExecutor)",
         )
     }
+
+    @Test
+    fun aHandlerAskingForItsContextsCommandsIsHandedThemAsAParameter() {
+        generator.generateClasses(setOf(handlerAskingForOrdersCommands()), emptyList())
+
+        assertContains(
+            generated["OrdersHandlerFactory"],
+            "override fun placeOrderHandler(commandDependencies: CommandDependencies, " +
+                "ordersCommands: OrdersCommands): PlaceOrderHandler = " +
+                "PlaceOrderHandler(ordersCommands)",
+        )
+    }
+
+    @Test
+    fun theNestedLookupBuildsTheContextsCommandsFromTheDependenciesItWasHanded() {
+        generator.generateClasses(setOf(handlerAskingForOrdersCommands()), emptyList())
+
+        assertContains(
+            generated["OrdersHandlerFactory"],
+            "is PlaceOrder -> this.placeOrderHandler(commandDependencies, " +
+                "OrdersCommandExecutor(commandDependencies.commandExecutor))",
+        )
+    }
+
+    private fun handlerAskingForOrdersCommands() =
+        CommandHandlerDefinition(
+            HandlerData(
+                ClassName("com.example", "PlaceOrderHandler"),
+                ClassName("com.example", "PlaceOrder"),
+                UNIT,
+                listOf(ContextCommandsDependency(ClassName(PACKAGE_PATH, "OrdersCommands"))),
+                "orders",
+            )
+        )
 
     @Test
     fun aHandlerAskingForTheWholeCommandDependenciesObjectIsGivenItUnqualified() {

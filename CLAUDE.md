@@ -38,9 +38,15 @@ with KSP code generation for compile-time type-safe handler resolution (zero ref
 - **kbus-contracts** — API & interfaces: message types, result types. KSP Annotations
 - **kbus-core** — Core framework & infrastructure: bus, middleware pipeline, handler locators, Unit of Work
 - **kbus-generation** — KSP processor that generates handler factories, dependency containers, and bus classes
-- **kbus-example** / **kbus-example-sub** — Example/Test modules (sub is a submodule test)
+- **kbus-generation-fixtures** / **kbus-generation-fixtures-sub** — Torture test for the processor: odd
+  dependency shapes, lifecycles, and the behaviours a generated bus must hold. Deliberately not a
+  showcase — it exists to be awkward
+- **examples/** — A modular monolith showing the framework as it is meant to be used: `contexts/`
+  holds one Gradle module per layer per bounded context, `app/` holds every piece of bus wiring,
+  `docs-samples/` holds the snippets Knit extracts from README.md. See `examples/README.md`
 - **testDoubles** — Shared test fixtures
-- **buildSrc** — Custom Gradle plugins (`kbus.multiplatform`, `kbus.publish`)
+- **buildSrc** — Custom Gradle plugins (`kbus.multiplatform`, `kbus.publish`,
+  `kbus.handler-module`)
 
 ## Architecture
 
@@ -80,9 +86,7 @@ handler metadata at generation time and never inferred by the consumer. The gene
 and emits one context per identity.
 
 A context's factory holds only that context's handlers, so a command another context owns is unresolvable there
-rather than merely refused — the isolation is structural. Its typed nested executor covers the commands its module
-can see, and a module can only consume an executor interface generated *upstream* of it: KSP cannot resolve a type
-the same run is about to write.
+rather than merely refused — the isolation is structural.
 
 ### Handler Locators
 

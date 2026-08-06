@@ -17,7 +17,8 @@ sealed class EventSubscription<TEvent : Event> {
     internal abstract fun registerOn(mappers: EventMapperProvider)
 }
 
-internal class DomainSubscription<TEvent : DomainEvent>(
+class DomainEventSubscription<TEvent : DomainEvent>
+internal constructor(
     private val event: KClass<TEvent>,
     private val handlers: List<KClass<out DomainEventHandler<TEvent>>>,
 ) : EventSubscription<TEvent>() {
@@ -25,7 +26,8 @@ internal class DomainSubscription<TEvent : DomainEvent>(
         mappers.domainEventMapper.addDomainHandlers(event, handlers)
 }
 
-internal class IntegrationSubscription<TEvent : IntegrationEvent>(
+class IntegrationEventSubscription<TEvent : IntegrationEvent>
+internal constructor(
     private val event: KClass<TEvent>,
     private val handlers: List<KClass<out EventHandler<TEvent>>>,
 ) : EventSubscription<TEvent>() {
@@ -33,12 +35,12 @@ internal class IntegrationSubscription<TEvent : IntegrationEvent>(
         mappers.integrationEventMapper.addEventHandlers(event, handlers)
 }
 
-fun <TEvent : IntegrationEvent> subscribe(
+fun <TEvent : IntegrationEvent> integrationSubscription(
     event: KClass<TEvent>,
     vararg handlers: KClass<out EventHandler<TEvent>>,
-): EventSubscription<TEvent> = IntegrationSubscription(event, handlers.toList())
+): IntegrationEventSubscription<TEvent> = IntegrationEventSubscription(event, handlers.toList())
 
-fun <TEvent : DomainEvent> subscribeDomain(
+fun <TEvent : DomainEvent> domainSubscription(
     event: KClass<TEvent>,
     vararg handlers: KClass<out DomainEventHandler<TEvent>>,
-): EventSubscription<TEvent> = DomainSubscription(event, handlers.toList())
+): DomainEventSubscription<TEvent> = DomainEventSubscription(event, handlers.toList())

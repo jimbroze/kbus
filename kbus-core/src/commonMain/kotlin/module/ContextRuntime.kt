@@ -9,6 +9,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
+import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.module.inbox.errorStrategyOverride
@@ -26,9 +27,13 @@ internal class ContextRuntime(
      * exist. Shared by integration and domain dispatch, whichever reaches it first.
      */
     private val eventDispatcher: Lazy<EventDispatcher>,
-) : EventDestination, DomainEventDispatcher, OwningContext {
+) : EventDestination, DomainEventDispatcher, CommandOwningContext<NestedCommandExecutor> {
     override val domainEventDispatcher: DomainEventDispatcher
         get() = this
+
+    override fun typedCommands(
+        nestedCommandExecutor: NestedCommandExecutor
+    ): NestedCommandExecutor = nestedCommandExecutor
 
     /**
      * Null unless this context declares an inbox — with no durable ack there is nothing to

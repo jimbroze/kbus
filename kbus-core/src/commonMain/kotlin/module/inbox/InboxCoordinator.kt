@@ -41,10 +41,10 @@ internal val InboxAckPolicy.errorStrategyOverride: ((ErrorStrategy) -> ErrorStra
  * event whose handler failed, the other retries such an event indefinitely, there being no attempt
  * cap or dead-letter path yet.
  */
-class ContextInbox(val store: InboxStore, val ackPolicy: InboxAckPolicy)
+class BoundedContextInbox(val store: InboxStore, val ackPolicy: InboxAckPolicy)
 
 /**
- * Bus-wide inbox tuning, shared by every context that declares a [ContextInbox].
+ * Bus-wide inbox tuning, shared by every context that declares a [BoundedContextInbox].
  *
  * [maxConcurrentDeliveries] trades ordering for throughput: see
  * [EnvelopeRelay][com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay]. Set it to 1 to
@@ -58,8 +58,8 @@ class InboxTuning(
 )
 
 /**
- * Gives every context that declares a [ContextInbox] durable, independently acknowledged delivery,
- * and leaves the rest dispatching synchronously.
+ * Gives every context that declares a [BoundedContextInbox] durable, independently acknowledged
+ * delivery, and leaves the rest dispatching synchronously.
  *
  * A null [configuredTuning] means default tuning, not "no inboxes" — whether a context has one is
  * the context's own declaration.

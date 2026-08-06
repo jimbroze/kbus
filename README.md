@@ -72,7 +72,7 @@ class GetUserHandler :
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-messages-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-messages-01.kt).
 
 ### Create the Bus and Dispatch Messages
 
@@ -117,7 +117,7 @@ suspend fun main() {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-bus-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-bus-01.kt).
 
 ## Message Types
 
@@ -157,7 +157,7 @@ class Order(private val domainEventPublisher: DomainEventPublisher) {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-events-01.kt).
 
 `CommandDependencies` (which contains `DomainEventPublisher`) is injected into command handlers automatically and routes
 events through the Unit of Work.
@@ -237,7 +237,7 @@ class SendShipmentNotification : DomainEventHandler<OrderShipped>() {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-events-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-events-02.kt).
 
 #### Integration Events
 
@@ -266,7 +266,7 @@ class SyncToExternalCRM :
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-01.kt).
 
 #### Observing Integration Events
 
@@ -323,7 +323,7 @@ class RegisterUserHandler(private val integrationEventPublisher: IntegrationEven
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-02.kt).
 
 #### Auto-Publishing Integration Events from Domain Events
 
@@ -365,7 +365,7 @@ val busWithAutoPublish = MessageBus(
 )
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-integration-events-03.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-03.kt).
 
 Registering every mapping by hand doesn't scale in a generated bus. Annotate the integration event with `@LoadEvent`
 and code generation collects every `AutoPublishesFrom` companion it finds into a generated
@@ -394,7 +394,7 @@ suspend fun main() {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-01.kt).
 
 Create results with companion functions:
 
@@ -410,7 +410,30 @@ val success = BusResult.success("value")
 val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-results-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-02.kt).
+
+Transform a result without unpacking it. `mapFailure` is what a handler forwarding another message's result needs:
+each message declares its own failure type, so passing one straight through does not type-check.
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
+import com.jimbroze.kbus.example.fixtures.MyCommand
+import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
+-->
+
+```kotlin
+suspend fun main() {
+    val result = bus.execute(MyCommand())
+
+    println(result.mapSuccess { it.length }.getOrNull())
+    println(result.mapFailure { GenericMessageFailure(GenericFailure("could not do the thing")) })
+    println(result.collapse({ "Value: $it" }, { "Error: ${it.reason.message}" }))
+}
+```
+
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-03.kt).
 
 ## Middleware
 
@@ -463,7 +486,7 @@ class TimingMiddleware : Middleware {
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-middleware-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-middleware-01.kt).
 
 ### Using Middleware
 
@@ -492,7 +515,7 @@ val bus = MessageBus(
 )
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-middleware-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-middleware-02.kt).
 
 ### Built-in Middleware
 
@@ -528,7 +551,7 @@ val bus = MessageBus(
 )
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-01.kt).
 
 Every bus has a transaction manager. A bus that wants no transactions keeps the default
 `EmptyTransactionManager()` rather than passing none, so a command handler declaring `executeInTransaction` — which
@@ -554,7 +577,7 @@ class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, Messa
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
 
 You can provide a `TransactionManager` override to individual command handlers via `TransactionConfig`:
 
@@ -582,7 +605,7 @@ class TransferFundsHandler(
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
 
 To opt out of transaction execution, set `executeInTransaction` to `null`:
 
@@ -654,6 +677,35 @@ The interface covers the commands its module declares plus those it learns from 
 modules it depends on — a command in a module it cannot reference is not typed-callable, because it is not
 referenceable either. It extends `NestedCommandExecutor`, so the untyped `execute` stays available for anything the
 interface does not cover, with the same one-context limit.
+
+A handler can be given the interface its own module generates, not only one from a module it depends on. The
+interfaces are written before any handler is read, so a handler naming the type its own build is about to produce
+still resolves.
+
+#### Sending a Command Across a Boundary
+
+Nested execution stops at the context boundary, and the generated bus is assembled downstream of every context, so a
+module cannot simply take it. What it can take is a `CommandGateway<TCommand, TResult>` — the one command it is
+entitled to send, as a constructor parameter:
+
+```kotlin
+class InventoryStockReservations(
+    private val reserveStock: CommandGateway<ReserveStock, ReserveStockResult>
+) : StockReservations {
+    override suspend fun reserve(productId: String, quantity: Int): Boolean =
+        reserveStock.execute(ReserveStock(productId, quantity)).getOrNull() != null
+}
+```
+
+The generator writes one implementation per command that has a handler — `ReserveStockGateway`, taking the bus — so
+being handed a gateway is a compile-time claim that something can handle what it sends. Wire it where the bus is
+built. The command goes through the bus like any other: its own Unit of Work, committing independently of whatever
+called it.
+
+Which context a handler's commands come from is a type fact, not a convention the generator upholds. A context is
+typed by the commands it owns, and supplies them itself when a command runs against it, so a handler built for one
+context cannot be run against another — the two contexts no longer share a type, and the mismatch is a compile error
+rather than a missing handler at dispatch.
 
 ## Bus Lifecycle
 
@@ -822,7 +874,7 @@ val bus = MessageBus(
 ).apply { start() }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-transactional-outbox-01.kt).
 
 An outbox is background work, so the bus must be [started](#bus-lifecycle) before it dispatches messages — `start()` is
 what launches the poller.
@@ -902,7 +954,7 @@ import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -919,34 +971,34 @@ val bus = MessageBus(
         BoundedContext(
             BoundedContextId("orders"),
             ordersLocator,
-            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
         BoundedContext(
             BoundedContextId("inventory"),
             inventoryLocator,
-            inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+            inbox = BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
         ),
     ),
     outbox = OutboxConfig(store = InMemoryOutboxStore()),
 ).apply { start() }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-per-context-inbox-01.kt).
 
-Each context declaring a `ContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
+Each context declaring a `BoundedContextInbox` supplies its **own** `InboxStore` instance — structural isolation, not a shared
 table with a context column, so one context's pump physically cannot see another context's rows. A context that
 declares none keeps synchronous, un-inboxed dispatch; the two can be mixed on the same bus. Declaring the inbox on the
 context rather than in a bus-level map keyed by `BoundedContextId` means naming a context that does not exist is not
 expressible, and the store cannot drift apart from the context it belongs to.
 
-A generated bus builds its contexts for you, so the inbox arrives in that context's `ContextConfig` — under the same
+A generated bus builds its contexts for you, so the inbox arrives in that context's `BoundedContextConfig` — under the same
 compile-time-checked name used to subscribe its event handlers:
 
 ```kotlin
 CompileTimeLoadedMessageBus(
     dependencies, transactionManager, middleware,
-    orders = ContextConfig(
-        inbox = ContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
+    orders = BoundedContextConfig(
+        inbox = BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy),
     ),
 )
 ```
@@ -968,7 +1020,7 @@ Two separate things determine what happens to a failing handler at the inbox —
 separately:
 
 - **`errorStrategy`** (on the event) decides whether a handler's exception ever reaches the inbox at all.
-- **`ackPolicy`** (on the context's own `ContextInbox`) decides whether that inbox accepts a producer's `FireAndForget`
+- **`ackPolicy`** (on the context's own `BoundedContextInbox`) decides whether that inbox accepts a producer's `FireAndForget`
   "don't care", or requires stronger guarantees than the producer declared. It is a required parameter — neither answer
   is a safe default to pick on a consumer's behalf.
 
@@ -987,7 +1039,7 @@ handler's *exception*:
 consumer can refuse it via its context's `ackPolicy`:
 
 ```kotlin
-ContextInbox(InMemoryInboxStore(), InboxAckPolicy.RequireHandlerSuccess)
+BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.RequireHandlerSuccess)
 ```
 
 | `ackPolicy` | Effect |
@@ -1071,7 +1123,7 @@ class PlaceOrderHandler(
 }
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-generation-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-generation-01.kt).
 
 ### Generated Code
 
@@ -1085,6 +1137,9 @@ The KSP processor generates:
   there even when another context on the same bus owns it
 - **`<Context>Commands`** — One interface per bounded context giving typed nested execution of that context's
   commands (see [Typed Nested Execution](#typed-nested-execution)), with the root generating the implementation
+- **`<Context>Context`** — One class per bounded context, pairing the context with its own handler factory and the
+  commands it owns. A bus function reaches its factory through it, so the context a command runs against and the
+  factory that built its handler cannot be two different contexts
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
@@ -1193,8 +1248,16 @@ ksp {
 ```
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
-by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `ContextConfig`
+by the consumer. The generated bus builds one `BoundedContext` per distinct identity and takes a `BoundedContextConfig`
 parameter for each, named after the identity, plus `default` for handlers from modules that declared no identity.
+
+Those contexts live in a generated nested `Contexts` class, one property per identity, which the bus hands to
+`BaseMessageBus` as a factory taking a `ContextBuilder`. Registering a context on that builder is what produces the
+context the bus runs, so a generated `execute` reaches its command's context by name — `boundedContexts.billing` —
+rather than by looking an id up at runtime, and a declared context can never be one the bus is unaware of. Each
+property has that context's own type, which is also where its handler factory lives, so naming the wrong context does
+not compile. Contexts are not otherwise reachable: nothing outside the bus can subscribe to a context once the bus
+holding it exists.
 
 Because the identity becomes a Kotlin name, two identities that differ only in their separators — `order-fulfilment`,
 `order_fulfilment`, `order.fulfilment`, `orderFulfilment` — are rejected at generation time, naming both identities and
@@ -1203,25 +1266,26 @@ every handler declaring no identity, so a module claiming it would be folded int
 from it. Setting the build arg to blank whitespace is rejected too — remove it instead to leave a module's handlers in
 the default context.
 
-Each context gets a `ContextConfig` parameter named after its identity:
+Each context gets a `BoundedContextConfig` parameter named after its identity:
 
 ```kotlin
 val bus = MyBus(
     dependencies, transactionManager, middleware,
-    billing = ContextConfig(
-        subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+    billing = BoundedContextConfig(
+        integrationSubscriptions = listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
     ),
-    default = ContextConfig(
-        subscriptions = listOf(subscribe(AuditRecorded::class, ArchiveAuditHandler::class.loaded)),
+    default = BoundedContextConfig(
+        integrationSubscriptions = listOf(integrationSubscription(AuditRecorded::class, ArchiveAuditHandler::class.loaded)),
     ),
 )
 ```
 
-Domain handlers use `subscribeDomain`, in the same list:
+Domain handlers go in their own parameter, because the two kinds carry different guarantees — a domain handler runs
+inside the command's transaction, an integration handler after it commits:
 
 ```kotlin
-billing = ContextConfig(
-    subscriptions = listOf(subscribeDomain(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+billing = BoundedContextConfig(
+    domainSubscriptions = listOf(domainSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
 )
 ```
 
@@ -1229,8 +1293,8 @@ Naming a context that does not exist does not compile, because `billing` is a pa
 subscription is an ordinary value, so a context's subscriptions can live in their own file and be imported here:
 
 ```kotlin
-val billingSubscriptions: List<EventSubscription<*>> =
-    listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
+val billingSubscriptions: List<IntegrationEventSubscription<*>> =
+    listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
 ```
 
 There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
@@ -1244,14 +1308,14 @@ context, and the bus is what resolves that owner, so it must be able to settle o
 is what lets two contexts claiming the same command be reported against your wiring rather than against some later
 dispatch in production. Register them on a context's `HandlerLocator` before passing the context to the bus.
 
-**Event handlers must be subscribed before the bus is constructed too** — as a `ContextConfig` parameter of a
+**Event handlers must be subscribed before the bus is constructed too** — as a `BoundedContextConfig` parameter of a
 generated bus, or a constructor argument of a hand-written `BoundedContext`:
 
 ```kotlin
 BoundedContext(
     BoundedContextId("billing"),
     locator,
-    subscriptions = listOf(subscribe(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
+    integrationSubscriptions = listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded)),
 )
 ```
 
@@ -1259,13 +1323,13 @@ Nothing enforces this at runtime, because nothing needs to: a context's subscrip
 constructed context has nothing left to add to. There is no `seal()` and no `HandlerRegistrationSealedException` — a
 bus that never hands back a context cannot be subscribed into.
 
-`subscribeDomain` accepts only `DomainEventHandler` subclasses, not bare `EventHandler` implementations: domain
+`domainSubscription` accepts only `DomainEventHandler` subclasses, not bare `EventHandler` implementations: domain
 dispatch reads a handler's `dispatchTiming` and hands it a publisher to publish integration events with, so a handler
 without those is rejected where it is written rather than when the event is first published. The processor applies the
 same rule, so a `@LoadMessageHandler` handler of a `DomainEvent` that does not extend `DomainEventHandler` fails
 generation.
 
-`subscribe` and `subscribeDomain` take either bare handler classes or, from
+`integrationSubscription` and `domainSubscription` take either bare handler classes or, from
 `com.jimbroze.kbus.core.registry.generation`, `LoadedEventHandler` tokens obtained via a generated `.loaded`
 property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
 factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it
@@ -1309,7 +1373,7 @@ class CartId(private val value: String) : Identifier {
 class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 ```
 
-> You can get the full code [here](kbus-example/src/commonTest/kotlin/samples/example-domain-modeling-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-modeling-01.kt).
 
 ## Supported Platforms
 

@@ -91,7 +91,8 @@ class HandlersFactoryGenerator(
             )
             .addFunction(
                 buildCommandsHandlersFor(
-                    handlers.filterIsInstance<CommandHandlerDefinition>().toSet()
+                    handlers.filterIsInstance<CommandHandlerDefinition>().toSet(),
+                    context,
                 )
             )
             .addFunction(
@@ -120,7 +121,10 @@ class HandlersFactoryGenerator(
             .writeTo(codeGenerator, Dependencies(true, sources = sourceFiles.toTypedArray()))
     }
 
-    private fun buildCommandsHandlersFor(handlers: Set<CommandHandlerDefinition>): FunSpec {
+    private fun buildCommandsHandlersFor(
+        handlers: Set<CommandHandlerDefinition>,
+        context: String,
+    ): FunSpec {
         val tResult =
             TypeVariableName(
                 "TResult",
@@ -142,7 +146,12 @@ class HandlersFactoryGenerator(
         for (handler in handlers) {
             val handlerName = handler.handlerData.nameAsDependency
             val commandClass = handler.handlerData.messageClass
-            codeBlock.addStatement("is %T -> this.$handlerName(commandDependencies)", commandClass)
+            val arguments =
+                if (contextCommandsTypeOf(handler) != null)
+                    "commandDependencies, ${contextClassPrefix(context)}$commandExecutorClassName" +
+                        "(commandDependencies.commandExecutor)"
+                else "commandDependencies"
+            codeBlock.addStatement("is %T -> this.$handlerName($arguments)", commandClass)
         }
 
         codeBlock.addStatement("else -> null").unindent().add("} as %T", returnType)
@@ -301,9 +310,7 @@ class HandlersFactoryGenerator(
         val subDependencyArgs =
             handler.handlerData.topLevelDependencies.joinToString(", ") {
                 when (it) {
-                    is ContextCommandsDependency ->
-                        "${contextClassPrefix(context)}$commandExecutorClassName" +
-                            "(commandDependencies.commandExecutor)"
+                    is ContextCommandsDependency -> contextCommandsParameterName(context)
                     is CommandDependency -> it.accessReferenceIn(handler.suppliedDependencies)
                     else -> "dependencies.${it.accessReferenceIn(handler.suppliedDependencies)}"
                 }
@@ -317,6 +324,9 @@ class HandlersFactoryGenerator(
 
         for (constructorParameter in handler.functionParameters) {
             functionBuilder.addParameter(constructorParameter.name, constructorParameter.typeRef)
+        }
+        contextCommandsTypeOf(handler)?.let { commandsType ->
+            functionBuilder.addParameter(contextCommandsParameterName(context), commandsType)
         }
 
         classBuilder.addFunction(functionBuilder.build())

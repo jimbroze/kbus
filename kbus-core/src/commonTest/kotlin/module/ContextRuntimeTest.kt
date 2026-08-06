@@ -11,7 +11,7 @@ import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.routing.AggregateException
-import com.jimbroze.kbus.core.module.inbox.ContextInbox
+import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -31,7 +31,7 @@ class ContextRuntimeTest {
     private fun createRuntime(
         locator: PersistingHandlerLocator,
         dispatcherScope: CoroutineScope,
-        inbox: ContextInbox? = null,
+        inbox: BoundedContextInbox? = null,
     ): ContextRuntime {
         val eventDispatcher =
             EventDispatcher(
@@ -195,7 +195,7 @@ class ContextRuntimeTest {
             createRuntime(
                 locator,
                 this,
-                ContextInbox(RecordingInboxStore(), InboxAckPolicy.RequireHandlerSuccess),
+                BoundedContextInbox(RecordingInboxStore(), InboxAckPolicy.RequireHandlerSuccess),
             )
 
         // A context declaring no inbox honours the event's own FireAndForget: failure is swallowed.

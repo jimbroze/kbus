@@ -2,9 +2,8 @@ package com.jimbroze.kbus.core.registry.generation
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.module.DomainSubscription
-import com.jimbroze.kbus.core.module.EventSubscription
-import com.jimbroze.kbus.core.module.IntegrationSubscription
+import com.jimbroze.kbus.core.module.DomainEventSubscription
+import com.jimbroze.kbus.core.module.IntegrationEventSubscription
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
@@ -13,13 +12,15 @@ import kotlin.reflect.KClass
  * Subscribes handlers the code generator has already validated. A [LoadedEventHandler] makes "this
  * handler has a generated factory" a compile-time claim rather than a dispatch-time discovery.
  */
-fun <TEvent : DomainEvent> subscribeDomain(
+fun <TEvent : DomainEvent> domainSubscription(
     event: KClass<TEvent>,
     vararg handlers: LoadedEventHandler<TEvent, DomainEventHandler<TEvent>>,
-): EventSubscription<TEvent> = DomainSubscription(event, handlers.map { it.handlerClass })
+): DomainEventSubscription<TEvent> =
+    DomainEventSubscription(event, handlers.map { it.handlerClass })
 
 /** The integration-event equivalent of the [LoadedEventHandler] domain overload. */
-fun <TEvent : IntegrationEvent> subscribe(
+fun <TEvent : IntegrationEvent> integrationSubscription(
     event: KClass<TEvent>,
     vararg handlers: LoadedEventHandler<TEvent, EventHandler<TEvent>>,
-): EventSubscription<TEvent> = IntegrationSubscription(event, handlers.map { it.handlerClass })
+): IntegrationEventSubscription<TEvent> =
+    IntegrationEventSubscription(event, handlers.map { it.handlerClass })

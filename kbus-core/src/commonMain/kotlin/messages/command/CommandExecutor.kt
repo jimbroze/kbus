@@ -8,6 +8,7 @@ import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.MiddlewareScope
 import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.module.CommandOwningContext
 import com.jimbroze.kbus.core.module.OwningContext
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
@@ -21,10 +22,14 @@ class CommandExecutor(
 ) {
     private val nestedMiddlewares = middlewares.filter { it.scope == MiddlewareScope.EveryCommand }
 
-    suspend fun <TCommand : Command<TResult>, TResult : KBusResult> execute(
+    suspend fun <
+        TCommand : Command<TResult>,
+        TResult : KBusResult,
+        TCommands : NestedCommandExecutor,
+    > execute(
         command: TCommand,
-        owningContext: OwningContext,
-        createHandler: (CommandDependencies) -> CommandHandler<TCommand, TResult>,
+        owningContext: CommandOwningContext<TCommands>,
+        createHandler: (CommandDependencies, TCommands) -> CommandHandler<TCommand, TResult>,
     ): TResult {
         val invocation = invocationFactory.create<TResult>()
         val nestedCommandExecutor =
@@ -37,7 +42,8 @@ class CommandExecutor(
             )
         val handler =
             createHandler(
-                commandDependenciesFactory.create(owningContext, invocation, nestedCommandExecutor)
+                commandDependenciesFactory.create(owningContext, invocation, nestedCommandExecutor),
+                owningContext.typedCommands(nestedCommandExecutor),
             )
 
         val finalHandler: suspend (TCommand) -> TResult = { message: TCommand ->
