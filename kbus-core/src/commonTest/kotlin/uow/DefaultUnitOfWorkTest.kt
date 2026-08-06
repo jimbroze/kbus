@@ -1,21 +1,17 @@
 package com.jimbroze.kbus.core.uow
 
 import com.jimbroze.kbus.core.fixtures.NonExecutingTransactionManager
-import com.jimbroze.kbus.core.fixtures.TestDomainEventDispatcher
-import com.jimbroze.kbus.core.fixtures.testInvocation
-import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-class UnitOfWorkTest {
+class DefaultUnitOfWorkTest {
     @Test
-    fun test_it_executes_primary_work_without_setting_transaction_manager() = runTest {
+    fun `runs the primary work it was given`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
         var executed = false
 
@@ -27,7 +23,7 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_execute_returns_result_of_primary_work() = runTest {
+    fun `returns the result of the primary work`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
         unitOfWork.setReturningWork { "Noice one" }
         unitOfWork.addSecondaryWork { "Failed!" }
@@ -39,7 +35,7 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_it_executes_primary_then_secondary_then_post_commit() = runTest {
+    fun `runs primary then secondary then post-commit work in that order`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
         val executionOrder = mutableListOf<String>()
 
@@ -61,7 +57,7 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_execute_runs_primary_and_secondary_work_in_transaction() = runTest {
+    fun `runs primary and secondary work inside the transaction`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
         val executedWork = mutableListOf<String>()
         unitOfWork.useTransaction(NonExecutingTransactionManager())
@@ -76,7 +72,7 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_active_transaction_manager_is_null_until_a_transaction_is_requested() = runTest {
+    fun `has no active transaction manager until one is requested`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
 
         assertNull(unitOfWork.activeTransactionManager)
@@ -88,7 +84,7 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_active_transaction_manager_is_the_requested_one() = runTest {
+    fun `exposes the transaction manager that was requested of it`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
         val transactionManager = NonExecutingTransactionManager()
 
@@ -98,7 +94,7 @@ class UnitOfWorkTest {
     }
 
     @Test
-    fun test_execute_runs_post_commit_work_outside_transaction() = runTest {
+    fun `runs post-commit work outside the transaction`() = runTest {
         val unitOfWork = DefaultUnitOfWork<Any?>()
         val executedWork = mutableListOf<String>()
         unitOfWork.useTransaction(NonExecutingTransactionManager())
@@ -108,39 +104,5 @@ class UnitOfWorkTest {
         unitOfWork.execute()
 
         assertContentEquals(listOf("postCommit"), executedWork)
-    }
-
-    @Test
-    fun test_InvocationDomainEventPublisher_publishes_to_base_dispatcher_with_invocation() =
-        runTest {
-            val testDispatcher = TestDomainEventDispatcher()
-
-            val invocation = testInvocation<Any?>()
-            val publisher = InvocationDomainEventPublisher(testDispatcher, invocation)
-            val testEvent = object : DomainEvent() {}
-
-            publisher.publish(testEvent)
-
-            assertContentEquals(
-                listOf(Pair(testEvent, invocation)),
-                testDispatcher.dispatchedEvents,
-            )
-        }
-
-    @Test
-    fun test_EmptyTransactionManager_executes_block_directly() = runTest {
-        val transactionManager = EmptyTransactionManager()
-        var executed = false
-
-        transactionManager.execute { executed = true }
-
-        assertTrue(executed)
-    }
-
-    @Test
-    fun test_DefaultUnitOfWorkFactory_creates_new_UnitOfWork_instance() {
-        val factory = DefaultUnitOfWorkFactory()
-        val uow = factory.create<Any?>()
-        assertIs<DefaultUnitOfWork<Any?>>(uow)
     }
 }

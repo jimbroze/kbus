@@ -20,7 +20,7 @@ private class OutboxCoordinatorTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class OutboxCoordinatorTest {
     @Test
-    fun startPolling_withNoConfig_launchesNothing() = runTest {
+    fun `launches nothing when no outbox is configured`() = runTest {
         val coordinator =
             OutboxCoordinator(null, EventRouter(listOf(RecordingDestination())), backgroundScope)
 
@@ -30,7 +30,7 @@ class OutboxCoordinatorTest {
     }
 
     @Test
-    fun startPolling_deliversPreExistingUnpublishedEntries() = runTest {
+    fun `delivers entries left unpublished when it starts`() = runTest {
         val store = RecordingOutboxStore()
         store.save(
             listOf(EventEnvelope("seeded-1", OutboxCoordinatorTestEvent("from-before-crash")))
@@ -51,7 +51,7 @@ class OutboxCoordinatorTest {
     }
 
     @Test
-    fun startPolling_calledTwice_runsOnlyOnePoller() = runTest {
+    fun `runs one poller however many times it is started`() = runTest {
         val store = RecordingOutboxStore()
         val coordinator =
             OutboxCoordinator(
@@ -69,7 +69,7 @@ class OutboxCoordinatorTest {
     }
 
     @Test
-    fun startPolling_keepsPollingOnTheConfiguredInterval() = runTest {
+    fun `keeps polling on the interval it was configured with`() = runTest {
         val store = RecordingOutboxStore()
         val coordinator =
             OutboxCoordinator(

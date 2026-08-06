@@ -11,7 +11,7 @@ private class OutboxTestEvent(val name: String) : IntegrationEvent()
 
 class InMemoryOutboxStoreTest {
     @Test
-    fun fetchUnpublished_returnsSavedEntriesOldestFirst() = runTest {
+    fun `returns unpublished entries oldest first`() = runTest {
         val store = InMemoryOutboxStore()
         val first = EventEnvelope("1", OutboxTestEvent("first"))
         val second = EventEnvelope("2", OutboxTestEvent("second"))
@@ -25,7 +25,7 @@ class InMemoryOutboxStoreTest {
     }
 
     @Test
-    fun fetchUnpublished_respectsLimit() = runTest {
+    fun `returns no more entries than the limit it was asked for`() = runTest {
         val store = InMemoryOutboxStore()
         store.save((1..5).map { EventEnvelope("$it", OutboxTestEvent("event-$it")) })
 
@@ -35,7 +35,7 @@ class InMemoryOutboxStoreTest {
     }
 
     @Test
-    fun markPublished_excludesEntriesFromFutureFetches() = runTest {
+    fun `never returns an entry again once it is marked published`() = runTest {
         val store = InMemoryOutboxStore()
         store.save(listOf(EventEnvelope("1", OutboxTestEvent("first"))))
         store.save(listOf(EventEnvelope("2", OutboxTestEvent("second"))))
@@ -47,7 +47,7 @@ class InMemoryOutboxStoreTest {
     }
 
     @Test
-    fun markPublished_toleratesUnknownIds() = runTest {
+    fun `ignores an instruction to publish an id it does not hold`() = runTest {
         val store = InMemoryOutboxStore()
         store.save(listOf(EventEnvelope("1", OutboxTestEvent("first"))))
 

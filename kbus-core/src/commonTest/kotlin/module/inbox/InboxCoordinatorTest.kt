@@ -49,7 +49,7 @@ class InboxCoordinatorTest {
         BoundedContextInbox(store, InboxAckPolicy.HonourEventStrategy)
 
     @Test
-    fun destinations_forContextsDeclaringNoInbox_areTheContextsThemselves() = runTest {
+    fun `routes to a context directly when it declares no inbox`() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val beta = context(BoundedContextId("beta"), this)
 
@@ -59,7 +59,7 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun destinations_wrapsOnlyTheContextsThatDeclareAnInbox() = runTest {
+    fun `routes through an inbox only for the contexts that declare one`() = runTest {
         val alpha = context(BoundedContextId("alpha"), this, honouringInbox())
         val beta = context(BoundedContextId("beta"), this)
 
@@ -70,7 +70,7 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun isEnabled_isFalseWhenNoContextDeclaresAnInbox_trueWhenOneDoes() = runTest {
+    fun `reports itself enabled only when some context declares an inbox`() = runTest {
         val withoutInbox = context(BoundedContextId("alpha"), this)
         val withInbox = context(BoundedContextId("beta"), this, honouringInbox())
 
@@ -79,7 +79,7 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun startConsuming_withNoInboxedContext_launchesNothing() = runTest {
+    fun `launches nothing when no context declares an inbox`() = runTest {
         val alpha = context(BoundedContextId("alpha"), this)
         val coordinator = InboxCoordinator(null, listOf(alpha), backgroundScope)
 
@@ -89,7 +89,7 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun startConsuming_launchesOnePumpPerInbox() = runTest {
+    fun `launches one pump per inbox`() = runTest {
         val alpha = context(BoundedContextId("alpha"), this, honouringInbox())
         val beta = context(BoundedContextId("beta"), this, honouringInbox())
         val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
@@ -100,7 +100,7 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun startConsuming_calledTwice_runsOnlyOnePumpPerInbox() = runTest {
+    fun `runs one pump per inbox however many times it is started`() = runTest {
         val alpha = context(BoundedContextId("alpha"), this, honouringInbox())
         val coordinator = InboxCoordinator(null, listOf(alpha), backgroundScope)
 
@@ -111,7 +111,7 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun startConsuming_dispatchesPendingEnvelopesLeftBehindByAPreviousRun() = runTest {
+    fun `dispatches envelopes a previous run left pending`() = runTest {
         val store = RecordingInboxStore()
         val alpha = context(BoundedContextId("alpha"), backgroundScope, honouringInbox(store))
         store.save(listOf(EventEnvelope.of(TestIntegrationEvent("from-before-crash"))))
@@ -159,38 +159,39 @@ class InboxCoordinatorTest {
     }
 
     @Test
-    fun ackPolicyOverride_isAppliedOnlyToContextsThatDeclareAnInbox() = runTest {
-        val alphaAttempts = mutableListOf<String>()
-        val betaAttempts = mutableListOf<String>()
-        val alphaStore = RecordingInboxStore()
-        val alpha =
-            throwingContext(
-                BoundedContextId("alpha"),
-                alphaAttempts,
-                backgroundScope,
-                BoundedContextInbox(alphaStore, InboxAckPolicy.RequireHandlerSuccess),
+    fun `applies an acknowledgement policy override only to contexts declaring an inbox`() =
+        runTest {
+            val alphaAttempts = mutableListOf<String>()
+            val betaAttempts = mutableListOf<String>()
+            val alphaStore = RecordingInboxStore()
+            val alpha =
+                throwingContext(
+                    BoundedContextId("alpha"),
+                    alphaAttempts,
+                    backgroundScope,
+                    BoundedContextInbox(alphaStore, InboxAckPolicy.RequireHandlerSuccess),
+                )
+            val beta = throwingContext(BoundedContextId("beta"), betaAttempts, backgroundScope)
+
+            val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
+
+            // alpha declares an inbox: RequireHandlerSuccess overrides FireAndForget, so a failing
+            // handler leaves the envelope pending rather than acked.
+            alphaStore.save(listOf(EventEnvelope.of(TestIntegrationEvent("via-alpha"))))
+            (coordinator.destinations[0] as EventInbox).drain()
+
+            assertEquals(listOf("via-alpha"), alphaAttempts)
+            assertTrue(
+                alphaStore.markedConsumed.isEmpty(),
+                "RequireHandlerSuccess must not ack a failed handler",
             )
-        val beta = throwingContext(BoundedContextId("beta"), betaAttempts, backgroundScope)
 
-        val coordinator = InboxCoordinator(null, listOf(alpha, beta), backgroundScope)
+            // beta declares no inbox, so it is never overridden: it still honours the event's own
+            // FireAndForget and swallows the failure.
+            coordinator.destinations[1].deliver(
+                listOf(EventEnvelope.of(TestIntegrationEvent("via-beta")))
+            )
 
-        // alpha declares an inbox: RequireHandlerSuccess overrides FireAndForget, so a failing
-        // handler leaves the envelope pending rather than acked.
-        alphaStore.save(listOf(EventEnvelope.of(TestIntegrationEvent("via-alpha"))))
-        (coordinator.destinations[0] as EventInbox).drain()
-
-        assertEquals(listOf("via-alpha"), alphaAttempts)
-        assertTrue(
-            alphaStore.markedConsumed.isEmpty(),
-            "RequireHandlerSuccess must not ack a failed handler",
-        )
-
-        // beta declares no inbox, so it is never overridden: it still honours the event's own
-        // FireAndForget and swallows the failure.
-        coordinator.destinations[1].deliver(
-            listOf(EventEnvelope.of(TestIntegrationEvent("via-beta")))
-        )
-
-        assertEquals(listOf("via-beta"), betaAttempts)
-    }
+            assertEquals(listOf("via-beta"), betaAttempts)
+        }
 }

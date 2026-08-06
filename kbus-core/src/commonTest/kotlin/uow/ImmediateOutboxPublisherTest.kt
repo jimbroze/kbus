@@ -19,7 +19,7 @@ private class ImmediateOutboxTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class ImmediateOutboxPublisherTest {
     @Test
-    fun publish_savesEntriesToTheStoreImmediately() = runTest {
+    fun `saves published entries to its store immediately`() = runTest {
         val store = RecordingOutboxStore()
         val publisher =
             ImmediateOutboxPublisher(store, EventRouter(listOf(RecordingDestination())), this)
@@ -30,7 +30,7 @@ class ImmediateOutboxPublisherTest {
     }
 
     @Test
-    fun publish_deliversToTheRouterAndMarksEntriesPublished() = runTest {
+    fun `delivers entries through the router and marks them published`() = runTest {
         val store = RecordingOutboxStore()
         val destination = RecordingDestination()
         val publisher = ImmediateOutboxPublisher(store, EventRouter(listOf(destination)), this)
@@ -46,7 +46,7 @@ class ImmediateOutboxPublisherTest {
     }
 
     @Test
-    fun aDeliveryFailure_leavesTheEntryUnpublishedForThePoller() = runTest {
+    fun `leaves an entry unpublished for the poller when its delivery fails`() = runTest {
         val store = RecordingOutboxStore()
         val flakyDestination =
             object : EventDestination {
@@ -68,7 +68,7 @@ class ImmediateOutboxPublisherTest {
     }
 
     @Test
-    fun opportunisticDrain_false_savesButDoesNotDeliver() = runTest {
+    fun `saves without delivering when opportunistic draining is off`() = runTest {
         val store = RecordingOutboxStore()
         val destination = RecordingDestination()
         val publisher =
@@ -88,7 +88,7 @@ class ImmediateOutboxPublisherTest {
     }
 
     @Test
-    fun aStoreFailure_propagatesToTheCaller() = runTest {
+    fun `propagates a store failure to the caller`() = runTest {
         val store = RecordingOutboxStore().apply { saveFailure = IllegalStateException("db down") }
         val publisher =
             ImmediateOutboxPublisher(store, EventRouter(listOf(RecordingDestination())), this)

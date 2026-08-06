@@ -39,7 +39,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_it_returns_null_if_handler_not_registered() {
+    fun `finds no handler for a command with none registered`() {
         val locator = PersistingHandlerLocator()
         val command = StorageCommand("test", mutableListOf())
 
@@ -48,7 +48,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_locator_can_find_and_create_registered_command_handler() {
+    fun `builds the handler registered for a command`() {
         val command = StorageCommand("test", mutableListOf())
         val stores = HandlerFactoryStoreCollection()
 
@@ -65,7 +65,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_event_handlers_are_not_found_if_mappings_are_not_registered() {
+    fun `finds no event handlers while the event has no mapping`() {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
 
@@ -89,7 +89,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_locator_can_find_registered_event_handlers_when_mappings_are_registered() {
+    fun `builds the handlers mapped to an event`() {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
 
@@ -130,7 +130,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_locator_throws_exception_if_event_handler_is_mapped_but_not_registered() {
+    fun `refuses an event whose mapped handler was never registered`() {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
 
@@ -149,7 +149,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_handlers_are_returned_in_order_of_requested_handler_classes() {
+    fun `builds event handlers in the order their classes were mapped`() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
@@ -165,7 +165,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_handlers_are_returned_in_reversed_order_of_requested_handler_classes() {
+    fun `follows the mapped order even when it reverses the registration order`() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
@@ -181,7 +181,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_single_handler_is_returned_when_only_one_class_is_mapped() {
+    fun `builds only the handler class an event maps to`() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
@@ -196,7 +196,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun test_new_handler_instances_are_created_on_each_request() {
+    fun `builds a fresh handler instance for every request`() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
@@ -214,7 +214,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun subscribedEventTypes_containsOnlyEventsWithRegisteredHandlers() {
+    fun `reports only the events that have a handler registered`() {
         val locator = createLocatorWithStorageEventHandlers()
         locator.integrationEventMapper.addEventHandlers(
             StorageEvent::class,
@@ -226,7 +226,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun subscribedEventTypes_doesNotInstantiateHandlers() {
+    fun `reports its events without building any handler`() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.eventStore.registerHandlers(
@@ -250,7 +250,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun handledCommandTypes_areOnlyTheRegisteredCommands() {
+    fun `reports only the commands that have a handler registered`() {
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
             StorageCommand::class,
@@ -262,7 +262,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun handledCommandTypes_doesNotInstantiateTheHandler() {
+    fun `reports its commands without building any handler`() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
@@ -282,7 +282,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun handledQueryTypes_areOnlyTheRegisteredQueries() {
+    fun `reports only the queries that have a handler registered`() {
         val stores = HandlerFactoryStoreCollection()
         stores.queryStore.registerHandlers(
             StorageQuery::class,
@@ -294,7 +294,7 @@ class PersistingHandlerLocatorTest {
     }
 
     @Test
-    fun handledQueryTypes_doesNotInstantiateTheHandler() {
+    fun `reports its queries without building any handler`() {
         var creations = 0
         val stores = HandlerFactoryStoreCollection()
         stores.queryStore.registerHandlers(

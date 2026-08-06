@@ -11,7 +11,7 @@ private class InboxTestEvent(val name: String) : IntegrationEvent()
 
 class InMemoryInboxStoreTest {
     @Test
-    fun fetchPending_returnsSavedEnvelopesOldestFirst() = runTest {
+    fun `returns pending envelopes oldest first`() = runTest {
         val store = InMemoryInboxStore()
         val first = EventEnvelope("1", InboxTestEvent("first"))
         val second = EventEnvelope("2", InboxTestEvent("second"))
@@ -25,7 +25,7 @@ class InMemoryInboxStoreTest {
     }
 
     @Test
-    fun fetchPending_respectsLimit() = runTest {
+    fun `returns no more envelopes than the limit it was asked for`() = runTest {
         val store = InMemoryInboxStore()
         store.save((1..5).map { EventEnvelope("$it", InboxTestEvent("event-$it")) })
 
@@ -35,7 +35,7 @@ class InMemoryInboxStoreTest {
     }
 
     @Test
-    fun save_ignoresAnEnvelopeWhoseIdIsAlreadyPending() = runTest {
+    fun `ignores an envelope whose id is already pending`() = runTest {
         val store = InMemoryInboxStore()
         store.save(listOf(EventEnvelope("1", InboxTestEvent("first"))))
 
@@ -45,7 +45,7 @@ class InMemoryInboxStoreTest {
     }
 
     @Test
-    fun save_ignoresAnEnvelopeWhoseIdWasAlreadyConsumed() = runTest {
+    fun `ignores an envelope whose id was already consumed`() = runTest {
         val store = InMemoryInboxStore()
         store.save(listOf(EventEnvelope("1", InboxTestEvent("first"))))
         store.markConsumed(listOf("1"))
@@ -56,7 +56,7 @@ class InMemoryInboxStoreTest {
     }
 
     @Test
-    fun save_ofAMixedBatch_keepsTheNewOnesAndDropsTheDuplicates() = runTest {
+    fun `keeps the new envelopes of a batch and drops the duplicates`() = runTest {
         val store = InMemoryInboxStore()
         store.save(listOf(EventEnvelope("1", InboxTestEvent("first"))))
 
@@ -71,7 +71,7 @@ class InMemoryInboxStoreTest {
     }
 
     @Test
-    fun markConsumed_excludesEnvelopesFromFutureFetches() = runTest {
+    fun `never returns an envelope again once it is marked consumed`() = runTest {
         val store = InMemoryInboxStore()
         store.save(listOf(EventEnvelope("1", InboxTestEvent("first"))))
         store.save(listOf(EventEnvelope("2", InboxTestEvent("second"))))
@@ -82,7 +82,7 @@ class InMemoryInboxStoreTest {
     }
 
     @Test
-    fun markConsumed_toleratesUnknownIds() = runTest {
+    fun `ignores an instruction to consume an id it does not hold`() = runTest {
         val store = InMemoryInboxStore()
         store.save(listOf(EventEnvelope("1", InboxTestEvent("first"))))
 

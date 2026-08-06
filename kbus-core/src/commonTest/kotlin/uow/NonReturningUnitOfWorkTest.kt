@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.runTest
 
 class NonReturningUnitOfWorkTest {
     @Test
-    fun test_execute_delegates_to_underlying_unit_of_work() = runTest {
+    fun `runs the primary work through the unit of work it wraps`() = runTest {
         val delegate = TestUnitOfWork<Unit>()
         delegate.setReturningWork {}
         val uow = NonReturningUnitOfWork(delegate)
@@ -20,7 +20,7 @@ class NonReturningUnitOfWorkTest {
     }
 
     @Test
-    fun test_setReturningWork_delegates_to_underlying_unit_of_work() = runTest {
+    fun `sets returning work on the unit of work it wraps`() = runTest {
         val delegate = TestUnitOfWork<Unit>()
         val uow = NonReturningUnitOfWork(delegate)
         var executed = false
@@ -32,7 +32,7 @@ class NonReturningUnitOfWorkTest {
     }
 
     @Test
-    fun test_addSecondaryWork_delegates_to_underlying_unit_of_work() = runTest {
+    fun `adds secondary work to the unit of work it wraps`() = runTest {
         val delegate = TestUnitOfWork<Unit>()
         delegate.setReturningWork {}
         val uow = NonReturningUnitOfWork(delegate)
@@ -46,7 +46,7 @@ class NonReturningUnitOfWorkTest {
     }
 
     @Test
-    fun test_addPostCommitWork_delegates_to_underlying_unit_of_work() = runTest {
+    fun `adds post-commit work to the unit of work it wraps`() = runTest {
         val delegate = TestUnitOfWork<Unit>()
         delegate.setReturningWork {}
         val uow = NonReturningUnitOfWork(delegate)
@@ -60,14 +60,14 @@ class NonReturningUnitOfWorkTest {
     }
 
     @Test
-    fun test_execute_succeeds_without_calling_setReturningWork() = runTest {
+    fun `completes without any returning work being set`() = runTest {
         val uow = NonReturningUnitOfWork()
 
         uow.execute()
     }
 
     @Test
-    fun test_useTransaction_delegates_to_underlying_unit_of_work() {
+    fun `requests a transaction from the unit of work it wraps`() {
         val delegate = TestUnitOfWork<Unit>()
         delegate.setReturningWork {}
         val uow = NonReturningUnitOfWork(delegate)

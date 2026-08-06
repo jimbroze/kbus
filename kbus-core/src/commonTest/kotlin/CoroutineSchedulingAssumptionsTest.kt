@@ -16,11 +16,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 
-class YieldTest {
+class CoroutineSchedulingAssumptionsTest {
     @Volatile var locked: Boolean = false
 
     @Test
-    fun testWhileYield() = runTest {
+    fun `lets a third coroutine cancel two that yield in a loop`() = runTest {
         var x = 0
         val job1 = launch {
             while (true) {
@@ -50,7 +50,7 @@ class YieldTest {
 
     @OptIn(ExperimentalTime::class)
     @Test
-    fun test_delay_yields_coroutine() = runTest {
+    fun `lets another coroutine run while one of them is delayed`() = runTest {
         val clock = Clock.System
         val timeSource = TimeSource.Monotonic
 
@@ -73,10 +73,6 @@ class YieldTest {
 
         val afterSleep = job1.await()
         val afterUnlock = job2.await()
-
-        print(afterSleep)
-        print(afterUnlock)
-        print(afterSleep - afterUnlock)
 
         assertTrue(afterSleep <= afterUnlock)
     }

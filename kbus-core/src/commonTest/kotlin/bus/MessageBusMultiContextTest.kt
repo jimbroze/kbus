@@ -236,7 +236,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun withNoContextsConfigured_theDefaultContextReceivesEveryEvent() = runTest {
+    fun `delivers every event to the implicit default context when none is configured`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val received = mutableListOf<String>()
@@ -253,7 +253,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun constructingWithAnEmptyContextList_throws() = runTest {
+    fun `refuses an empty list of contexts`() = runTest {
         val exception =
             assertFailsWith<IllegalArgumentException> {
                 MessageBus(contexts = emptyList(), appScope = backgroundScope)
@@ -263,7 +263,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun constructingWithDuplicateBoundedContextIds_throws() = runTest {
+    fun `refuses two contexts sharing a bounded context id`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val firstLocator = PersistingHandlerLocator(stores)
         val secondLocator = PersistingHandlerLocator(stores)
@@ -283,7 +283,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aCommandRegisteredInExactlyOneContext_executes() = runTest {
+    fun `executes a command exactly one context owns`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
@@ -300,27 +300,26 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aCommandRegisteredInTwoContexts_throwsAmbiguousHandlerExceptionWhenTheBusIsBuilt() =
-        runTest {
-            val stores = HandlerFactoryStoreCollection()
-            registerPublishingCommand(stores)
-            val firstLocator = PersistingHandlerLocator(stores)
-            val secondLocator = PersistingHandlerLocator(stores)
+    fun `refuses at construction a command two contexts claim`() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        registerPublishingCommand(stores)
+        val firstLocator = PersistingHandlerLocator(stores)
+        val secondLocator = PersistingHandlerLocator(stores)
 
-            assertFailsWith<AmbiguousHandlerException> {
-                MessageBus(
-                    appScope = backgroundScope,
-                    contexts =
-                        listOf(
-                            BoundedContext(BoundedContextId("alpha"), firstLocator),
-                            BoundedContext(BoundedContextId("beta"), secondLocator),
-                        ),
-                )
-            }
+        assertFailsWith<AmbiguousHandlerException> {
+            MessageBus(
+                appScope = backgroundScope,
+                contexts =
+                    listOf(
+                        BoundedContext(BoundedContextId("alpha"), firstLocator),
+                        BoundedContext(BoundedContextId("beta"), secondLocator),
+                    ),
+            )
         }
+    }
 
     @Test
-    fun aCommandRegisteredNowhere_throwsMissingHandlerException() = runTest {
+    fun `refuses a command no context owns`() = runTest {
         val bus =
             MessageBus(
                 appScope = backgroundScope,
@@ -332,7 +331,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aQueryRegisteredInExactlyOneContext_executes() = runTest {
+    fun `fetches a query exactly one context owns`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.queryStore.registerHandlers(
@@ -352,7 +351,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aQueryRegisteredInTwoContexts_throwsAmbiguousHandlerExceptionWhenTheBusIsBuilt() = runTest {
+    fun `refuses at construction a query two contexts claim`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         stores.queryStore.registerHandlers(
             AlphaQuery::class,
@@ -374,7 +373,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aQueryRegisteredNowhere_throwsMissingHandlerException() = runTest {
+    fun `refuses a query no context owns`() = runTest {
         val bus =
             MessageBus(
                 appScope = backgroundScope,
@@ -386,7 +385,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aDomainHandlerInOneContextDoesNotFireForAnotherContextsCommand() = runTest {
+    fun `keeps a context's domain handler out of another context's command`() = runTest {
         val ownerStores = HandlerFactoryStoreCollection()
         val ownerLocator = PersistingHandlerLocator(ownerStores)
         registerPublishingDeltaCommand(ownerStores)
@@ -414,7 +413,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun eachContextsDomainHandlerFiresOnlyForItsOwnCommand() = runTest {
+    fun `runs each context's domain handler only for that context's own command`() = runTest {
         val alphaStores = HandlerFactoryStoreCollection()
         val alphaLocator = PersistingHandlerLocator(alphaStores)
         registerPublishingDeltaCommand(alphaStores)
@@ -453,7 +452,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun aHandlerInOneContextDoesNotFireForAnotherContextsEvent() = runTest {
+    fun `keeps a context's handler out of an event it does not subscribe to`() = runTest {
         val publisher = publisherContext()
 
         val alphaReceived = mutableListOf<String>()
@@ -485,7 +484,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun twoContextsWithAHandlerForTheSameEvent_eachFiresExactlyOnce() = runTest {
+    fun `delivers an event once to each context subscribing to it`() = runTest {
         val publisher = publisherContext()
 
         val received = mutableListOf<String>()
@@ -519,7 +518,7 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun anEventNoContextSubscribesTo_isStillObserved() = runTest {
+    fun `emits to observers an event no context subscribes to`() = runTest {
         val publisher = publisherContext()
         val betaStores = HandlerFactoryStoreCollection()
         val betaLocator = PersistingHandlerLocator(betaStores)
@@ -543,79 +542,83 @@ class MessageBusMultiContextTest {
     }
 
     @Test
-    fun anEventNoContextSubscribesTo_isAckedByTheOutbox_notRetriedForever() = runTest {
-        val store = MarkRecordingOutboxStore()
-        val publisher = publisherContext()
-        val betaStores = HandlerFactoryStoreCollection()
-        val betaLocator = PersistingHandlerLocator(betaStores)
-        registerBetaHandlerIn(betaStores, betaLocator, mutableListOf())
+    fun `acknowledges an event no context subscribes to rather than retrying it forever`() =
+        runTest {
+            val store = MarkRecordingOutboxStore()
+            val publisher = publisherContext()
+            val betaStores = HandlerFactoryStoreCollection()
+            val betaLocator = PersistingHandlerLocator(betaStores)
+            registerBetaHandlerIn(betaStores, betaLocator, mutableListOf())
 
-        val bus =
-            MessageBus(
-                appScope = backgroundScope,
-                outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
-                contexts = listOf(publisher, BoundedContext(BoundedContextId("beta"), betaLocator)),
-            )
-        bus.start()
-        advanceVirtualTime(50)
+            val bus =
+                MessageBus(
+                    appScope = backgroundScope,
+                    outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
+                    contexts =
+                        listOf(publisher, BoundedContext(BoundedContextId("beta"), betaLocator)),
+                )
+            bus.start()
+            advanceVirtualTime(50)
 
-        bus.execute(PublishAlphaCommand("unsubscribed"))
-        advanceVirtualTime(150)
+            bus.execute(PublishAlphaCommand("unsubscribed"))
+            advanceVirtualTime(150)
 
-        assertEquals(1, store.markedPublished.size)
-        assertTrue(store.fetchUnpublished(10).isEmpty())
-    }
+            assertEquals(1, store.markedPublished.size)
+            assertTrue(store.fetchUnpublished(10).isEmpty())
+        }
 
     @Test
-    fun aFailingContextLeavesTheEntryUnpublished_andHealthyContextsReDispatchOnRetry() = runTest {
-        val store = MarkRecordingOutboxStore()
-        val publisher = publisherContext()
+    fun `leaves an entry unpublished when one context fails, redelivering to the rest on retry`() =
+        runTest {
+            val store = MarkRecordingOutboxStore()
+            val publisher = publisherContext()
 
-        val healthyReceived = mutableListOf<String>()
-        val failedAttempts = mutableListOf<String>()
-        val healthyStores = HandlerFactoryStoreCollection()
-        val failingStores = HandlerFactoryStoreCollection()
-        val healthyLocator = PersistingHandlerLocator(healthyStores)
-        val failingLocator = PersistingHandlerLocator(failingStores)
-        registerAlphaHandlerIn(healthyStores, healthyLocator, healthyReceived, "healthy")
-        failingStores.eventStore.registerHandlers(
-            AlphaEvent::class,
-            listOf(
-                EventHandlerFactory(ThrowingAlphaHandler::class) {
-                    ThrowingAlphaHandler(failedAttempts)
-                }
-            ),
-        )
-        failingLocator.integrationEventMapper.addEventHandlers(
-            AlphaEvent::class,
-            listOf(ThrowingAlphaHandler::class),
-        )
-
-        val bus =
-            MessageBus(
-                appScope = backgroundScope,
-                outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
-                contexts =
-                    listOf(
-                        publisher,
-                        BoundedContext(BoundedContextId("healthy"), healthyLocator),
-                        BoundedContext(BoundedContextId("failing"), failingLocator),
-                    ),
+            val healthyReceived = mutableListOf<String>()
+            val failedAttempts = mutableListOf<String>()
+            val healthyStores = HandlerFactoryStoreCollection()
+            val failingStores = HandlerFactoryStoreCollection()
+            val healthyLocator = PersistingHandlerLocator(healthyStores)
+            val failingLocator = PersistingHandlerLocator(failingStores)
+            registerAlphaHandlerIn(healthyStores, healthyLocator, healthyReceived, "healthy")
+            failingStores.eventStore.registerHandlers(
+                AlphaEvent::class,
+                listOf(
+                    EventHandlerFactory(ThrowingAlphaHandler::class) {
+                        ThrowingAlphaHandler(failedAttempts)
+                    }
+                ),
             )
-        bus.start()
+            failingLocator.integrationEventMapper.addEventHandlers(
+                AlphaEvent::class,
+                listOf(ThrowingAlphaHandler::class),
+            )
 
-        bus.execute(PublishAlphaCommand("event"))
-        advanceVirtualTime(400)
+            val bus =
+                MessageBus(
+                    appScope = backgroundScope,
+                    outbox = OutboxConfig(store = store, pollInterval = 100.milliseconds),
+                    contexts =
+                        listOf(
+                            publisher,
+                            BoundedContext(BoundedContextId("healthy"), healthyLocator),
+                            BoundedContext(BoundedContextId("failing"), failingLocator),
+                        ),
+                )
+            bus.start()
 
-        // With no inbox, the whole entry stays unpublished, so the poller re-routes it to *every*
-        // context and the healthy one re-dispatches each cycle.
-        assertTrue(failedAttempts.size >= 2, "expected the poller to retry: $failedAttempts")
-        assertTrue(
-            healthyReceived.size >= 2,
-            "expected re-delivery amplification: $healthyReceived",
-        )
-        assertTrue(store.markedPublished.isEmpty())
-    }
+            bus.execute(PublishAlphaCommand("event"))
+            advanceVirtualTime(400)
+
+            // With no inbox, the whole entry stays unpublished, so the poller re-routes it to
+            // *every*
+            // context and the healthy one re-dispatches each cycle.
+            assertTrue(failedAttempts.size >= 2, "expected the poller to retry: $failedAttempts")
+            assertTrue(
+                healthyReceived.size >= 2,
+                "expected re-delivery amplification: $healthyReceived",
+            )
+            assertTrue(store.markedPublished.isEmpty())
+        }
 }
 
 private class MarkRecordingOutboxStore : OutboxStore {

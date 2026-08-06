@@ -78,35 +78,35 @@ private class FakeGenerationHandlerFactory(
 
 class GenerationHandlerLocatorTest {
     @Test
-    fun handledCommandTypes_areItsFactorysCommands() {
+    fun `reports the commands its factory holds`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsCommand = true))
 
         assertEquals(setOf(StorageCommand::class), locator.handledCommandTypes())
     }
 
     @Test
-    fun handledCommandTypes_areEmptyForAContextHoldingNoCommands() {
+    fun `reports no commands for a context holding none`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
 
         assertEquals(emptySet(), locator.handledCommandTypes())
     }
 
     @Test
-    fun handledQueryTypes_areItsFactorysQueries() {
+    fun `reports the queries its factory holds`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsQuery = true))
 
         assertEquals(setOf(StorageQuery::class), locator.handledQueryTypes())
     }
 
     @Test
-    fun handledQueryTypes_areEmptyForAContextHoldingNoQueries() {
+    fun `reports no queries for a context holding none`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
 
         assertEquals(emptySet(), locator.handledQueryTypes())
     }
 
     @Test
-    fun handlerFor_findsACommandThisContextOwns() {
+    fun `builds the handler for a command its context owns`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsCommand = true))
 
         val handler =
@@ -119,7 +119,7 @@ class GenerationHandlerLocatorTest {
     }
 
     @Test
-    fun handlerFor_doesNotFindACommandAnotherContextOwns() {
+    fun `finds no handler for a command another context owns`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
 
         val handler =
@@ -132,21 +132,21 @@ class GenerationHandlerLocatorTest {
     }
 
     @Test
-    fun handlerFor_findsAQueryThisContextOwns() {
+    fun `builds the handler for a query its context owns`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsQuery = true))
 
         assertIs<StorageQueryHandler>(locator.handlerFor(StorageQuery(0, mutableListOf())))
     }
 
     @Test
-    fun handlerFor_doesNotFindAQueryAnotherContextOwns() {
+    fun `finds no handler for a query another context owns`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
 
         assertNull(locator.handlerFor(StorageQuery(0, mutableListOf())))
     }
 
     @Test
-    fun domainHandlersFor_buildsTheSubscribedHandlersFromItsFactory() {
+    fun `builds the domain handlers its context subscribes to`() {
         val locator =
             GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsDomainEventHandler = true))
         locator.domainEventMapper.addDomainHandlers(
@@ -162,7 +162,7 @@ class GenerationHandlerLocatorTest {
     }
 
     @Test
-    fun domainHandlersFor_buildsEachHandlerWithTheDependenciesItWasGiven() {
+    fun `builds each domain handler with the dependencies it was given`() {
         val factory = FakeGenerationHandlerFactory(holdsDomainEventHandler = true)
         val locator = GenerationHandlerLocator(factory)
         locator.domainEventMapper.addDomainHandlers(
@@ -176,7 +176,7 @@ class GenerationHandlerLocatorTest {
     }
 
     @Test
-    fun domainHandlersFor_findsNoHandlersForAnUnsubscribedEvent() {
+    fun `finds no domain handlers for an event its context does not subscribe to`() {
         val locator =
             GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsDomainEventHandler = true))
 
@@ -187,7 +187,7 @@ class GenerationHandlerLocatorTest {
     }
 
     @Test
-    fun domainHandlersFor_failsWhenTheContextsFactoryCannotBuildASubscribedHandler() {
+    fun `fails when its factory cannot build a handler the context subscribes to`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
         locator.domainEventMapper.addDomainHandlers(
             TestDomainEvent::class,

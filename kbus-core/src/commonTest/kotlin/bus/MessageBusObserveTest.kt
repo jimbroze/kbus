@@ -60,7 +60,7 @@ class MessageBusObserveTest {
     }
 
     @Test
-    fun observe_receivesAnEventPublishedThroughTheBus_exactlyOnce_alongsideItsHandler() = runTest {
+    fun `emits a published event to an observer once, alongside its handler`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)
@@ -93,7 +93,7 @@ class MessageBusObserveTest {
     }
 
     @Test
-    fun observe_stillReceivesAnEventWithNoRegisteredHandlers() = runTest {
+    fun `emits a published event to an observer when it has no handlers`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)

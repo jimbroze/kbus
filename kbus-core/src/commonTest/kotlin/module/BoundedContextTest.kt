@@ -30,7 +30,7 @@ import kotlin.test.assertTrue
  */
 class BoundedContextTest {
     @Test
-    fun id_isTheOneItWasConstructedWith() {
+    fun `keeps the id it was constructed with`() {
         val context = BoundedContext(BoundedContextId("orders"))
 
         assertEquals(BoundedContextId("orders"), context.id)
@@ -113,7 +113,7 @@ class BoundedContextTest {
     }
 
     @Test
-    fun integrationSubscription_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
+    fun `registers integration handler classes without opting into the generated API`() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
@@ -126,7 +126,7 @@ class BoundedContextTest {
     }
 
     @Test
-    fun domainSubscription_registersHandlerClassesWithoutTheGeneratedApiOptIn() {
+    fun `registers domain handler classes without opting into the generated API`() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
@@ -139,7 +139,7 @@ class BoundedContextTest {
     }
 
     @Test
-    fun inbox_isTheOneTheContextConsumesThrough() {
+    fun `consumes through the inbox it was declared with`() {
         val declaredInbox =
             BoundedContextInbox(InMemoryInboxStore(), InboxAckPolicy.HonourEventStrategy)
 
@@ -150,14 +150,14 @@ class BoundedContextTest {
     }
 
     @Test
-    fun constructor_leavesAContextDeclaringNoInboxWithout() {
+    fun `has no inbox when it declares none`() {
         val context = BoundedContext(BoundedContextId("orders"))
 
         assertNull(context.inbox)
     }
 
     @Test
-    fun integrationSubscription_registersEveryHandlerClassGiven() {
+    fun `registers every handler class a subscription names`() {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.eventStore.registerHandlers(
@@ -192,7 +192,7 @@ class BoundedContextTest {
     }
 
     @Test
-    fun constructor_appliesEverySubscriptionGiven() {
+    fun `applies every subscription it was declared with`() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
 
         BoundedContext(

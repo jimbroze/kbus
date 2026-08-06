@@ -67,7 +67,7 @@ class BaseMessageBusContextBuilderTest {
     }
 
     @Test
-    fun aContextRegisteredThroughTheBuilderRunsItsOwnCommands() = runTest {
+    fun `runs the commands of a context registered through it`() = runTest {
         val locator = locatorWithAlphaCommand()
         val bus =
             NamedContextBus(
@@ -82,7 +82,7 @@ class BaseMessageBusContextBuilderTest {
     }
 
     @Test
-    fun registeringTheSameContextIdTwiceThroughTheBuilder_throws() = runTest {
+    fun `refuses two contexts registered under the same id`() = runTest {
         val exception =
             assertFailsWith<IllegalArgumentException> {
                 NamedContextBus(
@@ -100,7 +100,7 @@ class BaseMessageBusContextBuilderTest {
     }
 
     @Test
-    fun aBuilderThatRegistersNothing_throws() = runTest {
+    fun `refuses to build a bus with no context registered`() = runTest {
         val exception = assertFailsWith<IllegalArgumentException> { NoContextBus(backgroundScope) }
 
         assertTrue(exception.message!!.contains("at least one bounded context"))

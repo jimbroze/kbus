@@ -27,7 +27,7 @@ private class OutboxTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransactionalOutboxTest {
     @Test
-    fun publish_doesNotTouchTheStoreBeforeCommit() = runTest {
+    fun `saves nothing to its store before the transaction commits`() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
@@ -44,7 +44,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun publish_doesNotTouchTheRouter() = runTest {
+    fun `delivers nothing to the router when an event is published`() = runTest {
         val store = RecordingOutboxStore()
         val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
@@ -56,7 +56,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun publish_beforeCommit_isSavedToTheStoreWithUniqueIdsDuringTheSecondaryPhase() = runTest {
+    fun `saves events published before commit under unique ids inside the transaction`() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
@@ -77,7 +77,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun commit_isANoOpFlushWhenNothingWasPublished() = runTest {
+    fun `saves nothing when the transaction published no event`() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         TransactionalOutbox(store, EventRouter(listOf(RecordingDestination())), this, unitOfWork)
@@ -89,7 +89,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun commit_propagatesStoreSaveFailures() = runTest {
+    fun `propagates a failure to save so the transaction cannot commit`() = runTest {
         val store = RecordingOutboxStore().apply { saveFailure = IllegalStateException("db down") }
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
@@ -105,7 +105,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun publish_afterCommit_savesToTheStoreImmediately() = runTest {
+    fun `saves an event published after commit immediately`() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
@@ -125,7 +125,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun publish_isSafeUnderConcurrentCallsBeforeCommit() = runTest {
+    fun `buffers every event when publishes race before commit`() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
@@ -149,7 +149,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun commit_drainsAndDeliversBufferedEntriesPostCommitViaTheRouter() = runTest {
+    fun `delivers the entries it buffered through the router after commit`() = runTest {
         val store = RecordingOutboxStore()
         val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
@@ -167,7 +167,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun commit_marksDrainedEntriesAsPublishedInTheStore() = runTest {
+    fun `marks the entries it delivered as published`() = runTest {
         val store = RecordingOutboxStore()
         val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
@@ -181,7 +181,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun opportunisticDrain_false_flushesButNeverDrains() = runTest {
+    fun `saves without delivering when opportunistic draining is off`() = runTest {
         val store = RecordingOutboxStore()
         val destination = RecordingDestination()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
@@ -204,7 +204,7 @@ class TransactionalOutboxTest {
     }
 
     @Test
-    fun aFailingDeliveryDuringDrain_doesNotStopOtherEntriesAndLeavesTheFailureForThePoller() =
+    fun `delivers the remaining entries when one fails and leaves that one for the poller`() =
         runTest {
             val store = RecordingOutboxStore()
             var callCount = 0
@@ -242,7 +242,7 @@ class TransactionalOutboxTest {
         }
 
     @Test
-    fun primaryWorkThrowing_meansNothingIsEverSaved() = runTest {
+    fun `saves nothing when the primary work throws`() = runTest {
         val store = RecordingOutboxStore()
         val unitOfWork = DefaultUnitOfWorkFactory().create<Unit>()
         val outbox =
