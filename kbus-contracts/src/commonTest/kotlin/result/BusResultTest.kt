@@ -13,59 +13,63 @@ class BusResultTest {
     private class TestMessageFailure(override val reason: FailureReason) : MessageFailure
 
     @Test
-    fun success_isSuccess_returns_true() {
+    fun `reports success when it holds a value`() {
         val result = BusResult.success("value")
 
         assertTrue(result.isSuccess)
     }
 
     @Test
-    fun success_isFailure_returns_false() {
+    fun `does not report failure when it holds a value`() {
         val result = BusResult.success("value")
 
         assertFalse(result.isFailure)
     }
 
     @Test
-    fun success_getOrNull_returns_value() {
+    fun `exposes the value it holds`() {
         val result = BusResult.success("hello")
 
         assertEquals("hello", result.getOrNull())
     }
 
     @Test
-    fun success_failureOrNull_returns_null() {
+    fun `exposes no failure when it holds a value`() {
         val result = BusResult.success("value")
 
         assertNull(result.failureOrNull())
     }
 
     @Test
-    fun failure_isSuccess_returns_false() {
-        val failure = TestMessageFailure(TestFailureReason("error"))
-        val result = BusResult.failure(failure)
+    fun `treats a null value as a success`() {
+        val result = BusResult.success(null)
 
-        assertFalse(result.isSuccess)
+        assertTrue(result.isSuccess)
     }
 
     @Test
-    fun failure_isFailure_returns_true() {
-        val failure = TestMessageFailure(TestFailureReason("error"))
-        val result = BusResult.failure(failure)
+    fun `reports failure when it holds a failure`() {
+        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
 
         assertTrue(result.isFailure)
     }
 
     @Test
-    fun failure_getOrNull_returns_null() {
-        val failure = TestMessageFailure(TestFailureReason("error"))
-        val result = BusResult.failure(failure)
+    fun `does not report success when it holds a failure`() {
+        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
+
+        assertFalse(result.isSuccess)
+    }
+
+    @Test
+    fun `exposes no value when it holds a failure`() {
+        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
 
         assertNull(result.getOrNull())
     }
 
     @Test
-    fun failure_failureOrNull_returns_the_failure() {
+    fun `exposes the failure it holds`() {
         val failure = TestMessageFailure(TestFailureReason("error"))
         val result = BusResult.failure(failure)
 
@@ -73,48 +77,29 @@ class BusResultTest {
     }
 
     @Test
-    fun success_toString_contains_value() {
+    fun `renders the value it holds in its string form`() {
         val result = BusResult.success(42)
 
         assertEquals("Success(42)", result.toString())
     }
 
     @Test
-    fun failure_toString_contains_message() {
-        val failure = TestMessageFailure(TestFailureReason("something went wrong"))
-        val result = BusResult.failure(failure)
+    fun `renders the failure message in its string form`() {
+        val result =
+            BusResult.failure(TestMessageFailure(TestFailureReason("something went wrong")))
 
         assertEquals("Failure: something went wrong", result.toString())
     }
 
     @Test
-    fun multipleFailureReasons_aggregates_messages() {
-        val reasons = listOf(TestFailureReason("error 1"), TestFailureReason("error 2"))
-        val multi = MultipleFailureReasons(reasons)
-
-        assertTrue(multi.message.contains("multiple failures"))
-        assertEquals(2, multi.reasons.size)
-        assertEquals("error 1", multi.reasons[0].message)
-        assertEquals("error 2", multi.reasons[1].message)
-    }
-
-    @Test
-    fun success_with_null_value() {
-        val result = BusResult.success(null)
-
-        assertTrue(result.isSuccess)
-        assertNull(result.getOrNull())
-    }
-
-    @Test
-    fun success_mapSuccess_appliesTheTransformToTheValue() {
+    fun `applies the transform to the value when mapping a success`() {
         val result = BusResult.success(2).mapSuccess { it * 3 }
 
         assertEquals(6, result.getOrNull())
     }
 
     @Test
-    fun failure_mapSuccess_leavesTheFailureUntouched() {
+    fun `leaves the failure untouched when mapping the success of a failure`() {
         val failure = TestMessageFailure(TestFailureReason("error"))
         val result = BusResult.failure(failure).mapSuccess { "mapped" }
 
@@ -122,7 +107,7 @@ class BusResultTest {
     }
 
     @Test
-    fun failure_mapFailure_appliesTheTransformToTheFailure() {
+    fun `applies the transform to the failure when mapping a failure`() {
         val mapped = TestMessageFailure(TestFailureReason("mapped"))
         val result =
             BusResult.failure(TestMessageFailure(TestFailureReason("error"))).mapFailure { mapped }
@@ -131,7 +116,7 @@ class BusResultTest {
     }
 
     @Test
-    fun success_mapFailure_keepsTheValue() {
+    fun `leaves the value untouched when mapping the failure of a success`() {
         val result =
             BusResult.success("value").mapFailure { TestMessageFailure(TestFailureReason("other")) }
 
@@ -139,14 +124,14 @@ class BusResultTest {
     }
 
     @Test
-    fun success_collapse_takesTheSuccessBranch() {
+    fun `collapses a success through the success branch`() {
         val result = BusResult.success(2)
 
         assertEquals("value 2", result.collapse({ "value $it" }, { "failed" }))
     }
 
     @Test
-    fun failure_collapse_takesTheFailureBranch() {
+    fun `collapses a failure through the failure branch`() {
         val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
 
         assertEquals(

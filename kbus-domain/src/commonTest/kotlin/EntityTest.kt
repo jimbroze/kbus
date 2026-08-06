@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 
 class EntityTest {
     @Test
-    fun test_Entity_with_same_ids_match() {
+    fun `has the same identity as an entity with the same id`() {
         val entity1 = TestEntity(TestIdentifier(1))
         val entity2 = TestEntity(TestIdentifier(1))
 
@@ -16,7 +16,7 @@ class EntityTest {
     }
 
     @Test
-    fun test_Entity_with_different_ids_do_not_match() {
+    fun `does not have the same identity as an entity with a different id`() {
         val entity1 = TestEntity(TestIdentifier(1))
         val entity2 = TestEntity(TestIdentifier(2))
 
