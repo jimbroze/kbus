@@ -4,18 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Development Commands
 
-```bash
-./gradlew build                  # Full build with tests
-./gradlew allTests               # Run all tests across all platforms
-./gradlew jvmTest                # Run JVM tests only (fastest)
-./gradlew :kbus-core:jvmTest     # Run tests for a single module
-./gradlew :kbus-core:jvmTest --tests "com.jimbroze.kbus.core.SomeTest"  # Single test class
-./gradlew check                  # Run all checks (tests + linting)
-./gradlew ktfmtFormat            # Format code with ktfmt (Kotlin official style)
-./gradlew detekt                 # Run Detekt static analysis
-```
-
-Always format code and check static analysis after making changes.
+Always format code (`./gradlew ktfmtFormat`) and check static analysis (`./gradlew detekt`) after
+making changes.
 
 **Detekt type resolution is currently broken for this project (detekt 1.23.x).** The
 `detektJvmMain`/`detektJvmTest` tasks (the only ones with type resolution, required for
@@ -33,34 +23,12 @@ its own follow-up before relying on any type-aware detekt rule.
 KBUS is a Kotlin Multiplatform CQRS message bus framework. It routes Commands, Queries, and Events to their handlers,
 with KSP code generation for compile-time type-safe handler resolution (zero reflection).
 
-## Module Structure
-
-- **kbus-contracts** — API & interfaces: message types, result types. KSP Annotations
-- **kbus-core** — Core framework & infrastructure: bus, middleware pipeline, handler locators, Unit of Work
-- **kbus-generation** — KSP processor that generates handler factories, dependency containers, and bus classes
-- **kbus-generation-fixtures** / **kbus-generation-fixtures-sub** — Torture test for the processor: odd
-  dependency shapes, lifecycles, and the behaviours a generated bus must hold. Deliberately not a
-  showcase — it exists to be awkward
-- **examples/** — A modular monolith showing the framework as it is meant to be used: `contexts/`
-  holds one Gradle module per layer per bounded context, `app/` holds every piece of bus wiring,
-  `docs-samples/` holds the snippets Knit extracts from README.md. See `examples/README.md`
-- **testDoubles** — Shared test fixtures
-- **buildSrc** — Custom Gradle plugins (`kbus.multiplatform`, `kbus.publish`,
-  `kbus.handler-module`)
+The `kbus-generation-fixtures` / `kbus-generation-fixtures-sub` modules are a torture test for the
+processor — odd dependency shapes, lifecycles, and the behaviours a generated bus must hold.
+Deliberately not a showcase; they exist to be awkward. `examples/` is the opposite: a modular
+monolith showing the framework as it is meant to be used. See `examples/README.md`.
 
 ## Architecture
-
-### Message Types & Handlers
-
-Three message types, each with a corresponding handler base class:
-
-- **Command<TResult>** → `CommandHandler` — State-modifying operations, single handler per command, executes within Unit
-  of Work
-- **Query<TResult>** → `QueryHandler` — Read-only operations, single handler per query
-- **Event** → `EventHandler` / `DomainEventHandler` / `IntegrationEventHandler` — Multiple handlers per event, three
-  dispatch modes (immediately, after primary work, after commit)
-
-All handlers implement `suspend fun handle(message: TMessage)` for coroutine support.
 
 ### Code Generation (KSP)
 
@@ -87,11 +55,6 @@ and emits one context per identity.
 
 A context's factory holds only that context's handlers, so a command another context owns is unresolvable there
 rather than merely refused — the isolation is structural.
-
-### Handler Locators
-
-- `GenerationHandlerLocator` — Uses KSP-generated factory (preferred)
-- `PersistingHandlerLocator` — Runtime registration for dynamic scenarios
 
 ### Middleware Pipeline
 
@@ -144,16 +107,6 @@ registers its own flush (inside the transaction) and drain (post-commit) through
 an outbox is configured, every integration publish routes through it, not just command-scoped ones. The bus-owned
 poller is the at-least-once delivery guarantee; the opportunistic drain is only a latency optimisation.
 
-### Result Types
-
-`BusResult<TValue, TMessageFailure>` sealed class with `Success` and `Failure` subtypes. Failures use `FailureReason`
-interface.
-
-### Dependency Injection in Generated Code
-
-Constructor parameters of `@LoadMessageHandler` classes become dependencies. Types: `PROPERTY` (direct reference),
-`FUNCTIONAL` (lambda factory), `COMMAND` (from `CommandDependencies`).
-
 ## Design Philosophy
 
 - **Pre-V1: no backwards-compatibility obligations.** Don't hold back on refactors or breaking changes when they are
@@ -183,7 +136,6 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 ## Conventions
 
 - Kotlin Multiplatform: all core code in `commonMain`, tests use `kotlinx.coroutines.test.runTest`
-- Targets: JVM (17), JS, WASM, macOS, iOS, Linux, Windows
 - Commit messages follow conventional commits: `feat(scope):`, `refactor(scope):`, `fix(scope):`
 
 ## Comments
