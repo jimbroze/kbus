@@ -39,7 +39,7 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("LargeClass")
-abstract class LockingTestBase {
+abstract class LockingMiddlewareContract {
     abstract fun createAtomicLock(
         scheduler: TestCoroutineScheduler
     ): (CoroutineScope) -> SignallingLock
@@ -47,7 +47,7 @@ abstract class LockingTestBase {
     // --- Reentrant locking (same coroutine) ---
 
     @Test
-    fun `message locker returns failure instantly when bus is locked by same coroutine`() =
+    fun `fails a nested lock-aware command immediately when the same coroutine holds the lock`() =
         runTest {
             val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
             locker.onStart(BusMiddlewareContext(backgroundScope))
@@ -79,7 +79,7 @@ abstract class LockingTestBase {
         }
 
     @Test
-    fun `throws BusLockedException if bus is locked by same coroutine and command is not lock aware`() =
+    fun `throws when a nested command is not lock aware and the same coroutine holds the lock`() =
         runTest {
             val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
             locker.onStart(BusMiddlewareContext(backgroundScope))
@@ -97,11 +97,10 @@ abstract class LockingTestBase {
     // --- Cross-coroutine lock waiting ---
 
     @Test
-    fun `message locker waits to execute command in a different coroutine`() = runTest {
+    fun `holds a command in another coroutine until the lock is released`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
-        // Launch job 1: It locks the bus and delays for 1 second of VIRTUAL time
         val job1 = async {
             locker.handle(
                 LockingSleepCommand(1.seconds, "After sleep"),
@@ -112,7 +111,6 @@ abstract class LockingTestBase {
             currentTime
         }
 
-        // Launch job 2: It will wait for the lock to release
         val job2 = async {
             locker.handle(ReturnCommand("After unlock"), EmptyMiddlewareInvocationContext) {
                 ReturnCommandHandler().handle(it)
@@ -123,7 +121,6 @@ abstract class LockingTestBase {
         val timeJob1Finished = job1.await()
         val timeJob2Finished = job2.await()
 
-        // Assert based on exact virtual time elapsed
         assertEquals(1000L, timeJob1Finished, "Job 1 should finish after 1 second virtual delay")
         assertEquals(
             1000L,
@@ -135,7 +132,7 @@ abstract class LockingTestBase {
     // --- busIsLocked state ---
 
     @Test
-    fun `busIsLocked is true while a locking message holds the mutex`() = runTest {
+    fun `reports the bus as locked only while a locking command runs`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -144,7 +141,6 @@ abstract class LockingTestBase {
                 LockingSleepCommand(2.seconds, "data"),
                 EmptyMiddlewareInvocationContext,
             ) {
-                // While the handler is running, the mutex should be held
                 assertTrue(locker.busIsLocked(), "busLocked should be true while mutex is held")
                 LockingSleepCommandHandler().handle(it)
             }
@@ -152,12 +148,11 @@ abstract class LockingTestBase {
 
         job.await()
 
-        // After the locking message completes, busLocked should be false
         assertFalse(locker.busIsLocked(), "busLocked should be false after lock is released")
     }
 
     @Test
-    fun `busIsLocked is false during non-locking message handler execution`() = runTest {
+    fun `reports the bus as unlocked while a non-locking command runs`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -173,7 +168,7 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `busIsLocked is false after non-locking message completes`() = runTest {
+    fun `reports the bus as unlocked once a non-locking command completes`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -187,51 +182,43 @@ abstract class LockingTestBase {
     // --- Lock timeout ---
 
     @Test
-    fun `command execution times out using default timeout if bus is locked for too long`() =
-        runTest {
-            // Default lock timeout is 1 second
-            val locker = LockingMiddleware(createAtomicLock(testScheduler), 1.seconds, 30.seconds)
-            locker.onStart(BusMiddlewareContext(backgroundScope))
-
-            val job1 = async {
-                // Holds the lock for 5 seconds
-                locker.handle(
-                    LockingSleepCommand(5.seconds, "After sleep"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    LockingSleepCommandHandler().handle(it)
-                }
-                currentTime
-            }
-            val job2 = async {
-                // Non-locking message: throws BusLockedException on timeout
-                assertFailsWith<BusLockedException> {
-                    locker.handle(ReturnCommand("After unlock"), EmptyMiddlewareInvocationContext) {
-                        ReturnCommandHandler().handle(it)
-                    }
-                }
-                currentTime
-            }
-
-            val timeJob2Finished = job2.await()
-            val timeJob1Finished = job1.await()
-
-            // Job 2 gives up after 1 virtual second (1000ms)
-            assertEquals(1000L, timeJob2Finished)
-            // Job 1 finishes after its full 5 virtual seconds (5000ms)
-            assertEquals(5000L, timeJob1Finished)
-        }
-
-    // --- Lock timeout override (per-message) ---
-
-    @Test
-    fun `locking timeout can be overridden by locking message`() = runTest {
-        // Default timeout is 1 second
+    fun `gives up on the default timeout when the lock is held for longer`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 1.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Holds the lock for 3 seconds
+            locker.handle(
+                LockingSleepCommand(5.seconds, "After sleep"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
+            assertFailsWith<BusLockedException> {
+                locker.handle(ReturnCommand("After unlock"), EmptyMiddlewareInvocationContext) {
+                    ReturnCommandHandler().handle(it)
+                }
+            }
+            currentTime
+        }
+
+        val timeJob2Finished = job2.await()
+        val timeJob1Finished = job1.await()
+
+        assertEquals(1000L, timeJob2Finished)
+        assertEquals(5000L, timeJob1Finished)
+    }
+
+    // --- Lock timeout override (per-message) ---
+
+    @Test
+    fun `honours a longer lock timeout requested by the waiting command`() = runTest {
+        val locker = LockingMiddleware(createAtomicLock(testScheduler), 1.seconds, 30.seconds)
+        locker.onStart(BusMiddlewareContext(backgroundScope))
+
+        val job1 = async {
             locker.handle(
                 LockingSleepCommand(3.seconds, "After sleep"),
                 EmptyMiddlewareInvocationContext,
@@ -241,7 +228,6 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // Overrides lock timeout to 5 seconds via LockAwareMessage
             locker.handle(
                 ConfigurableLockingCommand("After unlock", lockTimeoutOverride = 5.seconds),
                 EmptyMiddlewareInvocationContext,
@@ -254,20 +240,16 @@ abstract class LockingTestBase {
         val timeJob1Finished = job1.await()
         val timeJob2Finished = job2.await()
 
-        // Job 1 finishes after its 3 second sleep
         assertEquals(3000L, timeJob1Finished)
-        // Job 2 successfully waits 3 seconds (within its 5s override) instead of timing out at 1s
         assertEquals(3000L, timeJob2Finished)
     }
 
     @Test
-    fun `locking timeout can be overridden by waiting message`() = runTest {
-        // Default timeout is 5 seconds
+    fun `honours a shorter lock timeout requested by the waiting command`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Holds for 3 seconds
             locker.handle(
                 LockingSleepCommand(3.seconds, "After sleep"),
                 EmptyMiddlewareInvocationContext,
@@ -277,7 +259,6 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // Waiting locking message overrides timeout to 1 second
             locker.handle(
                 ConfigurableLockingCommand("After unlock", lockTimeoutOverride = 1.seconds),
                 EmptyMiddlewareInvocationContext,
@@ -290,91 +271,14 @@ abstract class LockingTestBase {
         val timeJob2Finished = job2.await()
         val timeJob1Finished = job1.await()
 
-        // Job 2 times out after 1 second (its override) and force-unlocks
         assertEquals(1000L, timeJob2Finished)
-        // Job 1 continues its 3 second sleep
         assertEquals(3000L, timeJob1Finished)
     }
 
     // --- ignoreLockOnTimeout behavior ---
 
     @Test
-    fun `locking message force-unlocks and proceeds when default ignoreLockOnTimeout is true`() =
-        runTest {
-            val locker =
-                LockingMiddleware(
-                    createAtomicLock(testScheduler),
-                    1.seconds,
-                    30.seconds,
-                    defaultIgnoreLockOnTimeout = true,
-                )
-            locker.onStart(BusMiddlewareContext(backgroundScope))
-
-            val job1 = async {
-                // Holds the lock for 5 seconds
-                locker.handle(
-                    LockingSleepCommand(5.seconds, "Job1"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    LockingSleepCommandHandler().handle(it)
-                }
-            }
-            val job2 = async {
-                // Another locking message: times out after 1s, force-unlocks and proceeds
-                locker.handle(
-                    ConfigurableLockingCommand("Job2"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    ConfigurableLockingCommandHandler().handle(it)
-                }
-            }
-
-            val result2 = job2.await()
-            job1.await()
-
-            // Job 2 should succeed because it force-unlocked
-            assertEquals("Job2", result2.getOrNull())
-        }
-
-    @Test
-    fun `locking message returns failure when default ignoreLockOnTimeout is false`() = runTest {
-        val locker =
-            LockingMiddleware(
-                createAtomicLock(testScheduler),
-                1.seconds,
-                30.seconds,
-                defaultIgnoreLockOnTimeout = false,
-            )
-        locker.onStart(BusMiddlewareContext(backgroundScope))
-
-        val job1 = async {
-            // Holds the lock for 5 seconds
-            locker.handle(
-                LockingSleepCommand(5.seconds, "Job1"),
-                EmptyMiddlewareInvocationContext,
-            ) {
-                LockingSleepCommandHandler().handle(it)
-            }
-        }
-        val job2 = async {
-            // Another locking message: times out after 1s, should fail
-            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
-                ConfigurableLockingCommandHandler().handle(it)
-            }
-        }
-
-        val result2 = job2.await()
-        job1.await()
-
-        // Job 2 should have a failure because shouldFailOnTimeout is true
-        val failure = assertIs<TestFailure>(result2.failureOrNull())
-        val reason = assertIs<BusLockedFailure>(failure.reason)
-        assertEquals("Timed out waiting for message bus to unlock", reason.message)
-    }
-
-    @Test
-    fun `ignoreLockOnTimeout can be overridden to false by locking message`() = runTest {
-        // Default is false (force-unlock)
+    fun `forces the lock and proceeds on timeout when configured to ignore it`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -393,11 +297,7 @@ abstract class LockingTestBase {
             }
         }
         val job2 = async {
-            // Override ignoreLockOnTimeout to false
-            locker.handle(
-                ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false),
-                EmptyMiddlewareInvocationContext,
-            ) {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
         }
@@ -405,14 +305,11 @@ abstract class LockingTestBase {
         val result2 = job2.await()
         job1.await()
 
-        // Job 2 should fail despite default being true, because it overrode to false
-        val failure = assertIs<TestFailure>(result2.failureOrNull())
-        assertIs<BusLockedFailure>(failure.reason)
+        assertEquals("Job2", result2.getOrNull())
     }
 
     @Test
-    fun `ignoreLockOnTimeout can be overridden to true by locking message`() = runTest {
-        // Default is true (fail on timeout)
+    fun `fails on timeout when configured to respect the lock`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -431,7 +328,74 @@ abstract class LockingTestBase {
             }
         }
         val job2 = async {
-            // Override shouldFailOnTimeout to true (force-unlock instead)
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                ConfigurableLockingCommandHandler().handle(it)
+            }
+        }
+
+        val result2 = job2.await()
+        job1.await()
+
+        val failure = assertIs<TestFailure>(result2.failureOrNull())
+        val reason = assertIs<BusLockedFailure>(failure.reason)
+        assertEquals("Timed out waiting for message bus to unlock", reason.message)
+    }
+
+    @Test
+    fun `respects the lock on timeout when the command overrides the default`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(testScheduler),
+                1.seconds,
+                30.seconds,
+                defaultIgnoreLockOnTimeout = true,
+            )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
+
+        val job1 = async {
+            locker.handle(
+                LockingSleepCommand(5.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+        val job2 = async {
+            locker.handle(
+                ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                ConfigurableLockingCommandHandler().handle(it)
+            }
+        }
+
+        val result2 = job2.await()
+        job1.await()
+
+        val failure = assertIs<TestFailure>(result2.failureOrNull())
+        assertIs<BusLockedFailure>(failure.reason)
+    }
+
+    @Test
+    fun `forces the lock on timeout when the command overrides the default`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(testScheduler),
+                1.seconds,
+                30.seconds,
+                defaultIgnoreLockOnTimeout = false,
+            )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
+
+        val job1 = async {
+            locker.handle(
+                LockingSleepCommand(5.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
+            }
+        }
+        val job2 = async {
             locker.handle(
                 ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = true),
                 EmptyMiddlewareInvocationContext,
@@ -443,14 +407,13 @@ abstract class LockingTestBase {
         val result2 = job2.await()
         job1.await()
 
-        // Job 2 should succeed because it overrode shouldFailOnTimeout to false
         assertEquals("Job2", result2.getOrNull())
     }
 
     // --- Lock channel keys ---
 
     @Test
-    fun `messages with different lockChannelKeys do not block each other`() = runTest {
+    fun `runs commands locking different channels concurrently`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -476,13 +439,12 @@ abstract class LockingTestBase {
         val timeJob1Finished = job1.await()
         val timeJob2Finished = job2.await()
 
-        // Both should run concurrently since they use different keys
         assertEquals(3000L, timeJob1Finished, "Job 1 should finish after its own 3s delay")
         assertEquals(1000L, timeJob2Finished, "Job 2 should finish after its own 1s delay")
     }
 
     @Test
-    fun `messages with the same lockChannelKey block each other`() = runTest {
+    fun `serialises commands locking the same channel`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -508,13 +470,12 @@ abstract class LockingTestBase {
         val timeJob1Finished = job1.await()
         val timeJob2Finished = job2.await()
 
-        // Job 2 must wait for Job 1 to release the lock before it can proceed
         assertEquals(1000L, timeJob1Finished)
         assertEquals(2000L, timeJob2Finished)
     }
 
     @Test
-    fun `busIsLocked is true only for the locked channel key`() = runTest {
+    fun `reports only the channel a command locked as locked`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -539,12 +500,11 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `non-locking message only waits for lock on the default channel key`() = runTest {
+    fun `lets a non-locking command through while another channel is locked`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Lock on a specific key
             locker.handle(
                 LockingSleepCommand(3.seconds, "KeyA", lockChannelKey = "keyA"),
                 EmptyMiddlewareInvocationContext,
@@ -554,7 +514,6 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // Non-locking message uses the default key (null), so should not be blocked
             locker.handle(ReturnCommand("NoLock"), EmptyMiddlewareInvocationContext) {
                 ReturnCommandHandler().handle(it)
             }
@@ -573,7 +532,7 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `nested locking message with a different key succeeds`() = runTest {
+    fun `admits a nested command locking a different channel`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -590,13 +549,12 @@ abstract class LockingTestBase {
 
         val resultMap = assertIs<Map<String, Any?>>(result.getOrNull())
 
-        // The nested command uses a different key, so it should succeed
         val nestResult = assertIs<BusResult<ValueTimeMark, MessageFailure>>(resultMap["nest"])
         assertTrue(nestResult.isSuccess, "Nested command with different key should succeed")
     }
 
     @Test
-    fun `nested locking message with the same key fails`() = runTest {
+    fun `fails a nested command locking the channel already held`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -628,7 +586,7 @@ abstract class LockingTestBase {
     // --- Lock behavior after timeout (skip/fail continuity) ---
 
     @Test
-    fun `after a message skips lock on timeout the next locking message still waits for the original lock`() =
+    fun `keeps the original lock in force for a later locking command after one forces past it`() =
         runTest {
             val locker =
                 LockingMiddleware(
@@ -639,7 +597,6 @@ abstract class LockingTestBase {
                 )
             locker.onStart(BusMiddlewareContext(backgroundScope))
 
-            // Job 1: holds the lock for 5 seconds
             val job1 = async {
                 locker.handle(
                     LockingSleepCommand(5.seconds, "Job1"),
@@ -649,7 +606,6 @@ abstract class LockingTestBase {
                 }
                 currentTime
             }
-            // Job 2: times out after 1s, skips the lock and proceeds
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
@@ -659,7 +615,6 @@ abstract class LockingTestBase {
                 }
                 currentTime
             }
-            // Job 3: arrives after job 2 skips, should still wait for job 1's lock to release
             val job3 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job3", ignoreLockOnTimeoutOverride = false),
@@ -674,14 +629,10 @@ abstract class LockingTestBase {
             val timeJob3Finished = job3.await()
             val timeJob1Finished = job1.await()
 
-            // Job 2 skips the lock after 1s timeout
             assertEquals(1000L, timeJob2Finished, "Job 2 should skip lock after 1s timeout")
-            // Job 3 does not skip, and its 1s timeout expires while job 1 still holds the lock
             assertEquals(1000L, timeJob3Finished, "Job 3 should time out after 1s")
-            // Job 1 finishes after its full 5s sleep
             assertEquals(5000L, timeJob1Finished)
 
-            // Job 3 should have failed because it respected the lock
             val result3 =
                 locker.handle(
                     ConfigurableLockingCommand("Job3-verify", ignoreLockOnTimeoutOverride = false),
@@ -689,12 +640,11 @@ abstract class LockingTestBase {
                 ) {
                     ConfigurableLockingCommandHandler().handle(it)
                 }
-            // After job 1 released, a new message should succeed
             assertEquals("Job3-verify", result3.getOrNull())
         }
 
     @Test
-    fun `after a message skips lock on timeout the next non-locking message still waits for the original lock`() =
+    fun `keeps the original lock in force for a later non-locking command after one forces past it`() =
         runTest {
             val locker =
                 LockingMiddleware(
@@ -705,7 +655,6 @@ abstract class LockingTestBase {
                 )
             locker.onStart(BusMiddlewareContext(backgroundScope))
 
-            // Job 1: holds the lock for 5 seconds
             val job1 = async {
                 locker.handle(
                     LockingSleepCommand(5.seconds, "Job1"),
@@ -715,7 +664,6 @@ abstract class LockingTestBase {
                 }
                 currentTime
             }
-            // Job 2: locking message times out after 1s, skips the lock
             val job2 = async {
                 locker.handle(
                     ConfigurableLockingCommand("Job2"),
@@ -725,8 +673,6 @@ abstract class LockingTestBase {
                 }
                 currentTime
             }
-            // Job 3: non-locking message also skips lock on timeout (defaultIgnoreLockOnTimeout =
-            // true)
             val job3 = async {
                 val result =
                     locker.handle(ReturnCommand("Job3"), EmptyMiddlewareInvocationContext) {
@@ -740,133 +686,25 @@ abstract class LockingTestBase {
             val timeJob3Finished = job3.await()
             val timeJob1Finished = job1.await()
 
-            // Job 2 skips lock after 1s
             assertEquals(1000L, timeJob2Finished, "Job 2 should skip lock after 1s timeout")
-            // Job 3 (non-locking) skips lock after 1s timeout (defaultIgnoreLockOnTimeout = true)
             assertEquals(1000L, timeJob3Finished, "Job 3 should skip lock after 1s timeout")
-            // Job 1 completes its full 5s
             assertEquals(5000L, timeJob1Finished)
         }
 
     @Test
-    fun `after a locking message fails on timeout the next message still respects the lock`() =
-        runTest {
-            val locker =
-                LockingMiddleware(
-                    createAtomicLock(testScheduler),
-                    1.seconds,
-                    30.seconds,
-                    defaultIgnoreLockOnTimeout = false,
-                )
-            locker.onStart(BusMiddlewareContext(backgroundScope))
-
-            // Job 1: holds the lock for 3 seconds
-            val job1 = async {
-                locker.handle(
-                    LockingSleepCommand(3.seconds, "Job1"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    LockingSleepCommandHandler().handle(it)
-                }
-                currentTime
-            }
-            // Job 2: times out after 1s, returns failure
-            val job2 = async {
-                locker.handle(
-                    ConfigurableLockingCommand("Job2"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    ConfigurableLockingCommandHandler().handle(it)
-                }
-            }
-            // Job 3: also times out after 1s, should still fail (lock still held by job 1)
-            val job3 = async {
-                locker.handle(
-                    ConfigurableLockingCommand("Job3"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    ConfigurableLockingCommandHandler().handle(it)
-                }
-            }
-
-            val result2 = job2.await()
-            val result3 = job3.await()
-            val timeJob1Finished = job1.await()
-
-            assertEquals(3000L, timeJob1Finished)
-
-            // Both job 2 and job 3 should have failed
-            assertIs<BusLockedFailure>(assertIs<TestFailure>(result2.failureOrNull()).reason)
-            assertIs<BusLockedFailure>(assertIs<TestFailure>(result3.failureOrNull()).reason)
-        }
-
-    @Test
-    fun `after a message skips lock on timeout a subsequent message after the lock releases succeeds normally`() =
-        runTest {
-            val locker =
-                LockingMiddleware(
-                    createAtomicLock(testScheduler),
-                    1.seconds,
-                    30.seconds,
-                    defaultIgnoreLockOnTimeout = true,
-                )
-            locker.onStart(BusMiddlewareContext(backgroundScope))
-
-            // Job 1: holds the lock for 2 seconds
-            val job1 = async {
-                locker.handle(
-                    LockingSleepCommand(2.seconds, "Job1"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    LockingSleepCommandHandler().handle(it)
-                }
-                currentTime
-            }
-            // Job 2: times out after 1s, skips the lock
-            val job2 = async {
-                locker.handle(
-                    ConfigurableLockingCommand("Job2"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    ConfigurableLockingCommandHandler().handle(it)
-                }
-                currentTime
-            }
-
-            val timeJob2Finished = job2.await()
-            val timeJob1Finished = job1.await()
-
-            assertEquals(1000L, timeJob2Finished)
-            assertEquals(2000L, timeJob1Finished)
-
-            // After the lock is released, a new locking message should acquire and release cleanly
-            val result3 =
-                locker.handle(
-                    LockingSleepCommand(1.seconds, "Job3"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    LockingSleepCommandHandler().handle(it)
-                }
-            assertEquals("Job3", result3.getOrNull())
-            assertFalse(locker.busIsLocked(), "Bus should be unlocked after Job3 completes")
-        }
-
-    // --- Lock auto-expiry (TTL) ---
-
-    @Test
-    fun `lock auto-expires after defaultLockExpiry and waiting message proceeds`() = runTest {
+    fun `keeps the original lock in force after a waiting command fails on timeout`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
-                10.seconds, // timeout long enough to not interfere
-                2.seconds, // lock expires after 2 seconds
+                1.seconds,
+                30.seconds,
+                defaultIgnoreLockOnTimeout = false,
             )
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Handler sleeps for 5s, but lock expires after 2s
             locker.handle(
-                LockingSleepCommand(5.seconds, "Job1"),
+                LockingSleepCommand(3.seconds, "Job1"),
                 EmptyMiddlewareInvocationContext,
             ) {
                 LockingSleepCommandHandler().handle(it)
@@ -874,7 +712,47 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // Waits for the lock to release; should proceed when TTL expires at 2s
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                ConfigurableLockingCommandHandler().handle(it)
+            }
+        }
+        val job3 = async {
+            locker.handle(ConfigurableLockingCommand("Job3"), EmptyMiddlewareInvocationContext) {
+                ConfigurableLockingCommandHandler().handle(it)
+            }
+        }
+
+        val result2 = job2.await()
+        val result3 = job3.await()
+        val timeJob1Finished = job1.await()
+
+        assertEquals(3000L, timeJob1Finished)
+
+        assertIs<BusLockedFailure>(assertIs<TestFailure>(result2.failureOrNull()).reason)
+        assertIs<BusLockedFailure>(assertIs<TestFailure>(result3.failureOrNull()).reason)
+    }
+
+    @Test
+    fun `locks and unlocks cleanly again once the original lock is released`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(testScheduler),
+                1.seconds,
+                30.seconds,
+                defaultIgnoreLockOnTimeout = true,
+            )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
+
+        val job1 = async {
+            locker.handle(
+                LockingSleepCommand(2.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
             locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
                 ConfigurableLockingCommandHandler().handle(it)
             }
@@ -884,9 +762,51 @@ abstract class LockingTestBase {
         val timeJob2Finished = job2.await()
         val timeJob1Finished = job1.await()
 
-        // Job 2 should proceed after lock auto-expires, before job 1's handler finishes
-        // (Polling-based locks may add latency to detect expiry, so we check ordering not exact
-        // time)
+        assertEquals(1000L, timeJob2Finished)
+        assertEquals(2000L, timeJob1Finished)
+
+        val result3 =
+            locker.handle(
+                LockingSleepCommand(1.seconds, "Job3"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
+            }
+        assertEquals("Job3", result3.getOrNull())
+        assertFalse(locker.busIsLocked(), "Bus should be unlocked after Job3 completes")
+    }
+
+    // --- Lock auto-expiry (TTL) ---
+
+    @Test
+    fun `releases the lock once its expiry elapses so a waiting command proceeds`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(testScheduler),
+                10.seconds, // timeout long enough to not interfere
+                2.seconds, // lock expires after 2 seconds
+            )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
+
+        val job1 = async {
+            locker.handle(
+                LockingSleepCommand(5.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
+            }
+            currentTime
+        }
+        val job2 = async {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                ConfigurableLockingCommandHandler().handle(it)
+            }
+            currentTime
+        }
+
+        val timeJob2Finished = job2.await()
+        val timeJob1Finished = job1.await()
+
         assertTrue(
             timeJob2Finished < timeJob1Finished,
             "Job 2 ($timeJob2Finished) should proceed before Job 1 finishes ($timeJob1Finished)",
@@ -895,7 +815,7 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `busIsLocked is false after lock auto-expires`() = runTest {
+    fun `reports the bus as unlocked once the lock expiry elapses`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -913,7 +833,6 @@ abstract class LockingTestBase {
             }
         }
 
-        // Advance past the lock expiry but before handler finishes
         delay(2.seconds)
         assertFalse(locker.busIsLocked(), "busIsLocked should be false after lock auto-expires")
 
@@ -921,46 +840,40 @@ abstract class LockingTestBase {
     }
 
     @Test
-    fun `lock expiry does not prevent normal unlock when handler finishes before expiry`() =
-        runTest {
-            val locker =
-                LockingMiddleware(
-                    createAtomicLock(testScheduler),
-                    10.seconds,
-                    5.seconds, // lock expires after 5 seconds
-                )
-            locker.onStart(BusMiddlewareContext(backgroundScope))
+    fun `releases the lock when the handler finishes before the expiry elapses`() = runTest {
+        val locker =
+            LockingMiddleware(
+                createAtomicLock(testScheduler),
+                10.seconds,
+                5.seconds, // lock expires after 5 seconds
+            )
+        locker.onStart(BusMiddlewareContext(backgroundScope))
 
-            val job1 = async {
-                // Handler finishes in 1s, well before the 5s expiry
-                locker.handle(
-                    LockingSleepCommand(1.seconds, "Job1"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    LockingSleepCommandHandler().handle(it)
-                }
-                currentTime
+        val job1 = async {
+            locker.handle(
+                LockingSleepCommand(1.seconds, "Job1"),
+                EmptyMiddlewareInvocationContext,
+            ) {
+                LockingSleepCommandHandler().handle(it)
             }
-            val job2 = async {
-                locker.handle(
-                    ConfigurableLockingCommand("Job2"),
-                    EmptyMiddlewareInvocationContext,
-                ) {
-                    ConfigurableLockingCommandHandler().handle(it)
-                }
-                currentTime
+            currentTime
+        }
+        val job2 = async {
+            locker.handle(ConfigurableLockingCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                ConfigurableLockingCommandHandler().handle(it)
             }
-
-            val timeJob1Finished = job1.await()
-            val timeJob2Finished = job2.await()
-
-            // Job 2 should proceed at 1s (normal unlock), not wait until 5s (expiry)
-            assertEquals(1000L, timeJob1Finished)
-            assertEquals(1000L, timeJob2Finished, "Job 2 should proceed after normal unlock at 1s")
+            currentTime
         }
 
+        val timeJob1Finished = job1.await()
+        val timeJob2Finished = job2.await()
+
+        assertEquals(1000L, timeJob1Finished)
+        assertEquals(1000L, timeJob2Finished, "Job 2 should proceed after normal unlock at 1s")
+    }
+
     @Test
-    fun `multiple different keys can be locked concurrently by different coroutines`() = runTest {
+    fun `locks several channels at once from different coroutines`() = runTest {
         val locker = LockingMiddleware(createAtomicLock(testScheduler), 5.seconds, 30.seconds)
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
@@ -969,7 +882,6 @@ abstract class LockingTestBase {
                 LockingSleepCommand(2.seconds, "A", lockChannelKey = "key1"),
                 EmptyMiddlewareInvocationContext,
             ) {
-                // While handling key1, key2 and key3 can also be locked
                 assertTrue(locker.busIsLocked("key1"))
                 LockingSleepCommandHandler().handle(it)
             }
@@ -1011,8 +923,81 @@ abstract class LockingTestBase {
     // messages inherit those values unless they provide their own overrides.
 
     @Test
-    fun `non-locking message inherits ignoreLockOnTimeout=true from lock data`() = runTest {
-        // Default is false (fail on timeout), but the locking message overrides to true
+    fun `applies the lock holder's request to force the lock to a later non-locking command`() =
+        runTest {
+            val locker =
+                LockingMiddleware(
+                    createAtomicLock(testScheduler),
+                    1.seconds,
+                    30.seconds,
+                    defaultIgnoreLockOnTimeout = false,
+                )
+            locker.onStart(BusMiddlewareContext(backgroundScope))
+
+            val job1 = async {
+                locker.handle(
+                    LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = true),
+                    EmptyMiddlewareInvocationContext,
+                ) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            val job2 = async {
+                val result =
+                    locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                        ReturnCommandHandler().handle(it)
+                    }
+                assertEquals("Job2", result.getOrNull())
+                currentTime
+            }
+
+            val timeJob2Finished = job2.await()
+            val timeJob1Finished = job1.await()
+
+            assertEquals(1000L, timeJob2Finished, "Job 2 should skip lock after 1s timeout")
+            assertEquals(5000L, timeJob1Finished)
+        }
+
+    @Test
+    fun `applies the lock holder's request to respect the lock to a later non-locking command`() =
+        runTest {
+            val locker =
+                LockingMiddleware(
+                    createAtomicLock(testScheduler),
+                    1.seconds,
+                    30.seconds,
+                    defaultIgnoreLockOnTimeout = true,
+                )
+            locker.onStart(BusMiddlewareContext(backgroundScope))
+
+            val job1 = async {
+                locker.handle(
+                    LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = false),
+                    EmptyMiddlewareInvocationContext,
+                ) {
+                    LockingSleepCommandHandler().handle(it)
+                }
+                currentTime
+            }
+            val job2 = async {
+                assertFailsWith<BusLockedException> {
+                    locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
+                        ReturnCommandHandler().handle(it)
+                    }
+                }
+                currentTime
+            }
+
+            val timeJob2Finished = job2.await()
+            val timeJob1Finished = job1.await()
+
+            assertEquals(1000L, timeJob2Finished, "Job 2 should fail after 1s timeout")
+            assertEquals(5000L, timeJob1Finished)
+        }
+
+    @Test
+    fun `applies the lock holder's timeout to a later non-locking command`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -1023,87 +1008,6 @@ abstract class LockingTestBase {
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Holds lock for 5s, stores ignoreLockOnTimeoutOverride=true in lock data
-            locker.handle(
-                LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = true),
-                EmptyMiddlewareInvocationContext,
-            ) {
-                LockingSleepCommandHandler().handle(it)
-            }
-            currentTime
-        }
-        val job2 = async {
-            // Non-locking, no override. Inherits ignoreLockOnTimeout=true from lock data
-            val result =
-                locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
-                    ReturnCommandHandler().handle(it)
-                }
-            assertEquals("Job2", result.getOrNull())
-            currentTime
-        }
-
-        val timeJob2Finished = job2.await()
-        val timeJob1Finished = job1.await()
-
-        // Job 2 skips lock after 1s (default timeout), inheriting skip behavior from lock data
-        assertEquals(1000L, timeJob2Finished, "Job 2 should skip lock after 1s timeout")
-        assertEquals(5000L, timeJob1Finished)
-    }
-
-    @Test
-    fun `non-locking message inherits ignoreLockOnTimeout=false from lock data`() = runTest {
-        // Default is true (skip on timeout), but the locking message overrides to false
-        val locker =
-            LockingMiddleware(
-                createAtomicLock(testScheduler),
-                1.seconds,
-                30.seconds,
-                defaultIgnoreLockOnTimeout = true,
-            )
-        locker.onStart(BusMiddlewareContext(backgroundScope))
-
-        val job1 = async {
-            // Holds lock for 5s, stores ignoreLockOnTimeoutOverride=false in lock data
-            locker.handle(
-                LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = false),
-                EmptyMiddlewareInvocationContext,
-            ) {
-                LockingSleepCommandHandler().handle(it)
-            }
-            currentTime
-        }
-        val job2 = async {
-            // Non-locking, no override. Inherits ignoreLockOnTimeout=false from lock data
-            assertFailsWith<BusLockedException> {
-                locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
-                    ReturnCommandHandler().handle(it)
-                }
-            }
-            currentTime
-        }
-
-        val timeJob2Finished = job2.await()
-        val timeJob1Finished = job1.await()
-
-        // Job 2 fails after 1s (default timeout), inheriting fail behavior from lock data
-        assertEquals(1000L, timeJob2Finished, "Job 2 should fail after 1s timeout")
-        assertEquals(5000L, timeJob1Finished)
-    }
-
-    @Test
-    fun `non-locking message inherits timeout from lock data`() = runTest {
-        // Default timeout is 1s, but the locking message stores a 3s override in lock data
-        val locker =
-            LockingMiddleware(
-                createAtomicLock(testScheduler),
-                1.seconds,
-                30.seconds,
-                defaultIgnoreLockOnTimeout = false,
-            )
-        locker.onStart(BusMiddlewareContext(backgroundScope))
-
-        val job1 = async {
-            // Holds lock for 2s, stores lockTimeoutOverride=3s in lock data
             locker.handle(
                 LockingSleepCommand(2.seconds, "Job1", lockTimeoutOverride = 3.seconds),
                 EmptyMiddlewareInvocationContext,
@@ -1113,8 +1017,6 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // Non-locking, no override. Inherits 3s timeout from lock data.
-            // Lock releases at 2s which is within the inherited 3s timeout, so it succeeds.
             val result =
                 locker.handle(ReturnCommand("Job2"), EmptyMiddlewareInvocationContext) {
                     ReturnCommandHandler().handle(it)
@@ -1126,15 +1028,12 @@ abstract class LockingTestBase {
         val timeJob2Finished = job2.await()
         val timeJob1Finished = job1.await()
 
-        // Job 2 waits for lock release at 2s (within inherited 3s timeout)
         assertEquals(2000L, timeJob2Finished, "Job 2 should succeed after lock releases at 2s")
         assertEquals(2000L, timeJob1Finished)
     }
 
     @Test
-    fun `non-locking message override takes priority over lock data`() = runTest {
-        // Default is true (skip on timeout), lock data also says true,
-        // but the waiting message overrides to false
+    fun `prefers a waiting command's own force-lock policy over the lock holder's`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -1145,7 +1044,6 @@ abstract class LockingTestBase {
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Holds lock for 5s, stores ignoreLockOnTimeoutOverride=true in lock data
             locker.handle(
                 LockingSleepCommand(5.seconds, "Job1", ignoreLockOnTimeoutOverride = true),
                 EmptyMiddlewareInvocationContext,
@@ -1155,8 +1053,6 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // LockAwareMessage that overrides ignoreLockOnTimeout to false,
-            // which should take priority over both lock data (true) and default (true)
             locker.handle(
                 ConfigurableLockingCommand("Job2", ignoreLockOnTimeoutOverride = false),
                 EmptyMiddlewareInvocationContext,
@@ -1168,15 +1064,13 @@ abstract class LockingTestBase {
         val result2 = job2.await()
         val timeJob1Finished = job1.await()
 
-        // Job 2 should fail because its own override (false) takes priority
         val failure = assertIs<TestFailure>(result2.failureOrNull())
         assertIs<BusLockedFailure>(failure.reason)
         assertEquals(5000L, timeJob1Finished)
     }
 
     @Test
-    fun `non-locking message timeout override takes priority over lock data timeout`() = runTest {
-        // Default timeout is 5s, lock data stores 3s, but the waiting message overrides to 1s
+    fun `prefers a waiting command's own timeout over the lock holder's`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -1187,7 +1081,6 @@ abstract class LockingTestBase {
         locker.onStart(BusMiddlewareContext(backgroundScope))
 
         val job1 = async {
-            // Holds lock for 4s, stores lockTimeoutOverride=3s in lock data
             locker.handle(
                 LockingSleepCommand(4.seconds, "Job1", lockTimeoutOverride = 3.seconds),
                 EmptyMiddlewareInvocationContext,
@@ -1197,7 +1090,6 @@ abstract class LockingTestBase {
             currentTime
         }
         val job2 = async {
-            // Overrides timeout to 1s, which takes priority over lock data's 3s
             locker.handle(
                 ConfigurableLockingCommand("Job2", lockTimeoutOverride = 1.seconds),
                 EmptyMiddlewareInvocationContext,
@@ -1209,7 +1101,6 @@ abstract class LockingTestBase {
         val result2 = job2.await()
         val timeJob1Finished = job1.await()
 
-        // Job 2 should fail after 1s (its own override), not 3s (lock data) or 5s (default)
         val failure = assertIs<TestFailure>(result2.failureOrNull())
         assertIs<BusLockedFailure>(failure.reason)
         assertEquals(4000L, timeJob1Finished)
