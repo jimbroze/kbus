@@ -25,7 +25,7 @@ private class RouterTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventRouterTest {
     @Test
-    fun route_emitsToObservers_evenWithDestinationsPresent() = runTest {
+    fun `emits to observers as well as delivering to destinations`() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
         val received = mutableListOf<RouterTestEvent>()
         val flow = router.observerRegistry.observableFor(RouterTestEvent::class)
@@ -40,7 +40,7 @@ class EventRouterTest {
     }
 
     @Test
-    fun route_reRoutingTheSameEnvelope_reEmitsToObservers_soObserveIsAtLeastOnce() = runTest {
+    fun `emits again when the same envelope is routed again`() = runTest {
         // A failed destination leaves the entry unpublished and the poller re-routes it, so the
         // same envelope reaches observers again. Observation is at-least-once, not exactly-once.
         val router = EventRouter(listOf(RecordingDestination()))
@@ -59,7 +59,7 @@ class EventRouterTest {
     }
 
     @Test
-    fun route_deliversOnlyToAcceptingDestinations() = runTest {
+    fun `delivers only to the destinations that accept an envelope`() = runTest {
         val accepting = RecordingDestination()
         val rejecting =
             object : EventDestination {
@@ -79,7 +79,7 @@ class EventRouterTest {
     }
 
     @Test
-    fun route_deliversToEveryAcceptingDestination() = runTest {
+    fun `delivers to every destination that accepts an envelope`() = runTest {
         val first = RecordingDestination("first")
         val second = RecordingDestination("second")
         val router = EventRouter(listOf(first, second))
@@ -91,20 +91,21 @@ class EventRouterTest {
     }
 
     @Test
-    fun route_oneDestinationThrowing_stillDeliversToTheOthersAndThenThrows() = runTest {
-        val healthy = RecordingDestination()
-        val sick = RecordingDestination().apply { failure = IllegalStateException("sick") }
-        val router = EventRouter(listOf(sick, healthy))
+    fun `delivers to the remaining destinations before rethrowing one destination's failure`() =
+        runTest {
+            val healthy = RecordingDestination()
+            val sick = RecordingDestination().apply { failure = IllegalStateException("sick") }
+            val router = EventRouter(listOf(sick, healthy))
 
-        assertFailsWith<AggregateException> {
-            router.route(listOf(EventEnvelope.of(RouterTestEvent("test"))))
+            assertFailsWith<AggregateException> {
+                router.route(listOf(EventEnvelope.of(RouterTestEvent("test"))))
+            }
+
+            assertEquals(1, healthy.delivered.size)
         }
 
-        assertEquals(1, healthy.delivered.size)
-    }
-
     @Test
-    fun route_doesNotMakeOneDestinationWaitForAnother() = runTest {
+    fun `delivers to destinations without making one wait for another`() = runTest {
         val first = RecordingDestination("first").apply { beforeDeliver = { delay(10.seconds) } }
         val second = RecordingDestination("second").apply { beforeDeliver = { delay(10.seconds) } }
         val router = EventRouter(listOf(first, second))
@@ -117,7 +118,7 @@ class EventRouterTest {
     }
 
     @Test
-    fun route_aDestinationBeingCancelled_throwsCancellation_notAggregate() = runTest {
+    fun `propagates cancellation as cancellation rather than as a destination failure`() = runTest {
         val cancelled =
             RecordingDestination("cancelled").apply {
                 failure = CancellationException("shutting down")
@@ -130,14 +131,14 @@ class EventRouterTest {
     }
 
     @Test
-    fun route_allDestinationsSucceeding_throwsNothing() = runTest {
+    fun `throws nothing when every destination accepts delivery`() = runTest {
         val router = EventRouter(listOf(RecordingDestination(), RecordingDestination()))
 
         router.route(listOf(EventEnvelope.of(RouterTestEvent("test"))))
     }
 
     @Test
-    fun route_withNoDestinations_isANoOpThatStillEmits() = runTest {
+    fun `still emits to observers when there are no destinations`() = runTest {
         val router = EventRouter(emptyList())
         val received = mutableListOf<RouterTestEvent>()
         val flow = router.observerRegistry.observableFor(RouterTestEvent::class)

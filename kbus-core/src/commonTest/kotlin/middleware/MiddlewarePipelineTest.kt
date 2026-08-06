@@ -15,10 +15,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-class MiddlewareTest {
+class MiddlewarePipelineTest {
 
     @Test
-    fun test_MessageLogger_logs_and_executes_command() = runTest {
+    fun `logs a command that it also passes to its handler`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
             LoggingLogCommand::class,
@@ -50,7 +50,7 @@ class MiddlewareTest {
     }
 
     @Test
-    fun test_MessageBus_handlers_middleware_in_the_correct_order() = runTest {
+    fun `enters middleware in declaration order and leaves it in reverse`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
             LoggingLogCommand::class,
@@ -83,7 +83,6 @@ class MiddlewareTest {
 
         assertTrue(logger1.logs[0] < logger2.logs[0])
         assertTrue(logger2.logs[0] < logger1.logs[1])
-        // Order of middleware is reversed for post-handle actions
         assertTrue(logger2.logs[1] < logger1.logs[1])
     }
 }

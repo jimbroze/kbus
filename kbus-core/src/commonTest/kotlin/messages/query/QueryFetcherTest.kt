@@ -10,7 +10,7 @@ import kotlinx.coroutines.test.runTest
 
 class QueryFetcherTest {
     @Test
-    fun test_it_invokes_handler_and_returns_result() = runTest {
+    fun `returns what the query's handler returned`() = runTest {
         val fetcher = QueryFetcher(emptyList(), emptyContextFactory(backgroundScope))
 
         val createHandler = { StorageQueryHandler() }

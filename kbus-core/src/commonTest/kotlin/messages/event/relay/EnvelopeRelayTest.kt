@@ -23,7 +23,7 @@ private class RelayTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class EnvelopeRelayTest {
     @Test
-    fun relay_deliversEachEntryIndividually() = runTest {
+    fun `delivers each entry in its own call`() = runTest {
         val delivered = mutableListOf<EventEnvelope>()
         val relay = EnvelopeRelay(deliver = { delivered.add(it) }, ack = {})
 
@@ -35,7 +35,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun relay_deliversUpToMaxConcurrentDeliveriesAtOnce() = runTest {
+    fun `delivers no more entries at once than its concurrency limit allows`() = runTest {
         val relay =
             EnvelopeRelay(deliver = { delay(10.seconds) }, ack = {}, maxConcurrentDeliveries = 2)
 
@@ -46,7 +46,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun relay_withMaxConcurrentDeliveriesOfOne_deliversInOrder() = runTest {
+    fun `delivers one batch in order when its concurrency limit is one`() = runTest {
         val delivered = mutableListOf<String>()
         val relay =
             EnvelopeRelay(
@@ -65,7 +65,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun relay_acksOnlyTheEntriesThatDelivered() = runTest {
+    fun `acknowledges only the entries that were delivered`() = runTest {
         val acked = mutableListOf<List<String>>()
         val relay =
             EnvelopeRelay(
@@ -85,7 +85,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun relay_withNoSuccessfulDeliveries_doesNotCallAck() = runTest {
+    fun `acknowledges nothing when no entry was delivered`() = runTest {
         var ackCalls = 0
         val relay = EnvelopeRelay(deliver = { error("delivery failed") }, ack = { ackCalls++ })
 
@@ -95,7 +95,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun relay_anEmptyBatchDeliversAndAcksNothing() = runTest {
+    fun `delivers and acknowledges nothing for an empty batch`() = runTest {
         var deliverCalls = 0
         var ackCalls = 0
         val relay = EnvelopeRelay(deliver = { deliverCalls++ }, ack = { ackCalls++ })
@@ -107,7 +107,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun pollOnce_fetchesUsingTheGivenBatchSize() = runTest {
+    fun `fetches a batch of the size it was configured with`() = runTest {
         val fetchLimits = mutableListOf<Int>()
         val relay =
             EnvelopeRelay(
@@ -125,14 +125,14 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun pollOnce_aThrowingFetch_isSwallowed() = runTest {
+    fun `swallows a failure from the store while fetching`() = runTest {
         val relay = EnvelopeRelay(fetch = { error("db down") }, deliver = {}, ack = {})
 
         relay.pollOnce(10)
     }
 
     @Test
-    fun pollOnce_deliversFetchedEntriesAndAcksThem() = runTest {
+    fun `delivers and acknowledges the entries it fetched`() = runTest {
         val entry = EventEnvelope("entry-1", RelayTestEvent("a"))
         val delivered = mutableListOf<EventEnvelope>()
         val acked = mutableListOf<String>()
@@ -150,7 +150,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun pollOnce_isSingleFlight_aSecondConcurrentCallWaitsForTheFirst() = runTest {
+    fun `makes a concurrent poll wait for the one already running`() = runTest {
         val order = mutableListOf<String>()
         val gate = Mutex(locked = true)
         var fetchCount = 0
@@ -185,7 +185,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun poll_keepsPollingOnTheConfiguredInterval() = runTest {
+    fun `keeps polling on the interval it was configured with`() = runTest {
         val fetchLimits = mutableListOf<Int>()
         val relay =
             EnvelopeRelay(
@@ -213,7 +213,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun poll_aThrowingStoreDoesNotKillTheLoop() = runTest {
+    fun `keeps polling after the store fails`() = runTest {
         val fetchLimits = mutableListOf<Int>()
         val relay =
             EnvelopeRelay(
@@ -237,7 +237,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun relay_rethrowsCancellation_ratherThanRecordingItAsAFailedEntry() = runTest {
+    fun `rethrows cancellation rather than recording it as a failed entry`() = runTest {
         val acked = mutableListOf<List<String>>()
         val relay =
             EnvelopeRelay(
@@ -252,7 +252,7 @@ class EnvelopeRelayTest {
     }
 
     @Test
-    fun poll_isCancellable_theLoopStopsAndNoFurtherFetchHappens() = runTest {
+    fun `stops fetching once its polling is cancelled`() = runTest {
         val fetchLimits = mutableListOf<Int>()
         val relay =
             EnvelopeRelay(
