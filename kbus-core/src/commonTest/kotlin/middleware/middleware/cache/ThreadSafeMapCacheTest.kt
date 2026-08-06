@@ -15,11 +15,11 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalAtomicApi::class)
 class ThreadSafeMapCacheTest :
-    CacheTestBase<String, String>(createKey = { "key-$it" }, createValue = { "value-$it" }) {
+    CacheContract<String, String>(createKey = { "key-$it" }, createValue = { "value-$it" }) {
     override fun createCache() = ThreadSafeMapCache<String, String>()
 
     @Test
-    fun concurrent_puts_to_500_different_keys_stores_all_values() = runTest {
+    fun `stores every value when many keys are written concurrently`() = runTest {
         val cache = createCache()
         val count = 500
 
@@ -33,7 +33,7 @@ class ThreadSafeMapCacheTest :
     }
 
     @Test
-    fun concurrent_puts_to_same_key_results_in_a_non_null_value() = runTest {
+    fun `holds one of the written values when a key is written concurrently`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         val count = 500
@@ -43,11 +43,11 @@ class ThreadSafeMapCacheTest :
         }
 
         val result = cache.get(key)
-        assertTrue(result != null, "Value should not be null after concurrent puts")
+        assertTrue(result != null)
     }
 
     @Test
-    fun concurrent_reads_during_writes_do_not_corrupt_stored_values() = runTest {
+    fun `keeps every written value readable when reads and writes interleave`() = runTest {
         val cache = createCache()
         val count = 500
 
@@ -58,18 +58,16 @@ class ThreadSafeMapCacheTest :
             }
         }
 
-        // All written values should be readable after concurrent operations complete
         repeat(count) { i -> assertEquals(createValue(i), cache.get(createKey(i))) }
     }
 
     @Test
-    fun concurrent_removes_of_even_keys_preserves_all_odd_key_entries() = runTest {
+    fun `leaves untouched keys in place when others are removed concurrently`() = runTest {
         val cache = createCache()
         val count = 500
 
         repeat(count) { i -> cache.put(createKey(i), createValue(i)) }
 
-        // Remove even-indexed keys concurrently
         coroutineScope {
             repeat(count) { i ->
                 if (i % 2 == 0) {
@@ -88,7 +86,7 @@ class ThreadSafeMapCacheTest :
     }
 
     @Test
-    fun concurrent_put_and_remove_on_same_key_does_not_crash_or_corrupt() = runTest {
+    fun `stays readable when one key is written and removed concurrently`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         val count = 500
@@ -100,12 +98,11 @@ class ThreadSafeMapCacheTest :
             }
         }
 
-        // After all operations, the key is either present or absent — no crash or corruption
         cache.get(key)
     }
 
     @Test
-    fun concurrent_getOrPut_on_same_key_converges_to_single_value() = runTest {
+    fun `settles on one of the candidate values when a key is filled concurrently`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         val count = 500
@@ -116,14 +113,13 @@ class ThreadSafeMapCacheTest :
             }
         }
 
-        // After all operations, the key holds exactly one of the candidate values
         val result = cache.get(key)
         val validValues = (0 until count).map { createValue(it) }.toSet()
         assertTrue(result != null && result in validValues)
     }
 
     @Test
-    fun concurrent_getOrPut_on_different_keys_stores_all_values() = runTest {
+    fun `stores every value when different keys are filled concurrently`() = runTest {
         val cache = createCache()
         val count = 500
 
@@ -137,7 +133,7 @@ class ThreadSafeMapCacheTest :
     }
 
     @Test
-    fun concurrent_replaceIfMatching_only_one_succeeds_per_value() = runTest {
+    fun `lets exactly one conditional replacement of a value win`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         val original = createValue(0)
@@ -156,15 +152,13 @@ class ThreadSafeMapCacheTest :
             }
         }
 
-        // Exactly one replace should have matched the original value
         assertEquals(1, successes.load())
-        // The stored value should no longer be the original
         val finalValue = cache.get(key)
         assertTrue(finalValue != null && finalValue != original)
     }
 
     @Test
-    fun concurrent_removeIfMatching_only_one_succeeds() = runTest {
+    fun `lets exactly one conditional removal of an entry win`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         val value = createValue(0)
@@ -188,7 +182,7 @@ class ThreadSafeMapCacheTest :
     }
 
     @Test
-    fun concurrent_replaceIfMatching_with_wrong_value_never_succeeds() = runTest {
+    fun `refuses every conditional replacement whose expected value does not match`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         cache.put(key, createValue(0))
@@ -206,7 +200,7 @@ class ThreadSafeMapCacheTest :
     }
 
     @Test
-    fun concurrent_removeIfMatching_with_wrong_value_never_succeeds() = runTest {
+    fun `refuses every conditional removal whose expected value does not match`() = runTest {
         val cache = createCache()
         val key = createKey(0)
         cache.put(key, createValue(0))

@@ -18,9 +18,12 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 class ExpirableCacheTest :
-    CacheTestBase<String, String>(createKey = { "key-$it" }, createValue = { "value-$it" }) {
+    CacheContract<String, String>(createKey = { "key-$it" }, createValue = { "value-$it" }) {
 
     private val fixedClock = FixedClock(Instant.parse("2016-02-15T12:00:00Z"))
+
+    private val expirableCache: ExpirableCache<String, String>
+        get() = cache as ExpirableCache<String, String>
 
     override fun createCache(): Cache<String, String> {
         fixedClock.nowInstant = Instant.parse("2016-02-15T12:00:00Z")
@@ -28,8 +31,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun putExpiring_returns_value_before_expiry() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `returns the value before its lifetime has elapsed`() {
         expirableCache.putExpiring("key", "value", 5.minutes)
 
         fixedClock.nowInstant += 4.minutes
@@ -38,8 +40,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun putExpiring_returns_value_at_exact_expiry() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `returns the value at the instant its lifetime elapses`() {
         expirableCache.putExpiring("key", "value", 5.minutes)
 
         fixedClock.nowInstant += 5.minutes
@@ -48,8 +49,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun putExpiring_returns_null_after_expiry() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `returns null once the lifetime has elapsed`() {
         expirableCache.putExpiring("key", "value", 5.minutes)
 
         fixedClock.nowInstant += 6.minutes
@@ -58,20 +58,19 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun putExpiring_removes_entry_on_expired_get() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `evicts an expired entry when it is read`() {
         expirableCache.putExpiring("key", "value", 5.minutes)
 
         fixedClock.nowInstant += 6.minutes
-        cache.get("key") // triggers removal
+        cache.get("key")
 
-        // Reset clock — entry should still be gone
+        // Winding back past the expiry distinguishes eviction from a read-time filter.
         fixedClock.nowInstant -= 6.minutes
         assertNull(cache.get("key"))
     }
 
     @Test
-    fun put_without_ttl_never_expires() {
+    fun `keeps an entry stored without a lifetime indefinitely`() {
         cache.put("key", "value")
 
         fixedClock.nowInstant += 999.minutes
@@ -80,8 +79,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun putExpiring_replaces_previous_ttl() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `applies the new lifetime when an entry is stored again`() {
         expirableCache.putExpiring("key", "value1", 2.minutes)
         expirableCache.putExpiring("key", "value2", 10.minutes)
 
@@ -91,8 +89,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun put_replaces_expiring_entry_with_non_expiring() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `clears the lifetime when an entry is stored again without one`() {
         expirableCache.putExpiring("key", "value1", 2.minutes)
         cache.put("key", "value2")
 
@@ -102,8 +99,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun different_keys_expire_independently() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `expires each key on its own lifetime`() {
         expirableCache.putExpiring("short", "s", 1.minutes)
         expirableCache.putExpiring("long", "l", 10.minutes)
 
@@ -114,8 +110,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun getOrPut_returns_default_when_entry_has_expired() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `returns the default when getting or putting an expired entry`() {
         expirableCache.putExpiring("key", "old", 5.minutes)
 
         fixedClock.nowInstant += 6.minutes
@@ -126,8 +121,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun getOrPut_returns_existing_when_entry_has_not_expired() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `returns the stored value when getting or putting an unexpired entry`() {
         expirableCache.putExpiring("key", "old", 5.minutes)
 
         fixedClock.nowInstant += 4.minutes
@@ -138,8 +132,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun replaceIfMatching_returns_false_when_entry_has_expired() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `refuses a conditional replacement of an expired entry`() {
         expirableCache.putExpiring("key", "old", 5.minutes)
 
         fixedClock.nowInstant += 6.minutes
@@ -151,8 +144,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun removeIfMatching_returns_false_when_entry_has_expired() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `refuses a conditional removal of an expired entry`() {
         expirableCache.putExpiring("key", "value", 5.minutes)
 
         fixedClock.nowInstant += 6.minutes
@@ -163,8 +155,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun replaceIfMatching_succeeds_before_expiry() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `replaces an unexpired entry conditionally`() {
         expirableCache.putExpiring("key", "old", 5.minutes)
 
         fixedClock.nowInstant += 4.minutes
@@ -174,8 +165,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun removeIfMatching_succeeds_before_expiry() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `removes an unexpired entry conditionally`() {
         expirableCache.putExpiring("key", "value", 5.minutes)
 
         fixedClock.nowInstant += 4.minutes
@@ -185,8 +175,7 @@ class ExpirableCacheTest :
     }
 
     @Test
-    fun putExpiring_with_zero_duration_expires_immediately() {
-        val expirableCache = cache as ExpirableCache<String, String>
+    fun `expires an entry given no lifetime at all`() {
         expirableCache.putExpiring("key", "value", 0.seconds)
 
         fixedClock.nowInstant += 1.seconds
@@ -197,7 +186,7 @@ class ExpirableCacheTest :
 
 class ExpirableCacheFactoryTest {
     @Test
-    fun expirableCache_factory_creates_working_cache() {
+    fun `builds a cache that returns the values stored in it`() {
         val baseCache = MapCache<String, Any>()
         val cache: Cache<String, String> =
             expirableCache(baseCache, FixedClock(Instant.parse("2016-02-15T12:00:00Z")))
@@ -207,7 +196,7 @@ class ExpirableCacheFactoryTest {
     }
 
     @Test
-    fun expirableCache_factory_creates_working_cache_with_expiry() {
+    fun `builds a cache that expires entries once their lifetime elapses`() {
         val baseCache = MapCache<String, Any>()
         val fixedClock = FixedClock(Instant.parse("2016-02-15T12:00:00Z"))
         val cache = expirableCache<String, String>(baseCache, fixedClock)
