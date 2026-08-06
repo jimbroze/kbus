@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 class TypeResolverTest {
 
     @Test
-    fun resolve_simple_class_name() {
+    fun `resolves a simple class name`() {
         val result = TypeResolver.resolve("com.example.Foo")
 
         assertIs<ClassName>(result)
@@ -20,7 +20,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolve_nullable_type() {
+    fun `resolves a nullable type`() {
         val result = TypeResolver.resolve("com.example.Foo?")
 
         assertTrue(result.isNullable)
@@ -30,7 +30,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolve_generic_type() {
+    fun `resolves a generic type`() {
         val result = TypeResolver.resolve("com.example.Foo<com.example.Bar>")
 
         assertIs<ParameterizedTypeName>(result)
@@ -43,7 +43,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolve_nested_generics() {
+    fun `resolves generics nested inside generics`() {
         val result =
             TypeResolver.resolve(
                 "kotlin.collections.Map<kotlin.String, kotlin.collections.List<kotlin.Int>>"
@@ -64,7 +64,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolve_multiple_type_arguments() {
+    fun `resolves a type with several type arguments`() {
         val result = TypeResolver.resolve("kotlin.Pair<kotlin.String, kotlin.Int>")
 
         assertIs<ParameterizedTypeName>(result)
@@ -75,7 +75,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolve_removes_backticks() {
+    fun `strips the backticks from an escaped name`() {
         val result = TypeResolver.resolve("`com.example.Foo`")
 
         assertIs<ClassName>(result)
@@ -83,7 +83,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolveClassName_returns_class_name_for_simple_type() {
+    fun `resolves a class name for a type with no arguments`() {
         val result = TypeResolver.resolveClassName("com.example.Foo")
 
         assertEquals("Foo", result.simpleName)
@@ -91,7 +91,7 @@ class TypeResolverTest {
     }
 
     @Test
-    fun resolveClassName_throws_for_parameterized_type() {
+    fun `refuses a class name for a parameterized type`() {
         assertFailsWith<IllegalArgumentException> {
             TypeResolver.resolveClassName("com.example.Foo<com.example.Bar>")
         }

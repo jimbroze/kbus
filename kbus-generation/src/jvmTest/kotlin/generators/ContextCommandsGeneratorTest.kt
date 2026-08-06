@@ -37,14 +37,14 @@ class ContextCommandsGeneratorTest {
         setOf(commandHandler("PlaceOrder", "orders"), commandHandler("ReserveStock", "inventory"))
 
     @Test
-    fun anInterfaceIsGeneratedPerContextThatOwnsCommands() {
+    fun `generates one interface per context that owns commands`() {
         generator.generateInterfaces(handlers, emptyList())
 
         assertEquals(setOf("OrdersCommands", "InventoryCommands"), generated.fileNames)
     }
 
     @Test
-    fun anInterfaceNamesOnlyItsOwnContextsCommands() {
+    fun `names in an interface only its own context's commands`() {
         generator.generateInterfaces(handlers, emptyList())
 
         val ordersCommands = generated["OrdersCommands"]
@@ -53,7 +53,7 @@ class ContextCommandsGeneratorTest {
     }
 
     @Test
-    fun everyGeneratedInterfaceIsReturnedAgainstTheIdentityOfTheContextItCovers() {
+    fun `returns each generated interface against the identity of the context it covers`() {
         val interfaces = generator.generateInterfaces(handlers, emptyList())
 
         assertEquals(
@@ -66,7 +66,7 @@ class ContextCommandsGeneratorTest {
     }
 
     @Test
-    fun anUnassignedContextsInterfaceIsReturnedAgainstTheEmptyIdentity() {
+    fun `returns an unassigned context's interface against the empty identity`() {
         val interfaces =
             generator.generateInterfaces(setOf(commandHandler("SendEmail", "")), emptyList())
 
@@ -77,7 +77,7 @@ class ContextCommandsGeneratorTest {
     }
 
     @Test
-    fun anExecutorImplementsEveryVisibleInterfaceForItsOwnContext() {
+    fun `makes an executor implement every visible interface for its own context`() {
         generator.generateExecutors(
             handlers,
             mapOf(
@@ -94,7 +94,7 @@ class ContextCommandsGeneratorTest {
     }
 
     @Test
-    fun anExecutorDelegatesEachCommandToTheUntypedExecutor() {
+    fun `makes an executor delegate each command to the untyped executor`() {
         generator.generateExecutors(handlers, emptyMap(), emptyList())
 
         assertContains(

@@ -70,7 +70,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun eachContextIsBuiltFromTheConfigPassedUnderItsOwnName() {
+    fun `builds each context from the config passed under its own name`() {
         val bus = generateBus()
 
         assertContains(
@@ -86,7 +86,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun theBusTakesOneBoundedContextConfigParameterPerContext() {
+    fun `gives the bus one bounded context config parameter per context`() {
         val bus = generateBus()
 
         assertContains(bus, "default: BoundedContextConfig = BoundedContextConfig()")
@@ -94,7 +94,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun aCommandRunsAgainstItsOwnContext() {
+    fun `runs a command against its own context`() {
         val bus = generateBus()
 
         assertContains(
@@ -108,7 +108,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun aHandlerIsBuiltByTheFactoryOfTheContextTheCommandRunsAgainst() {
+    fun `builds a handler with the factory of the context its command runs against`() {
         val bus = generateBus()
 
         assertContains(bus, "boundedContexts.orders.handlerFactory.placeOrderHandler(")
@@ -117,7 +117,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun everyTypedDispatchFunctionRefusesToRunOnAnUnstartedBus() {
+    fun `refuses every typed dispatch on an unstarted bus`() {
         val bus = generateBus()
 
         assertEquals(
@@ -129,7 +129,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun everyContextIsRegisteredOnTheBusThatBuiltIt() {
+    fun `registers every context on the bus that built it`() {
         val bus = generateBus()
 
         assertContains(bus, "buildContexts = { builder -> CompileTimeLoadedMessageBus.Contexts(")
@@ -140,7 +140,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun eachContextOwnsItsCommandsAsItsOwnType() {
+    fun `types each context's commands to that context`() {
         val bus = generateBus()
 
         assertContains(
@@ -159,7 +159,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun aContextOwningNoCommandsFallsBackToTheUntypedExecutor() {
+    fun `falls back to the untyped executor for a context owning no commands`() {
         generator.generateClass(setOf(queryHandler("GetOrder", "orders")), emptyList())
         val bus = generated["CompileTimeLoadedMessageBus"]
 
@@ -172,7 +172,7 @@ class BusGeneratorContextsTest {
     }
 
     @Test
-    fun noContextIsReachableFromTheBuiltBus() {
+    fun `keeps every context unreachable from the built bus`() {
         val bus = generateBus()
 
         assertFalse(bus.contains("val contexts: Contexts"))

@@ -25,19 +25,19 @@ class BusGeneratorTest {
         )
 
     @Test
-    fun contextIdentities_alwaysIncludesDefault() {
+    fun `always includes the default context among its identities`() {
         assertEquals(listOf("default"), contextIdentities(emptySet()))
     }
 
     @Test
-    fun contextIdentities_includesAModuleThatOnlyHasACommandHandler() {
+    fun `includes a module holding nothing but a command handler`() {
         val handlers = setOf(commandHandler("PlaceOrderHandler", "orders"))
 
         assertEquals(listOf("default", "orders"), contextIdentities(handlers))
     }
 
     @Test
-    fun contextIdentities_dedupesAndSortsModulesAcrossHandlerKinds() {
+    fun `reports each module once, sorted, across every kind of handler`() {
         val handlers =
             setOf(
                 commandHandler("PlaceOrderHandler", "orders"),
@@ -49,7 +49,7 @@ class BusGeneratorTest {
     }
 
     @Test
-    fun contextIdentities_omitsTheUnassignedModuleAsItsOwnEntry() {
+    fun `omits the unassigned module as an identity of its own`() {
         val handlers = setOf(commandHandler("PlaceOrderHandler", ""))
 
         assertEquals(listOf("default"), contextIdentities(handlers))

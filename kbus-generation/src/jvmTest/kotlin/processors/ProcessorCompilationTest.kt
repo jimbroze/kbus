@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 @OptIn(ExperimentalCompilerApi::class)
 class ProcessorCompilationTest {
     @Test
-    fun aDomainEventsHandlerMustExtendDomainEventHandler() {
+    fun `rejects a domain event handler that does not extend DomainEventHandler`() {
         val result =
             compile(
                 """
@@ -49,7 +49,7 @@ class ProcessorCompilationTest {
     }
 
     @Test
-    fun anEventHandlerCannotDependOnWhatOnlyACommandsInvocationHolds() {
+    fun `rejects an event handler depending on what only a command's invocation holds`() {
         val result =
             compile(
                 """
@@ -76,7 +76,7 @@ class ProcessorCompilationTest {
     }
 
     @Test
-    fun anAcceptedCommandHandlersGeneratedCodeCompiles() {
+    fun `generates compiling code for an accepted command handler`() {
         val result =
             compile(
                 """
@@ -107,7 +107,7 @@ class ProcessorCompilationTest {
      * factory — silently, since nothing about it is an error.
      */
     @Test
-    fun aHandlerCanBeGivenTheTypedCommandsItsOwnModuleGenerates() {
+    fun `accepts a handler asking for the typed commands its own module generates`() {
         val result =
             compile(
                 """
@@ -149,7 +149,7 @@ class ProcessorCompilationTest {
     }
 
     @Test
-    fun aBoundedContextIdentityOfBlankWhitespaceIsRejected() {
+    fun `rejects a bounded context identity that is only whitespace`() {
         val result =
             compile(
                 """

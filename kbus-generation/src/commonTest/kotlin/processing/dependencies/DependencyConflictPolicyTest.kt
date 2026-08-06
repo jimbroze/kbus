@@ -15,7 +15,7 @@ class DependencyConflictPolicyTest {
     }
 
     @Test
-    fun new_dependency_with_no_existing_returns_accept() {
+    fun `accepts a dependency nothing is registered under`() {
         val dep = createDependencyWithChildren(ClassName("com.example", "Foo"))
 
         val result = DependencyConflictPolicy.evaluate(dep, emptyList())
@@ -24,7 +24,7 @@ class DependencyConflictPolicyTest {
     }
 
     @Test
-    fun exact_duplicate_returns_exact_duplicate() {
+    fun `reports an identical dependency as an exact duplicate`() {
         val dep = createDependencyWithChildren(ClassName("com.example", "Foo"))
         val existing = createDependencyWithChildren(ClassName("com.example", "Foo"))
 
@@ -34,7 +34,7 @@ class DependencyConflictPolicyTest {
     }
 
     @Test
-    fun conflicting_name_different_dependency_returns_invalid_conflict() {
+    fun `reports a different dependency under a taken name as a conflict`() {
         // Same simple name "Foo" but different packages → same generated name, different dependency
         val dep = createDependencyWithChildren(ClassName("com.other", "Foo"))
         val existing = createDependencyWithChildren(ClassName("com.example", "Foo"))
@@ -45,7 +45,7 @@ class DependencyConflictPolicyTest {
     }
 
     @Test
-    fun different_name_returns_accept() {
+    fun `accepts a dependency under a name of its own`() {
         val dep = createDependencyWithChildren(ClassName("com.example", "Foo"))
         val existing = createDependencyWithChildren(ClassName("com.example", "Bar"))
 

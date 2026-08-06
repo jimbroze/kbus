@@ -32,7 +32,7 @@ private suspend fun TestScope.startedBus(appScope: CoroutineScope) =
 @OptIn(ExperimentalCoroutinesApi::class)
 class ExampleAppTest {
     @Test
-    fun test_a_command_returns_only_the_identifier_of_what_it_created() = runTest {
+    fun `returns only the identifier of what a command created`() = runTest {
         val bus = startedBus(backgroundScope)
 
         val orderId = bus.execute(PlaceOrder("customer-1", oneBook, "card")).getOrNull()
@@ -43,7 +43,7 @@ class ExampleAppTest {
     }
 
     @Test
-    fun test_placing_an_order_reserves_stock_in_the_inventory_context() = runTest {
+    fun `reserves stock in the inventory context when an order is placed`() = runTest {
         val bus = startedBus(backgroundScope)
         val notifiedBefore = NotifyWarehouseHandler.timesHandled
 
@@ -58,7 +58,7 @@ class ExampleAppTest {
     }
 
     @Test
-    fun test_an_event_one_context_publishes_reaches_every_subscribing_context() = runTest {
+    fun `delivers an event one context publishes to every subscribing context`() = runTest {
         val bus = startedBus(backgroundScope)
         val recordedBefore = RecordStockReservedHandler.timesHandled
 
@@ -69,7 +69,7 @@ class ExampleAppTest {
     }
 
     @Test
-    fun test_a_command_reached_through_its_contexts_typed_executor_shares_the_invocation() =
+    fun `shares the invocation with a command reached through its context's typed executor`() =
         runTest {
             val bus = startedBus(backgroundScope)
 
@@ -79,7 +79,7 @@ class ExampleAppTest {
         }
 
     @Test
-    fun test_a_query_answers_from_the_context_that_owns_it() = runTest {
+    fun `answers a query from the context that owns it`() = runTest {
         val bus = startedBus(backgroundScope)
 
         val stock = bus.fetch(GetStockLevel("book")).getOrNull()

@@ -55,7 +55,7 @@ class HandlersFactoryGeneratorTest {
         )
 
     @Test
-    fun oneFactoryIsGeneratedPerBoundedContext() {
+    fun `generates one factory per bounded context`() {
         generator.generateClasses(
             setOf(
                 commandHandler("PlaceOrder", "orders"),
@@ -72,14 +72,14 @@ class HandlersFactoryGeneratorTest {
     }
 
     @Test
-    fun theDefaultContextsFactoryIsGeneratedEvenWithNoHandlersOfItsOwn() {
+    fun `generates the default context's factory even when it holds no handlers`() {
         generator.generateClasses(setOf(commandHandler("PlaceOrder", "orders")), emptyList())
 
         assertContains(generated.fileNames, "DefaultHandlerFactory")
     }
 
     @Test
-    fun aContextsFactoryHoldsOnlyItsOwnCommands() {
+    fun `gives a context's factory only that context's commands`() {
         generator.generateClasses(
             setOf(
                 commandHandler("PlaceOrder", "orders"),
@@ -98,7 +98,7 @@ class HandlersFactoryGeneratorTest {
      * holds a `NestedCommandExecutor`, so a type-derived name would reference nothing.
      */
     @Test
-    fun aCommandScopedDependencyIsReadFromThePropertyHoldingIt() {
+    fun `reads a command-scoped dependency from the property holding it`() {
         generator.generateClasses(
             setOf(
                 CommandHandlerDefinition(
@@ -130,7 +130,7 @@ class HandlersFactoryGeneratorTest {
     }
 
     @Test
-    fun aHandlerAskingForItsContextsCommandsIsHandedThemAsAParameter() {
+    fun `hands a handler its context's commands as a parameter when it asks for them`() {
         generator.generateClasses(setOf(handlerAskingForOrdersCommands()), emptyList())
 
         assertContains(
@@ -142,7 +142,7 @@ class HandlersFactoryGeneratorTest {
     }
 
     @Test
-    fun theNestedLookupBuildsTheContextsCommandsFromTheDependenciesItWasHanded() {
+    fun `builds a context's commands from the dependencies the nested lookup was handed`() {
         generator.generateClasses(setOf(handlerAskingForOrdersCommands()), emptyList())
 
         assertContains(
@@ -164,7 +164,7 @@ class HandlersFactoryGeneratorTest {
         )
 
     @Test
-    fun aHandlerAskingForTheWholeCommandDependenciesObjectIsGivenItUnqualified() {
+    fun `hands a handler the whole command dependencies object unqualified when it asks for it`() {
         generator.generateClasses(
             setOf(
                 CommandHandlerDefinition(
@@ -196,7 +196,7 @@ class HandlersFactoryGeneratorTest {
     }
 
     @Test
-    fun aContextsCommandTypesAreItsOwnCommandsAlone() {
+    fun `reports as a context's command types only that context's own commands`() {
         generator.generateClasses(
             setOf(
                 commandHandler("PlaceOrder", "orders"),
@@ -212,7 +212,7 @@ class HandlersFactoryGeneratorTest {
     }
 
     @Test
-    fun aDomainEventHandlerIsOnlyReachableThroughTheDomainLookup() {
+    fun `reaches a domain event handler only through the domain lookup`() {
         generator.generateClasses(
             setOf(
                 eventHandler("OrderPlaced", EventHandlerKind.DOMAIN),
@@ -233,7 +233,7 @@ class HandlersFactoryGeneratorTest {
     }
 
     @Test
-    fun theDomainLookupReturnsTheDomainHandlerKind() {
+    fun `types the domain lookup to the domain handler kind`() {
         generator.generateClasses(
             setOf(eventHandler("OrderPlaced", EventHandlerKind.DOMAIN)),
             emptyList(),

@@ -24,7 +24,7 @@ class ProcessingContextOriginTest {
         )
 
     @Test
-    fun aLocallyDeclaredHandlerIsBothVisibleAndLocallyDeclared() {
+    fun `counts a locally declared handler as both visible and locally declared`() {
         val context = ProcessingContext()
         val handler = commandHandler("PlaceOrder")
 
@@ -35,7 +35,7 @@ class ProcessingContextOriginTest {
     }
 
     @Test
-    fun anIndexLearnedHandlerIsVisibleButNotLocallyDeclared() {
+    fun `counts a handler learned from an index as visible but not locally declared`() {
         val context = ProcessingContext()
         val handler = commandHandler("PlaceOrder")
 
@@ -46,7 +46,7 @@ class ProcessingContextOriginTest {
     }
 
     @Test
-    fun aHandlerLearnedFromAnIndexAndThenDeclaredLocallyIsLocallyDeclared() {
+    fun `counts a handler learned from an index and then declared locally as locally declared`() {
         val context = ProcessingContext()
         val handler = commandHandler("PlaceOrder")
         context.tryAddHandler(handler, learnedFromIndex = true)
