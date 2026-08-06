@@ -196,6 +196,36 @@ poller is the at-least-once delivery guarantee; the opportunistic drain is only 
 - Unit tests should be isolated and atomic. Wherever possible, tests should avoid requiring implicit knowledge that
   other tests have checked. If one test asserts something, another test does not need to assert the same thing.
 - Use `testDoubles` for test fixtures with no dependencies on other kbus modules.
+
+### Test naming
+
+The test suite is the readable statement of what the framework guarantees. Reading a test class
+top to bottom should give a list of requirements, in prose, without opening a single body.
+
+- **Backticked names with spaces, always** — `` fun `returns failure when the bus is locked`() ``.
+  Not snake_case, not camelCase, and never a `test` prefix, which `@Test` already says. These
+  compile and run on every target this project builds, including JS and wasm from `commonTest`.
+- **The class names the subject; the test names only the behaviour.** A test name starts with a
+  verb describing what the subject does — `returns…`, `refuses…`, `retries…`, `publishes…` — and
+  never repeats the subject the class already established. Two names in one class opening with the
+  same word are a sign the class is holding more than one subject.
+- **State the guarantee, not a verdict on it.** `delegates correctly`, `works`, `is valid` and
+  `verifies…` name an assertion the reader must open the body to learn. Say what is guaranteed:
+  `forwards the removal to the underlying cache`.
+- **Name the condition when there is one**, as a trailing clause: `<behaviour> when <condition>`.
+  Where there is no meaningful precondition, stop after the behaviour rather than inventing one.
+- Verbosity is cheap here for the same reason it is in the naming section above. A name a reader
+  has to confirm by reading assertions is not finished.
+
+**Requirements come first, and everything else is a sibling.** A test belongs in the main class
+when it asserts something a caller could rely on from the public contract. Volume and stress
+cases, reference-identity checks, odd-sequencing probes and regression pins go in a
+`…EdgeCaseTest` alongside it. Where the stress *is* the contract — thread safety, at-least-once
+delivery under failure — it stays in the main class, because there it is the requirement.
+
+**Class names carry the same weight as the names of the code they cover.** A test class is named
+for the subject whose requirements it states, specifically enough that the behaviour names beneath
+it need no further context. A class covering several subjects is split, not renamed to span them.
 - **Every `CoroutineScope` built in test code must be parented to `backgroundScope`** — enforced by the
   `checkNoLeakedTestScopes` Gradle task (wired into `check`). A scope with no such parentage is never cancelled at
   teardown, so anything launched into it (a bus, `startPolling`/`startConsuming`) outlives the test: invisible on
