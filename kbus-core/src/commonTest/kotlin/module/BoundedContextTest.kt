@@ -38,7 +38,7 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun constructor_defaultsToAFreshPersistingHandlerLocator() {
+    fun `locates handlers through a fresh persisting locator when given none`() {
         val context =
             BoundedContext(
                 BoundedContextId("orders"),
@@ -56,7 +56,7 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun integrationSubscription_registersOnTheUnderlyingLocatorsIntegrationEventMapper() {
+    fun `registers an integration subscription on its own locator's event mapper`() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
@@ -75,7 +75,7 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun domainSubscription_registersOnTheUnderlyingLocatorsDomainEventMapper() {
+    fun `registers a domain subscription on its own locator's event mapper`() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(
             BoundedContextId("orders"),
@@ -94,7 +94,7 @@ class BoundedContextTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun integrationSubscription_doesNotRegisterOnAnotherContextsLocator() {
+    fun `registers nothing on another context's locator`() {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val other = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         BoundedContext(

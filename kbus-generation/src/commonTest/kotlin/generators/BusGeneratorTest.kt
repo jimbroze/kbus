@@ -37,7 +37,7 @@ class BusGeneratorTest {
     }
 
     @Test
-    fun `reports each module once, sorted, across every kind of handler`() {
+    fun `reports each module once in sorted order across every kind of handler`() {
         val handlers =
             setOf(
                 commandHandler("PlaceOrderHandler", "orders"),

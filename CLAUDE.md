@@ -205,6 +205,9 @@ top to bottom should give a list of requirements, in prose, without opening a si
 - **Backticked names with spaces, always** — `` fun `returns failure when the bus is locked`() ``.
   Not snake_case, not camelCase, and never a `test` prefix, which `@Test` already says. These
   compile and run on every target this project builds, including JS and wasm from `commonTest`.
+  Spaces and hyphens are fine; **punctuation is not** — a comma, full stop or bracket in a name
+  fails the native compile with "Name contains illegal characters", and only on those targets, so
+  a JVM-only run will not catch it. Write the clause out instead of punctuating it.
 - **The class names the subject; the test names only the behaviour.** A test name starts with a
   verb describing what the subject does — `returns…`, `refuses…`, `retries…`, `publishes…` — and
   never repeats the subject the class already established. Two names in one class opening with the

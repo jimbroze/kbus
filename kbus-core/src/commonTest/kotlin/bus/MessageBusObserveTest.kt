@@ -60,7 +60,7 @@ class MessageBusObserveTest {
     }
 
     @Test
-    fun `emits a published event to an observer once, alongside its handler`() = runTest {
+    fun `emits a published event to an observer once alongside its handler`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerPublishingCommand(stores)

@@ -568,7 +568,7 @@ class MessageBusMultiContextTest {
         }
 
     @Test
-    fun `leaves an entry unpublished when one context fails, redelivering to the rest on retry`() =
+    fun `leaves an entry unpublished when one context fails and redelivers to the rest on retry`() =
         runTest {
             val store = MarkRecordingOutboxStore()
             val publisher = publisherContext()

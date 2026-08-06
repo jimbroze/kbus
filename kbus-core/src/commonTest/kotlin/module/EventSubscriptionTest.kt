@@ -73,7 +73,7 @@ class EventSubscriptionTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun integrationSubscription_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
+    fun `accepts loaded handler tokens in place of integration handler classes`() {
         integrationSubscription(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))
             .registerOn(locator)
 
@@ -82,7 +82,7 @@ class EventSubscriptionTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun domainSubscription_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
+    fun `accepts loaded handler tokens in place of domain handler classes`() {
         domainSubscription(
                 TestDomainEvent::class,
                 LoadedEventHandler(TestDomainEventHandler::class),
