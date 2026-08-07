@@ -9,6 +9,8 @@ examples/
     orders/          contracts · domain · application · infrastructure · acl
     inventory/       contracts · domain · application · infrastructure
   app/               the only module that knows a bus exists
+  app-manual/        the same contexts, wired without code generation
+  app-contract/      the requirements both wirings must meet
   docs-samples/      the snippets Knit extracts from the root README
 ```
 
@@ -63,6 +65,25 @@ downstream of every context, and naming its untyped `execute` is a compile error
 command it is entitled to send — and `app` binds it to the generated `ReserveStockGateway`, which
 exists only because something can handle `ReserveStock`.
 
+## Two wirings, one set of contexts
+
+`app-manual` assembles the same contexts with no generated code: it binds the ports itself, fills a
+`PersistingHandlerLocator` with a factory per handler, and passes the contexts to `MessageBus`. The
+outbox, the per-context inboxes, the subscriptions and the auto-publish mapping are the same core
+APIs `app` uses.
+
+Every context module is shared between the two, unchanged — the wiring is the only thing that
+differs, which is the point. Registering by hand costs a factory per handler and settles nothing at
+compile time: a command with no registration is a runtime `MissingHandlerException`, where the
+generated wiring cannot produce a bus that has forgotten one.
+
+The commands a context can reach from inside its own handlers stay typed either way.
+`CancelAndReplaceOrderHandler` asks for `OrdersCommands`, and `app-manual` implements that interface
+over the nested executor rather than having it generated.
+
+`app-contract` holds the requirements as an abstract test class, so both wirings run the same
+assertions and each adds only what is true of itself alone.
+
 ## Per-module KSP configuration
 
 Every layer module that declares handlers applies `kbus.handler-module` and names its
@@ -80,5 +101,5 @@ own name, so index class names stay unique across the build.
 ## Running
 
 ```bash
-./gradlew :examples:app:jvmTest
+./gradlew :examples:app:jvmTest :examples:app-manual:jvmTest
 ```

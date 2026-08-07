@@ -39,6 +39,8 @@ include("examples:app")
 
 include("examples:app-contract")
 
+include("examples:app-manual")
+
 include("examples:docs-samples")
 
 // A Gradle module's identity is its group plus its *name*, and a name is only the last path
