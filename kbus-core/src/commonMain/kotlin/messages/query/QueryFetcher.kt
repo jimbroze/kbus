@@ -3,9 +3,9 @@ package com.jimbroze.kbus.core.messages.query
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain
 
 class QueryFetcher(
     private val middlewares: List<Middleware>,

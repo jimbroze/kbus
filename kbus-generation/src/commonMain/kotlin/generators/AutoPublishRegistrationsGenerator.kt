@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishRegistration
+import com.jimbroze.kbus.core.middleware.AutoPublishRegistration
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec

@@ -342,8 +342,8 @@ along with it.
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.middleware.middleware.autoPublish
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.domain.event.DomainEvent
 -->
@@ -464,10 +464,10 @@ event dispatch, which is its own entry point and always runs the full chain.
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import kotlin.time.TimeSource
 -->
 
@@ -502,7 +502,7 @@ Pass middleware when creating the bus:
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
-import com.jimbroze.kbus.core.middleware.middleware.LoggingMiddleware
+import com.jimbroze.kbus.core.middleware.LoggingMiddleware
 import com.jimbroze.kbus.example.fixtures.DebugLevel
 import com.jimbroze.kbus.example.fixtures.InfoLevel
 import com.jimbroze.kbus.example.fixtures.ErrorLevel

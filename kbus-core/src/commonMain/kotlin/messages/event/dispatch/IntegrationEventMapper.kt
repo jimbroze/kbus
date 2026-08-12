@@ -11,9 +11,9 @@ import com.jimbroze.kbus.domain.event.DomainEvent
  * event and the published contract.
  *
  * Register a mapper with the
- * [AutoPublishIntegrationEvents][com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents]
- * middleware via [autoPublish][com.jimbroze.kbus.core.middleware.middleware.autoPublish], as a
- * lambda or as an object.
+ * [AutoPublishIntegrationEvents][com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents]
+ * middleware via [autoPublish][com.jimbroze.kbus.core.middleware.autoPublish], as a lambda or as an
+ * object.
  */
 fun interface IntegrationEventMapper<TDomainEvent : DomainEvent> {
     fun fromDomainEvent(event: TDomainEvent): IntegrationEvent

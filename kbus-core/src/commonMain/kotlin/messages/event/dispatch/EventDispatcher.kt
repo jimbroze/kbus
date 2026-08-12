@@ -12,9 +12,9 @@ import com.jimbroze.kbus.core.messages.event.dispatchPhaseFor
 import com.jimbroze.kbus.core.messages.event.errorStrategyFor
 import com.jimbroze.kbus.core.messages.event.mapErrorStrategy
 import com.jimbroze.kbus.core.messages.event.routing.AggregateException
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler

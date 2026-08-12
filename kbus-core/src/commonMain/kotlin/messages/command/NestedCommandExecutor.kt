@@ -5,9 +5,9 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.NestedTransactionMismatchException
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionConfig
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.middleware.createMiddlewareChain
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain
 import com.jimbroze.kbus.core.module.OwningContext
 
 /**
@@ -43,7 +43,7 @@ interface ContextCommands : NestedCommandExecutor
  * does rather than a flag anything consults.
  *
  * [nestedMiddlewares] is pre-filtered to those declaring
- * [EveryCommand][com.jimbroze.kbus.core.middleware.MiddlewareScope.EveryCommand].
+ * [EveryCommand][com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope.EveryCommand].
  */
 internal class InvocationNestedCommandExecutor(
     private val owningContext: OwningContext,

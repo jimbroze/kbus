@@ -16,7 +16,7 @@ import com.jimbroze.kbus.core.fixtures.testInvocation
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -4,8 +4,8 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.middleware.middleware.autoPublish
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.autoPublish
 import com.jimbroze.kbus.core.module.BoundedContext
 import com.jimbroze.kbus.core.module.BoundedContextId
 import com.jimbroze.kbus.core.module.domainSubscription

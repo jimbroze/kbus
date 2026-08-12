@@ -8,8 +8,8 @@ import com.jimbroze.kbus.core.fixtures.LockingSleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignallingLock
-import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
-import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.middleware.infrastructure.BusMiddlewareContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.seconds

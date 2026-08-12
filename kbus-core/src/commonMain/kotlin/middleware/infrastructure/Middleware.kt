@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware
+package com.jimbroze.kbus.core.middleware.infrastructure
 
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher

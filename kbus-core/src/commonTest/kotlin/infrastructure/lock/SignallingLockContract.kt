@@ -18,8 +18,8 @@ import com.jimbroze.kbus.core.fixtures.SleepCommand
 import com.jimbroze.kbus.core.fixtures.SleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestFailure
 import com.jimbroze.kbus.core.fixtures.TimeReturnCommand
-import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
-import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.middleware.infrastructure.BusMiddlewareContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

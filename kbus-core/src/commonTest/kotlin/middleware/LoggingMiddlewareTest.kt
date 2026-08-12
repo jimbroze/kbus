@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware
+package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.core.fixtures.CaptureLogger
 import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext

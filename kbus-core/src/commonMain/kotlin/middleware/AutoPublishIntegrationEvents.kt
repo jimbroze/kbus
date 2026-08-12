@@ -1,12 +1,12 @@
-package com.jimbroze.kbus.core.middleware.middleware
+package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.contracts.common.Message
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.reflect.KClass
 

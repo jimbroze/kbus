@@ -2,7 +2,7 @@
 
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.module.BoundedContextConfig
 import com.jimbroze.kbus.core.registry.generation.domainSubscription
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager

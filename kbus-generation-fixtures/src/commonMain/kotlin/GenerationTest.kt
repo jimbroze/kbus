@@ -18,7 +18,7 @@ import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
-import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.middleware.LockingMiddleware
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler

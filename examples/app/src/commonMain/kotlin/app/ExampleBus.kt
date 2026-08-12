@@ -3,7 +3,7 @@ package com.jimbroze.kbus.example.app
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.module.BoundedContextConfig
 import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
