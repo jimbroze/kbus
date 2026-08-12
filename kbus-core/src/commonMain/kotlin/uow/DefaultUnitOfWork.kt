@@ -52,7 +52,3 @@ internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TR
 class DefaultUnitOfWorkFactory : UnitOfWorkFactory {
     override fun <TResult> create(): UnitOfWork<TResult> = DefaultUnitOfWork()
 }
-
-class EmptyTransactionManager : TransactionManager {
-    override suspend fun <TResult> execute(block: suspend () -> TResult): TResult = block()
-}
