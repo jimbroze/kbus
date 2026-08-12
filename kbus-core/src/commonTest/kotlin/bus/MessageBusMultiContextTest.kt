@@ -14,8 +14,8 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.module.BoundedContext
-import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.core.boundedcontext.BoundedContext
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory

@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.module.inbox
+package com.jimbroze.kbus.core.boundedcontext.inbox
 
 import com.jimbroze.kbus.contracts.inbox.InboxStore
 import com.jimbroze.kbus.contracts.messages.event.EventDestination

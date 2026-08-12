@@ -1,6 +1,6 @@
-package com.jimbroze.kbus.core.module
+package com.jimbroze.kbus.core.boundedcontext
 
-import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
+import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 

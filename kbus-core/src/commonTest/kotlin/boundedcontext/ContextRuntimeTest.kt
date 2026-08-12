@@ -1,6 +1,8 @@
-package com.jimbroze.kbus.core.module
+package com.jimbroze.kbus.core.boundedcontext
 
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
 import com.jimbroze.kbus.core.fixtures.OtherStorageEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
@@ -11,8 +13,6 @@ import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.routing.AggregateException
-import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
-import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection

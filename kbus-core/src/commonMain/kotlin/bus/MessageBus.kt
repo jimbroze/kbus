@@ -8,6 +8,13 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.core.boundedcontext.BoundedContext
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
+import com.jimbroze.kbus.core.boundedcontext.ContextBuilder
+import com.jimbroze.kbus.core.boundedcontext.ContextRuntime
+import com.jimbroze.kbus.core.boundedcontext.OwningContext
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxCoordinator
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxTuning
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
@@ -22,13 +29,6 @@ import com.jimbroze.kbus.core.middleware.infrastructure.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.infrastructure.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.module.BoundedContext
-import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.ContextBuilder
-import com.jimbroze.kbus.core.module.ContextRuntime
-import com.jimbroze.kbus.core.module.OwningContext
-import com.jimbroze.kbus.core.module.inbox.InboxCoordinator
-import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory

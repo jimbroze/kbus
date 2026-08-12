@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.module
+package com.jimbroze.kbus.core.boundedcontext
 
 import kotlin.jvm.JvmInline
 

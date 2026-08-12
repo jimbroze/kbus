@@ -1,9 +1,9 @@
-package com.jimbroze.kbus.core.module.inbox
+package com.jimbroze.kbus.core.boundedcontext.inbox
 
 import com.jimbroze.kbus.contracts.inbox.InboxStore
 import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
-import com.jimbroze.kbus.core.module.ContextRuntime
+import com.jimbroze.kbus.core.boundedcontext.ContextRuntime
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope

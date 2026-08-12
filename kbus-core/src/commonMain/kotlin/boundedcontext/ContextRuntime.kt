@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.module
+package com.jimbroze.kbus.core.boundedcontext
 
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
@@ -7,12 +7,12 @@ import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.core.boundedcontext.inbox.errorStrategyOverride
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
-import com.jimbroze.kbus.core.module.inbox.errorStrategyOverride
 import com.jimbroze.kbus.domain.event.DomainEvent
 
 /**

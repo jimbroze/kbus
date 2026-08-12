@@ -28,8 +28,8 @@ class ContextCommandsPairingCompilationTest {
         import com.jimbroze.kbus.core.messages.command.CommandDependencies
         import com.jimbroze.kbus.core.messages.command.ContextCommands
         import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
-        import com.jimbroze.kbus.core.module.CommandOwningContext
-        import com.jimbroze.kbus.core.module.OwningContext
+        import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
+        import com.jimbroze.kbus.core.boundedcontext.OwningContext
 
         class PlaceOrder : Command<BusResult<String, MessageFailure>>()
 

@@ -1,5 +1,7 @@
-package com.jimbroze.kbus.core.module
+package com.jimbroze.kbus.core.boundedcontext
 
+import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler
 import com.jimbroze.kbus.core.fixtures.StorageEvent
@@ -7,8 +9,6 @@ import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
-import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
-import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
 import com.jimbroze.kbus.core.registry.generation.domainSubscription

@@ -1,14 +1,14 @@
-package com.jimbroze.kbus.core.module.inbox
+package com.jimbroze.kbus.core.boundedcontext.inbox
 
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.core.boundedcontext.BoundedContext
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
+import com.jimbroze.kbus.core.boundedcontext.ContextRuntime
 import com.jimbroze.kbus.core.fixtures.RecordingInboxStore
 import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.ThrowingIntegrationEventHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
-import com.jimbroze.kbus.core.module.BoundedContext
-import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.ContextRuntime
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection

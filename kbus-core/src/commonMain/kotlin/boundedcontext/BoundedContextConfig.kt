@@ -1,6 +1,6 @@
-package com.jimbroze.kbus.core.module
+package com.jimbroze.kbus.core.boundedcontext
 
-import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
+import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 
 /**
  * What a generated bus needs to finish building one of its bounded contexts. A generated bus takes

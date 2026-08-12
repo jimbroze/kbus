@@ -3,13 +3,13 @@
 package com.jimbroze.kbus.generation.test
 
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
+import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxTuning
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.module.BoundedContextConfig
-import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
-import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
-import com.jimbroze.kbus.core.module.inbox.InboxTuning
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus

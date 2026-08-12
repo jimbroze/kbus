@@ -5,10 +5,10 @@ import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.NestedTransactionMismatchException
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.contracts.uow.TransactionConfig
+import com.jimbroze.kbus.core.boundedcontext.OwningContext
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain
-import com.jimbroze.kbus.core.module.OwningContext
 
 /**
  * Executes a command from inside another command's handler, sharing that command's transaction,
