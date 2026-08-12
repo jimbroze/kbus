@@ -10,9 +10,9 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.DomainEventRegistrar
 import com.jimbroze.kbus.core.registry.HandlerLocator
-import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventRegistrar
 import com.jimbroze.kbus.core.registry.persisting.PersistingEventMapper
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -22,8 +22,8 @@ import kotlin.reflect.KClass
 class GenerationHandlerLocator(val generationHandlerFactory: GenerationHandlerFactory) :
     HandlerLocator {
     private val eventMapper = PersistingEventMapper()
-    override val domainEventMapper = eventMapper as DomainEventMapper
-    override val integrationEventMapper = eventMapper as IntegrationEventMapper
+    override val domainEventRegistrar = eventMapper as DomainEventRegistrar
+    override val integrationEventRegistrar = eventMapper as IntegrationEventRegistrar
 
     private val commandTypes = generationHandlerFactory.commandTypes()
     private val queryTypes = generationHandlerFactory.queryTypes()

@@ -10,9 +10,9 @@ import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.KBusResult
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.DomainEventRegistrar
 import com.jimbroze.kbus.core.registry.HandlerLocator
-import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventRegistrar
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -30,8 +30,8 @@ class PersistingHandlerLocator(
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
     private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
     private val eventMapper = PersistingEventMapper()
-    override val domainEventMapper = eventMapper as DomainEventMapper
-    override val integrationEventMapper = eventMapper as IntegrationEventMapper
+    override val domainEventRegistrar = eventMapper as DomainEventRegistrar
+    override val integrationEventRegistrar = eventMapper as IntegrationEventRegistrar
 
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,

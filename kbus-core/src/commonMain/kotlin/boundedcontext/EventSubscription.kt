@@ -3,7 +3,7 @@ package com.jimbroze.kbus.core.boundedcontext
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.registry.EventMapperProvider
+import com.jimbroze.kbus.core.registry.EventRegistrarProvider
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
@@ -14,7 +14,7 @@ import kotlin.reflect.KClass
  * pairing is checked where each is built, not where the list is read.
  */
 sealed class EventSubscription<TEvent : Event> {
-    internal abstract fun registerOn(mappers: EventMapperProvider)
+    internal abstract fun registerOn(mappers: EventRegistrarProvider)
 }
 
 class DomainEventSubscription<TEvent : DomainEvent>
@@ -22,8 +22,8 @@ internal constructor(
     private val event: KClass<TEvent>,
     private val handlers: List<KClass<out DomainEventHandler<TEvent>>>,
 ) : EventSubscription<TEvent>() {
-    override fun registerOn(mappers: EventMapperProvider) =
-        mappers.domainEventMapper.addDomainHandlers(event, handlers)
+    override fun registerOn(mappers: EventRegistrarProvider) =
+        mappers.domainEventRegistrar.addDomainHandlers(event, handlers)
 }
 
 class IntegrationEventSubscription<TEvent : IntegrationEvent>
@@ -31,8 +31,8 @@ internal constructor(
     private val event: KClass<TEvent>,
     private val handlers: List<KClass<out EventHandler<TEvent>>>,
 ) : EventSubscription<TEvent>() {
-    override fun registerOn(mappers: EventMapperProvider) =
-        mappers.integrationEventMapper.addEventHandlers(event, handlers)
+    override fun registerOn(mappers: EventRegistrarProvider) =
+        mappers.integrationEventRegistrar.addEventHandlers(event, handlers)
 }
 
 fun <TEvent : IntegrationEvent> integrationSubscription(

@@ -14,7 +14,7 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
-interface HandlerLocator : EventMapperProvider {
+interface HandlerLocator : EventRegistrarProvider {
     fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
         commandDependencies: CommandDependencies,

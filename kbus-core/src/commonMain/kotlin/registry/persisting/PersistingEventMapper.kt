@@ -3,14 +3,14 @@ package com.jimbroze.kbus.core.registry.persisting
 import com.jimbroze.kbus.contracts.messages.event.Event
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.core.registry.DomainEventRegistrar
 import com.jimbroze.kbus.core.registry.DuplicateEventHandlerException
-import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventRegistrar
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
-class PersistingEventMapper : DomainEventMapper, IntegrationEventMapper {
+class PersistingEventMapper : DomainEventRegistrar, IntegrationEventRegistrar {
     private val mappings = mutableMapOf<KClass<out Event>, MutableSet<KClass<EventHandler<*>>>>()
 
     override fun <TEvent : DomainEvent> addDomainHandlers(
