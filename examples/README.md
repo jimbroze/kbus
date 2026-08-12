@@ -59,6 +59,11 @@ typed `CompileTimeLoadedMessageBus`, and turns on the framework's opt-in machine
 outbox, a per-context inbox for each context, auto-publishing of `OrderPlaced` as
 `OrderPlacedIntegration`, and each context's event subscriptions.
 
+The auto-publish mapping is the one piece `app` does not state: `OrderPlacedMapper` carries
+`@LoadEventMapper`, so the generator collects it and the wiring passes the generated list. The
+mapper still lives in the orders context, because only that context can decide which of its facts
+another context is entitled to see.
+
 An anti-corruption layer cannot simply take the bus: the concrete generated bus class is assembled
 downstream of every context, and naming its untyped `execute` is a compile error. So
 `InventoryStockReservations` takes a `CommandGateway<ReserveStock, ReserveStockResult>` — the one
@@ -69,8 +74,8 @@ exists only because something can handle `ReserveStock`.
 
 `app-manual` assembles the same contexts with no generated code: it binds the ports itself, fills a
 `PersistingHandlerLocator` with a factory per handler, and passes the contexts to `MessageBus`. The
-outbox, the per-context inboxes, the subscriptions and the auto-publish mapping are the same core
-APIs `app` uses.
+outbox, the per-context inboxes and the subscriptions are the same core APIs `app` uses, and the
+auto-publish mapping the generator collects for `app` is registered here by naming the mapper.
 
 Every context module is shared between the two, unchanged — the wiring is the only thing that
 differs, which is the point. Registering by hand costs a factory per handler and settles nothing at
