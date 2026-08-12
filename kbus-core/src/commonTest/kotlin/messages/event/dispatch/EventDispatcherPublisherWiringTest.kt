@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
@@ -13,7 +13,6 @@ import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
-import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory

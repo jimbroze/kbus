@@ -1,11 +1,9 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.routing
 
 import com.jimbroze.kbus.contracts.messages.event.EventDestination
 import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
-import com.jimbroze.kbus.core.messages.event.routing.AggregateException
-import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

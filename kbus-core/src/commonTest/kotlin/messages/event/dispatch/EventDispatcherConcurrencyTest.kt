@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAfterTransactionHandler
 import com.jimbroze.kbus.core.fixtures.DelayingDispatchAtEndOfTransactionHandler

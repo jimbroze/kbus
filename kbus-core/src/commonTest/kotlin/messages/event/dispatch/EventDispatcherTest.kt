@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.core.fixtures.OtherPrintEventHandler
 import com.jimbroze.kbus.core.fixtures.PrintEventHandler

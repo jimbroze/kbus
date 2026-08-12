@@ -1,7 +1,5 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
-import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import kotlin.test.Test
 import kotlinx.coroutines.test.runTest
 

@@ -1,10 +1,8 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.publish
 
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
-import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
-import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import com.jimbroze.kbus.core.uow.ImmediateOutboxPublisher
 import com.jimbroze.kbus.core.uow.OutboxConfig

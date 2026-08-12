@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.core.messages.event.dispatch
 
 import com.jimbroze.kbus.contracts.messages.event.EventHandler
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
@@ -7,7 +7,6 @@ import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory
 import com.jimbroze.kbus.core.fixtures.testInvocation
-import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlinx.coroutines.test.TestScope
