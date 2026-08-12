@@ -8,17 +8,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/**
- * Abstract test base for [com.jimbroze.kbus.core.infrastructure.cache.Cache] implementations.
- * Subclass this and implement [createCache] to fully test a cache implementation.
- */
-abstract class CacheTestBase<K : Any, V : Any>(
+/** The requirements every [Cache] implementation must meet, whatever its key and value types. */
+abstract class CacheContract<K : Any, V : Any>(
     protected val createKey: (Int) -> K,
     protected val createValue: (Int) -> V,
 ) {
     protected lateinit var cache: Cache<K, V>
 
-    /** Create a fresh, empty cache instance for each test. */
+    /** Must return a fresh, empty cache; it is called once per test. */
     abstract fun createCache(): Cache<K, V>
 
     @BeforeTest
@@ -27,12 +24,12 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun get_on_empty_cache_returns_null() {
+    fun `returns null for a key it has never held`() {
         assertNull(cache.get(createKey(0)))
     }
 
     @Test
-    fun get_returns_value_that_was_put() {
+    fun `returns the value stored under a key`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -42,7 +39,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun put_with_existing_key_replaces_previous_value() {
+    fun `replaces the previous value when a key is stored twice`() {
         val key = createKey(0)
         val firstValue = createValue(0)
         val secondValue = createValue(1)
@@ -54,7 +51,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun get_returns_null_after_entry_is_removed() {
+    fun `returns null for a key that has been removed`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -65,12 +62,12 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun remove_with_nonexistent_key_does_not_throw() {
+    fun `ignores a removal for a key it does not hold`() {
         cache.remove(createKey(0))
     }
 
     @Test
-    fun put_with_different_keys_stores_each_value_independently() {
+    fun `stores values under different keys independently`() {
         val key1 = createKey(0)
         val key2 = createKey(1)
         val value1 = createValue(0)
@@ -84,7 +81,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun remove_only_deletes_the_specified_key() {
+    fun `leaves other keys in place when one is removed`() {
         val key1 = createKey(0)
         val key2 = createKey(1)
         val value1 = createValue(0)
@@ -99,7 +96,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun put_after_remove_restores_entry_with_new_value() {
+    fun `stores a new value when a removed key is used again`() {
         val key = createKey(0)
         val firstValue = createValue(0)
         val secondValue = createValue(1)
@@ -112,7 +109,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun get_does_not_consume_or_remove_the_entry() {
+    fun `leaves the entry in place when it is read`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -125,7 +122,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     // getOrPut
 
     @Test
-    fun getOrPut_returns_existing_value_when_key_is_present() {
+    fun `returns the existing value when getting or putting a key it holds`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -137,7 +134,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun getOrPut_does_not_overwrite_existing_value() {
+    fun `leaves the existing value in place when getting or putting a key it holds`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -148,7 +145,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun getOrPut_inserts_and_returns_default_when_key_is_absent() {
+    fun `stores and returns the default when getting or putting an absent key`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -161,7 +158,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     // replaceIfMatching
 
     @Test
-    fun replaceIfMatching_replaces_value_when_old_value_matches() {
+    fun `replaces the value when the expected old value matches`() {
         val key = createKey(0)
         val oldValue = createValue(0)
         val newValue = createValue(1)
@@ -175,7 +172,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun replaceIfMatching_does_not_replace_when_old_value_does_not_match() {
+    fun `leaves the value in place when the expected old value does not match`() {
         val key = createKey(0)
         val currentValue = createValue(0)
         val wrongOldValue = createValue(1)
@@ -190,7 +187,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun replaceIfMatching_returns_false_when_key_is_absent() {
+    fun `refuses a conditional replacement for an absent key`() {
         val result = cache.replaceIfMatching(createKey(0), createValue(0), createValue(1))
 
         assertFalse(result)
@@ -199,7 +196,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     // removeIfMatching
 
     @Test
-    fun removeIfMatching_removes_entry_when_value_matches() {
+    fun `removes the entry when the expected value matches`() {
         val key = createKey(0)
         val value = createValue(0)
 
@@ -212,7 +209,7 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun removeIfMatching_does_not_remove_when_value_does_not_match() {
+    fun `leaves the entry in place when the expected value does not match`() {
         val key = createKey(0)
         val value = createValue(0)
         val wrongValue = createValue(1)
@@ -226,14 +223,14 @@ abstract class CacheTestBase<K : Any, V : Any>(
     }
 
     @Test
-    fun removeIfMatching_returns_false_when_key_is_absent() {
+    fun `refuses a conditional removal for an absent key`() {
         val result = cache.removeIfMatching(createKey(0), createValue(0))
 
         assertFalse(result)
     }
 
     @Test
-    fun cache_stores_and_retrieves_100_entries_correctly() {
+    fun `stores every entry when many keys are in use`() {
         val count = 100
         val keys = (0 until count).map { createKey(it) }
         val values = (0 until count).map { createValue(it) }

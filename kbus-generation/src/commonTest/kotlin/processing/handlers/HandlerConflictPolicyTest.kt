@@ -24,7 +24,7 @@ class HandlerConflictPolicyTest {
     }
 
     @Test
-    fun new_handler_with_no_existing_returns_accept() {
+    fun `accepts a handler for a message nothing is registered for`() {
         val handler = createHandlerDefinition("MyHandler", "MyCommand")
 
         val result = HandlerConflictPolicy.evaluate(handler, emptyList())
@@ -33,7 +33,7 @@ class HandlerConflictPolicyTest {
     }
 
     @Test
-    fun same_handler_and_message_returns_exact_duplicate() {
+    fun `reports the same handler for the same message as an exact duplicate`() {
         val handler = createHandlerDefinition("MyHandler", "MyCommand")
         val existing = createHandlerDefinition("MyHandler", "MyCommand")
 
@@ -43,7 +43,7 @@ class HandlerConflictPolicyTest {
     }
 
     @Test
-    fun different_handler_for_same_message_returns_invalid_conflict() {
+    fun `reports a second handler for the same command as a conflict`() {
         val handler = createHandlerDefinition("NewHandler", "MyCommand")
         val existing = createHandlerDefinition("ExistingHandler", "MyCommand")
 
@@ -57,7 +57,7 @@ class HandlerConflictPolicyTest {
     }
 
     @Test
-    fun different_message_returns_accept() {
+    fun `accepts a handler for a message of its own`() {
         val handler = createHandlerDefinition("HandlerA", "CommandA")
         val existing = createHandlerDefinition("HandlerB", "CommandB")
 
@@ -81,7 +81,7 @@ class HandlerConflictPolicyTest {
     }
 
     @Test
-    fun event_handlers_with_same_message_different_handlers_returns_accept() {
+    fun `accepts several event handlers for one event`() {
         val handler = createEventHandlerDefinition("HandlerA", "MyEvent")
         val existing = createEventHandlerDefinition("HandlerB", "MyEvent")
 
@@ -91,7 +91,7 @@ class HandlerConflictPolicyTest {
     }
 
     @Test
-    fun event_handlers_with_same_message_same_handler_returns_exact_duplicate() {
+    fun `reports the same event handler registered twice as an exact duplicate`() {
         val handler = createEventHandlerDefinition("HandlerA", "MyEvent")
         val existing = createEventHandlerDefinition("HandlerA", "MyEvent")
 

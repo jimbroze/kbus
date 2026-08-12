@@ -1,9 +1,7 @@
 package com.jimbroze.kbus.core.messages.event
 
-import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingDestination
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
-import com.jimbroze.kbus.core.fixtures.TestIntegrationEvent
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
@@ -20,20 +18,21 @@ import kotlinx.coroutines.test.runTest
 
 class IntegrationEventPublisherFactoryTest {
     @Test
-    fun create_withUnitOfWork_andAnOutboxConfigured_returnsATransactionalOutbox() = runTest {
-        val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = DirectPublisher(router, this)
-        val factory =
-            IntegrationEventPublisherFactory(
-                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
-                directPublisher,
-            )
+    fun `builds a transactional outbox for a unit of work when an outbox is configured`() =
+        runTest {
+            val router = EventRouter(listOf(RecordingDestination()))
+            val directPublisher = DirectPublisher(router, this)
+            val factory =
+                IntegrationEventPublisherFactory(
+                    OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
+                    directPublisher,
+                )
 
-        assertIs<TransactionalOutbox>(factory.create(TestUnitOfWork<Any?>()))
-    }
+            assertIs<TransactionalOutbox>(factory.create(TestUnitOfWork<Any?>()))
+        }
 
     @Test
-    fun create_withUnitOfWork_andNoOutboxConfigured_returnsTheDirectPublisher() = runTest {
+    fun `builds the direct publisher for a unit of work when no outbox is configured`() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
         val directPublisher = DirectPublisher(router, this)
         val factory =
@@ -43,30 +42,35 @@ class IntegrationEventPublisherFactoryTest {
     }
 
     @Test
-    fun create_withNull_andAnOutboxConfigured_returnsTheImmediateOutboxPublisher() = runTest {
-        val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = DirectPublisher(router, this)
-        val factory =
-            IntegrationEventPublisherFactory(
-                OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
-                directPublisher,
-            )
+    fun `builds the immediate outbox publisher outside a unit of work when an outbox is configured`() =
+        runTest {
+            val router = EventRouter(listOf(RecordingDestination()))
+            val directPublisher = DirectPublisher(router, this)
+            val factory =
+                IntegrationEventPublisherFactory(
+                    OutboxCoordinator(OutboxConfig(RecordingOutboxStore()), router, this),
+                    directPublisher,
+                )
 
-        assertIs<ImmediateOutboxPublisher>(factory.create(null))
-    }
-
-    @Test
-    fun create_withNull_andNoOutboxConfigured_returnsTheDirectPublisher() = runTest {
-        val router = EventRouter(listOf(RecordingDestination()))
-        val directPublisher = DirectPublisher(router, this)
-        val factory =
-            IntegrationEventPublisherFactory(OutboxCoordinator(null, router, this), directPublisher)
-
-        assertEquals(directPublisher, factory.create(null))
-    }
+            assertIs<ImmediateOutboxPublisher>(factory.create(null))
+        }
 
     @Test
-    fun create_withNull_returnsTheSameImmediateInstanceAcrossCalls() = runTest {
+    fun `builds the direct publisher outside a unit of work when no outbox is configured`() =
+        runTest {
+            val router = EventRouter(listOf(RecordingDestination()))
+            val directPublisher = DirectPublisher(router, this)
+            val factory =
+                IntegrationEventPublisherFactory(
+                    OutboxCoordinator(null, router, this),
+                    directPublisher,
+                )
+
+            assertEquals(directPublisher, factory.create(null))
+        }
+
+    @Test
+    fun `reuses one immediate outbox publisher across calls outside a unit of work`() = runTest {
         val router = EventRouter(listOf(RecordingDestination()))
         val directPublisher = DirectPublisher(router, this)
         val factory =
@@ -76,10 +80,5 @@ class IntegrationEventPublisherFactoryTest {
             )
 
         assertSame(factory.create(null), factory.create(null))
-    }
-
-    @Test
-    fun empty_integration_event_publisher_publish_is_a_no_op() = runTest {
-        EmptyIntegrationEventPublisher.publish(listOf(TestIntegrationEvent("ignored")))
     }
 }

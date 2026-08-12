@@ -33,7 +33,7 @@ class CommandGatewayGeneratorTest {
         )
 
     @Test
-    fun aGatewayIsGeneratedPerCommandThatHasAHandler() {
+    fun `generates one gateway per command that has a handler`() {
         generator.generateGateways(
             setOf(commandHandler("ReserveStock"), commandHandler("PlaceOrder")),
             emptyList(),
@@ -43,7 +43,7 @@ class CommandGatewayGeneratorTest {
     }
 
     @Test
-    fun aGatewayIsTypedToItsOwnCommandAndResult() {
+    fun `types a gateway to its own command and result`() {
         generator.generateGateways(setOf(commandHandler("ReserveStock")), emptyList())
 
         assertContains(
@@ -53,7 +53,7 @@ class CommandGatewayGeneratorTest {
     }
 
     @Test
-    fun aGatewayDelegatesToTheBus() {
+    fun `makes a gateway delegate to the bus`() {
         generator.generateGateways(setOf(commandHandler("ReserveStock")), emptyList())
 
         assertContains(
@@ -64,7 +64,7 @@ class CommandGatewayGeneratorTest {
     }
 
     @Test
-    fun noGatewayIsGeneratedForAMessageThatIsNotACommand() {
+    fun `generates no gateway for a message that is not a command`() {
         generator.generateGateways(
             setOf(
                 EventHandlerDefinition(

@@ -65,20 +65,21 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun lifecycle_aware_middleware_receives_scope_on_start_not_construction() = runTest {
-        val middleware = CapturingLifecycleMiddleware()
+    fun `gives lifecycle-aware middleware its scope on start rather than at construction`() =
+        runTest {
+            val middleware = CapturingLifecycleMiddleware()
 
-        val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
-        assertNull(middleware.startContext)
+            val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
+            assertNull(middleware.startContext)
 
-        bus.start()
+            bus.start()
 
-        assertNotNull(middleware.startContext)
-        assertTrue(middleware.startContext!!.scope.isActive)
-    }
+            assertNotNull(middleware.startContext)
+            assertTrue(middleware.startContext!!.scope.isActive)
+        }
 
     @Test
-    fun multiple_lifecycle_middlewares_each_get_their_own_scope() = runTest {
+    fun `gives each lifecycle-aware middleware its own scope`() = runTest {
         val middleware1 = CapturingLifecycleMiddleware("First")
         val middleware2 = CapturingLifecycleMiddleware("Second")
 
@@ -99,7 +100,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun cancelling_the_app_scope_cancels_middleware_scopes() = runTest {
+    fun `cancels every middleware scope when the application scope is cancelled`() = runTest {
         val middleware = CapturingLifecycleMiddleware()
         // A *child* of backgroundScope — not a share of its context, which would reuse its Job and
         // make the cancel below tear down backgroundScope itself — so teardown cancels whatever the
@@ -123,7 +124,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun nothing_polls_before_start() = runTest {
+    fun `polls nothing before it is started`() = runTest {
         val store = RecordingOutboxStore()
         val (locator, _) = busWithReturnCommand()
 
@@ -138,7 +139,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun start_called_twice_launches_only_one_poller() = runTest {
+    fun `runs one poller however many times it is started`() = runTest {
         val store = RecordingOutboxStore()
         val (locator, _) = busWithReturnCommand()
 
@@ -157,7 +158,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun stop_halts_polling() = runTest {
+    fun `stops polling when it is stopped`() = runTest {
         val store = RecordingOutboxStore()
         val (locator, _) = busWithReturnCommand()
 
@@ -180,7 +181,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun stop_calls_onStop() = runTest {
+    fun `tells its middleware it is stopping`() = runTest {
         val middleware = CapturingLifecycleMiddleware()
         val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
 
@@ -191,7 +192,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun stop_suspendsUntilASuspendingOnStopCompletes() = runTest {
+    fun `waits for middleware that suspends while stopping`() = runTest {
         val middleware = GatedStopMiddleware()
         val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
         bus.start()
@@ -214,7 +215,7 @@ class MessageBusLifecycleTest {
      * leaked; what matters is that `stop()` returns.
      */
     @Test
-    fun stop_returnsWhenMiddlewareBackgroundWorkIgnoresCancellation() = runTest {
+    fun `returns from stopping even when middleware ignores cancellation`() = runTest {
         val middleware = UncancellableWorkMiddleware()
         val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
 
@@ -227,7 +228,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun stop_before_start_is_a_noop() = runTest {
+    fun `tolerates being stopped before it was started`() = runTest {
         val middleware = CapturingLifecycleMiddleware()
         val bus = MessageBus(middlewares = listOf(middleware), appScope = backgroundScope)
 
@@ -238,7 +239,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun execute_throws_on_an_unstarted_bus_with_an_outbox() = runTest {
+    fun `refuses to execute unstarted when an outbox is configured`() = runTest {
         val store = RecordingOutboxStore()
         val (locator, _) = busWithReturnCommand()
 
@@ -249,7 +250,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun execute_throws_on_an_unstarted_bus_with_lifecycle_aware_middleware() = runTest {
+    fun `refuses to execute unstarted when middleware is lifecycle aware`() = runTest {
         val (locator, _) = busWithReturnCommand()
         val bus =
             MessageBus(
@@ -262,7 +263,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun execute_still_works_unstarted_on_a_bus_with_neither_an_outbox_nor_lifecycle_middleware() =
+    fun `executes unstarted when it has neither an outbox nor lifecycle-aware middleware`() =
         runTest {
             val (locator, _) = busWithReturnCommand()
             val bus = MessageBus(locator, appScope = backgroundScope)
@@ -278,7 +279,7 @@ class MessageBusLifecycleTest {
      * would cancel it mid-flight and lose it silently.
      */
     @Test
-    fun stop_awaitsAnInFlightDetachedPostCommitHandler_withinTheGracePeriod() = runTest {
+    fun `waits within the grace period for a detached post-commit handler in flight`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
@@ -321,7 +322,7 @@ class MessageBusLifecycleTest {
      * and cancel the second.
      */
     @Test
-    fun stop_awaitsDetachedWorkLaunchedDuringTheGracePeriod() = runTest {
+    fun `waits for detached work launched during the grace period`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
@@ -413,7 +414,7 @@ class MessageBusLifecycleTest {
      * way; [stop_isBoundedWhenDetachedWorkRespawnsWithoutSuspending] covers the harder case.
      */
     @Test
-    fun stop_isBoundedWhenDetachedWorkKeepsSpawningReplacements() = runTest {
+    fun `stops within the grace period when detached work keeps spawning replacements`() = runTest {
         val bus = MessageBus(respawningLocator(1), appScope = backgroundScope)
         bus.start()
 
@@ -436,7 +437,7 @@ class MessageBusLifecycleTest {
      * suspension, so work that never suspends could never reach a virtual deadline.
      */
     @Test
-    fun stop_isBoundedWhenDetachedWorkRespawnsWithoutSuspending() = runTest {
+    fun `stops within the grace period when detached work respawns without suspending`() = runTest {
         // A real dispatcher is the point of this test, but the scope is still a *child* of
         // backgroundScope so endlessly respawning work cannot outlive the test if the assertions
         // below fail.
@@ -462,7 +463,7 @@ class MessageBusLifecycleTest {
     }
 
     @Test
-    fun stop_doesNotBlockPastTheGracePeriodForAHandlerThatNeverCompletes() = runTest {
+    fun `stops at the grace period when a handler never completes`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(

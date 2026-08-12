@@ -23,14 +23,14 @@ class EventSubscriptionTest {
     private val locator = PersistingHandlerLocator(stores)
 
     @Test
-    fun integrationSubscription_makesTheEventOneTheLocatorIsSubscribedTo() {
+    fun `subscribes the locator to the integration event it names`() {
         integrationSubscription(StorageEvent::class, PrintEventHandler::class).registerOn(locator)
 
         assertTrue(locator.subscribedEventTypes().contains(StorageEvent::class))
     }
 
     @Test
-    fun domainSubscription_makesTheDomainEventOneTheLocatorIsSubscribedTo() {
+    fun `subscribes the locator to the domain event it names`() {
         domainSubscription(TestDomainEvent::class, TestDomainEventHandler::class)
             .registerOn(locator)
 
@@ -38,7 +38,7 @@ class EventSubscriptionTest {
     }
 
     @Test
-    fun integrationSubscription_registersEveryHandlerGivenInOneCall() {
+    fun `registers every handler it was given in one call`() {
         stores.eventStore.registerHandlers(
             StorageEvent::class,
             listOf(
@@ -65,7 +65,7 @@ class EventSubscriptionTest {
     }
 
     @Test
-    fun integrationSubscription_subscribesToNothingWhenGivenNoHandlers() {
+    fun `subscribes to nothing when given no handlers`() {
         integrationSubscription(StorageEvent::class).registerOn(locator)
 
         assertFalse(locator.subscribedEventTypes().contains(StorageEvent::class))
@@ -73,7 +73,7 @@ class EventSubscriptionTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun integrationSubscription_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
+    fun `accepts loaded handler tokens in place of integration handler classes`() {
         integrationSubscription(StorageEvent::class, LoadedEventHandler(PrintEventHandler::class))
             .registerOn(locator)
 
@@ -82,7 +82,7 @@ class EventSubscriptionTest {
 
     @Test
     @OptIn(GeneratedKBusApi::class)
-    fun domainSubscription_acceptsLoadedHandlerTokensInPlaceOfHandlerClasses() {
+    fun `accepts loaded handler tokens in place of domain handler classes`() {
         domainSubscription(
                 TestDomainEvent::class,
                 LoadedEventHandler(TestDomainEventHandler::class),

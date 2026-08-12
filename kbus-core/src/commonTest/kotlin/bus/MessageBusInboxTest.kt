@@ -216,65 +216,61 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun aFailingContextIsRetriedAlone_theOutboxEntryIsAckedAndHealthyContextsDispatchOnce() =
-        runTest {
-            val outboxStore = RecordingOutboxStore()
-            val busStores = HandlerFactoryStoreCollection()
-            val busLocator = PersistingHandlerLocator(busStores)
-            registerPublishingCommand(busStores)
+    fun `acknowledges the outbox entry once every context has taken delivery`() = runTest {
+        val outboxStore = RecordingOutboxStore()
+        val busStores = HandlerFactoryStoreCollection()
+        val busLocator = PersistingHandlerLocator(busStores)
+        registerPublishingCommand(busStores)
 
-            val healthyReceived = mutableListOf<String>()
-            val failedAttempts = mutableListOf<String>()
-            val healthyStores = HandlerFactoryStoreCollection()
-            val failingStores = HandlerFactoryStoreCollection()
-            val healthyLocator = PersistingHandlerLocator(healthyStores)
-            val failingLocator = PersistingHandlerLocator(failingStores)
-            registerAlphaHandlerIn(healthyStores, healthyLocator, healthyReceived, "healthy")
-            registerThrowingHandlerIn(failingStores, failingLocator, failedAttempts)
+        val healthyReceived = mutableListOf<String>()
+        val failedAttempts = mutableListOf<String>()
+        val healthyStores = HandlerFactoryStoreCollection()
+        val failingStores = HandlerFactoryStoreCollection()
+        val healthyLocator = PersistingHandlerLocator(healthyStores)
+        val failingLocator = PersistingHandlerLocator(failingStores)
+        registerAlphaHandlerIn(healthyStores, healthyLocator, healthyReceived, "healthy")
+        registerThrowingHandlerIn(failingStores, failingLocator, failedAttempts)
 
-            val bus =
-                MessageBus(
-                    appScope = backgroundScope,
-                    outbox = OutboxConfig(store = outboxStore),
-                    contexts =
-                        listOf(
-                            BoundedContext(BoundedContextId("publisher"), busLocator),
-                            BoundedContext(
-                                BoundedContextId("healthy"),
-                                healthyLocator,
-                                inbox =
-                                    BoundedContextInbox(
-                                        RecordingInboxStore(),
-                                        InboxAckPolicy.HonourEventStrategy,
-                                    ),
-                            ),
-                            BoundedContext(
-                                BoundedContextId("failing"),
-                                failingLocator,
-                                inbox =
-                                    BoundedContextInbox(
-                                        RecordingInboxStore(),
-                                        InboxAckPolicy.HonourEventStrategy,
-                                    ),
-                            ),
+        val bus =
+            MessageBus(
+                appScope = backgroundScope,
+                outbox = OutboxConfig(store = outboxStore),
+                contexts =
+                    listOf(
+                        BoundedContext(BoundedContextId("publisher"), busLocator),
+                        BoundedContext(
+                            BoundedContextId("healthy"),
+                            healthyLocator,
+                            inbox =
+                                BoundedContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
                         ),
-                    inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
-                )
-            bus.start()
-
-            bus.execute(PublishInboxAlphaCommand("event"))
-            advanceVirtualTime(600)
-
-            assertEquals(1, outboxStore.markedPublished.size)
-            assertEquals(listOf("healthy:event"), healthyReceived)
-            assertTrue(
-                failedAttempts.size >= 2,
-                "expected the inbox pump to retry: $failedAttempts",
+                        BoundedContext(
+                            BoundedContextId("failing"),
+                            failingLocator,
+                            inbox =
+                                BoundedContextInbox(
+                                    RecordingInboxStore(),
+                                    InboxAckPolicy.HonourEventStrategy,
+                                ),
+                        ),
+                    ),
+                inboxTuning = InboxTuning(pollInterval = 100.milliseconds),
             )
-        }
+        bus.start()
+
+        bus.execute(PublishInboxAlphaCommand("event"))
+        advanceVirtualTime(600)
+
+        assertEquals(1, outboxStore.markedPublished.size)
+        assertEquals(listOf("healthy:event"), healthyReceived)
+        assertTrue(failedAttempts.size >= 2, "expected the inbox pump to retry: $failedAttempts")
+    }
 
     @Test
-    fun aFailingContextsEnvelopeStaysPendingInItsOwnInboxOnly() = runTest {
+    fun `leaves a failing context's envelope pending in that context's inbox alone`() = runTest {
         val outboxStore = RecordingOutboxStore()
         val busStores = HandlerFactoryStoreCollection()
         val busLocator = PersistingHandlerLocator(busStores)
@@ -329,7 +325,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun aRedeliveredEnvelopeIsDedupedOnItsId_soHandlersRunOnce() = runTest {
+    fun `runs handlers once for an envelope redelivered under the same id`() = runTest {
         val outboxStore = NonAckingOutboxStore()
         val stores = HandlerFactoryStoreCollection()
         registerPublishingCommand(stores)
@@ -373,7 +369,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun aContextWithoutAnInboxStore_keepsSynchronousDispatch() = runTest {
+    fun `dispatches synchronously to a context that declares no inbox`() = runTest {
         val busStores = HandlerFactoryStoreCollection()
         val busLocator = PersistingHandlerLocator(busStores)
         registerPublishingCommand(busStores)
@@ -418,7 +414,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun aBusWithAnInboxButNoOutbox_mustBeStarted() = runTest {
+    fun `refuses to execute before it is started when a context declares an inbox`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         registerPublishingCommand(stores)
         val healthyLocator = PersistingHandlerLocator(stores)
@@ -445,7 +441,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun nothingPumpsBeforeStart() = runTest {
+    fun `pumps no inbox before it is started`() = runTest {
         val store = RecordingInboxStore()
         val stores = HandlerFactoryStoreCollection()
         registerPublishingCommand(stores)
@@ -470,7 +466,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun stop_haltsThePumps() = runTest {
+    fun `stops pumping every inbox when it is stopped`() = runTest {
         val store = RecordingInboxStore()
         val stores = HandlerFactoryStoreCollection()
         registerPublishingCommand(stores)
@@ -503,7 +499,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun aFailingIntegrationHandlerNeverFailsTheCommand() = runTest {
+    fun `returns a command successfully when an integration handler fails`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         registerPublishingCommand(stores)
         val failingLocator = PersistingHandlerLocator(stores)
@@ -535,7 +531,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun envelopesLeftPendingByAPreviousProcessAreDispatchedOnStart() = runTest {
+    fun `dispatches envelopes a previous process left pending when it starts`() = runTest {
         val store = RecordingInboxStore()
         store.save(listOf(EventEnvelope.of(InboxAlphaEvent("from-before-crash"))))
         val stores = HandlerFactoryStoreCollection()
@@ -564,7 +560,7 @@ class MessageBusInboxTest {
 
     /** The default FireAndForget strategy is not acked until its handler completes. */
     @Test
-    fun aDefaultSettingsEventIsNotAckedUntilItsHandlerCompletes() = runTest {
+    fun `acknowledges an envelope only once its handler has completed`() = runTest {
         val outboxStore = RecordingOutboxStore()
         val stores = HandlerFactoryStoreCollection()
         stores.commandStore.registerHandlers(
@@ -624,7 +620,7 @@ class MessageBusInboxTest {
     }
 
     @Test
-    fun requireHandlerSuccess_leavesAFailedDefaultSettingsEventPending_andRetriesOnTheNextTick() =
+    fun `leaves an envelope pending and retries it when its handler fails and success is required`() =
         runTest {
             val stores = HandlerFactoryStoreCollection()
             stores.commandStore.registerHandlers(

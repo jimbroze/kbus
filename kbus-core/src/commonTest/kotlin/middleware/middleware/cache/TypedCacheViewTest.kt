@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class CacheAdapterTest {
+class TypedCacheViewTest {
 
     private open class Animal(val name: String) {
         override fun equals(other: Any?) = other is Animal && name == other.name
@@ -47,7 +47,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun get_with_compatible_type_returns_value() {
+    fun `returns a stored value of the expected type`() {
         underlyingCache.put("key", Dog("Rex"))
 
         val result = typedCache.get("key")
@@ -56,7 +56,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun get_with_incompatible_type_returns_null() {
+    fun `returns null when the underlying cache holds another type`() {
         underlyingCache.put("key", Cat("Whiskers"))
 
         val result = typedCache.get("key")
@@ -65,19 +65,19 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun get_with_absent_key_returns_null() {
+    fun `returns null for a key the underlying cache does not hold`() {
         assertNull(typedCache.get("missing"))
     }
 
     @Test
-    fun put_stores_value_in_underlying_cache() {
+    fun `stores values in the underlying cache`() {
         typedCache.put("key", Dog("Rex"))
 
         assertEquals(Dog("Rex"), underlyingCache.get("key"))
     }
 
     @Test
-    fun getOrPut_with_compatible_existing_value_returns_it() {
+    fun `returns the existing value when it is of the expected type`() {
         underlyingCache.put("key", Dog("Rex"))
 
         val result = typedCache.getOrPut("key") { Dog("Other") }
@@ -86,7 +86,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun getOrPut_with_null_computes_and_stores() {
+    fun `stores and returns the default when the underlying cache holds nothing`() {
         val result = typedCache.getOrPut("key") { Dog("Rex") }
 
         assertEquals(Dog("Rex"), result)
@@ -94,7 +94,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun getOrPut_with_incompatible_existing_value_replaces_it() {
+    fun `replaces a value of another type when getting or putting`() {
         underlyingCache.put("key", Cat("Whiskers"))
 
         val result = typedCache.getOrPut("key") { Dog("Rex") }
@@ -104,7 +104,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun replaceIfMatching_delegates_correctly() {
+    fun `replaces a matching value in the underlying cache`() {
         underlyingCache.put("key", Dog("Rex"))
 
         val result = typedCache.replaceIfMatching("key", Dog("Rex"), Dog("Buddy"))
@@ -114,7 +114,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun replaceIfMatching_returns_false_when_not_matching() {
+    fun `refuses a conditional replacement when the value does not match`() {
         underlyingCache.put("key", Dog("Rex"))
 
         val result = typedCache.replaceIfMatching("key", Dog("Wrong"), Dog("Buddy"))
@@ -124,7 +124,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun remove_delegates_correctly() {
+    fun `removes the entry from the underlying cache`() {
         underlyingCache.put("key", Dog("Rex"))
 
         typedCache.remove("key")
@@ -133,7 +133,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun removeIfMatching_delegates_correctly() {
+    fun `removes a matching entry from the underlying cache`() {
         underlyingCache.put("key", Dog("Rex"))
 
         val result = typedCache.removeIfMatching("key", Dog("Rex"))
@@ -143,7 +143,7 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun removeIfMatching_returns_false_when_not_matching() {
+    fun `refuses a conditional removal when the value does not match`() {
         underlyingCache.put("key", Dog("Rex"))
 
         val result = typedCache.removeIfMatching("key", Dog("Wrong"))
@@ -153,10 +153,8 @@ class CacheAdapterTest {
     }
 
     @Test
-    fun getOrPut_concurrent_incompatible_replacement_throws_error() {
-        // Simulate: underlying cache has incompatible value and replaceIfMatching fails
-        // (meaning something else changed it concurrently)
-        val stubbedCache =
+    fun `fails rather than guess when another writer displaces the value it is replacing`() {
+        val cacheWhoseReplacementsAlwaysLose =
             object : Cache<String, Animal> {
                 private var value: Animal? = Cat("Whiskers")
 
@@ -174,10 +172,7 @@ class CacheAdapterTest {
                     key: String,
                     oldValue: Animal,
                     newValue: Animal,
-                ): Boolean {
-                    // Simulate concurrent modification: always fail
-                    return false
-                }
+                ): Boolean = false
 
                 override fun remove(key: String) {
                     value = null
@@ -186,7 +181,7 @@ class CacheAdapterTest {
                 override fun removeIfMatching(key: String, value: Animal): Boolean = false
             }
 
-        val typed = stubbedCache.asTypedCache<String, Animal, Dog>()
+        val typed = cacheWhoseReplacementsAlwaysLose.asTypedCache<String, Animal, Dog>()
 
         assertFailsWith<IllegalStateException> { typed.getOrPut("key") { Dog("Rex") } }
     }

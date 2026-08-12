@@ -16,14 +16,14 @@ import kotlin.test.assertIs
 class MessageHandlerFactoryStoreTest {
 
     @Test
-    fun test_registeredTypes_is_empty_when_no_handlers_registered() {
+    fun `reports no message types when nothing is registered`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         assertEquals(emptySet(), store.registeredTypes())
     }
 
     @Test
-    fun test_registeredTypes_contains_a_type_after_registering_handlers() {
+    fun `reports a message type once a handler for it is registered`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -35,7 +35,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_getHandlers_returns_empty_list_when_no_handlers_registered() {
+    fun `finds no handlers for a message with none registered`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         val handlers = store.getHandlers(StorageEvent::class)
@@ -44,7 +44,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_getHandlers_returns_registered_handlers() {
+    fun `finds the handlers registered for a message`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -63,7 +63,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_registerHandlers_appends_to_existing_handlers() {
+    fun `keeps the handlers already registered for a message when more are added`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -85,7 +85,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_registerHandlers_throws_on_duplicate_handler_type() {
+    fun `refuses a handler class already registered for a message`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -102,7 +102,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_registerHandlers_throws_on_duplicate_within_same_batch() {
+    fun `refuses a handler class repeated within one registration`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -124,7 +124,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_removeHandlers_removes_specific_handler_types() {
+    fun `removes only the handler classes it is asked to remove`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -146,7 +146,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_removeHandlers_removes_all_handlers_when_types_is_null() {
+    fun `removes every handler for a message when asked for no class in particular`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -165,7 +165,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_registeredTypes_excludes_a_type_whose_last_handler_was_removed_by_type() {
+    fun `stops reporting a message type once its last handler is removed`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -179,7 +179,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_removeHandlers_does_nothing_for_unregistered_message() {
+    fun `ignores a removal for a message it holds no handler for`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.removeHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
@@ -188,7 +188,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_getHandlersByType_returns_matching_factories() {
+    fun `finds the factories for the handler classes it is asked for`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         store.registerHandlers(
@@ -209,7 +209,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_getHandlersByType_returns_empty_list_when_no_match() {
+    fun `finds no factories for handler classes it does not hold`() {
         val store = MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.event.Event>()
 
         val factories =
@@ -219,7 +219,7 @@ class MessageHandlerFactoryStoreTest {
     }
 
     @Test
-    fun test_different_message_types_are_independent() {
+    fun `keeps the handlers of different message types apart`() {
         val store =
             MessageHandlerFactoryStore<com.jimbroze.kbus.contracts.messages.command.Command<*>>()
 

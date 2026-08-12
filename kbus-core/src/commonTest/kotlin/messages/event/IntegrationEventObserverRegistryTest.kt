@@ -14,7 +14,7 @@ import kotlinx.coroutines.yield
 class IntegrationEventObserverRegistryTest {
 
     @Test
-    fun observableFor_returns_same_flow_for_same_event_type() = runTest {
+    fun `hands out one shared flow per event type`() = runTest {
         val registry = IntegrationEventObserverRegistry()
 
         val flow1 = registry.observableFor(TestIntegrationEvent::class)
@@ -24,7 +24,7 @@ class IntegrationEventObserverRegistryTest {
     }
 
     @Test
-    fun emit_delivers_event_to_flow_collector() = runTest {
+    fun `delivers an emitted event to a collector of its type`() = runTest {
         val registry = IntegrationEventObserverRegistry()
 
         val received = mutableListOf<TestIntegrationEvent>()
@@ -40,7 +40,7 @@ class IntegrationEventObserverRegistryTest {
     }
 
     @Test
-    fun emit_is_noop_when_no_observer_registered() = runTest {
+    fun `drops an emitted event when nothing is observing its type`() = runTest {
         val registry = IntegrationEventObserverRegistry()
 
         // Should not throw
@@ -48,7 +48,7 @@ class IntegrationEventObserverRegistryTest {
     }
 
     @Test
-    fun multiple_collectors_each_receive_emitted_event() = runTest {
+    fun `delivers an emitted event to every collector of its type`() = runTest {
         val registry = IntegrationEventObserverRegistry()
 
         val received1 = mutableListOf<TestIntegrationEvent>()

@@ -71,7 +71,7 @@ class ContextCommandsPairingCompilationTest {
         """
 
     @Test
-    fun aHandlerCreatorRunAgainstTheContextOwningItsCommandsCompiles() {
+    fun `accepts a handler creator paired with the context owning its commands`() {
         val result =
             compile(
                 """
@@ -88,7 +88,7 @@ class ContextCommandsPairingCompilationTest {
     }
 
     @Test
-    fun aHandlerCreatorRunAgainstAContextOwningOtherCommandsIsRejected() {
+    fun `rejects a handler creator paired with a context owning other commands`() {
         val result =
             compile(
                 """

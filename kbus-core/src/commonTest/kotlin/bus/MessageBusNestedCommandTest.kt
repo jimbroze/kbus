@@ -231,7 +231,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandRunsInTheOuterCommandsTransaction() = runTest {
+    fun `runs a nested command in the outer command's transaction`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -251,7 +251,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aThrowingNestedCommandRollsTheOuterTransactionBack() = runTest {
+    fun `rolls the outer transaction back when a nested command throws`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -272,7 +272,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandsDomainEventsRunInTheOuterTransaction() = runTest {
+    fun `runs a nested command's domain events in the outer transaction`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -302,7 +302,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandsIntegrationEventsPublishThroughTheOuterInvocation() = runTest {
+    fun `publishes a nested command's integration events through the outer invocation`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -335,37 +335,42 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun everyCommandMiddlewareRunsForNestedCommandsAndEntryPointOnlyMiddlewareDoesNot() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-        val middlewareCalls = mutableListOf<String>()
-        registerOuterAndInner(stores, outerTransaction = null, innerTransaction = null)
+    fun `runs every middleware for a nested command except those scoped to the entry point`() =
+        runTest {
+            val stores = HandlerFactoryStoreCollection()
+            val locator = PersistingHandlerLocator(stores)
+            val middlewareCalls = mutableListOf<String>()
+            registerOuterAndInner(stores, outerTransaction = null, innerTransaction = null)
 
-        val bus =
-            MessageBus(
-                locator,
-                middlewares =
-                    listOf(
-                        RecordingMiddleware(
-                            "entry",
-                            MiddlewareScope.EntryPointOnly,
-                            middlewareCalls,
+            val bus =
+                MessageBus(
+                    locator,
+                    middlewares =
+                        listOf(
+                            RecordingMiddleware(
+                                "entry",
+                                MiddlewareScope.EntryPointOnly,
+                                middlewareCalls,
+                            ),
+                            RecordingMiddleware(
+                                "every",
+                                MiddlewareScope.EveryCommand,
+                                middlewareCalls,
+                            ),
                         ),
-                        RecordingMiddleware("every", MiddlewareScope.EveryCommand, middlewareCalls),
-                    ),
-                appScope = backgroundScope,
+                    appScope = backgroundScope,
+                )
+
+            bus.execute(OuterCommand("middleware"))
+
+            assertContentEquals(
+                listOf("entry:OuterCommand", "every:OuterCommand", "every:InnerCommand"),
+                middlewareCalls,
             )
-
-        bus.execute(OuterCommand("middleware"))
-
-        assertContentEquals(
-            listOf("entry:OuterCommand", "every:OuterCommand", "every:InnerCommand"),
-            middlewareCalls,
-        )
-    }
+        }
 
     @Test
-    fun nestingTwoDeepRunsInTheOneTransaction() = runTest {
+    fun `runs commands nested two deep in the one transaction`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -397,7 +402,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandsFailureReturnsToTheCallerWithoutAbortingIt() = runTest {
+    fun `returns a nested command's failure to its caller without aborting it`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         stores.commandStore.registerHandlers(
@@ -426,7 +431,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aCommandOwnedByAnotherContextIsNotNestable() = runTest {
+    fun `refuses to nest a command another context owns`() = runTest {
         val callerStores = HandlerFactoryStoreCollection()
         val callerLocator = PersistingHandlerLocator(callerStores)
         callerStores.commandStore.registerHandlers(
@@ -458,7 +463,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandDeclaringNoTransactionRunsInsideOneAnyway() = runTest {
+    fun `runs a nested command declaring no transaction inside the outer one`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -474,7 +479,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandDeclaringATransactionOutsideOneFails() = runTest {
+    fun `refuses a command declaring a transaction when nested outside one`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerOuterAndInner(stores, outerTransaction = null)
@@ -488,7 +493,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandOverridingWithTheRunningManagerRuns() = runTest {
+    fun `runs a nested command declaring the transaction manager already running`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
@@ -507,7 +512,7 @@ class MessageBusNestedCommandTest {
     }
 
     @Test
-    fun aNestedCommandOverridingWithADifferentManagerFails() = runTest {
+    fun `refuses a nested command declaring a different transaction manager`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val outerManager = RecordingTransactionManager(recorder)

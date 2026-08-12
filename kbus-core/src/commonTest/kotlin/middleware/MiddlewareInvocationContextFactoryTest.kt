@@ -19,7 +19,7 @@ import kotlinx.coroutines.test.runTest
 
 class MiddlewareInvocationContextFactoryTest {
     @Test
-    fun contextFor_an_invocation_with_an_outbox_publisher_exposes_that_outbox() = runTest {
+    fun `exposes the outbox an invocation publishes through`() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val outbox =
             TransactionalOutbox(
@@ -38,7 +38,7 @@ class MiddlewareInvocationContextFactoryTest {
     }
 
     @Test
-    fun contextFor_an_invocation_using_the_base_publisher_exposes_it() = runTest {
+    fun `exposes the base publisher an invocation publishes through`() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val invocation = testInvocation<Any?>(publisher = basePublisher)
         val factory =
@@ -50,7 +50,7 @@ class MiddlewareInvocationContextFactoryTest {
     }
 
     @Test
-    fun contextFor_null_exposes_the_base_publisher() = runTest {
+    fun `exposes the base publisher outside any invocation`() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factory =
             MiddlewareInvocationContextFactory(
@@ -61,19 +61,20 @@ class MiddlewareInvocationContextFactoryTest {
     }
 
     @Test
-    fun contextFor_null_withAnOutboxConfigured_exposesTheImmediateOutboxPublisher() = runTest {
-        val publishers =
-            TestPublisherFactories(
-                backgroundScope,
-                outboxConfig = OutboxConfig(RecordingOutboxStore()),
-            )
-        val factory = publishers.contextFactory
+    fun `exposes the immediate outbox publisher outside any invocation when an outbox is configured`() =
+        runTest {
+            val publishers =
+                TestPublisherFactories(
+                    backgroundScope,
+                    outboxConfig = OutboxConfig(RecordingOutboxStore()),
+                )
+            val factory = publishers.contextFactory
 
-        assertIs<ImmediateOutboxPublisher>(factory.contextFor(null).integrationEventPublisher)
-    }
+            assertIs<ImmediateOutboxPublisher>(factory.contextFor(null).integrationEventPublisher)
+        }
 
     @Test
-    fun resolution_is_per_call_not_cached() = runTest {
+    fun `resolves the publisher afresh for every invocation`() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val outbox =
             TransactionalOutbox(

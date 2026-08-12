@@ -16,7 +16,7 @@ import kotlinx.coroutines.yield
 
 class ObservableEventMapperTest {
     @Test
-    fun test_mapper_sends_events() = runTest {
+    fun `emits an event it is given`() = runTest {
         val mapper = ObservableEventMapper<TestIntegrationEvent>()
 
         val received = mutableListOf<TestIntegrationEvent>()
@@ -31,7 +31,7 @@ class ObservableEventMapperTest {
     }
 
     @Test
-    fun test_emitted_event_is_received_by_collector() = runTest {
+    fun `delivers an emitted event to a collector`() = runTest {
         val mapper = ObservableEventMapper<TestIntegrationEvent>()
         val publisher: ObservableEventPublisher<TestIntegrationEvent> = mapper
         val observer: EventObserver<TestIntegrationEvent> = mapper
@@ -48,7 +48,7 @@ class ObservableEventMapperTest {
     }
 
     @Test
-    fun test_multiple_emitted_events_are_received_in_order() = runTest {
+    fun `delivers several emitted events in the order they were emitted`() = runTest {
         val mapper = ObservableEventMapper<TestIntegrationEvent>()
         val publisher: ObservableEventPublisher<TestIntegrationEvent> = mapper
         val observer: EventObserver<TestIntegrationEvent> = mapper
@@ -66,7 +66,7 @@ class ObservableEventMapperTest {
     }
 
     @Test
-    fun test_multiple_collectors_each_receive_emitted_events() = runTest {
+    fun `delivers an emitted event to every collector`() = runTest {
         val mapper = ObservableEventMapper<TestIntegrationEvent>()
         val publisher: ObservableEventPublisher<TestIntegrationEvent> = mapper
         val observer: EventObserver<TestIntegrationEvent> = mapper
@@ -89,7 +89,7 @@ class ObservableEventMapperTest {
     }
 
     @Test
-    fun test_late_subscriber_does_not_receive_previously_emitted_events() = runTest {
+    fun `delivers nothing already emitted to a collector that subscribes later`() = runTest {
         val mapper = ObservableEventMapper<TestIntegrationEvent>()
         val publisher: ObservableEventPublisher<TestIntegrationEvent> = mapper
         val observer: EventObserver<TestIntegrationEvent> = mapper
@@ -109,7 +109,7 @@ class ObservableEventMapperTest {
     }
 
     @Test
-    fun test_rapid_sequential_events_are_all_received() = runTest {
+    fun `delivers every event of a rapid succession`() = runTest {
         val mapper = ObservableEventMapper<TestIntegrationEvent>()
         val eventCount = 100
         val publisher: ObservableEventPublisher<TestIntegrationEvent> = mapper

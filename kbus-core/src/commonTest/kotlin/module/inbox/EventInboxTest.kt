@@ -23,7 +23,7 @@ private class InboxTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class EventInboxTest {
     @Test
-    fun name_and_appliesTo_delegateToTheInnerDestination() = runTest {
+    fun `takes its name and the events it accepts from the destination it wraps`() = runTest {
         val destination = RecordingDestination(name = "orders")
         val inbox =
             EventInbox(
@@ -38,7 +38,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun deliver_savesToTheStoreWithoutDispatching() = runTest {
+    fun `saves a delivered envelope to its store without dispatching it`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =
@@ -57,7 +57,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun deliver_ofAnEmptyList_doesNothing() = runTest {
+    fun `saves nothing for an empty delivery`() = runTest {
         val store = RecordingInboxStore()
         val inbox =
             EventInbox(
@@ -73,7 +73,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun deliver_aStoreFailurePropagates_soTheRouterCanLeaveTheEntryUnacked() = runTest {
+    fun `propagates a store failure so the entry is left unacknowledged`() = runTest {
         val store = RecordingInboxStore().apply { saveFailure = IllegalStateException("db down") }
         val inbox =
             EventInbox(
@@ -89,7 +89,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun deliver_withOpportunisticDispatch_dispatchesToTheInnerDestination() = runTest {
+    fun `dispatches to the wrapped destination when opportunistic dispatch is on`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =
@@ -103,7 +103,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun drain_dispatchesEachEnvelopeInItsOwnInnerDeliverCall() = runTest {
+    fun `dispatches each drained envelope in its own delivery`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =
@@ -124,7 +124,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun drain_aFailingInnerDelivery_leavesTheEnvelopePendingAndUnconsumed() = runTest {
+    fun `leaves an envelope pending and unconsumed when its delivery fails`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         destination.failure = IllegalStateException("handler failed")
@@ -149,7 +149,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun drain_oneFailingEnvelopeDoesNotBlockTheOthers() = runTest {
+    fun `drains the remaining envelopes when one of them fails`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         destination.failureFor = { envelope ->
@@ -173,7 +173,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun deliver_ofAnAlreadyConsumedEnvelope_doesNotRedispatch() = runTest {
+    fun `dispatches nothing for an envelope whose id was already consumed`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =
@@ -194,7 +194,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun deliver_ofAnEnvelopeStillPending_doesNotQueueItTwice() = runTest {
+    fun `queues an envelope once when its id is already pending`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =
@@ -213,7 +213,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun drain_isSingleFlight_soAnOpportunisticDrainCannotRaceAPumpTick() = runTest {
+    fun `makes a concurrent drain wait for the one already running`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val order = mutableListOf<String>()
@@ -250,7 +250,7 @@ class EventInboxTest {
     }
 
     @Test
-    fun pump_keepsDrainingOnTheConfiguredInterval() = runTest {
+    fun `keeps draining on the interval it was configured with`() = runTest {
         val store = RecordingInboxStore()
         val destination = RecordingDestination()
         val inbox =

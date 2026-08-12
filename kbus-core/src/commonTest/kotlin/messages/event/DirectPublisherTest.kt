@@ -28,7 +28,7 @@ private class FireAndForgetTestEvent(val name: String) : IntegrationEvent()
 @OptIn(ExperimentalCoroutinesApi::class)
 class DirectPublisherTest {
     @Test
-    fun publish_mintsOneEnvelopePerEventAndRoutesThem() = runTest {
+    fun `mints one envelope per event and routes every one`() = runTest {
         val destination = RecordingDestination()
         val publisher = DirectPublisher(EventRouter(listOf(destination)), this)
 
@@ -42,7 +42,7 @@ class DirectPublisherTest {
     }
 
     @Test
-    fun publish_mintsDistinctIds() = runTest {
+    fun `mints a distinct id for every envelope`() = runTest {
         val destination = RecordingDestination()
         val publisher = DirectPublisher(EventRouter(listOf(destination)), this)
 
@@ -52,7 +52,7 @@ class DirectPublisherTest {
     }
 
     @Test
-    fun publish_awaitsNonFireAndForgetEventsAndPropagatesADestinationFailure() = runTest {
+    fun `awaits an awaited event and propagates a destination's failure`() = runTest {
         val destination = RecordingDestination()
         destination.failure = IllegalStateException("boom")
         val publisher = DirectPublisher(EventRouter(listOf(destination)), this)
@@ -63,7 +63,7 @@ class DirectPublisherTest {
     }
 
     @Test
-    fun publish_returnsBeforeFireAndForgetEventsAreRouted() = runTest {
+    fun `returns before a fire-and-forget event reaches its destinations`() = runTest {
         val destination = RecordingDestination()
         val publisher = DirectPublisher(EventRouter(listOf(destination)), this)
 
@@ -82,7 +82,7 @@ class DirectPublisherTest {
     }
 
     @Test
-    fun publish_makesExactlyOneRouteCallForAHomogeneousFireAndForgetBatch() = runTest {
+    fun `routes a batch of fire-and-forget events in a single call`() = runTest {
         val destination = RecordingDestination()
         val publisher = DirectPublisher(EventRouter(listOf(destination)), this)
 
@@ -93,7 +93,7 @@ class DirectPublisherTest {
     }
 
     @Test
-    fun publish_makesExactlyOneRouteCallForAHomogeneousAwaitedBatch() = runTest {
+    fun `routes a batch of awaited events in a single call`() = runTest {
         val destination = RecordingDestination()
         val publisher = DirectPublisher(EventRouter(listOf(destination)), this)
 

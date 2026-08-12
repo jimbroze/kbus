@@ -16,7 +16,7 @@ import kotlinx.coroutines.test.runTest
 class AutoPublishIntegrationEventsTest {
 
     @Test
-    fun publishes_the_integration_event_mapped_by_a_lambda_registration() = runTest {
+    fun `publishes the integration event a lambda registration maps to`() = runTest {
         val publisher = RecordingIntegrationEventPublisher()
         val middleware =
             AutoPublishIntegrationEvents(
@@ -31,20 +31,19 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun publishes_the_integration_event_mapped_by_an_auto_publishes_from_companion_object() =
-        runTest {
-            val publisher = RecordingIntegrationEventPublisher()
-            val middleware = AutoPublishIntegrationEvents(autoPublish(OrderPlacedIntegration))
+    fun `publishes the integration event a companion object maps to`() = runTest {
+        val publisher = RecordingIntegrationEventPublisher()
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OrderPlacedIntegration))
 
-            middleware.handle(OrderPlaced("order-2"), contextWith(publisher)) {}
+        middleware.handle(OrderPlaced("order-2"), contextWith(publisher)) {}
 
-            val published = publisher.publishedEvents.flatten()
-            val event = assertIs<OrderPlacedIntegration>(published.single())
-            assertEquals("order-2", event.orderId)
-        }
+        val published = publisher.publishedEvents.flatten()
+        val event = assertIs<OrderPlacedIntegration>(published.single())
+        assertEquals("order-2", event.orderId)
+    }
 
     @Test
-    fun publishes_all_integration_events_registered_for_a_domain_event_together() = runTest {
+    fun `publishes every integration event registered for a domain event in one batch`() = runTest {
         val publisher = RecordingIntegrationEventPublisher()
         val middleware =
             AutoPublishIntegrationEvents(
@@ -61,7 +60,7 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun continues_the_chain_and_returns_the_next_middleware_result() = runTest {
+    fun `passes the event down the chain and returns what the chain returned`() = runTest {
         val middleware =
             AutoPublishIntegrationEvents(
                 autoPublish<OrderPlaced> { OrderPlacedIntegration(it.orderId) }
@@ -79,7 +78,7 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun does_not_publish_for_domain_events_without_a_registration() = runTest {
+    fun `publishes nothing for a domain event with no registration`() = runTest {
         val publisher = RecordingIntegrationEventPublisher()
         val middleware =
             AutoPublishIntegrationEvents(

@@ -14,7 +14,7 @@ class ProcessingContextAutoPublishTest {
     private val integrationEventTwo = ClassName("com.example", "OrderPlacedAnalytics")
 
     @Test
-    fun new_definition_returns_accept() {
+    fun `accepts an auto-publish definition nothing is registered for`() {
         val context = ProcessingContext()
 
         val result =
@@ -25,7 +25,7 @@ class ProcessingContextAutoPublishTest {
     }
 
     @Test
-    fun identical_definition_returns_exact_duplicate() {
+    fun `reports an identical definition as an exact duplicate`() {
         val context = ProcessingContext()
         context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
 
@@ -36,7 +36,7 @@ class ProcessingContextAutoPublishTest {
     }
 
     @Test
-    fun same_integration_event_different_domain_event_returns_invalid_conflict() {
+    fun `reports one integration event mapped from two domain events as a conflict`() {
         val context = ProcessingContext()
         context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
 
@@ -47,7 +47,7 @@ class ProcessingContextAutoPublishTest {
     }
 
     @Test
-    fun different_integration_events_from_same_domain_event_both_accepted() {
+    fun `accepts two integration events mapped from one domain event`() {
         val context = ProcessingContext()
         val firstResult =
             context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
@@ -61,7 +61,7 @@ class ProcessingContextAutoPublishTest {
     }
 
     @Test
-    fun context_with_only_auto_publish_definitions_is_not_empty() {
+    fun `counts a context holding only auto-publish definitions as non-empty`() {
         val context = ProcessingContext()
 
         context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))

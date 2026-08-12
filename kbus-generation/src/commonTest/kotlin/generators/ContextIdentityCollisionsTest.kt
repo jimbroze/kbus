@@ -43,7 +43,7 @@ class ContextIdentityCollisionsTest {
         )
 
     @Test
-    fun identitiesDifferingOnlyBySeparatorsAreRejected() {
+    fun `rejects identities that differ only by their separators`() {
         val handlers =
             setOf(
                 commandHandler("PlaceOrderHandler", "order-fulfilment"),
@@ -57,7 +57,7 @@ class ContextIdentityCollisionsTest {
     }
 
     @Test
-    fun aCollisionNamesTheHandlersThatDeclaredEachIdentity() {
+    fun `names the handlers that declared each identity in a collision`() {
         val handlers =
             setOf(
                 commandHandler("PlaceOrderHandler", "order.fulfilment"),
@@ -71,7 +71,7 @@ class ContextIdentityCollisionsTest {
     }
 
     @Test
-    fun anIdentityNamingTheDefaultContextIsRejected() {
+    fun `rejects an identity that names the default context`() {
         val handlers = setOf(commandHandler("PlaceOrderHandler", "default"))
 
         assertFalse(reportContextIdentityCollisions(handlers, logger))
@@ -80,7 +80,7 @@ class ContextIdentityCollisionsTest {
     }
 
     @Test
-    fun identitiesThatGenerateDistinctNamesAreAccepted() {
+    fun `accepts identities that generate distinct names`() {
         val handlers =
             setOf(
                 commandHandler("PlaceOrderHandler", "orders"),

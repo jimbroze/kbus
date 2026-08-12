@@ -20,7 +20,7 @@ class ProcessingContextBoundedContextIdentityTest {
         )
 
     @Test
-    fun handlersFromDifferentModulesWithTheSameEventClassAreBothKept() {
+    fun `keeps handlers from different modules for the same event class`() {
         val context = ProcessingContext()
 
         val first = context.tryAddHandler(integrationHandler("OrdersHandler", "orders"))
@@ -35,7 +35,7 @@ class ProcessingContextBoundedContextIdentityTest {
     }
 
     @Test
-    fun handlerIdentityDoesNotAffectConflictDetection() {
+    fun `detects a conflict regardless of the identities the handlers carry`() {
         val context = ProcessingContext()
         context.tryAddHandler(integrationHandler("OrdersHandler", "orders"))
 
@@ -47,7 +47,7 @@ class ProcessingContextBoundedContextIdentityTest {
     }
 
     @Test
-    fun anUnassignedBoundedContextIdentityIsTheEmptyString() {
+    fun `records an unassigned bounded context identity as the empty string`() {
         val handlerData =
             HandlerData(ClassName("com.example", "RootHandler"), event, UNIT, emptyList())
 

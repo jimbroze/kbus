@@ -40,7 +40,7 @@ import kotlinx.coroutines.test.runTest
 
 class MessageBusOutboxTest {
     @Test
-    fun commit_dispatches_the_imperative_event_via_the_outbox_exactly_once() = runTest {
+    fun `delivers an explicitly published event through the outbox exactly once`() = runTest {
         val store = RollbackSimulatingOutboxStore()
         val transactionManager = RollbackSimulatingTransactionManager(store)
         val stores = HandlerFactoryStoreCollection()
@@ -67,7 +67,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun commit_dispatches_the_autopublished_event_via_the_outbox() = runTest {
+    fun `delivers an auto-published event through the outbox`() = runTest {
         val store = RollbackSimulatingOutboxStore()
         val transactionManager = RollbackSimulatingTransactionManager(store)
         val stores = HandlerFactoryStoreCollection()
@@ -96,7 +96,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun rollback_discards_the_autopublished_event_so_nothing_is_saved_or_delivered() = runTest {
+    fun `saves and delivers no auto-published event when the transaction rolls back`() = runTest {
         val store = RollbackSimulatingOutboxStore()
         val transactionManager = RollbackSimulatingTransactionManager(store)
         val stores = HandlerFactoryStoreCollection()
@@ -126,7 +126,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun rollback_discards_captured_events_so_nothing_is_dispatched() = runTest {
+    fun `delivers no captured event when the transaction rolls back`() = runTest {
         val store = RollbackSimulatingOutboxStore()
         val transactionManager = RollbackSimulatingTransactionManager(store)
         val stores = HandlerFactoryStoreCollection()
@@ -159,7 +159,7 @@ class MessageBusOutboxTest {
      * deterministic: it cannot record anything until the test releases it.
      */
     @Test
-    fun middleware_published_event_is_captured_by_the_outbox_and_not_delivered_before_commit() =
+    fun `holds an event published by middleware in the outbox until the transaction commits`() =
         runTest {
             val store = InMemoryOutboxStore()
             val stores = HandlerFactoryStoreCollection()
@@ -213,7 +213,7 @@ class MessageBusOutboxTest {
      * every handler before the poller (or drain) marks an entry published.
      */
     @Test
-    fun aDefaultSettingsEventIsNotMarkedPublishedUntilItsHandlerCompletes() = runTest {
+    fun `marks an entry published only once its handler has completed`() = runTest {
         val store = InMemoryOutboxStore()
         val stores = HandlerFactoryStoreCollection()
         val received = mutableListOf<String>()
@@ -266,7 +266,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun middleware_published_event_on_a_successful_command_is_saved_in_transaction_and_delivered() =
+    fun `saves an event published by middleware in the transaction and delivers it after commit`() =
         runTest {
             val store = RollbackSimulatingOutboxStore()
             val transactionManager = RollbackSimulatingTransactionManager(store)
@@ -309,45 +309,44 @@ class MessageBusOutboxTest {
      * the event is rollback-safe, not merely captured-but-undelivered.
      */
     @Test
-    fun middleware_published_event_is_rolled_back_and_never_delivered_when_the_command_fails() =
-        runTest {
-            val store = RollbackSimulatingOutboxStore()
-            val transactionManager = RollbackSimulatingTransactionManager(store)
-            val stores = HandlerFactoryStoreCollection()
-            val received = mutableListOf<String>()
-            val locator = PersistingHandlerLocator(stores)
-            registerImperativeHandlerOnly(stores, locator, received)
-            stores.commandStore.registerHandlers(
-                OutboxNoopCommand::class,
-                listOf(
-                    CommandHandlerFactory(OutboxFailingNoopCommandHandler::class) {
-                        OutboxFailingNoopCommandHandler()
-                    }
-                ),
+    fun `never delivers an event published by middleware when the command fails`() = runTest {
+        val store = RollbackSimulatingOutboxStore()
+        val transactionManager = RollbackSimulatingTransactionManager(store)
+        val stores = HandlerFactoryStoreCollection()
+        val received = mutableListOf<String>()
+        val locator = PersistingHandlerLocator(stores)
+        registerImperativeHandlerOnly(stores, locator, received)
+        stores.commandStore.registerHandlers(
+            OutboxNoopCommand::class,
+            listOf(
+                CommandHandlerFactory(OutboxFailingNoopCommandHandler::class) {
+                    OutboxFailingNoopCommandHandler()
+                }
+            ),
+        )
+        val middleware =
+            PublishingViaContextMiddleware(OutboxImperativeEvent("via-middleware-failing"))
+
+        val bus =
+            MessageBus(
+                locator,
+                transactionManager = transactionManager,
+                middlewares = listOf(middleware),
+                appScope = backgroundScope,
+                outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
             )
-            val middleware =
-                PublishingViaContextMiddleware(OutboxImperativeEvent("via-middleware-failing"))
+        bus.start()
+        advanceVirtualTime(50)
 
-            val bus =
-                MessageBus(
-                    locator,
-                    transactionManager = transactionManager,
-                    middlewares = listOf(middleware),
-                    appScope = backgroundScope,
-                    outbox = OutboxConfig(store = store, pollInterval = 10.seconds),
-                )
-            bus.start()
-            advanceVirtualTime(50)
+        assertFailsWith<IllegalStateException> { bus.execute(OutboxNoopCommand()) }
+        advanceVirtualTime(150)
 
-            assertFailsWith<IllegalStateException> { bus.execute(OutboxNoopCommand()) }
-            advanceVirtualTime(150)
-
-            assertTrue(received.isEmpty(), "Never delivered: nothing was ever flushed to the store")
-            assertTrue(store.fetchUnpublished(10).isEmpty(), "Rollback-safe: nothing staged")
-        }
+        assertTrue(received.isEmpty(), "Never delivered: nothing was ever flushed to the store")
+        assertTrue(store.fetchUnpublished(10).isEmpty(), "Rollback-safe: nothing staged")
+    }
 
     @Test
-    fun preexisting_unpublished_entries_are_delivered_on_the_pollers_first_pass() = runTest {
+    fun `delivers entries left unpublished on the poller's first pass`() = runTest {
         val store = InMemoryOutboxStore()
         store.save(listOf(EventEnvelope("seeded-1", OutboxImperativeEvent("from-before-crash"))))
         val stores = HandlerFactoryStoreCollection()
@@ -368,7 +367,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun a_drain_failure_leaves_the_entry_for_the_poller_to_retry() = runTest {
+    fun `leaves an entry for the poller to retry when the drain fails`() = runTest {
         val store = InMemoryOutboxStore()
         val stores = HandlerFactoryStoreCollection()
         val attempts = mutableListOf<String>()
@@ -391,7 +390,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun poller_only_mode_delivers_without_a_drain() = runTest {
+    fun `delivers entries with the poller alone when the drain is disabled`() = runTest {
         val store = InMemoryOutboxStore()
         val stores = HandlerFactoryStoreCollection()
         val received = mutableListOf<String>()
@@ -421,7 +420,7 @@ class MessageBusOutboxTest {
     }
 
     @Test
-    fun bus_without_outbox_config_dispatches_directly_as_before() = runTest {
+    fun `delivers events directly when no outbox is configured`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)

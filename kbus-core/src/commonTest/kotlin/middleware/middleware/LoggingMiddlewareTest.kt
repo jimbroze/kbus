@@ -22,10 +22,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-class LoggingTest {
+class LoggingMiddlewareTest {
 
     @Test
-    fun message_logger_does_not_log_messages_that_do_not_implement_logging_interface() = runTest {
+    fun `logs nothing for a message that does not opt into logging`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
@@ -41,7 +41,7 @@ class LoggingTest {
     }
 
     @Test
-    fun message_logger_logs_before_and_after_message_using_provided_level() = runTest {
+    fun `logs before and after a message at the levels it was given`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
@@ -60,7 +60,7 @@ class LoggingTest {
     }
 
     @Test
-    fun test_commands_log_with_correct_verbs() = runTest {
+    fun `describes a command it handles as a command`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
@@ -79,7 +79,7 @@ class LoggingTest {
     }
 
     @Test
-    fun test_queries_log_with_correct_verbs() = runTest {
+    fun `describes a query it handles as a query`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
@@ -95,7 +95,7 @@ class LoggingTest {
     }
 
     @Test
-    fun test_commands_log_exception_and_rethrow() = runTest {
+    fun `logs the failure and rethrows when a command handler throws`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
@@ -115,7 +115,7 @@ class LoggingTest {
     }
 
     @Test
-    fun test_events_log_with_correct_verbs() = runTest {
+    fun `describes an event it handles as an event`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)
@@ -134,7 +134,7 @@ class LoggingTest {
     }
 
     @Test
-    fun test_events_log_exception_and_rethrow() = runTest {
+    fun `logs the failure and rethrows when an event handler throws`() = runTest {
         val captureLogger = CaptureLogger()
         val logger =
             LoggingMiddleware(captureLogger, LogLevels.DEBUG, LogLevels.INFO, LogLevels.ERROR)

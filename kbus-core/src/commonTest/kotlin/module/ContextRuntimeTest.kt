@@ -47,36 +47,35 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun delivering_a_list_of_envelopes_dispatches_each_to_its_registered_handlers_in_order() =
-        runTest {
-            val stores = HandlerFactoryStoreCollection()
-            val locator = PersistingHandlerLocator(stores)
-            val results = mutableListOf<String>()
+    fun `dispatches each delivered envelope to its handlers in order`() = runTest {
+        val stores = HandlerFactoryStoreCollection()
+        val locator = PersistingHandlerLocator(stores)
+        val results = mutableListOf<String>()
 
-            stores.eventStore.registerHandlers(
-                StorageEvent::class,
-                listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
+        stores.eventStore.registerHandlers(
+            StorageEvent::class,
+            listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
+        )
+        locator.integrationEventMapper.addEventHandlers(
+            StorageEvent::class,
+            listOf(PrintEventHandler::class),
+        )
+
+        val runtime = createRuntime(locator, this)
+
+        runtime.deliver(
+            listOf(
+                EventEnvelope.of(StorageEvent("first", results)),
+                EventEnvelope.of(StorageEvent("second", results)),
             )
-            locator.integrationEventMapper.addEventHandlers(
-                StorageEvent::class,
-                listOf(PrintEventHandler::class),
-            )
+        )
+        advanceUntilIdle()
 
-            val runtime = createRuntime(locator, this)
-
-            runtime.deliver(
-                listOf(
-                    EventEnvelope.of(StorageEvent("first", results)),
-                    EventEnvelope.of(StorageEvent("second", results)),
-                )
-            )
-            advanceUntilIdle()
-
-            assertEquals(listOf("first", "second"), results)
-        }
+        assertEquals(listOf("first", "second"), results)
+    }
 
     @Test
-    fun delivering_an_event_with_no_registered_handlers_does_nothing() = runTest {
+    fun `dispatches nothing for an event it has no handler for`() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val runtime = createRuntime(locator, this)
 
@@ -85,7 +84,7 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun delivering_an_empty_list_does_nothing() = runTest {
+    fun `dispatches nothing for an empty delivery`() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val runtime = createRuntime(locator, this)
 
@@ -101,7 +100,7 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun appliesTo_isTrue_forAnEventThisContextHasAnIntegrationHandlerFor() = runTest {
+    fun `accepts an event it has an integration handler for`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerStorageEventHandler(stores)
@@ -116,7 +115,7 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun appliesTo_isFalse_forAnEventThisContextHasNoHandlerFor() = runTest {
+    fun `refuses an event it has no handler for`() = runTest {
         val locator = PersistingHandlerLocator(HandlerFactoryStoreCollection())
         val runtime = createRuntime(locator, this)
 
@@ -130,7 +129,7 @@ class ContextRuntimeTest {
      * exists.
      */
     @Test
-    fun appliesTo_ignoresAHandlerRegisteredAfterTheRuntimeWasConstructed() = runTest {
+    fun `ignores a handler registered after it was constructed`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val runtime = createRuntime(locator, this)
@@ -145,7 +144,7 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun appliesTo_isFalse_forAnotherContextsEvent_whenBothShareHandlerStores() = runTest {
+    fun `refuses another context's event even when they share handler stores`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         registerStorageEventHandler(stores)
         stores.eventStore.registerHandlers(
@@ -173,7 +172,7 @@ class ContextRuntimeTest {
     }
 
     @Test
-    fun deliver_appliesTheAckPolicyDeclaredOnItsOwnContext() = runTest {
+    fun `applies the acknowledgement policy its own context declares`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val attempts = mutableListOf<String>()

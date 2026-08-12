@@ -27,7 +27,7 @@ class DependencyIndexGeneratorTest {
     }
 
     @Test
-    fun anIndexNamesTheCommandInterfaceGeneratedForEachContext() {
+    fun `names in an index the command interface generated for each context`() {
         generateIndex(
             mapOf("orders" to ClassName("com.jimbroze.kbus.generated.sub", "OrdersCommands"))
         )
@@ -40,7 +40,7 @@ class DependencyIndexGeneratorTest {
     }
 
     @Test
-    fun anIndexDeclaringNoCommandInterfacesOmitsTheArgument() {
+    fun `omits the argument from an index declaring no command interfaces`() {
         generateIndex(emptyMap())
 
         val index = generated["DependenciesIndex"]

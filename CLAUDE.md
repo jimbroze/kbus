@@ -4,18 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & Development Commands
 
-```bash
-./gradlew build                  # Full build with tests
-./gradlew allTests               # Run all tests across all platforms
-./gradlew jvmTest                # Run JVM tests only (fastest)
-./gradlew :kbus-core:jvmTest     # Run tests for a single module
-./gradlew :kbus-core:jvmTest --tests "com.jimbroze.kbus.core.SomeTest"  # Single test class
-./gradlew check                  # Run all checks (tests + linting)
-./gradlew ktfmtFormat            # Format code with ktfmt (Kotlin official style)
-./gradlew detekt                 # Run Detekt static analysis
-```
-
-Always format code and check static analysis after making changes.
+Always format code (`./gradlew ktfmtFormat`) and check static analysis (`./gradlew detekt`) after
+making changes.
 
 **Detekt type resolution is currently broken for this project (detekt 1.23.x).** The
 `detektJvmMain`/`detektJvmTest` tasks (the only ones with type resolution, required for
@@ -33,34 +23,12 @@ its own follow-up before relying on any type-aware detekt rule.
 KBUS is a Kotlin Multiplatform CQRS message bus framework. It routes Commands, Queries, and Events to their handlers,
 with KSP code generation for compile-time type-safe handler resolution (zero reflection).
 
-## Module Structure
-
-- **kbus-contracts** — API & interfaces: message types, result types. KSP Annotations
-- **kbus-core** — Core framework & infrastructure: bus, middleware pipeline, handler locators, Unit of Work
-- **kbus-generation** — KSP processor that generates handler factories, dependency containers, and bus classes
-- **kbus-generation-fixtures** / **kbus-generation-fixtures-sub** — Torture test for the processor: odd
-  dependency shapes, lifecycles, and the behaviours a generated bus must hold. Deliberately not a
-  showcase — it exists to be awkward
-- **examples/** — A modular monolith showing the framework as it is meant to be used: `contexts/`
-  holds one Gradle module per layer per bounded context, `app/` holds every piece of bus wiring,
-  `docs-samples/` holds the snippets Knit extracts from README.md. See `examples/README.md`
-- **testDoubles** — Shared test fixtures
-- **buildSrc** — Custom Gradle plugins (`kbus.multiplatform`, `kbus.publish`,
-  `kbus.handler-module`)
+The `kbus-generation-fixtures` / `kbus-generation-fixtures-sub` modules are a torture test for the
+processor — odd dependency shapes, lifecycles, and the behaviours a generated bus must hold.
+Deliberately not a showcase; they exist to be awkward. `examples/` is the opposite: a modular
+monolith showing the framework as it is meant to be used. See `examples/README.md`.
 
 ## Architecture
-
-### Message Types & Handlers
-
-Three message types, each with a corresponding handler base class:
-
-- **Command<TResult>** → `CommandHandler` — State-modifying operations, single handler per command, executes within Unit
-  of Work
-- **Query<TResult>** → `QueryHandler` — Read-only operations, single handler per query
-- **Event** → `EventHandler` / `DomainEventHandler` / `IntegrationEventHandler` — Multiple handlers per event, three
-  dispatch modes (immediately, after primary work, after commit)
-
-All handlers implement `suspend fun handle(message: TMessage)` for coroutine support.
 
 ### Code Generation (KSP)
 
@@ -87,11 +55,6 @@ and emits one context per identity.
 
 A context's factory holds only that context's handlers, so a command another context owns is unresolvable there
 rather than merely refused — the isolation is structural.
-
-### Handler Locators
-
-- `GenerationHandlerLocator` — Uses KSP-generated factory (preferred)
-- `PersistingHandlerLocator` — Runtime registration for dynamic scenarios
 
 ### Middleware Pipeline
 
@@ -144,16 +107,6 @@ registers its own flush (inside the transaction) and drain (post-commit) through
 an outbox is configured, every integration publish routes through it, not just command-scoped ones. The bus-owned
 poller is the at-least-once delivery guarantee; the opportunistic drain is only a latency optimisation.
 
-### Result Types
-
-`BusResult<TValue, TMessageFailure>` sealed class with `Success` and `Failure` subtypes. Failures use `FailureReason`
-interface.
-
-### Dependency Injection in Generated Code
-
-Constructor parameters of `@LoadMessageHandler` classes become dependencies. Types: `PROPERTY` (direct reference),
-`FUNCTIONAL` (lambda factory), `COMMAND` (from `CommandDependencies`).
-
 ## Design Philosophy
 
 - **Pre-V1: no backwards-compatibility obligations.** Don't hold back on refactors or breaking changes when they are
@@ -183,7 +136,6 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 ## Conventions
 
 - Kotlin Multiplatform: all core code in `commonMain`, tests use `kotlinx.coroutines.test.runTest`
-- Targets: JVM (17), JS, WASM, macOS, iOS, Linux, Windows
 - Commit messages follow conventional commits: `feat(scope):`, `refactor(scope):`, `fix(scope):`
 
 ## Comments
@@ -244,6 +196,39 @@ Constructor parameters of `@LoadMessageHandler` classes become dependencies. Typ
 - Unit tests should be isolated and atomic. Wherever possible, tests should avoid requiring implicit knowledge that
   other tests have checked. If one test asserts something, another test does not need to assert the same thing.
 - Use `testDoubles` for test fixtures with no dependencies on other kbus modules.
+
+### Test naming
+
+The test suite is the readable statement of what the framework guarantees. Reading a test class
+top to bottom should give a list of requirements, in prose, without opening a single body.
+
+- **Backticked names with spaces, always** — `` fun `returns failure when the bus is locked`() ``.
+  Not snake_case, not camelCase, and never a `test` prefix, which `@Test` already says. These
+  compile and run on every target this project builds, including JS and wasm from `commonTest`.
+  Spaces and hyphens are fine; **punctuation is not** — a comma, full stop or bracket in a name
+  fails the native compile with "Name contains illegal characters", and only on those targets, so
+  a JVM-only run will not catch it. Write the clause out instead of punctuating it.
+- **The class names the subject; the test names only the behaviour.** A test name starts with a
+  verb describing what the subject does — `returns…`, `refuses…`, `retries…`, `publishes…` — and
+  never repeats the subject the class already established. Two names in one class opening with the
+  same word are a sign the class is holding more than one subject.
+- **State the guarantee, not a verdict on it.** `delegates correctly`, `works`, `is valid` and
+  `verifies…` name an assertion the reader must open the body to learn. Say what is guaranteed:
+  `forwards the removal to the underlying cache`.
+- **Name the condition when there is one**, as a trailing clause: `<behaviour> when <condition>`.
+  Where there is no meaningful precondition, stop after the behaviour rather than inventing one.
+- Verbosity is cheap here for the same reason it is in the naming section above. A name a reader
+  has to confirm by reading assertions is not finished.
+
+**Requirements come first, and everything else is a sibling.** A test belongs in the main class
+when it asserts something a caller could rely on from the public contract. Volume and stress
+cases, reference-identity checks, odd-sequencing probes and regression pins go in a
+`…EdgeCaseTest` alongside it. Where the stress *is* the contract — thread safety, at-least-once
+delivery under failure — it stays in the main class, because there it is the requirement.
+
+**Class names carry the same weight as the names of the code they cover.** A test class is named
+for the subject whose requirements it states, specifically enough that the behaviour names beneath
+it need no further context. A class covering several subjects is split, not renamed to span them.
 - **Every `CoroutineScope` built in test code must be parented to `backgroundScope`** — enforced by the
   `checkNoLeakedTestScopes` Gradle task (wired into `check`). A scope with no such parentage is never cancelled at
   teardown, so anything launched into it (a bus, `startPolling`/`startConsuming`) outlives the test: invisible on

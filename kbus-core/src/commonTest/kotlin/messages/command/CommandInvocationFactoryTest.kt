@@ -20,7 +20,7 @@ import kotlinx.coroutines.test.runTest
 @OptIn(ExperimentalCoroutinesApi::class)
 class CommandInvocationFactoryTest {
     @Test
-    fun create_without_an_outbox_uses_the_base_publisher() = runTest {
+    fun `gives an invocation the base publisher when no outbox is configured`() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factory =
             CommandInvocationFactory(
@@ -34,7 +34,7 @@ class CommandInvocationFactoryTest {
     }
 
     @Test
-    fun create_without_an_outbox_registers_no_phase_hooks() = runTest {
+    fun `registers no unit-of-work phases when no outbox is configured`() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val factory =
             CommandInvocationFactory(unitOfWorkFactory, noOutboxPublisherFactory(backgroundScope))
@@ -46,7 +46,7 @@ class CommandInvocationFactoryTest {
     }
 
     @Test
-    fun create_with_an_outbox_uses_the_outbox_as_the_publisher() = runTest {
+    fun `gives an invocation the outbox to publish through when one is configured`() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val factory =
             CommandInvocationFactory(
@@ -67,7 +67,7 @@ class CommandInvocationFactoryTest {
     }
 
     @Test
-    fun create_with_an_outbox_passes_the_invocations_unit_of_work_to_the_outbox() = runTest {
+    fun `gives the outbox the unit of work of the invocation it belongs to`() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val factory =
             CommandInvocationFactory(

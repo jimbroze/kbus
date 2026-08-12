@@ -13,7 +13,6 @@ import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,7 +22,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class InMemoryLockingTest : LockingTestBase() {
+class InMemorySignallingLockTest : LockingMiddlewareContract() {
     override fun createAtomicLock(
         scheduler: TestCoroutineScheduler
     ): (CoroutineScope) -> SignallingLock = { scope: CoroutineScope ->
@@ -31,14 +30,7 @@ class InMemoryLockingTest : LockingTestBase() {
     }
 
     @Test
-    fun verifies_concrete_lock_instance_type() = runTest {
-        val lockFactory = createAtomicLock(testScheduler)
-        val lock = lockFactory(backgroundScope)
-        assertNotNull(lock)
-    }
-
-    @Test
-    fun `lock auto-expires at exact TTL time and waiting locking message proceeds`() = runTest {
+    fun `releases the lock the instant its expiry elapses`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),
@@ -75,7 +67,7 @@ class InMemoryLockingTest : LockingTestBase() {
     }
 
     @Test
-    fun `non-locking message waiting on expired lock proceeds at exact TTL time`() = runTest {
+    fun `releases a waiting non-locking command the instant the expiry elapses`() = runTest {
         val locker =
             LockingMiddleware(
                 createAtomicLock(testScheduler),

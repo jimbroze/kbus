@@ -38,7 +38,7 @@ import kotlinx.coroutines.test.runTest
 @OptIn(ExperimentalCoroutinesApi::class)
 class CommandExecutorTest {
     @Test
-    fun test_it_invokes_handler_and_returns_result() = runTest {
+    fun `returns what the command's handler returned`() = runTest {
         val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
@@ -58,7 +58,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun a_handlers_publisher_dependency_is_the_one_its_own_invocation_carries() = runTest {
+    fun `builds a handler with the publisher its own invocation carries`() = runTest {
         val destination = RecordingDestination()
         val factories =
             TestPublisherFactories(
@@ -86,7 +86,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_gives_handlers_access_to_bus() = runTest {
+    fun `gives a handler the bus it can send further messages through`() = runTest {
         val destination = RecordingDestination()
         val factories =
             TestPublisherFactories(
@@ -112,7 +112,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_routes_dispatch_through_the_invocations_outbox_when_present() = runTest {
+    fun `routes event dispatch through the invocation's outbox when it has one`() = runTest {
         val directDestination = RecordingDestination()
         val basePublisher = DirectPublisher(EventRouter(listOf(directDestination)), this)
         val factories = TestPublisherFactories(backgroundScope, basePublisher)
@@ -150,7 +150,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_the_commands_middleware_context_resolves_to_the_invocations_outbox() = runTest {
+    fun `gives the command's middleware the outbox its invocation publishes through`() = runTest {
         val basePublisher = DirectPublisher(EventRouter(emptyList()), this)
         val factories = TestPublisherFactories(backgroundScope, basePublisher)
         val store = RecordingOutboxStore()
@@ -187,7 +187,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_executes_handler_in_unit_of_work() = runTest {
+    fun `runs the handler inside a unit of work`() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         val factories = TestPublisherFactories(backgroundScope)
         val invocationFactory =
@@ -211,7 +211,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_uses_provided_transaction_manager() = runTest {
+    fun `runs the unit of work under the transaction manager it was given`() = runTest {
         val testTransactionManager = TestTransactionManager()
         val factories = TestPublisherFactories(backgroundScope)
         val executor =
@@ -234,7 +234,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_uses_handler_transaction_manager_when_provided() = runTest {
+    fun `prefers the transaction manager the handler declares`() = runTest {
         val defaultTransactionManager = TestTransactionManager()
         val handlerTransactionManager = TestTransactionManager()
         val factories = TestPublisherFactories(backgroundScope)
@@ -261,7 +261,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_a_handlers_transaction_manager_overrides_an_empty_default() = runTest {
+    fun `uses the transaction manager the handler declares when it has no default`() = runTest {
         val handlerTransactionManager = TestTransactionManager()
         val factories = TestPublisherFactories(backgroundScope)
         val executor =
@@ -286,7 +286,7 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun test_it_passes_command_dependencies_to_handler() = runTest {
+    fun `passes the command's declared dependencies to its handler`() = runTest {
         val unitOfWorkFactory = TestUnitOfWorkFactory()
         var testDependencies: CommandDependencies? = null
         val dependenciesFactory = TestCommandDependenciesFactory()
@@ -316,31 +316,30 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun theHandlerCreatorIsGivenTheContextsViewOfTheSameNestedExecutorTheDependenciesCarry() =
-        runTest {
-            val owningContext = TestOwningContext()
-            var passedCommands: NestedCommandExecutor? = null
-            var passedDependencies: CommandDependencies? = null
-            val executor =
-                CommandExecutor(
-                    EmptyTransactionManager(),
-                    emptyList(),
-                    TestPublisherFactories(backgroundScope).contextFactory,
-                    DefaultCommandDependenciesFactory(),
-                    CommandInvocationFactory(
-                        TestUnitOfWorkFactory(),
-                        noOutboxPublisherFactory(backgroundScope),
-                    ),
-                )
+    fun `builds a handler with the same nested executor its dependencies carry`() = runTest {
+        val owningContext = TestOwningContext()
+        var passedCommands: NestedCommandExecutor? = null
+        var passedDependencies: CommandDependencies? = null
+        val executor =
+            CommandExecutor(
+                EmptyTransactionManager(),
+                emptyList(),
+                TestPublisherFactories(backgroundScope).contextFactory,
+                DefaultCommandDependenciesFactory(),
+                CommandInvocationFactory(
+                    TestUnitOfWorkFactory(),
+                    noOutboxPublisherFactory(backgroundScope),
+                ),
+            )
 
-            executor.execute(ReturnCommand("Primary"), owningContext) { dependencies, commands ->
-                passedDependencies = dependencies
-                passedCommands = commands
-                ReturnCommandHandler()
-            }
-
-            assertEquals(1, owningContext.typedCommandsPassed.size)
-            assertSame(owningContext.typedCommandsPassed.single(), passedCommands)
-            assertSame(passedDependencies!!.commandExecutor, passedCommands)
+        executor.execute(ReturnCommand("Primary"), owningContext) { dependencies, commands ->
+            passedDependencies = dependencies
+            passedCommands = commands
+            ReturnCommandHandler()
         }
+
+        assertEquals(1, owningContext.typedCommandsPassed.size)
+        assertSame(owningContext.typedCommandsPassed.single(), passedCommands)
+        assertSame(passedDependencies!!.commandExecutor, passedCommands)
+    }
 }
