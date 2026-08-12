@@ -121,13 +121,13 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
         autoPublishInfoAnnotations: List<KSAnnotation>
     ): List<AutoPublishDefinition> {
         return autoPublishInfoAnnotations.map { autoPublishInfoAnnotation ->
-            val integrationEventClassSignature: String =
-                autoPublishInfoAnnotation.findArgument(AutoPublishInfo::integrationEventClass)
+            val mapperClassSignature: String =
+                autoPublishInfoAnnotation.findArgument(AutoPublishInfo::mapperClass)
             val domainEventClassSignature: String =
                 autoPublishInfoAnnotation.findArgument(AutoPublishInfo::domainEventClass)
 
             AutoPublishDefinition(
-                TypeResolver.resolveClassName(integrationEventClassSignature),
+                TypeResolver.resolveClassName(mapperClassSignature),
                 TypeResolver.resolveClassName(domainEventClassSignature),
             )
         }

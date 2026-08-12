@@ -25,7 +25,7 @@ class AutoPublishRegistrationsGenerator(
     fun generateRegistrations(definitions: Set<AutoPublishDefinition>, sourceFiles: List<KSFile>) {
         if (definitions.isEmpty()) return
 
-        val sortedDefinitions = definitions.sortedBy { it.integrationEventClass.canonicalName }
+        val sortedDefinitions = definitions.sortedBy { it.mapperClass.canonicalName }
 
         val propertyType =
             List::class.asClassName()
@@ -40,7 +40,7 @@ class AutoPublishRegistrationsGenerator(
                             "%T(%T::class, %T)",
                             AutoPublishRegistration::class.asClassName(),
                             definition.domainEventClass,
-                            definition.integrationEventClass,
+                            definition.mapperClass,
                         )
                     }
                     .joinToCode(", "),

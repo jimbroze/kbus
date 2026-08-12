@@ -155,8 +155,8 @@ class DependencyIndexGenerator(
     private fun addAutoPublish(definition: AutoPublishDefinition): AnnotationSpec {
         return AnnotationSpec.builder(AutoPublishInfo::class)
             .addMember(
-                "${AutoPublishInfo::integrationEventClass.name} = %S",
-                definition.integrationEventClass.canonicalName,
+                "${AutoPublishInfo::mapperClass.name} = %S",
+                definition.mapperClass.canonicalName,
             )
             .addMember(
                 "${AutoPublishInfo::domainEventClass.name} = %S",

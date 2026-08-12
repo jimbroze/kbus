@@ -7,7 +7,7 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
-import com.jimbroze.kbus.contracts.annotations.LoadEvent
+import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
@@ -27,7 +27,7 @@ import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyPro
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
-import com.jimbroze.kbus.generation.processors.visitors.LoadEventVisitor
+import com.jimbroze.kbus.generation.processors.visitors.LoadEventMapperVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
 import com.squareup.kotlinpoet.ClassName
 
@@ -69,7 +69,7 @@ class KbusProcessor(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
         )
 
-        invalidSymbols.addAll(processEvents(resolver))
+        invalidSymbols.addAll(processEventMappers(resolver))
 
         return invalidSymbols
     }
@@ -141,16 +141,16 @@ class KbusProcessor(
         return invalidLoadSymbols
     }
 
-    private fun processEvents(resolver: Resolver): List<KSAnnotated> {
-        val eventsToLoad =
-            resolver.getSymbolsWithAnnotation(LoadEvent::class.qualifiedName.toString())
+    private fun processEventMappers(resolver: Resolver): List<KSAnnotated> {
+        val mappersToLoad =
+            resolver.getSymbolsWithAnnotation(LoadEventMapper::class.qualifiedName.toString())
 
-        val (validEventSymbols, invalidEventSymbols) = eventsToLoad.partition { it.validate() }
-        validEventSymbols.forEach {
-            it.accept(LoadEventVisitor(autoPublishFactory, logger), dependencies)
+        val (validMapperSymbols, invalidMapperSymbols) = mappersToLoad.partition { it.validate() }
+        validMapperSymbols.forEach {
+            it.accept(LoadEventMapperVisitor(autoPublishFactory, logger), dependencies)
         }
 
-        return invalidEventSymbols
+        return invalidMapperSymbols
     }
 
     override fun finish() {

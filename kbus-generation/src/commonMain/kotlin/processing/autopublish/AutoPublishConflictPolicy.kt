@@ -7,17 +7,16 @@ object AutoPublishConflictPolicy : ConflictPolicy<AutoPublishDefinition> {
         newItem: AutoPublishDefinition,
         existingItems: Collection<AutoPublishDefinition>,
     ): ConflictPolicy.Result {
-        val existingForSameIntegrationEvent =
-            existingItems.find { it.integrationEventClass == newItem.integrationEventClass }
+        val existingForSameMapper =
+            existingItems.find { it.mapperClass == newItem.mapperClass }
                 ?: return ConflictPolicy.Result.Accept
 
-        return if (existingForSameIntegrationEvent == newItem) {
+        return if (existingForSameMapper == newItem) {
             ConflictPolicy.Result.ExactDuplicate
         } else {
             ConflictPolicy.Result.InvalidConflict(
-                "Integration event ${newItem.integrationEventClass.simpleName} is auto-published " +
-                    "from multiple domain events: " +
-                    "'${existingForSameIntegrationEvent.domainEventClass.simpleName}' & " +
+                "Mapper ${newItem.mapperClass.simpleName} maps from multiple domain events: " +
+                    "'${existingForSameMapper.domainEventClass.simpleName}' & " +
                     "'${newItem.domainEventClass.simpleName}'"
             )
         }

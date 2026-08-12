@@ -4,7 +4,7 @@ import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test
@@ -31,9 +31,9 @@ class AutoPublishIntegrationEventsTest {
     }
 
     @Test
-    fun `publishes the integration event a companion object maps to`() = runTest {
+    fun `publishes the integration event a mapper object maps to`() = runTest {
         val publisher = RecordingIntegrationEventPublisher()
-        val middleware = AutoPublishIntegrationEvents(autoPublish(OrderPlacedIntegration))
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OrderPlacedMapper))
 
         middleware.handle(OrderPlaced("order-2"), contextWith(publisher)) {}
 
@@ -47,7 +47,7 @@ class AutoPublishIntegrationEventsTest {
         val publisher = RecordingIntegrationEventPublisher()
         val middleware =
             AutoPublishIntegrationEvents(
-                autoPublish(OrderPlacedIntegration),
+                autoPublish(OrderPlacedMapper),
                 autoPublish<OrderPlaced> { OrderPlacedAnalytics(it.orderId) },
             )
 
@@ -97,10 +97,10 @@ class AutoPublishIntegrationEventsTest {
 
 private class OrderPlaced(val orderId: String) : DomainEvent()
 
-private class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OrderPlaced> {
-        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
-    }
+private class OrderPlacedIntegration(val orderId: String) : IntegrationEvent()
+
+private object OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
 }
 
 private class OrderPlacedAnalytics(val orderId: String) : IntegrationEvent()

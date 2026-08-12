@@ -60,7 +60,7 @@ annotation class HandlerInfo(
 
 @Target()
 @Retention(AnnotationRetention.BINARY)
-annotation class AutoPublishInfo(val integrationEventClass: String, val domainEventClass: String)
+annotation class AutoPublishInfo(val mapperClass: String, val domainEventClass: String)
 
 /**
  * A typed command interface the declaring module generated, and the bounded context it covers. `""`

@@ -176,6 +176,55 @@ class ProcessorCompilationTest {
         assertContains(result.messages, "names no bounded context")
     }
 
+    @Test
+    fun `rejects an event mapper that is not an object`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
+                import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+                import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
+                import com.jimbroze.kbus.domain.event.DomainEvent
+
+                class OrderPlaced(val orderId: String) : DomainEvent()
+
+                class OrderPlacedIntegration(val orderId: String) : IntegrationEvent()
+
+                @LoadEventMapper
+                class OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+                    override fun fromDomainEvent(event: OrderPlaced) =
+                        OrderPlacedIntegration(event.orderId)
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
+        assertContains(result.messages, "Only objects can be annotated with @LoadEventMapper")
+    }
+
+    @Test
+    fun `rejects an annotated mapper that maps no domain event`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
+
+                @LoadEventMapper
+                object OrderPlacedMapper
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
+        assertContains(
+            result.messages,
+            "Only IntegrationEventMapper implementations can be annotated with @LoadEventMapper",
+        )
+    }
+
     private fun compile(
         @Language("kotlin") source: String,
         boundedContextIdentity: String? = null,

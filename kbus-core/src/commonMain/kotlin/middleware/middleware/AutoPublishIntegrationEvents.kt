@@ -27,11 +27,11 @@ class AutoPublishRegistration<TDomainEvent : DomainEvent>(
 /**
  * Registers [mapper] with [AutoPublishIntegrationEvents] for the domain event [TDomainEvent].
  *
- * Pass a lambda, or a companion object that implements [IntegrationEventMapper] (in which case
- * [TDomainEvent] is inferred):
+ * Pass a lambda, or an object implementing [IntegrationEventMapper] (in which case [TDomainEvent]
+ * is inferred):
  * ```kotlin
  * autoPublish<OrderPlaced> { OrderPlacedIntegration(it.orderId) }
- * autoPublish(OrderPlacedIntegration)
+ * autoPublish(OrderPlacedMapper)
  * ```
  */
 inline fun <reified TDomainEvent : DomainEvent> autoPublish(

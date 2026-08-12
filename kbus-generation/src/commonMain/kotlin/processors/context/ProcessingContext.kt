@@ -69,8 +69,8 @@ class ProcessingContext {
     fun hasHandler(handlerClass: ClassName): Boolean =
         _handlers.containsKey(handlerClass.canonicalName)
 
-    fun hasAutoPublish(integrationEventClass: ClassName): Boolean =
-        _autoPublishDefinitions.containsKey(integrationEventClass.canonicalName)
+    fun hasAutoPublish(mapperClass: ClassName): Boolean =
+        _autoPublishDefinitions.containsKey(mapperClass.canonicalName)
 
     fun tryAddHandler(
         handler: HandlerDefinition,
@@ -106,10 +106,10 @@ class ProcessingContext {
         learnedFromIndex: Boolean = false,
     ): ConflictPolicy.Result {
         if (!learnedFromIndex)
-            locallyDeclaredAutoPublishKeys.add(definition.integrationEventClass.canonicalName)
+            locallyDeclaredAutoPublishKeys.add(definition.mapperClass.canonicalName)
         val result = AutoPublishConflictPolicy.evaluate(definition, autoPublishDefinitions)
         if (result is ConflictPolicy.Result.Accept) {
-            _autoPublishDefinitions[definition.integrationEventClass.canonicalName] = definition
+            _autoPublishDefinitions[definition.mapperClass.canonicalName] = definition
         }
         return result
     }

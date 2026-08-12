@@ -5,23 +5,22 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.contracts.annotations.LoadEvent
-import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
 import com.jimbroze.kbus.generation.processing.ConflictPolicy
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishFactory
 import com.jimbroze.kbus.generation.processors.context.ProcessingContext
-import com.jimbroze.kbus.generation.utility.extendsType
 import com.squareup.kotlinpoet.ksp.toClassName
 
-class LoadEventVisitor(
+class LoadEventMapperVisitor(
     private val autoPublishFactory: AutoPublishFactory,
     private val logger: KSPLogger,
 ) : KSDefaultVisitor<ProcessingContext, Unit>() {
 
     override fun defaultHandler(node: KSNode, data: ProcessingContext) {
         logger.error(
-            "Only classes can be annotated with @${LoadEvent::class.simpleName}. $node is not a class",
+            "Only objects can be annotated with @${LoadEventMapper::class.simpleName}. " +
+                "$node is not an object",
             node,
         )
     }
@@ -31,34 +30,29 @@ class LoadEventVisitor(
         data: ProcessingContext,
     ) {
         val alreadyKnown = data.hasAutoPublish(classDeclaration.toClassName())
-        if (!isValidLoadEventTarget(classDeclaration) || alreadyKnown) return
+        if (!isValidMapperTarget(classDeclaration) || alreadyKnown) return
 
         val definition = autoPublishFactory.create(classDeclaration) ?: return
 
         registerAutoPublish(definition, classDeclaration, data)
     }
 
-    private fun isValidLoadEventTarget(classDeclaration: KSClassDeclaration): Boolean =
-        when {
-            classDeclaration.classKind != ClassKind.CLASS -> {
+    /**
+     * The registration list is a top-level value with nothing to resolve a mapper from, so a mapper
+     * has to be referenceable by name alone.
+     */
+    private fun isValidMapperTarget(classDeclaration: KSClassDeclaration): Boolean =
+        when (classDeclaration.classKind) {
+            ClassKind.OBJECT -> true
+
+            else -> {
                 logger.error(
-                    "Only classes can be annotated with @${LoadEvent::class.simpleName}. " +
+                    "Only objects can be annotated with @${LoadEventMapper::class.simpleName}. " +
                         "$classDeclaration is a ${classDeclaration.classKind}",
                     classDeclaration,
                 )
                 false
             }
-
-            !classDeclaration.extendsType(Event::class.qualifiedName!!) -> {
-                logger.error(
-                    "Only ${Event::class.simpleName} classes can be annotated with " +
-                        "@${LoadEvent::class.simpleName}",
-                    classDeclaration,
-                )
-                false
-            }
-
-            else -> true
         }
 
     private fun registerAutoPublish(

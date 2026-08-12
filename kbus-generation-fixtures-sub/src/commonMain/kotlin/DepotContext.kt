@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.contracts.annotations.LoadEvent
+import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
 import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
 import com.jimbroze.kbus.contracts.messages.command.Command
 import com.jimbroze.kbus.contracts.messages.command.CommandHandler
@@ -11,7 +11,7 @@ import com.jimbroze.kbus.contracts.messages.query.Query
 import com.jimbroze.kbus.contracts.messages.query.QueryHandler
 import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -26,15 +26,15 @@ class ArrivalCount(val itemId: String) : Query<BusResult<Int, MessageFailure>>()
 
 class ArrivalRecorded(val itemId: String) : DomainEvent()
 
-@LoadEvent
 class ArrivalConfirmed(val itemId: String) : IntegrationEvent() {
     // FailFast dispatches handlers synchronously rather than fire-and-forget, so a test can assert
     // on the handler's effect without a race against a background coroutine.
     override val errorStrategy = ErrorStrategy.FailFast
+}
 
-    companion object : AutoPublishesFrom<ArrivalRecorded> {
-        override fun fromDomainEvent(event: ArrivalRecorded) = ArrivalConfirmed(event.itemId)
-    }
+@LoadEventMapper
+object ArrivalConfirmedMapper : IntegrationEventMapper<ArrivalRecorded> {
+    override fun fromDomainEvent(event: ArrivalRecorded) = ArrivalConfirmed(event.itemId)
 }
 
 interface ArrivalLog {

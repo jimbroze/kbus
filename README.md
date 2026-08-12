@@ -328,15 +328,20 @@ class RegisterUserHandler(private val integrationEventPublisher: IntegrationEven
 #### Auto-Publishing Integration Events from Domain Events
 
 The `AutoPublishIntegrationEvents` middleware publishes integration events automatically whenever a registered domain
-event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or by
-implementing `AutoPublishesFrom` on the integration event's companion object to declare the domain event it is derived
-from. A domain event may be registered multiple times to publish several integration events.
+event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or as
+an object implementing `IntegrationEventMapper`. A domain event may be registered multiple times to publish several
+integration events.
+
+A mapper names both a domain event and an integration event, so it belongs to the producing context's application
+layer — the only layer that may see its own domain model and its published contracts at once. Keeping it out of the
+integration event itself is what lets the contract be depended on by consumers without dragging the producer's domain
+along with it.
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -346,10 +351,10 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 ```kotlin
 class OrderPlaced(val orderId: String) : DomainEvent()
 
-class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OrderPlaced> {
-        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
-    }
+class OrderPlacedIntegration(val orderId: String) : IntegrationEvent()
+
+object OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
 }
 
 class OrderPlacedAnalytics(val orderId: String) : IntegrationEvent()
@@ -358,7 +363,7 @@ val busWithAutoPublish = MessageBus(
     handlerLocator = PersistingHandlerLocator(),
     middlewares = listOf(
         AutoPublishIntegrationEvents(
-            autoPublish(OrderPlacedIntegration),
+            autoPublish(OrderPlacedMapper),
             autoPublish<OrderPlaced> { OrderPlacedAnalytics(it.orderId) },
         ),
     ),
@@ -367,9 +372,9 @@ val busWithAutoPublish = MessageBus(
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-03.kt).
 
-Registering every mapping by hand doesn't scale in a generated bus. Annotate the integration event with `@LoadEvent`
-and code generation collects every `AutoPublishesFrom` companion it finds into a generated
-`generatedAutoPublishRegistrations` list — see [Auto-Publish Registrations](#auto-publish-registrations) below.
+Registering every mapping by hand doesn't scale in a generated bus. Annotate the mapper with `@LoadEventMapper` and
+code generation collects it into a generated `generatedAutoPublishRegistrations` list — see
+[Auto-Publish Registrations](#auto-publish-registrations) below.
 
 ## Result Types
 
@@ -521,8 +526,8 @@ val bus = MessageBus(
 
 - **`LoggingMiddleware`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
-- **`AutoPublishIntegrationEvents`** — Publishes the integration event mapped from a registered domain event via
-  `AutoPublishesFrom`
+- **`AutoPublishIntegrationEvents`** — Publishes the integration event an `IntegrationEventMapper` maps a registered
+  domain event to
 
 ## Unit of Work
 
@@ -1143,8 +1148,8 @@ The KSP processor generates:
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
-- **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every `@LoadEvent`
-  integration event whose companion implements `AutoPublishesFrom` (only generated when at least one exists)
+- **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every
+  `@LoadEventMapper` mapper (only generated when at least one exists)
 
 ### Using the Generated Bus
 
@@ -1170,20 +1175,16 @@ val result = bus.execute(PlaceOrder(items))
 
 ### Auto-Publish Registrations
 
-`@LoadEvent` makes an event known to code generation. On its own it generates nothing — but if the annotated integration
-event's companion implements `AutoPublishesFrom` (see
-[Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)), the processor also
-collects it into the generated `generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered by
-hand:
+`@LoadEventMapper` collects an `IntegrationEventMapper` (see
+[Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)) into the generated
+`generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered by hand:
 
 <!--- CLEAR -->
 
 ```kotlin
-@LoadEvent
-class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OrderPlaced> {
-        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
-    }
+@LoadEventMapper
+object OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
 }
 
 val bus = CompileTimeLoadedMessageBus(
@@ -1193,9 +1194,9 @@ val bus = CompileTimeLoadedMessageBus(
 )
 ```
 
-An event annotated with `@LoadEvent` whose companion does not implement `AutoPublishesFrom` (or that has no companion)
-is still known to the processor — it just contributes no registration; this is not an error, and leaves room for other
-`@LoadEvent`-driven code generation in future.
+The annotated declaration must be an `object` implementing `IntegrationEventMapper`: the generated list is a top-level
+value with nothing to resolve a mapper from, so it has to be referenceable by name alone. Anything else is reported
+against the declaration.
 
 ### Submodules
 
@@ -1216,8 +1217,8 @@ ksp {
 ```
 
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
-these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
-module's `generatedAutoPublishRegistrations`.
+these indexes automatically, including any `@LoadEventMapper` opt-ins, which are folded into the main module's
+`generatedAutoPublishRegistrations`.
 
 An index also names the typed command interfaces its module generated, against the bounded context each covers. That
 is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from

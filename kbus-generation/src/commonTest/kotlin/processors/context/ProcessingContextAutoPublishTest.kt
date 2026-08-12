@@ -10,61 +10,58 @@ import kotlin.test.assertTrue
 class ProcessingContextAutoPublishTest {
     private val domainEventOne = ClassName("com.example", "OrderPlaced")
     private val domainEventTwo = ClassName("com.example", "OrderCancelled")
-    private val integrationEventOne = ClassName("com.example", "OrderPlacedIntegration")
-    private val integrationEventTwo = ClassName("com.example", "OrderPlacedAnalytics")
+    private val mapperOne = ClassName("com.example", "OrderPlacedMapper")
+    private val mapperTwo = ClassName("com.example", "OrderPlacedAnalyticsMapper")
 
     @Test
     fun `accepts an auto-publish definition nothing is registered for`() {
         val context = ProcessingContext()
 
-        val result =
-            context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
+        val result = context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventOne))
 
         assertIs<ConflictPolicy.Result.Accept>(result)
-        assertTrue(context.hasAutoPublish(integrationEventOne))
+        assertTrue(context.hasAutoPublish(mapperOne))
     }
 
     @Test
     fun `reports an identical definition as an exact duplicate`() {
         val context = ProcessingContext()
-        context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
+        context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventOne))
 
-        val result =
-            context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
+        val result = context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventOne))
 
         assertIs<ConflictPolicy.Result.ExactDuplicate>(result)
     }
 
     @Test
-    fun `reports one integration event mapped from two domain events as a conflict`() {
+    fun `reports one mapper mapping from two domain events as a conflict`() {
         val context = ProcessingContext()
-        context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
+        context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventOne))
 
-        val result =
-            context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventTwo))
+        val result = context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventTwo))
 
         assertIs<ConflictPolicy.Result.InvalidConflict>(result)
     }
 
     @Test
-    fun `accepts two integration events mapped from one domain event`() {
+    fun `accepts two mappers mapping from one domain event`() {
         val context = ProcessingContext()
         val firstResult =
-            context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
+            context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventOne))
         val secondResult =
-            context.tryAddAutoPublish(AutoPublishDefinition(integrationEventTwo, domainEventOne))
+            context.tryAddAutoPublish(AutoPublishDefinition(mapperTwo, domainEventOne))
 
         assertIs<ConflictPolicy.Result.Accept>(firstResult)
         assertIs<ConflictPolicy.Result.Accept>(secondResult)
-        assertTrue(context.hasAutoPublish(integrationEventOne))
-        assertTrue(context.hasAutoPublish(integrationEventTwo))
+        assertTrue(context.hasAutoPublish(mapperOne))
+        assertTrue(context.hasAutoPublish(mapperTwo))
     }
 
     @Test
     fun `counts a context holding only auto-publish definitions as non-empty`() {
         val context = ProcessingContext()
 
-        context.tryAddAutoPublish(AutoPublishDefinition(integrationEventOne, domainEventOne))
+        context.tryAddAutoPublish(AutoPublishDefinition(mapperOne, domainEventOne))
 
         assertTrue(!context.isEmpty())
     }

@@ -6,65 +6,69 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
+import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.squareup.kotlinpoet.ksp.toClassName
 
-private sealed interface AutoPublishSearchResult {
-    data object NotImplemented : AutoPublishSearchResult
+private sealed interface DomainEventSearchResult {
+    data object NotAMapper : DomainEventSearchResult
 
-    data object Unresolvable : AutoPublishSearchResult
+    data object Unresolvable : DomainEventSearchResult
 
-    data class Resolved(val domainEventClass: KSClassDeclaration) : AutoPublishSearchResult
+    data class Resolved(val domainEventClass: KSClassDeclaration) : DomainEventSearchResult
 }
 
 /**
- * Discovers whether an event's companion object opts into generated auto-publish registrations by
- * implementing [AutoPublishesFrom], directly or via intermediate (possibly generic) interfaces.
+ * Reads the domain event a mapper maps from out of its [IntegrationEventMapper] supertype, found
+ * directly or through intermediate (possibly generic) interfaces.
  */
 class AutoPublishFactory(private val logger: KSPLogger) {
-    fun create(classDeclaration: KSClassDeclaration): AutoPublishDefinition? {
-        val companion =
-            classDeclaration.declarations.filterIsInstance<KSClassDeclaration>().firstOrNull {
-                it.isCompanionObject
-            } ?: return null
-
-        return when (val result = search(companion, emptyMap())) {
-            is AutoPublishSearchResult.NotImplemented -> null
-            is AutoPublishSearchResult.Unresolvable -> {
+    fun create(mapperDeclaration: KSClassDeclaration): AutoPublishDefinition? =
+        when (val result = search(mapperDeclaration, emptyMap())) {
+            is DomainEventSearchResult.NotAMapper -> {
                 logger.error(
-                    "Companion of ${classDeclaration.qualifiedName?.asString()} implements " +
-                        "${AutoPublishesFrom::class.simpleName} but its domain event type " +
-                        "argument could not be resolved",
-                    companion,
+                    "Only ${IntegrationEventMapper::class.simpleName} implementations can be " +
+                        "annotated with @${LoadEventMapper::class.simpleName}",
+                    mapperDeclaration,
                 )
                 null
             }
 
-            is AutoPublishSearchResult.Resolved ->
+            is DomainEventSearchResult.Unresolvable -> {
+                logger.error(
+                    "${mapperDeclaration.qualifiedName?.asString()} implements " +
+                        "${IntegrationEventMapper::class.simpleName} but its domain event type " +
+                        "argument could not be resolved",
+                    mapperDeclaration,
+                )
+                null
+            }
+
+            is DomainEventSearchResult.Resolved ->
                 AutoPublishDefinition(
-                    classDeclaration.toClassName(),
+                    mapperDeclaration.toClassName(),
                     result.domainEventClass.toClassName(),
                 )
         }
-    }
 
     private fun search(
         declaration: KSClassDeclaration,
         substitution: Map<String, KSType>,
-    ): AutoPublishSearchResult =
+    ): DomainEventSearchResult =
         declaration.superTypes.firstNotNullOfOrNull { superTypeRef ->
             searchSuperType(superTypeRef, substitution)
-        } ?: AutoPublishSearchResult.NotImplemented
+        } ?: DomainEventSearchResult.NotAMapper
 
     private fun searchSuperType(
         superTypeRef: KSTypeReference,
         substitution: Map<String, KSType>,
-    ): AutoPublishSearchResult? {
+    ): DomainEventSearchResult? {
         val resolvedSuperType = superTypeRef.resolve()
         val superDeclaration = resolvedSuperType.declaration as? KSClassDeclaration ?: return null
 
         return if (
-            superDeclaration.qualifiedName?.asString() == AutoPublishesFrom::class.qualifiedName
+            superDeclaration.qualifiedName?.asString() ==
+                IntegrationEventMapper::class.qualifiedName
         ) {
             resolveDomainEvent(resolvedSuperType, substitution)
         } else {
@@ -73,7 +77,7 @@ class AutoPublishFactory(private val logger: KSPLogger) {
             val nextSubstitution = buildSubstitution(superDeclaration, substitutedArgs)
 
             search(superDeclaration, nextSubstitution).takeUnless {
-                it is AutoPublishSearchResult.NotImplemented
+                it is DomainEventSearchResult.NotAMapper
             }
         }
     }
@@ -81,15 +85,15 @@ class AutoPublishFactory(private val logger: KSPLogger) {
     private fun resolveDomainEvent(
         resolvedSuperType: KSType,
         substitution: Map<String, KSType>,
-    ): AutoPublishSearchResult {
+    ): DomainEventSearchResult {
         val domainEventType =
             resolvedSuperType.arguments.getOrNull(0)?.let { substituteArgument(it, substitution) }
         val domainEventDeclaration = domainEventType?.declaration as? KSClassDeclaration
 
         return if (domainEventDeclaration != null && !domainEventType.isError) {
-            AutoPublishSearchResult.Resolved(domainEventDeclaration)
+            DomainEventSearchResult.Resolved(domainEventDeclaration)
         } else {
-            AutoPublishSearchResult.Unresolvable
+            DomainEventSearchResult.Unresolvable
         }
     }
 

@@ -13,7 +13,7 @@ import com.jimbroze.kbus.contracts.result.BusResult
 import com.jimbroze.kbus.contracts.result.MessageFailure
 import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
+import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.Middleware
 import com.jimbroze.kbus.core.middleware.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
@@ -74,7 +74,7 @@ class MessageBusOutboxTest {
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
         registerDomainCommand(stores, locator, received)
-        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEvent))
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEventMapper))
 
         val bus =
             MessageBus(
@@ -103,7 +103,7 @@ class MessageBusOutboxTest {
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
         registerFailingDomainCommand(stores, locator, received)
-        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEvent))
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEventMapper))
 
         val bus =
             MessageBus(
@@ -649,11 +649,10 @@ private class GatedOutboxEventHandler(
 
 private class OutboxDomainEvent(val message: String) : DomainEvent()
 
-private class OutboxAutoPublishedEvent(val name: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OutboxDomainEvent> {
-        override fun fromDomainEvent(event: OutboxDomainEvent) =
-            OutboxAutoPublishedEvent(event.message)
-    }
+private class OutboxAutoPublishedEvent(val name: String) : IntegrationEvent()
+
+private object OutboxAutoPublishedEventMapper : IntegrationEventMapper<OutboxDomainEvent> {
+    override fun fromDomainEvent(event: OutboxDomainEvent) = OutboxAutoPublishedEvent(event.message)
 }
 
 private class OutboxDomainCommand(val message: String) : Command<BusResult<Unit, MessageFailure>>()
