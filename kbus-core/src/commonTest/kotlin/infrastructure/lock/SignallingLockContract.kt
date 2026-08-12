@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock
+package com.jimbroze.kbus.core.infrastructure.lock
 
 import com.jimbroze.kbus.contracts.middleware.BusLockedException
 import com.jimbroze.kbus.contracts.middleware.BusLockedFailure
@@ -18,7 +18,6 @@ import com.jimbroze.kbus.core.fixtures.SleepCommand
 import com.jimbroze.kbus.core.fixtures.SleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.TestFailure
 import com.jimbroze.kbus.core.fixtures.TimeReturnCommand
-import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
 import kotlin.test.Test
@@ -39,7 +38,7 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("LargeClass")
-abstract class LockingMiddlewareContract {
+abstract class SignallingLockContract {
     abstract fun createAtomicLock(
         scheduler: TestCoroutineScheduler
     ): (CoroutineScope) -> SignallingLock

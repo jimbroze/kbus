@@ -1,6 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
-
-import com.jimbroze.kbus.core.infrastructure.cache.Cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
 /**
  * A [com.jimbroze.kbus.core.infrastructure.cache.Cache] test double that simulates non-in-memory

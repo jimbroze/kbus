@@ -1,8 +1,5 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
-import com.jimbroze.kbus.core.infrastructure.cache.Cache
-import com.jimbroze.kbus.core.infrastructure.cache.MapCache
-import com.jimbroze.kbus.core.infrastructure.cache.asTypedCache
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,7 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class TypedCacheViewTest {
+class AsTypedCacheTest {
 
     private open class Animal(val name: String) {
         override fun equals(other: Any?) = other is Animal && name == other.name

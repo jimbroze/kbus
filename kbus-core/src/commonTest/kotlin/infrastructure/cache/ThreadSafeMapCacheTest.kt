@@ -1,6 +1,5 @@
-package com.jimbroze.kbus.core.middleware.middleware.cache
+package com.jimbroze.kbus.core.infrastructure.cache
 
-import com.jimbroze.kbus.core.infrastructure.cache.ThreadSafeMapCache
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test

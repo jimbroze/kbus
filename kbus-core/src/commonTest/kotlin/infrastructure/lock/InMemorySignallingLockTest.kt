@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.middleware.middleware.lock
+package com.jimbroze.kbus.core.infrastructure.lock
 
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommand
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommandHandler
@@ -7,7 +7,6 @@ import com.jimbroze.kbus.core.fixtures.LockingSleepCommand
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
-import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.infrastructure.lock.locks.InMemoryAtomicSignallingLock
 import com.jimbroze.kbus.core.middleware.BusMiddlewareContext
 import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
@@ -22,7 +21,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class InMemorySignallingLockTest : LockingMiddlewareContract() {
+class InMemorySignallingLockTest : SignallingLockContract() {
     override fun createAtomicLock(
         scheduler: TestCoroutineScheduler
     ): (CoroutineScope) -> SignallingLock = { scope: CoroutineScope ->
