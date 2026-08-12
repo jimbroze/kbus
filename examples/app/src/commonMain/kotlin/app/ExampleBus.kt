@@ -4,7 +4,6 @@ import com.jimbroze.kbus.contracts.uow.TransactionManager
 import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.middleware.middleware.autoPublish
 import com.jimbroze.kbus.core.module.BoundedContextConfig
 import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
@@ -15,9 +14,9 @@ import com.jimbroze.kbus.example.inventory.application.usecases.event.integratio
 import com.jimbroze.kbus.example.inventory.contracts.StockReserved
 import com.jimbroze.kbus.example.orders.application.usecases.event.domain.SendOrderConfirmationEmailHandler
 import com.jimbroze.kbus.example.orders.application.usecases.event.integration.RecordStockReservedHandler
-import com.jimbroze.kbus.example.orders.application.usecases.event.mappings.OrderPlacedMapper
 import com.jimbroze.kbus.example.orders.domain.OrderPlaced
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
+import com.jimbroze.kbus.generated.generatedAutoPublishRegistrations
 import com.jimbroze.kbus.generated.loaded
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +39,7 @@ fun exampleBus(
         CompileTimeLoadedMessageBus(
             container,
             transactionManager,
-            listOf(AutoPublishIntegrationEvents(autoPublish<OrderPlaced>(OrderPlacedMapper))),
+            listOf(AutoPublishIntegrationEvents(generatedAutoPublishRegistrations)),
             appScope = appScope,
             outbox = OutboxConfig(store = InMemoryOutboxStore(), pollInterval = 10.seconds),
             orders =
