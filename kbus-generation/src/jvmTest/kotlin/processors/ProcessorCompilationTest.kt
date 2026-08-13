@@ -56,7 +56,7 @@ class ProcessorCompilationTest {
                 package com.example
 
                 import com.jimbroze.kbus.api.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
+                import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
                 import com.jimbroze.kbus.domain.event.DomainEvent
                 import com.jimbroze.kbus.domain.event.DomainEventHandler
 
@@ -185,7 +185,7 @@ class ProcessorCompilationTest {
 
                 import com.jimbroze.kbus.api.annotations.LoadEventMapper
                 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
-                import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
+                import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
                 import com.jimbroze.kbus.domain.event.DomainEvent
 
                 class OrderPlaced(val orderId: String) : DomainEvent()

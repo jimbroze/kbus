@@ -4,6 +4,8 @@ import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.api.uow.TransactionManager
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
 import com.jimbroze.kbus.core.boundedcontext.OwningContext
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware

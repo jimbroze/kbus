@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.generators
 
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition

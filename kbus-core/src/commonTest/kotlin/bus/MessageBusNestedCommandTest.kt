@@ -14,9 +14,9 @@ import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.api.uow.TransactionConfig
 import com.jimbroze.kbus.api.uow.TransactionManager
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext

@@ -8,6 +8,8 @@ import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.api.uow.TransactionManager
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.ContextBuilder
@@ -15,11 +17,9 @@ import com.jimbroze.kbus.core.boundedcontext.ContextRuntime
 import com.jimbroze.kbus.core.boundedcontext.OwningContext
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxCoordinator
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxTuning
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandExecutor
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.command.DefaultCommandDependenciesFactory
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory

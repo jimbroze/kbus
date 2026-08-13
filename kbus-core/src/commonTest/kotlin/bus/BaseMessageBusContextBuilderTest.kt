@@ -4,12 +4,12 @@ import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
 import com.jimbroze.kbus.core.boundedcontext.ContextBuilder
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection

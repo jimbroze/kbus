@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.boundedcontext
 
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 
 /**

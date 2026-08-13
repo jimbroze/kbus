@@ -7,7 +7,7 @@ import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.api.annotations.LoadEventMapper
-import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.squareup.kotlinpoet.ksp.toClassName
 
 private sealed interface DomainEventSearchResult {

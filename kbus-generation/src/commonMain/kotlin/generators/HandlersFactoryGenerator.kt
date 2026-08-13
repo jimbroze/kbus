@@ -11,7 +11,7 @@ import com.jimbroze.kbus.api.messages.event.Event
 import com.jimbroze.kbus.api.messages.event.EventHandler
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler

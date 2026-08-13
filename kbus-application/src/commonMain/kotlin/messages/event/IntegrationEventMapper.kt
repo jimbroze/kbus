@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages.event.dispatch
+package com.jimbroze.kbus.application.messages.event
 
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.domain.event.DomainEvent

@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.messages
+package com.jimbroze.kbus.application.messages
 
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 

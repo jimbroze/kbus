@@ -3,7 +3,7 @@ package com.jimbroze.kbus.example.samples.exampleIntegrationEvents03
 
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator

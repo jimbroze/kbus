@@ -8,11 +8,11 @@ import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.api.uow.TransactionConfig
 import com.jimbroze.kbus.api.uow.TransactionManager
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.OwningContext
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependenciesFactory
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.uow.UnitOfWork
 
 class TestCommandDependenciesFactory : CommandDependenciesFactory {

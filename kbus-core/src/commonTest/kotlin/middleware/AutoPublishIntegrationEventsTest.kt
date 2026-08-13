@@ -2,9 +2,9 @@ package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.core.fixtures.RecordingIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
-import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
 import com.jimbroze.kbus.domain.event.DomainEvent
 import kotlin.test.Test

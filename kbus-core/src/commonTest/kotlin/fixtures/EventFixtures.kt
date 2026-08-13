@@ -5,7 +5,7 @@ import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.core.messages.event.EventHandlerDependencies
+import com.jimbroze.kbus.application.messages.event.EventHandlerDependencies
 import com.jimbroze.kbus.domain.event.Concurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent

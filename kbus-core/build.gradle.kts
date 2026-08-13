@@ -12,6 +12,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.kbusApi)
             api(projects.kbusDomain)
+            api(projects.kbusApplication)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             //            implementation(libs.kotlinx.atomicfu)

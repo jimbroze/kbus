@@ -12,8 +12,8 @@ import com.jimbroze.kbus.api.outbox.OutboxStore
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.api.uow.TransactionManager
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.autoPublish
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware

@@ -14,6 +14,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.kbusApi)
+            implementation(projects.kbusApplication)
             implementation(projects.kbusCore)
             implementation(libs.symbol.processing.api)
             implementation(libs.kotlin.poet)

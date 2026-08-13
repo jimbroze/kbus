@@ -14,10 +14,10 @@ import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
-import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.LockingMiddleware
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent

@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.example.orders.application.usecases.event.mappings
 
 import com.jimbroze.kbus.api.annotations.LoadEventMapper
-import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.example.orders.contracts.OrderPlacedIntegration
 import com.jimbroze.kbus.example.orders.domain.OrderPlaced
 

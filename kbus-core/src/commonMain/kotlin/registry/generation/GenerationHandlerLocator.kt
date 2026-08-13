@@ -8,8 +8,8 @@ import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.KBusResult
-import com.jimbroze.kbus.core.messages.HandlerDependencies
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.HandlerDependencies
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.DomainEventRegistrar
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.IntegrationEventRegistrar

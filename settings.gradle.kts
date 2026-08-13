@@ -27,6 +27,8 @@ include("kbus-api")
 
 include("kbus-domain")
 
+include("kbus-application")
+
 include("kbus-core")
 
 include("kbus-generation")

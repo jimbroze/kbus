@@ -1,7 +1,7 @@
-package com.jimbroze.kbus.core.messages.event
+package com.jimbroze.kbus.application.messages.event
 
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.core.messages.HandlerDependencies
+import com.jimbroze.kbus.application.messages.HandlerDependencies
 
 data class EventHandlerDependencies(
     override val integrationEventPublisher: IntegrationEventPublisher

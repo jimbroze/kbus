@@ -25,9 +25,9 @@ class ContextCommandsPairingCompilationTest {
         import com.jimbroze.kbus.api.messages.command.CommandHandler
         import com.jimbroze.kbus.api.result.BusResult
         import com.jimbroze.kbus.api.result.MessageFailure
-        import com.jimbroze.kbus.core.messages.command.CommandDependencies
-        import com.jimbroze.kbus.core.messages.command.ContextCommands
-        import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
+        import com.jimbroze.kbus.application.messages.command.CommandDependencies
+        import com.jimbroze.kbus.application.messages.command.ContextCommands
+        import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
         import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
         import com.jimbroze.kbus.core.boundedcontext.OwningContext
 

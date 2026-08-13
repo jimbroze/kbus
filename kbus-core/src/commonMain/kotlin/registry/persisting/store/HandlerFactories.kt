@@ -9,8 +9,8 @@ import com.jimbroze.kbus.api.messages.event.EventHandler
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.KBusResult
-import com.jimbroze.kbus.core.messages.HandlerDependencies
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.HandlerDependencies
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import kotlin.reflect.KClass
 
 sealed interface MessageHandlerFactory<TMessage : Message, THandler : MessageHandler<TMessage>> {
