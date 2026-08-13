@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages
 
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 
 /**
  * What any handler can be given for the duration of one message's handling. Scoped to the

@@ -1,14 +1,14 @@
 // This file was automatically generated from README.md by Knit tool. Do not edit.
 package com.jimbroze.kbus.example.samples.exampleMessages01
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.FailureReason
+import com.jimbroze.kbus.api.result.GenericFailure
+import com.jimbroze.kbus.api.result.MessageFailure
 
 // A command that returns a String result
 class CreateUser(val name: String, val email: String) :

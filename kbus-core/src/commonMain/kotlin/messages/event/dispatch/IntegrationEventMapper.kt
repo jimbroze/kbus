@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.domain.event.DomainEvent
 
 /**

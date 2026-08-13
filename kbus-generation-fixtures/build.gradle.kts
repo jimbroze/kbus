@@ -6,7 +6,7 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusContracts)
+            implementation(projects.kbusApi)
             implementation(projects.kbusCore)
             implementation(projects.testDoubles)
             implementation(projects.kbusGenerationFixturesSub)

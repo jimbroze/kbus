@@ -34,14 +34,14 @@ dependencies {
 ### Define Messages and Handlers
 
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.FailureReason
+import com.jimbroze.kbus.api.result.GenericFailure
+import com.jimbroze.kbus.api.result.MessageFailure
 -->
 
 ```kotlin
@@ -250,8 +250,8 @@ before a single one has started.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
 -->
 
 ```kotlin
@@ -301,10 +301,10 @@ it is given belongs to the invocation that reached it, so it is the one carrying
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.RegisterUser
 import com.jimbroze.kbus.example.fixtures.UserRegistered
 -->
@@ -339,7 +339,7 @@ along with it.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
@@ -382,8 +382,8 @@ All commands and queries return `BusResult<TValue, TMessageFailure>`:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.MyCommand
 import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
 -->
@@ -405,8 +405,8 @@ Create results with companion functions:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
 -->
 
@@ -422,7 +422,7 @@ each message declares its own failure type, so passing one straight through does
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
 import com.jimbroze.kbus.example.fixtures.MyCommand
 import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
@@ -463,7 +463,7 @@ event dispatch, which is its own entry point and always runs the full chain.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.api.common.Message
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
@@ -566,9 +566,9 @@ Command handlers execute within a transaction by default. No additional configur
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
@@ -588,11 +588,11 @@ You can provide a `TransactionManager` override to individual command handlers v
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.TransactionConfig
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.api.uow.TransactionConfig
+import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
@@ -1104,10 +1104,10 @@ Mark handler classes with `@LoadMessageHandler`. Constructor parameters become a
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.OrderRepository
 import com.jimbroze.kbus.example.fixtures.PaymentService
 import com.jimbroze.kbus.example.fixtures.PlaceOrder

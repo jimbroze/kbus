@@ -2,7 +2,7 @@
 
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy

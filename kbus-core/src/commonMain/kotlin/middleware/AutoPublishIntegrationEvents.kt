@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.middleware
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
@@ -45,8 +45,8 @@ inline fun <reified TDomainEvent : DomainEvent> autoPublish(
  * continues the chain.
  *
  * A domain event may have multiple registrations; all of its integration events are published in a
- * single [publish][com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher.publish]
- * call. Registrations match the domain event's exact class, not its subclasses.
+ * single [publish][com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher.publish] call.
+ * Registrations match the domain event's exact class, not its subclasses.
  */
 class AutoPublishIntegrationEvents(registrations: List<AutoPublishRegistration<*>>) : Middleware {
     override val scope = MiddlewareScope.EntryPointOnly

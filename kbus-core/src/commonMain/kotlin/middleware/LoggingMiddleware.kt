@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.middleware
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.middleware.LoggingMessage
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.middleware.LoggingMessage
 import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
 import com.jimbroze.kbus.core.infrastructure.logging.Logger
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware

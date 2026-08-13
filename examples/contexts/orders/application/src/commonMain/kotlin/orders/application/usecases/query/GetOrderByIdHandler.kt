@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.example.orders.application.usecases.query
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.example.orders.application.OrderRepository
 import com.jimbroze.kbus.example.orders.contracts.GetOrderById
 import com.jimbroze.kbus.example.orders.contracts.GetOrderByIdResult

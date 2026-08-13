@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.middleware
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.middleware.BusLockedException
-import com.jimbroze.kbus.contracts.middleware.BusLockedFailure
-import com.jimbroze.kbus.contracts.middleware.LockAwareMessage
-import com.jimbroze.kbus.contracts.middleware.ResultReturningLockAwareMessage
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.middleware.BusLockedException
+import com.jimbroze.kbus.api.middleware.BusLockedFailure
+import com.jimbroze.kbus.api.middleware.LockAwareMessage
+import com.jimbroze.kbus.api.middleware.ResultReturningLockAwareMessage
 import com.jimbroze.kbus.core.infrastructure.lock.SignallingLock
 import com.jimbroze.kbus.core.middleware.infrastructure.LifecycleAwareMiddleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareContext

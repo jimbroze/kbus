@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.example.inventory.application.usecases.command
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.example.inventory.application.InventoryRepository
 import com.jimbroze.kbus.example.inventory.application.StockValidator
 import com.jimbroze.kbus.example.inventory.contracts.InsufficientStock

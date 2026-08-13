@@ -2,7 +2,7 @@
 
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.contracts.common.MissingHandlerException
+import com.jimbroze.kbus.api.common.MissingHandlerException
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.registry.generation.domainSubscription

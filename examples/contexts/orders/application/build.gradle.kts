@@ -5,7 +5,7 @@ boundedContext { identity = "orders" }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusContracts)
+            implementation(projects.kbusApi)
             implementation(projects.kbusCore)
             implementation(projects.kbusDomain)
             api(projects.examples.contexts.ordersContracts)

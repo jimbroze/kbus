@@ -4,13 +4,13 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
+import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.Event
+import com.jimbroze.kbus.api.messages.event.EventHandler
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
@@ -126,10 +126,7 @@ class HandlersFactoryGenerator(
         context: String,
     ): FunSpec {
         val tResult =
-            TypeVariableName(
-                "TResult",
-                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
-            )
+            TypeVariableName("TResult", ClassName("com.jimbroze.kbus.api.result", "KBusResult"))
         val tCommand =
             TypeVariableName("TCommand", Command::class.asClassName().parameterizedBy(tResult))
         val returnType =
@@ -171,10 +168,7 @@ class HandlersFactoryGenerator(
     // TODO make more polymorphic?
     private fun buildQueriesHandlersFor(handlers: Set<QueryHandlerDefinition>): FunSpec {
         val tResult =
-            TypeVariableName(
-                "TResult",
-                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
-            )
+            TypeVariableName("TResult", ClassName("com.jimbroze.kbus.api.result", "KBusResult"))
         val tQuery = TypeVariableName("TQuery", Query::class.asClassName().parameterizedBy(tResult))
         val returnType =
             QueryHandler::class.asClassName().parameterizedBy(tQuery, tResult).copy(nullable = true)

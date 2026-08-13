@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.example.app.manual
 
-import com.jimbroze.kbus.contracts.messages.command.CommandGateway
+import com.jimbroze.kbus.api.messages.command.CommandGateway
 import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.example.inventory.application.StockValidator
 import com.jimbroze.kbus.example.inventory.contracts.ReserveStock

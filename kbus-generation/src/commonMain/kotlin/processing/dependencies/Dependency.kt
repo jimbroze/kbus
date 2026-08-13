@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.processing.dependencies
 
-import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
+import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.squareup.kotlinpoet.TypeName

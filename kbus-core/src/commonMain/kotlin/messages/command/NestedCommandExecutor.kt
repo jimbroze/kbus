@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.contracts.common.MissingHandlerException
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.NestedTransactionMismatchException
-import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.contracts.uow.TransactionConfig
+import com.jimbroze.kbus.api.common.MissingHandlerException
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.NestedTransactionMismatchException
+import com.jimbroze.kbus.api.result.KBusResult
+import com.jimbroze.kbus.api.uow.TransactionConfig
 import com.jimbroze.kbus.core.boundedcontext.OwningContext
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory

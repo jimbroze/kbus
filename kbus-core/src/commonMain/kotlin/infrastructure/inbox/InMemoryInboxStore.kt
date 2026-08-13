@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.infrastructure.inbox
 
-import com.jimbroze.kbus.contracts.inbox.InboxStore
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.api.inbox.InboxStore
+import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 

@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.example.app
 
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy

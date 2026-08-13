@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.result.KBusResult
+import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation

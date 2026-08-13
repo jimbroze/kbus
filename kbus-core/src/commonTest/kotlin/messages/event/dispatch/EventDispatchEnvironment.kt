@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.event.EventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.EmptyIntegrationEventPublisher
 import com.jimbroze.kbus.core.fixtures.TestUnitOfWork
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory

@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.boundedcontext
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher

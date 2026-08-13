@@ -1,12 +1,12 @@
 package com.jimbroze.kbus.example.inventory.contracts
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.FailureReason
+import com.jimbroze.kbus.api.result.GenericFailure
+import com.jimbroze.kbus.api.result.MessageFailure
 import kotlin.jvm.JvmInline
 
 @JvmInline value class ReservationId(val value: String)

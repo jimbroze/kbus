@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.ErrorStrategy
+import com.jimbroze.kbus.api.messages.event.Event
+import com.jimbroze.kbus.api.messages.event.EventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.EventHandlerDependencies

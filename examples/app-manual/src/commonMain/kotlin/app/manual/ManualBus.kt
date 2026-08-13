@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.example.app.manual
 
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.domainSubscription

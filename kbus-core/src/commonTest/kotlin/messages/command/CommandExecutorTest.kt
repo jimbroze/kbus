@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.DispatchingCommand
 import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler

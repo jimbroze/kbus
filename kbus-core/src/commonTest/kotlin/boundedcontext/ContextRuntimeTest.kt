@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.boundedcontext
 
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent

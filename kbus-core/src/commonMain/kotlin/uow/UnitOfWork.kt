@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.uow
 
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.uow.TransactionManager
 
 /**
  * Work items within a phase (secondary, post-commit) run in registration order. Framework hooks

@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.domain.event
 
-import com.jimbroze.kbus.contracts.messages.event.Event
+import com.jimbroze.kbus.api.messages.event.Event
 
 abstract class DomainEvent : Event() {
     open val concurrency: Concurrency = Concurrency.Concurrent

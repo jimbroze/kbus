@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages.event.publish
 
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.UnitOfWork
 

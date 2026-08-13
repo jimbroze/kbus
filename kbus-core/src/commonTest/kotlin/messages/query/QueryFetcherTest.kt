@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages.query
 
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.core.fixtures.StorageQuery
 import com.jimbroze.kbus.core.fixtures.StorageQueryHandler
 import com.jimbroze.kbus.core.fixtures.emptyContextFactory

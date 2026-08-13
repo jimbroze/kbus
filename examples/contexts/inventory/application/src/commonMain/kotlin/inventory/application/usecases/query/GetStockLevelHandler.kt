@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.example.inventory.application.usecases.query
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.example.inventory.application.InventoryRepository
 import com.jimbroze.kbus.example.inventory.contracts.GetStockLevel
 import com.jimbroze.kbus.example.inventory.contracts.GetStockLevelResult

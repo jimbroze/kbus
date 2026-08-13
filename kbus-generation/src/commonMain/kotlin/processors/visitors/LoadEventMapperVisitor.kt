@@ -5,7 +5,7 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
+import com.jimbroze.kbus.api.annotations.LoadEventMapper
 import com.jimbroze.kbus.generation.processing.ConflictPolicy
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishFactory

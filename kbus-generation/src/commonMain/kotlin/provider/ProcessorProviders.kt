@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxTuning
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware

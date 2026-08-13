@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.registry.persisting.store
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.common.MessageHandler
-import com.jimbroze.kbus.contracts.messages.command.TooManyHandlersException
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.common.MessageHandler
+import com.jimbroze.kbus.api.messages.command.TooManyHandlersException
 import kotlin.reflect.KClass
 
 class MessageHandlerFactoryStore<TMessageType : Message> {

@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.HandlerDependencies
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 

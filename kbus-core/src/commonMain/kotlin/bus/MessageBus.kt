@@ -1,13 +1,13 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.common.AmbiguousHandlerException
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.common.MissingHandlerException
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.common.AmbiguousHandlerException
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.common.MissingHandlerException
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.result.KBusResult
+import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.ContextBuilder

@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.example.fixtures
 
-import com.jimbroze.kbus.contracts.uow.TransactionManager
+import com.jimbroze.kbus.api.uow.TransactionManager
 
 val myTransactionManager =
     object : TransactionManager {

@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.messages.query
 
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
 import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain

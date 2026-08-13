@@ -30,8 +30,8 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.event.EventHandler
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.event.EventHandler
                 import com.jimbroze.kbus.domain.event.DomainEvent
 
                 class OrderPlaced : DomainEvent()
@@ -55,7 +55,7 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
                 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
                 import com.jimbroze.kbus.domain.event.DomainEvent
                 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -82,11 +82,11 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.command.Command
-                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-                import com.jimbroze.kbus.contracts.result.BusResult
-                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
 
                 class PlaceOrder : Command<BusResult<String, MessageFailure>>()
 
@@ -113,11 +113,11 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.command.Command
-                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-                import com.jimbroze.kbus.contracts.result.BusResult
-                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
                 import com.jimbroze.kbus.generated.DefaultCommands
 
                 class PlaceOrder : Command<BusResult<String, MessageFailure>>()
@@ -155,11 +155,11 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.command.Command
-                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-                import com.jimbroze.kbus.contracts.result.BusResult
-                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
 
                 class PlaceOrder : Command<BusResult<String, MessageFailure>>()
 
@@ -183,8 +183,8 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
-                import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+                import com.jimbroze.kbus.api.annotations.LoadEventMapper
+                import com.jimbroze.kbus.api.messages.event.IntegrationEvent
                 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
                 import com.jimbroze.kbus.domain.event.DomainEvent
 
@@ -211,7 +211,7 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
+                import com.jimbroze.kbus.api.annotations.LoadEventMapper
 
                 @LoadEventMapper
                 object OrderPlacedMapper

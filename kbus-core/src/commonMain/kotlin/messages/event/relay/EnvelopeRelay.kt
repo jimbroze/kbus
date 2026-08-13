@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.messages.event.relay
 
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.outbox.OutboxStore
+import com.jimbroze.kbus.api.messages.event.EventEnvelope
+import com.jimbroze.kbus.api.outbox.OutboxStore
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration

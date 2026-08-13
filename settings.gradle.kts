@@ -23,7 +23,7 @@ include("kotlin-library")
 
 include("testDoubles")
 
-include("kbus-contracts")
+include("kbus-api")
 
 include("kbus-domain")
 

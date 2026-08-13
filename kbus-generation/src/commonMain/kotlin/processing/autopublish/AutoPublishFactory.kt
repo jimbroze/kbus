@@ -6,7 +6,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSTypeReference
-import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
+import com.jimbroze.kbus.api.annotations.LoadEventMapper
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventMapper
 import com.squareup.kotlinpoet.ksp.toClassName
 

@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.example.orders.acl
 
-import com.jimbroze.kbus.contracts.messages.command.CommandGateway
+import com.jimbroze.kbus.api.messages.command.CommandGateway
 import com.jimbroze.kbus.example.inventory.contracts.ReserveStock
 import com.jimbroze.kbus.example.inventory.contracts.ReserveStockResult
 import com.jimbroze.kbus.example.orders.application.StockReservations

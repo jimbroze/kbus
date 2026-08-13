@@ -13,7 +13,7 @@ kotlin {
     jvm()
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusContracts)
+            implementation(projects.kbusApi)
             implementation(projects.kbusCore)
             implementation(libs.symbol.processing.api)
             implementation(libs.kotlin.poet)

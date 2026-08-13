@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.example.orders.application.usecases.event.domain
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.example.orders.application.EmailService

@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.example.app.manual
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.result.KBusResult
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrder
 import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrderResult

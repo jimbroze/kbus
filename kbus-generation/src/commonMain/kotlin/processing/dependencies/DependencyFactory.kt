@@ -10,7 +10,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
-import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
+import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.core.messages.command.ContextCommands
 import com.squareup.kotlinpoet.ksp.toTypeName
 import kotlin.contracts.ExperimentalContracts

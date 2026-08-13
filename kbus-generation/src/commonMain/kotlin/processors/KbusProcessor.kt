@@ -7,9 +7,9 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
-import com.jimbroze.kbus.contracts.annotations.LoadEventMapper
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
+import com.jimbroze.kbus.api.annotations.LoadEventMapper
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator

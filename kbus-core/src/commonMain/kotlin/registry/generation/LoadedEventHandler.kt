@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.registry.generation
 
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
+import com.jimbroze.kbus.api.messages.event.Event
+import com.jimbroze.kbus.api.messages.event.EventHandler
 import kotlin.reflect.KClass
 
 /** A type-safe token representing an event handler validated by the code generator. */

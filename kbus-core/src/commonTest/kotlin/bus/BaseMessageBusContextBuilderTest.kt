@@ -1,9 +1,9 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext

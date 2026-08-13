@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.Concurrency as IntegrationConcurrency
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy as IntegrationErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.Concurrency as IntegrationConcurrency
+import com.jimbroze.kbus.api.messages.event.ErrorStrategy as IntegrationErrorStrategy
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.domain.event.Concurrency as DomainConcurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming as DomainDispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
