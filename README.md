@@ -1298,7 +1298,7 @@ val billingSubscriptions: List<IntegrationEventSubscription<*>> =
     listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
 ```
 
-There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
+There is deliberately no bus-wide `integrationEventRegistrar` or `domainEventRegistrar`: with several contexts, "which
 context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
 handlers — a domain handler registered on `billing` never fires for a command owned by another context.
 

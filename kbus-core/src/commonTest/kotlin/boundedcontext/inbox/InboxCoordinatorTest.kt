@@ -141,7 +141,7 @@ class InboxCoordinatorTest {
             ),
         )
         val locator = PersistingHandlerLocator(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             TestIntegrationEvent::class,
             listOf(ThrowingIntegrationEventHandler::class),
         )

@@ -56,7 +56,7 @@ class ContextRuntimeTest {
             StorageEvent::class,
             listOf(EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() }),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -104,7 +104,7 @@ class ContextRuntimeTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         registerStorageEventHandler(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -135,7 +135,7 @@ class ContextRuntimeTest {
         val runtime = createRuntime(locator, this)
 
         registerStorageEventHandler(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -155,12 +155,12 @@ class ContextRuntimeTest {
         )
 
         val thisLocator = PersistingHandlerLocator(stores)
-        thisLocator.integrationEventMapper.addEventHandlers(
+        thisLocator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
         val otherLocator = PersistingHandlerLocator(stores)
-        otherLocator.integrationEventMapper.addEventHandlers(
+        otherLocator.integrationEventRegistrar.addEventHandlers(
             OtherStorageEvent::class,
             listOf(OtherStorageEventHandler::class),
         )
@@ -184,7 +184,7 @@ class ContextRuntimeTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             TestIntegrationEvent::class,
             listOf(ThrowingIntegrationEventHandler::class),
         )

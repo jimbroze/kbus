@@ -10,7 +10,7 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import kotlin.reflect.KClass
 
-class PersistingEventMapper : DomainEventRegistrar, IntegrationEventRegistrar {
+class PersistingEventHandlerStore : DomainEventRegistrar, IntegrationEventRegistrar {
     private val mappings = mutableMapOf<KClass<out Event>, MutableSet<KClass<EventHandler<*>>>>()
 
     override fun <TEvent : DomainEvent> addDomainHandlers(

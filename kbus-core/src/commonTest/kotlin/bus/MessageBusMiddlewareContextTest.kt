@@ -29,7 +29,7 @@ class MessageBusMiddlewareContextTest {
             listOf(CommandHandlerFactory(ReturnCommandHandler::class) { ReturnCommandHandler() }),
         )
         val locator = PersistingHandlerLocator(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -55,7 +55,7 @@ class MessageBusMiddlewareContextTest {
             listOf(QueryHandlerFactory(StorageQueryHandler::class) { StorageQueryHandler() }),
         )
         val locator = PersistingHandlerLocator(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -85,7 +85,7 @@ class MessageBusMiddlewareContextTest {
             ),
         )
         val locator = PersistingHandlerLocator(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )

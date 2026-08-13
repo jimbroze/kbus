@@ -79,7 +79,7 @@ class MessageBusEventHandlerFailureTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(DelayingStorageEventHandler::class),
         )
@@ -126,7 +126,7 @@ class MessageBusEventHandlerFailureTest {
                 EventHandlerFactory(PrintEventHandler::class) { PrintEventHandler() },
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(ThrowingStorageEventHandler::class, PrintEventHandler::class),
         )

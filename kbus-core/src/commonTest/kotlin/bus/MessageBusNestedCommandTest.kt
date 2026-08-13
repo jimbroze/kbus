@@ -285,7 +285,7 @@ class MessageBusNestedCommandTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             NestedDomainEvent::class,
             listOf(NestedDomainEventHandler::class),
         )
@@ -315,7 +315,7 @@ class MessageBusNestedCommandTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             NestedIntegrationEvent::class,
             listOf(NestedIntegrationEventHandler::class),
         )

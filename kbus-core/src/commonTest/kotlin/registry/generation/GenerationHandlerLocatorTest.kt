@@ -149,7 +149,7 @@ class GenerationHandlerLocatorTest {
     fun `builds the domain handlers its context subscribes to`() {
         val locator =
             GenerationHandlerLocator(FakeGenerationHandlerFactory(holdsDomainEventHandler = true))
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             TestDomainEvent::class,
             listOf(TestDomainEventHandler::class),
         )
@@ -165,7 +165,7 @@ class GenerationHandlerLocatorTest {
     fun `builds each domain handler with the dependencies it was given`() {
         val factory = FakeGenerationHandlerFactory(holdsDomainEventHandler = true)
         val locator = GenerationHandlerLocator(factory)
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             TestDomainEvent::class,
             listOf(TestDomainEventHandler::class),
         )
@@ -189,7 +189,7 @@ class GenerationHandlerLocatorTest {
     @Test
     fun `fails when its factory cannot build a handler the context subscribes to`() {
         val locator = GenerationHandlerLocator(FakeGenerationHandlerFactory())
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             TestDomainEvent::class,
             listOf(TestDomainEventHandler::class),
         )

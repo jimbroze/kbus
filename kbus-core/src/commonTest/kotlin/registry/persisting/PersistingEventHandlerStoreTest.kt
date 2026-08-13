@@ -14,14 +14,14 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class PersistingEventMapperTest {
+class PersistingEventHandlerStoreTest {
 
     @Test
     fun `refuses the same domain handler class registered twice for an event`() {
-        val eventMapper = PersistingEventMapper()
+        val eventHandlerStore = PersistingEventHandlerStore()
 
         assertFailsWith<DuplicateEventHandlerException> {
-            eventMapper.addDomainHandlers(
+            eventHandlerStore.addDomainHandlers(
                 TestDomainEvent::class,
                 listOf(TestDomainEventHandler::class, TestDomainEventHandler::class),
             )
@@ -30,12 +30,15 @@ class PersistingEventMapperTest {
 
     @Test
     fun `refuses a domain handler class already registered in an earlier call`() {
-        val eventMapper = PersistingEventMapper()
+        val eventHandlerStore = PersistingEventHandlerStore()
 
-        eventMapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
+        eventHandlerStore.addDomainHandlers(
+            TestDomainEvent::class,
+            listOf(TestDomainEventHandler::class),
+        )
 
         assertFailsWith<DuplicateEventHandlerException> {
-            eventMapper.addDomainHandlers(
+            eventHandlerStore.addDomainHandlers(
                 TestDomainEvent::class,
                 listOf(TestDomainEventHandler::class),
             )
@@ -44,10 +47,10 @@ class PersistingEventMapperTest {
 
     @Test
     fun `refuses the same integration handler class registered twice for an event`() {
-        val eventMapper = PersistingEventMapper()
+        val eventHandlerStore = PersistingEventHandlerStore()
 
         assertFailsWith<DuplicateEventHandlerException> {
-            eventMapper.addEventHandlers(
+            eventHandlerStore.addEventHandlers(
                 StorageEvent::class,
                 listOf(PrintEventHandler::class, PrintEventHandler::class),
             )
@@ -56,18 +59,21 @@ class PersistingEventMapperTest {
 
     @Test
     fun `refuses an integration handler class already registered in an earlier call`() {
-        val eventMapper = PersistingEventMapper()
+        val eventHandlerStore = PersistingEventHandlerStore()
 
-        eventMapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
+        eventHandlerStore.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
         assertFailsWith<DuplicateEventHandlerException> {
-            eventMapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
+            eventHandlerStore.addEventHandlers(
+                StorageEvent::class,
+                listOf(PrintEventHandler::class),
+            )
         }
     }
 
     @Test
     fun `finds no handler classes for an event with none registered`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
         val event = StorageEvent("test", mutableListOf())
 
         val handlerClasses = mapper.handlerClassesFor(event)
@@ -77,7 +83,7 @@ class PersistingEventMapperTest {
 
     @Test
     fun `finds the domain handler classes registered for an event`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
 
         mapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
 
@@ -90,7 +96,7 @@ class PersistingEventMapperTest {
 
     @Test
     fun `finds the integration handler classes registered for an event`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
 
         mapper.addEventHandlers(
             StorageEvent::class,
@@ -107,7 +113,7 @@ class PersistingEventMapperTest {
 
     @Test
     fun `accepts different handler classes for the same event`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
 
         mapper.addEventHandlers(
             StorageEvent::class,
@@ -120,7 +126,7 @@ class PersistingEventMapperTest {
 
     @Test
     fun `accepts one handler class registered for different events`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
 
         mapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
@@ -130,7 +136,7 @@ class PersistingEventMapperTest {
 
     @Test
     fun `reports only the events that have a handler registered`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
 
         mapper.addEventHandlers(StorageEvent::class, listOf(PrintEventHandler::class))
 
@@ -140,7 +146,7 @@ class PersistingEventMapperTest {
 
     @Test
     fun `reports domain and integration events separately`() {
-        val mapper = PersistingEventMapper()
+        val mapper = PersistingEventHandlerStore()
 
         mapper.addDomainHandlers(TestDomainEvent::class, listOf(TestDomainEventHandler::class))
 

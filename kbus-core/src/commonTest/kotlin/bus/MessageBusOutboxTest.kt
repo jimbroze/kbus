@@ -174,7 +174,7 @@ class MessageBusOutboxTest {
                     }
                 ),
             )
-            locator.integrationEventMapper.addEventHandlers(
+            locator.integrationEventRegistrar.addEventHandlers(
                 OutboxImperativeEvent::class,
                 listOf(GatedOutboxEventHandler::class),
             )
@@ -227,7 +227,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxImperativeEvent::class,
             listOf(GatedOutboxEventHandler::class),
         )
@@ -463,7 +463,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxImperativeEvent::class,
             listOf(RecordingOutboxEventHandler::class),
         )
@@ -506,7 +506,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxAutoPublishedEvent::class,
             listOf(RecordingOutboxAutoPublishedEventHandler::class),
         )
@@ -533,7 +533,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxAutoPublishedEvent::class,
             listOf(RecordingOutboxAutoPublishedEventHandler::class),
         )
@@ -560,7 +560,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxFlakyEvent::class,
             listOf(AlwaysThrowingOutboxEventHandler::class),
         )

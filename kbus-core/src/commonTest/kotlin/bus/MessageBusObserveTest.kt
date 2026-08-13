@@ -73,7 +73,7 @@ class MessageBusObserveTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             ObservedEvent::class,
             listOf(RecordingObservedEventHandler::class),
         )

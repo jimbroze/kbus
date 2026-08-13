@@ -170,7 +170,7 @@ class MessageBusInboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             InboxAlphaEvent::class,
             listOf(RecordingInboxAlphaHandler::class),
         )
@@ -190,7 +190,7 @@ class MessageBusInboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             InboxAlphaEvent::class,
             listOf(SecondRecordingInboxAlphaHandler::class),
         )
@@ -209,7 +209,7 @@ class MessageBusInboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             InboxAlphaEvent::class,
             listOf(ThrowingInboxAlphaHandler::class),
         )
@@ -581,7 +581,7 @@ class MessageBusInboxTest {
                 EventHandlerFactory(GatedInboxHandler::class) { GatedInboxHandler(received, gate) }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             GatedInboxEvent::class,
             listOf(GatedInboxHandler::class),
         )
@@ -643,7 +643,7 @@ class MessageBusInboxTest {
                     }
                 ),
             )
-            locator.integrationEventMapper.addEventHandlers(
+            locator.integrationEventRegistrar.addEventHandlers(
                 GatedInboxEvent::class,
                 listOf(ThrowingGatedInboxHandler::class),
             )

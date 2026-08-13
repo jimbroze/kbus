@@ -299,7 +299,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(DelayingAfterTransactionHandler::class),
         )
@@ -341,7 +341,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(RepublishingAfterTransactionHandler::class),
         )
@@ -354,7 +354,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             LifecycleIntegrationEvent::class,
             listOf(DelayingLifecycleIntegrationHandler::class),
         )
@@ -389,7 +389,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(RepublishingAfterTransactionHandler::class),
         )
@@ -401,7 +401,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             LifecycleIntegrationEvent::class,
             listOf(SelfRepublishingIntegrationHandler::class),
         )
@@ -483,7 +483,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(NeverCompletingAfterTransactionHandler::class),
         )

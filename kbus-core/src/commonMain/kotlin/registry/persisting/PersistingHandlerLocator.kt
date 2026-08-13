@@ -29,9 +29,9 @@ class PersistingHandlerLocator(
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
     private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
-    private val eventMapper = PersistingEventMapper()
-    override val domainEventRegistrar = eventMapper as DomainEventRegistrar
-    override val integrationEventRegistrar = eventMapper as IntegrationEventRegistrar
+    private val eventHandlerStore = PersistingEventHandlerStore()
+    override val domainEventRegistrar = eventHandlerStore as DomainEventRegistrar
+    override val integrationEventRegistrar = eventHandlerStore as IntegrationEventRegistrar
 
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
@@ -60,7 +60,8 @@ class PersistingHandlerLocator(
         return factory.create() as QueryHandler<TQuery, TResult>
     }
 
-    override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
+    override fun subscribedEventTypes(): Set<KClass<out Event>> =
+        eventHandlerStore.subscribedEventTypes()
 
     override fun handledCommandTypes(): Set<KClass<out Command<*>>> = commandStore.registeredTypes()
 
@@ -70,14 +71,18 @@ class PersistingHandlerLocator(
         event: TEvent,
         handlerDependencies: HandlerDependencies,
     ): List<EventHandler<TEvent>> =
-        createHandlers(event, eventMapper.handlerClassesFor(event), handlerDependencies)
+        createHandlers(event, eventHandlerStore.handlerClassesFor(event), handlerDependencies)
 
     override fun <TEvent : DomainEvent> domainHandlersFor(
         event: TEvent,
         handlerDependencies: HandlerDependencies,
     ): List<DomainEventHandler<TEvent>> {
         val handlers =
-            createHandlers(event, eventMapper.domainHandlerClassesFor(event), handlerDependencies)
+            createHandlers(
+                event,
+                eventHandlerStore.domainHandlerClassesFor(event),
+                handlerDependencies,
+            )
         @Suppress("UNCHECKED_CAST")
         return handlers as List<DomainEventHandler<TEvent>>
     }

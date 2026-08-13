@@ -157,7 +157,7 @@ class MessageBusMultiContextTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             AlphaEvent::class,
             listOf(RecordingAlphaHandler::class),
         )
@@ -200,7 +200,7 @@ class MessageBusMultiContextTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             DeltaDomainEvent::class,
             listOf(RecordingDeltaHandler::class),
         )
@@ -217,7 +217,7 @@ class MessageBusMultiContextTest {
                 EventHandlerFactory(RecordingBetaHandler::class) { RecordingBetaHandler(received) }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             BetaEvent::class,
             listOf(RecordingBetaHandler::class),
         )
@@ -494,7 +494,7 @@ class MessageBusMultiContextTest {
         val alphaLocator = PersistingHandlerLocator(eventStores)
         val betaLocator = PersistingHandlerLocator(eventStores)
         registerAlphaHandlerIn(eventStores, alphaLocator, received, "alpha")
-        betaLocator.integrationEventMapper.addEventHandlers(
+        betaLocator.integrationEventRegistrar.addEventHandlers(
             AlphaEvent::class,
             listOf(RecordingAlphaHandler::class),
         )
@@ -588,7 +588,7 @@ class MessageBusMultiContextTest {
                     }
                 ),
             )
-            failingLocator.integrationEventMapper.addEventHandlers(
+            failingLocator.integrationEventRegistrar.addEventHandlers(
                 AlphaEvent::class,
                 listOf(ThrowingAlphaHandler::class),
             )

@@ -116,11 +116,11 @@ class PersistingHandlerLocatorTest {
             ),
         )
 
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             TestDomainEvent::class,
             listOf(TestDomainEventHandler::class),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -138,7 +138,7 @@ class PersistingHandlerLocatorTest {
 
         assertEquals(0, locator.handlersFor(event, noPublishHandlerDependencies).size)
 
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
         )
@@ -151,7 +151,7 @@ class PersistingHandlerLocatorTest {
     @Test
     fun `builds event handlers in the order their classes were mapped`() {
         val locator = createLocatorWithStorageEventHandlers()
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class, OtherPrintEventHandler::class),
         )
@@ -167,7 +167,7 @@ class PersistingHandlerLocatorTest {
     @Test
     fun `follows the mapped order even when it reverses the registration order`() {
         val locator = createLocatorWithStorageEventHandlers()
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(OtherPrintEventHandler::class, PrintEventHandler::class),
         )
@@ -183,7 +183,7 @@ class PersistingHandlerLocatorTest {
     @Test
     fun `builds only the handler class an event maps to`() {
         val locator = createLocatorWithStorageEventHandlers()
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -198,7 +198,7 @@ class PersistingHandlerLocatorTest {
     @Test
     fun `builds a fresh handler instance for every request`() {
         val locator = createLocatorWithStorageEventHandlers()
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -216,7 +216,7 @@ class PersistingHandlerLocatorTest {
     @Test
     fun `reports only the events that have a handler registered`() {
         val locator = createLocatorWithStorageEventHandlers()
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
@@ -239,7 +239,7 @@ class PersistingHandlerLocatorTest {
             ),
         )
         val locator = PersistingHandlerLocator(stores)
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             StorageEvent::class,
             listOf(PrintEventHandler::class),
         )
