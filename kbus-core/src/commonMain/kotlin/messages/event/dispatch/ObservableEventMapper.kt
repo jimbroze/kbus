@@ -1,15 +1,12 @@
 package com.jimbroze.kbus.core.messages.event.dispatch
 
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.ObservableEventPublisher
+import com.jimbroze.kbus.api.messages.event.EventObserver
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.ObservableEventPublisher
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-
-interface EventObserver<TUiEvent : IntegrationEvent> {
-    val events: Flow<TUiEvent>
-}
 
 // TODO Autoloader generates observer & publisher from mapper
 // TODO rename to InternalEventStream?
