@@ -6,7 +6,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.kbusApi)
-            implementation(projects.kbusCore)
+            implementation(projects.kbusApplication)
             api(projects.examples.contexts.inventoryContracts)
             api(projects.examples.contexts.inventoryDomain)
         }
