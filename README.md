@@ -21,10 +21,10 @@ KBUS is published as five artifacts, split by audience. Depend on the smallest o
 
 | Artifact | Depend on it from | Holds |
 |---|---|---|
-| `kbus-api` | Any module that writes handlers | Messages, handlers, results, annotations |
+| `kbus-api` | Any module that writes handlers | Messages, handlers, results, annotations, transaction config |
 | `kbus-domain` | A context's domain model | Entities, aggregate roots, value objects, domain events |
 | `kbus-application` | A context's application layer | What a handler is given: handler dependencies, integration event mappers |
-| `kbus-infrastructure` | Adapters | Ports (stores, locks, caches, transactions, logging) and the shipped in-memory implementations |
+| `kbus-infrastructure` | Adapters | Ports (stores, locks, caches, logging) and the shipped in-memory implementations |
 | `kbus-core` | The composition root only | The bus, bounded contexts, middleware, unit of work, routing |
 
 A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath.
@@ -602,39 +602,11 @@ class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, Messa
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
 
-You can provide a `TransactionManager` override to individual command handlers via `TransactionConfig`:
-
-<!--- CLEAR -->
-<!--- INCLUDE
-import com.jimbroze.kbus.api.messages.command.CommandHandler
-import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.api.uow.TransactionConfig
-import com.jimbroze.kbus.api.uow.TransactionManager
-import com.jimbroze.kbus.example.fixtures.TransferFunds
--->
-
-```kotlin
-class TransferFundsHandler(
-    transactionManager: TransactionManager
-) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? =
-        TransactionConfig(transactionManagerOverride = transactionManager)
-
-    override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
-        // This runs inside a transaction with a custom TransactionManager
-        return BusResult.success(Unit)
-    }
-}
-```
-
-> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
-
-To opt out of transaction execution, set `executeInTransaction` to `null`:
+To opt out of transaction execution, set `executeInTransaction` to `false`:
 
 ```kotlin
 class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: MyCommand): BusResult<Unit, MessageFailure> {
         // This runs without a transaction
@@ -670,9 +642,9 @@ Only commands the same bounded context owns are reachable this way — anything 
 Crossing a context boundary means going through the bus, which opens its own Unit of Work and therefore commits
 independently. Which side of that line a command falls on is not a setting; it is which path you called.
 
-Because a nested handler cannot open a transaction of its own, one that declares `executeInTransaction` the outer
-transaction cannot satisfy — a transaction where none is running, or a different `transactionManagerOverride` from the
-running one — throws `NestedTransactionMismatchException` rather than silently running outside what it asked for.
+Because a nested handler cannot open a transaction of its own, one that declares `executeInTransaction` inside an
+outer command that opened none throws `NestedTransactionMismatchException` rather than silently running outside what
+it asked for.
 
 Queries have no nested equivalent: a query has no Unit of Work, so there is nothing to share. Use the bus.
 
@@ -953,7 +925,7 @@ that context's own inbox acknowledgement semantics.
 
 A few edge cases worth knowing:
 
-- Commands with `executeInTransaction = null` still route their events through the outbox, just without the atomicity of
+- Commands with `executeInTransaction = false` still route their events through the outbox, just without the atomicity of
   the save being part of a real transaction.
 - A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself still publishes through
   the outbox, via its already-flushed path (saved immediately, no atomicity with the original command) — it does not

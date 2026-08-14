@@ -6,8 +6,6 @@ import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.api.uow.TransactionConfig
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.OwningContext
@@ -57,7 +55,7 @@ class DispatchingCommand : Command<BusResult<Unit, MessageFailure>>()
 
 class DispatchingCommandHandler(private val integrationEventPublisher: IntegrationEventPublisher) :
     CommandHandler<DispatchingCommand, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: DispatchingCommand): BusResult<Unit, MessageFailure> {
         integrationEventPublisher.publish(listOf(TestIntegrationEvent("test-event")))
@@ -67,10 +65,8 @@ class DispatchingCommandHandler(private val integrationEventPublisher: Integrati
 
 class TransactionCommand(val message: String) : Command<BusResult<String, MessageFailure>>()
 
-class TransactionCommandHandler(transactionManager: TransactionManager? = null) :
+class TransactionCommandHandler(override val executeInTransaction: Boolean = true) :
     CommandHandler<TransactionCommand, BusResult<String, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? =
-        TransactionConfig(transactionManagerOverride = transactionManager)
 
     override suspend fun handle(message: TransactionCommand): BusResult<String, MessageFailure> {
         return BusResult.success(message.message)

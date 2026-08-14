@@ -7,13 +7,12 @@ import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.BusResult.Companion.success
 import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.api.uow.TransactionConfig
 import kotlinx.coroutines.delay
 
 class ReturnCommand(val messageData: String) : Command<BusResult<String, MessageFailure>>()
 
 class ReturnCommandHandler : CommandHandler<ReturnCommand, BusResult<String, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: ReturnCommand): BusResult<String, MessageFailure> {
         return success(message.messageData)
@@ -24,7 +23,7 @@ open class StorageCommand(val messageData: String, val listStore: MutableList<St
     Command<BusResult<Unit, MessageFailure>>()
 
 class StorageCommandHandler : CommandHandler<StorageCommand, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: StorageCommand): BusResult<Unit, MessageFailure> {
         message.listStore.add(message.messageData)
@@ -34,7 +33,7 @@ class StorageCommandHandler : CommandHandler<StorageCommand, BusResult<Unit, Mes
 
 class AnyCommandHandler :
     CommandHandler<Command<BusResult<Unit, MessageFailure>>, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(
         message: Command<BusResult<Unit, MessageFailure>>

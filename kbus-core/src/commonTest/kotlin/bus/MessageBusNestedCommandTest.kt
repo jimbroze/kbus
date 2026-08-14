@@ -12,7 +12,6 @@ import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.api.uow.TransactionConfig
 import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
@@ -49,7 +48,7 @@ private class InnerCommandHandler(
     private val recorder: MutableList<String>,
     private val publishesIntegrationEvent: Boolean,
     private val publishesDomainEvent: Boolean,
-    override val executeInTransaction: TransactionConfig?,
+    override val executeInTransaction: Boolean,
 ) : CommandHandler<InnerCommand, BusResult<String, MessageFailure>>() {
     override suspend fun handle(message: InnerCommand): BusResult<String, MessageFailure> {
         recorder.add("inner:${message.name}")
@@ -76,7 +75,7 @@ private class OuterCommand(val name: String, val innerFails: Boolean = false) :
 private class OuterCommandHandler(
     private val commandExecutor: NestedCommandExecutor,
     private val recorder: MutableList<String>,
-    override val executeInTransaction: TransactionConfig?,
+    override val executeInTransaction: Boolean,
 ) : CommandHandler<OuterCommand, BusResult<String, MessageFailure>>() {
     override suspend fun handle(message: OuterCommand): BusResult<String, MessageFailure> {
         recorder.add("outer:${message.name}")
@@ -115,7 +114,7 @@ private class DepthTwoCommand(val name: String) : Command<BusResult<String, Mess
 
 private class DepthTwoCommandHandler(private val commandExecutor: NestedCommandExecutor) :
     CommandHandler<DepthTwoCommand, BusResult<String, MessageFailure>>() {
-    override val executeInTransaction = TransactionConfig()
+    override val executeInTransaction = true
 
     override suspend fun handle(message: DepthTwoCommand): BusResult<String, MessageFailure> =
         commandExecutor.execute(MiddleCommand(message.name))
@@ -200,8 +199,8 @@ class MessageBusNestedCommandTest {
 
     private fun registerOuterAndInner(
         stores: HandlerFactoryStoreCollection,
-        outerTransaction: TransactionConfig? = TransactionConfig(),
-        innerTransaction: TransactionConfig? = TransactionConfig(),
+        outerTransaction: Boolean = true,
+        innerTransaction: Boolean = true,
         innerPublishesIntegrationEvent: Boolean = false,
         innerPublishesDomainEvent: Boolean = false,
     ) {
@@ -340,7 +339,7 @@ class MessageBusNestedCommandTest {
             val stores = HandlerFactoryStoreCollection()
             val locator = PersistingHandlerLocator(stores)
             val middlewareCalls = mutableListOf<String>()
-            registerOuterAndInner(stores, outerTransaction = null, innerTransaction = null)
+            registerOuterAndInner(stores, outerTransaction = false, innerTransaction = false)
 
             val bus =
                 MessageBus(
@@ -374,7 +373,7 @@ class MessageBusNestedCommandTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
-        registerOuterAndInner(stores, innerTransaction = null)
+        registerOuterAndInner(stores, innerTransaction = false)
         stores.commandStore.registerHandlers(
             DepthTwoCommand::class,
             listOf(
@@ -467,7 +466,7 @@ class MessageBusNestedCommandTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
         val transactionManager = RecordingTransactionManager(recorder)
-        registerOuterAndInner(stores, innerTransaction = null)
+        registerOuterAndInner(stores, innerTransaction = false)
 
         val bus =
             MessageBus(locator, transactionManager = transactionManager, appScope = backgroundScope)
@@ -482,7 +481,7 @@ class MessageBusNestedCommandTest {
     fun `refuses a command declaring a transaction when nested outside one`() = runTest {
         val stores = HandlerFactoryStoreCollection()
         val locator = PersistingHandlerLocator(stores)
-        registerOuterAndInner(stores, outerTransaction = null)
+        registerOuterAndInner(stores, outerTransaction = false)
 
         val bus = MessageBus(locator, appScope = backgroundScope)
 
@@ -490,48 +489,5 @@ class MessageBusNestedCommandTest {
             bus.execute(OuterCommand("untransacted"))
         }
         assertContentEquals(listOf("outer:untransacted"), recorder)
-    }
-
-    @Test
-    fun `runs a nested command declaring the transaction manager already running`() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-        val transactionManager = RecordingTransactionManager(recorder)
-        registerOuterAndInner(
-            stores,
-            outerTransaction = TransactionConfig(transactionManagerOverride = transactionManager),
-            innerTransaction = TransactionConfig(transactionManagerOverride = transactionManager),
-        )
-
-        val bus = MessageBus(locator, appScope = backgroundScope)
-
-        val result = bus.execute(OuterCommand("same-manager"))
-
-        assertEquals(BusResult.success("inner:same-manager"), result)
-        assertEquals(1, transactionManager.executions)
-    }
-
-    @Test
-    fun `refuses a nested command declaring a different transaction manager`() = runTest {
-        val stores = HandlerFactoryStoreCollection()
-        val locator = PersistingHandlerLocator(stores)
-        val outerManager = RecordingTransactionManager(recorder)
-        val otherManager = RecordingTransactionManager(mutableListOf())
-        registerOuterAndInner(
-            stores,
-            outerTransaction = TransactionConfig(transactionManagerOverride = outerManager),
-            innerTransaction = TransactionConfig(transactionManagerOverride = otherManager),
-        )
-
-        val bus = MessageBus(locator, appScope = backgroundScope)
-
-        assertFailsWith<NestedTransactionMismatchException> {
-            bus.execute(OuterCommand("other-manager"))
-        }
-        assertEquals(0, otherManager.executions)
-        assertContentEquals(
-            listOf("transaction-begin", "outer:other-manager", "rollback"),
-            recorder,
-        )
     }
 }

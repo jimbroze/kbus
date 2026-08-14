@@ -65,11 +65,8 @@ class CommandExecutor(
     ): TResult {
         unitOfWork.setReturningWork { handler.handle(message) }
 
-        val transactionConfig = handler.executeInTransaction
-        if (transactionConfig != null) {
-            unitOfWork.useTransaction(
-                transactionConfig.transactionManagerOverride ?: transactionManager
-            )
+        if (handler.executeInTransaction) {
+            unitOfWork.useTransaction(transactionManager)
         }
 
         return unitOfWork.execute()

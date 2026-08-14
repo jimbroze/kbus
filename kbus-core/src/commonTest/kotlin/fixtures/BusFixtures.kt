@@ -10,7 +10,6 @@ import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.api.uow.TransactionConfig
 
 open class FailureCommand : Command<BusResult<String, FailureCommandFailure>>()
 
@@ -24,7 +23,7 @@ sealed interface FailureCommandFailure : MessageFailure {
 
 class BrokenStateFailureCommandHandler :
     CommandHandler<FailureCommand, BusResult<String, FailureCommandFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: FailureCommand): BusResult<String, FailureCommandFailure> {
         return BusResult.failure(
@@ -64,7 +63,7 @@ class EventCommand(val message: String, val listStore: MutableList<String>) :
 
 class EventCommandHandler(private val integrationEventPublisher: IntegrationEventPublisher) :
     CommandHandler<EventCommand, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: EventCommand): BusResult<Unit, MessageFailure> {
         integrationEventPublisher.publish(listOf(StorageEvent(message.message, message.listStore)))

@@ -4,7 +4,6 @@ import com.jimbroze.kbus.api.common.MissingHandlerException
 import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.command.NestedTransactionMismatchException
 import com.jimbroze.kbus.api.result.KBusResult
-import com.jimbroze.kbus.api.uow.TransactionConfig
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.OwningContext
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
@@ -52,13 +51,10 @@ internal class InvocationNestedCommandExecutor(
      * command's. Anything it declares must therefore already be satisfied, or the mismatch is
      * raised here rather than left to commit somewhere the handler did not ask for.
      */
-    private fun checkTransaction(command: Command<*>, transactionConfig: TransactionConfig?) {
-        val running = invocation.unitOfWork.activeTransactionManager
-        val requested = transactionConfig?.transactionManagerOverride ?: running
+    private fun checkTransaction(command: Command<*>, executeInTransaction: Boolean) {
+        if (!executeInTransaction) return
+        if (invocation.unitOfWork.activeTransactionManager != null) return
 
-        if (transactionConfig == null) return
-        if (running != null && requested === running) return
-
-        throw NestedTransactionMismatchException(command::class, requested, running)
+        throw NestedTransactionMismatchException(command::class)
     }
 }
