@@ -2,12 +2,12 @@ package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.api.common.Message
 import com.jimbroze.kbus.api.middleware.LoggingMessage
-import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
-import com.jimbroze.kbus.core.infrastructure.logging.Logger
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
 import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
+import com.jimbroze.kbus.infrastructure.logging.LogLevel
+import com.jimbroze.kbus.infrastructure.logging.Logger
 
 class LoggingMiddleware(
     private val logger: Logger,

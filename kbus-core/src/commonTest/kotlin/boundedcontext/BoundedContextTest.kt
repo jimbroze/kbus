@@ -8,7 +8,6 @@ import com.jimbroze.kbus.core.fixtures.StorageEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEvent
 import com.jimbroze.kbus.core.fixtures.TestDomainEventHandler
 import com.jimbroze.kbus.core.fixtures.noPublishHandlerDependencies
-import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
 import com.jimbroze.kbus.core.registry.generation.GeneratedKBusApi
 import com.jimbroze.kbus.core.registry.generation.LoadedEventHandler
 import com.jimbroze.kbus.core.registry.generation.domainSubscription
@@ -16,6 +15,7 @@ import com.jimbroze.kbus.core.registry.generation.integrationSubscription
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

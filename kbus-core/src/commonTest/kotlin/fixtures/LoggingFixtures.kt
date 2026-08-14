@@ -11,8 +11,8 @@ import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.BusResult.Companion.success
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.api.uow.TransactionConfig
-import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
-import com.jimbroze.kbus.core.infrastructure.logging.Logger
+import com.jimbroze.kbus.infrastructure.logging.LogLevel
+import com.jimbroze.kbus.infrastructure.logging.Logger
 
 internal enum class LogLevels(override val level: String) : LogLevel {
     DEBUG("DEBUG"),

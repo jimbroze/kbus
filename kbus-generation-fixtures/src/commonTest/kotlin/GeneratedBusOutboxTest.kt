@@ -6,14 +6,14 @@ import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxTuning
-import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
-import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generated.generatedAutoPublishRegistrations
 import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
+import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals

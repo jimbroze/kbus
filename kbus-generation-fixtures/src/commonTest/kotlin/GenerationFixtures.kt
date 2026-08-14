@@ -5,9 +5,9 @@ package com.jimbroze.kbus.generation.test
 import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.infrastructure.lock.inMemoryAtomicLock
 import com.jimbroze.kbus.core.middleware.LockingMiddleware
 import com.jimbroze.kbus.generated.AutoLoader
+import com.jimbroze.kbus.infrastructure.lock.adapters.inMemoryAtomicLock
 import com.jimbroze.kbus.testdoubles.AutoTickingClock
 import com.test.external.ExternalEmpty
 import com.test.external.ExternalNestedWithExternal

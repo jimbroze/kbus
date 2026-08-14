@@ -8,8 +8,6 @@ import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.boundedcontext.integrationSubscription
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
-import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
 import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -34,6 +32,8 @@ import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrder
 import com.jimbroze.kbus.example.orders.contracts.GetOrderById
 import com.jimbroze.kbus.example.orders.contracts.PlaceOrder
 import com.jimbroze.kbus.example.orders.domain.OrderPlaced
+import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
+import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 

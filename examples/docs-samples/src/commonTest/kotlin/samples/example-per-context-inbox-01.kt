@@ -2,8 +2,8 @@
 package com.jimbroze.kbus.example.samples.examplePerContextInbox01
 
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
+import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
+import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
