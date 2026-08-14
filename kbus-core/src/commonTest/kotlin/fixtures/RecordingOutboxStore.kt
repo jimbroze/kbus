@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
-import com.jimbroze.kbus.api.outbox.OutboxStore
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
 
 class RecordingOutboxStore : OutboxStore {
     val saved = mutableListOf<EventEnvelope>()

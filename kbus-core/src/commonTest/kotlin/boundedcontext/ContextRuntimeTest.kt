@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.boundedcontext
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.fixtures.OtherStorageEvent
@@ -16,6 +15,7 @@ import com.jimbroze.kbus.core.messages.event.routing.AggregateException
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

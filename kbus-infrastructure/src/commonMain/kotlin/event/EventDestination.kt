@@ -1,4 +1,6 @@
-package com.jimbroze.kbus.api.messages.event
+package com.jimbroze.kbus.infrastructure.event
+
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 
 /**
  * A place [EventEnvelope]s can be routed to: local dispatch today, external transports later.

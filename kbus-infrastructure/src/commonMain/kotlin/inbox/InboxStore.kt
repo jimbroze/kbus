@@ -1,15 +1,15 @@
-package com.jimbroze.kbus.api.inbox
+package com.jimbroze.kbus.infrastructure.inbox
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 
 /**
  * User-supplied durable storage for a per-bounded-context inbox. Implementers commonly copy their
- * [com.jimbroze.kbus.api.outbox.OutboxStore] — two invariants below diverge materially from it, so
- * read carefully rather than assuming symmetry.
+ * [com.jimbroze.kbus.infrastructure.outbox.OutboxStore] — two invariants below diverge materially
+ * from it, so read carefully rather than assuming symmetry.
  *
  * All three methods are called outside any transaction — the opposite of `OutboxStore.save`, which
  * must join the ambient transaction. The counterpart obligation here: [save] must be durable on
- * return, because it is what [com.jimbroze.kbus.api.messages.event.EventDestination.deliver]
+ * return, because it is what [com.jimbroze.kbus.infrastructure.event.EventDestination.deliver]
  * collapses to for an inboxed context, and its return is the ack that lets the producer's outbox
  * mark the entry published. A buffering [save] is a lost-event bug.
  *

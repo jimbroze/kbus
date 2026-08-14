@@ -1,11 +1,11 @@
 package com.jimbroze.kbus.core.uow
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.api.outbox.OutboxStore
 import com.jimbroze.kbus.core.messages.event.relay.outboxRelay
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope

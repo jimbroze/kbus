@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.boundedcontext.inbox
 
-import com.jimbroze.kbus.api.inbox.InboxStore
-import com.jimbroze.kbus.api.messages.event.EventDestination
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay
+import com.jimbroze.kbus.infrastructure.event.EventDestination
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.inbox.InboxStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 

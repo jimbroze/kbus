@@ -3,8 +3,6 @@ package com.jimbroze.kbus.core.boundedcontext
 import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.messages.event.ErrorStrategy
-import com.jimbroze.kbus.api.messages.event.EventDestination
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.result.KBusResult
 import com.jimbroze.kbus.application.messages.command.CommandDependencies
@@ -14,6 +12,8 @@ import com.jimbroze.kbus.core.messages.command.CommandInvocation
 import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.infrastructure.event.EventDestination
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 
 /**
  * Delivers events to one [BoundedContext]'s handlers, and to no other context's. Both integration

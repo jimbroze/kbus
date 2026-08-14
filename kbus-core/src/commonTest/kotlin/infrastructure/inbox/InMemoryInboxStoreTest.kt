@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.infrastructure.inbox
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

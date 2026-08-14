@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.boundedcontext.inbox
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.ContextRuntime
@@ -12,6 +11,7 @@ import com.jimbroze.kbus.core.messages.event.dispatch.EventDispatcher
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

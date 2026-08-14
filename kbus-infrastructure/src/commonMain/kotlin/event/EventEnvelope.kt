@@ -1,5 +1,6 @@
-package com.jimbroze.kbus.api.messages.event
+package com.jimbroze.kbus.infrastructure.event
 
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 

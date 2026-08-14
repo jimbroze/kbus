@@ -1,6 +1,6 @@
-package com.jimbroze.kbus.api.outbox
+package com.jimbroze.kbus.infrastructure.outbox
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 
 /**
  * User-supplied durable storage for the transactional outbox.

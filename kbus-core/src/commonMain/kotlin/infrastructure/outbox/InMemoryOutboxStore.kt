@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.infrastructure.outbox
 
-import com.jimbroze.kbus.api.messages.event.EventEnvelope
-import com.jimbroze.kbus.api.outbox.OutboxStore
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
