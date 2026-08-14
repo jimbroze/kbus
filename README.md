@@ -17,15 +17,33 @@ handler resolution (zero reflection).
 
 ## Installation
 
-Add the dependencies to your `build.gradle.kts`:
+KBUS is published as five artifacts, split by audience. Depend on the smallest one that covers what a module does:
+
+| Artifact | Depend on it from | Holds |
+|---|---|---|
+| `kbus-api` | Any module that writes handlers | Messages, handlers, results, annotations |
+| `kbus-domain` | A context's domain model | Entities, aggregate roots, value objects, domain events |
+| `kbus-application` | A context's application layer | What a handler is given: handler dependencies, integration event mappers |
+| `kbus-infrastructure` | Adapters | Ports (stores, locks, caches, transactions, logging) and the shipped in-memory implementations |
+| `kbus-core` | The composition root only | The bus, bounded contexts, middleware, unit of work, routing |
+
+A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath.
 
 ```groovy
+// A module that writes handlers
 dependencies {
-    implementation("com.jimbroze:kbus-core:<version>")
+    implementation("com.jimbroze:kbus-api:<version>")
+    implementation("com.jimbroze:kbus-domain:<version>")
+    implementation("com.jimbroze:kbus-application:<version>")
 
     // For KSP code generation (optional)
-    implementation("com.jimbroze:kbus-annotations:<version>")
     ksp("com.jimbroze:kbus-generation:<version>")
+}
+
+// The module that wires the bus together
+dependencies {
+    implementation("com.jimbroze:kbus-core:<version>")
+    implementation("com.jimbroze:kbus-infrastructure:<version>")
 }
 ```
 
@@ -1087,8 +1105,8 @@ plugins {
 }
 
 dependencies {
-    implementation("com.jimbroze:kbus-core:<version>")
-    implementation("com.jimbroze:kbus-annotations:<version>")
+    implementation("com.jimbroze:kbus-api:<version>")
+    implementation("com.jimbroze:kbus-application:<version>")
     add("kspCommonMainMetadata", "com.jimbroze:kbus-generation:<version>")
 }
 

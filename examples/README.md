@@ -46,6 +46,13 @@ context at all.
 Both rules are load-bearing rather than stylistic: `contracts` depending on nothing is what stops a
 foreign domain model leaking through a transitive dependency.
 
+The same shape holds for the framework itself. A context takes `kbus-api` for its messages and
+handlers, `kbus-domain` for its model, and `kbus-application` for what a handler is given; an
+`infrastructure` module adds `kbus-infrastructure` for the ports it implements. None of them takes
+`kbus-core`, so a handler cannot reach the bus — the isolation is a classpath fact rather than a
+convention. `app` and `app-manual` are the only modules that depend on `kbus-core`, because
+assembling the bus is the one job that needs it.
+
 ## Commands return the minimum
 
 A command returns an identifier and nothing else — `PlaceOrder` returns an `OrderId`. Read models
