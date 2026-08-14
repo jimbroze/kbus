@@ -27,7 +27,9 @@ KBUS is published as five artifacts, split by audience. Depend on the smallest o
 | `kbus-infrastructure` | Adapters | Ports (transactions, stores, locks, caches, logging) and the shipped in-memory implementations |
 | `kbus-core` | The composition root only | The bus, bounded contexts, middleware, unit of work, routing |
 
-A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath.
+A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath. The
+reciprocal holds too: an adapter implementing a port needs `kbus-infrastructure` and nothing else, so a port it
+reaches for is either there or in the wrong artifact.
 
 ```groovy
 // A module that writes handlers
@@ -38,6 +40,11 @@ dependencies {
 
     // For KSP code generation (optional)
     ksp("com.jimbroze:kbus-generation:<version>")
+}
+
+// A module that implements ports
+dependencies {
+    implementation("com.jimbroze:kbus-infrastructure:<version>")
 }
 
 // The module that wires the bus together

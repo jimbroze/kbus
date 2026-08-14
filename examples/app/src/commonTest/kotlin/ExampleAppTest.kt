@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.example.app
 
-import com.jimbroze.kbus.core.uow.EmptyTransactionManager
+import com.jimbroze.kbus.example.adapters.ExampleDatabase
+import com.jimbroze.kbus.example.adapters.ExampleDatabaseTransactionManager
 import com.jimbroze.kbus.example.orders.contracts.PlaceOrder
 import com.jimbroze.kbus.generated.PlaceOrderGateway
 import kotlin.test.Test
@@ -10,7 +11,7 @@ import kotlinx.coroutines.test.runTest
 
 class ExampleAppTest : ExampleAppContract() {
     override fun createBus(appScope: CoroutineScope) =
-        exampleBus(EmptyTransactionManager(), appScope)
+        exampleBus(ExampleDatabaseTransactionManager(ExampleDatabase()), appScope)
 
     @Test
     fun `sends a command through the generated gateway for it`() = runTest {

@@ -39,6 +39,8 @@ include("kbus-generation-fixtures")
 
 include("kbus-generation-fixtures-sub")
 
+include("examples:adapters")
+
 include("examples:app")
 
 include("examples:app-contract")

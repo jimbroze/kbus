@@ -28,6 +28,7 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(projects.testDoubles)
+            implementation(projects.examples.adapters)
             implementation(projects.examples.appContract)
         }
     }

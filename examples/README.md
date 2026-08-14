@@ -8,6 +8,7 @@ examples/
   contexts/
     orders/          contracts · domain · application · infrastructure · acl
     inventory/       contracts · domain · application · infrastructure
+  adapters/          shared infrastructure, written against the ports alone
   app/               the only module that knows a bus exists
   app-manual/        the same contexts, wired without code generation
   app-contract/      the requirements both wirings must meet
@@ -52,6 +53,13 @@ handlers, `kbus-domain` for its model, and `kbus-application` for what a handler
 `kbus-core`, so a handler cannot reach the bus — the isolation is a classpath fact rather than a
 convention. `app` and `app-manual` are the only modules that depend on `kbus-core`, because
 assembling the bus is the one job that needs it.
+
+`adapters` holds the reciprocal of that. It implements `TransactionManager` over a fake database
+that stages writes until commit, and it depends on `kbus-infrastructure` and nothing else — which
+is exactly what a published adapter like a `kbus-postgres` would depend on. Because the ports it
+needs are the only kbus surface on its classpath, a port that drifts into `kbus-core` stops this
+module compiling and names the type it moved. It sits outside `contexts/` because a transaction
+manager spans the whole bus rather than belonging to any one context.
 
 ## Commands return the minimum
 
