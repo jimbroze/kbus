@@ -1,6 +1,7 @@
 package com.jimbroze.kbus.core.uow
 
-import com.jimbroze.kbus.api.uow.TransactionManager
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
+import com.jimbroze.kbus.infrastructure.transaction.adapters.EmptyTransactionManager
 
 internal class DefaultUnitOfWork<TResult> internal constructor() : UnitOfWork<TResult> {
     private lateinit var primaryWork: suspend () -> TResult

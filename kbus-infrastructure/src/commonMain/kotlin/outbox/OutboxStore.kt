@@ -1,19 +1,20 @@
 package com.jimbroze.kbus.infrastructure.outbox
 
 import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 
 /**
  * User-supplied durable storage for the transactional outbox.
  *
- * By convention, like [com.jimbroze.kbus.api.uow.TransactionManager]: implementations own
- * serialization and durability, and **must join the ambient transaction** — [save] is always called
- * from inside the command's `TransactionManager.execute` block, so a rolled-back transaction must
- * roll back the saved entries too. [fetchUnpublished] and [markPublished] are called outside any
- * transaction, by the post-commit drain and the background poller.
+ * By convention, like [TransactionManager]: implementations own serialization and durability, and
+ * **must join the ambient transaction** — [save] is always called from inside the command's
+ * [TransactionManager.execute] block, so a rolled-back transaction must roll back the saved entries
+ * too. [fetchUnpublished] and [markPublished] are called outside any transaction, by the
+ * post-commit drain and the background poller.
  */
 interface OutboxStore {
     /**
-     * Called inside the command's `TransactionManager.execute` block. Must join the ambient
+     * Called inside the command's [TransactionManager.execute] block. Must join the ambient
      * transaction.
      */
     suspend fun save(entries: List<EventEnvelope>)

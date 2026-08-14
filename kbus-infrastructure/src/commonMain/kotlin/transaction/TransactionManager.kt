@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.api.uow
+package com.jimbroze.kbus.infrastructure.transaction
 
 interface TransactionManager {
     suspend fun <TResult> execute(block: suspend () -> TResult): TResult

@@ -4,7 +4,6 @@ import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.api.result.KBusResult
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
@@ -13,6 +12,7 @@ import com.jimbroze.kbus.core.messages.event.dispatch.DomainEventDispatcher
 import com.jimbroze.kbus.core.uow.UnitOfWork
 import com.jimbroze.kbus.core.uow.UnitOfWorkFactory
 import com.jimbroze.kbus.domain.event.DomainEvent
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 import kotlin.reflect.KClass
 
 class TestTransactionManager : TransactionManager {

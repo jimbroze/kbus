@@ -12,7 +12,6 @@ import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
@@ -28,6 +27,7 @@ import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

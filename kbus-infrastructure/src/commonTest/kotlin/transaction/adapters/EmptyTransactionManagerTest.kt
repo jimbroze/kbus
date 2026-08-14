@@ -1,4 +1,4 @@
-package com.jimbroze.kbus.core.uow
+package com.jimbroze.kbus.infrastructure.transaction.adapters
 
 import kotlin.test.Test
 import kotlin.test.assertTrue

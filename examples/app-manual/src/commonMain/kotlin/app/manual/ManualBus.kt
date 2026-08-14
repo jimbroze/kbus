@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.example.app.manual
 
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.boundedcontext.domainSubscription
@@ -34,6 +33,7 @@ import com.jimbroze.kbus.example.orders.contracts.PlaceOrder
 import com.jimbroze.kbus.example.orders.domain.OrderPlaced
 import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
 import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 

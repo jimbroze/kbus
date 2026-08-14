@@ -3,7 +3,6 @@ package com.jimbroze.kbus.core.messages.command
 import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.result.KBusResult
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
@@ -14,6 +13,7 @@ import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 
 class CommandExecutor(
     private val transactionManager: TransactionManager,

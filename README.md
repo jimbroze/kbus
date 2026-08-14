@@ -21,10 +21,10 @@ KBUS is published as five artifacts, split by audience. Depend on the smallest o
 
 | Artifact | Depend on it from | Holds |
 |---|---|---|
-| `kbus-api` | Any module that writes handlers | Messages, handlers, results, annotations, transaction config |
+| `kbus-api` | Any module that writes handlers | Messages, handlers, results, annotations |
 | `kbus-domain` | A context's domain model | Entities, aggregate roots, value objects, domain events |
 | `kbus-application` | A context's application layer | What a handler is given: handler dependencies, integration event mappers |
-| `kbus-infrastructure` | Adapters | Ports (stores, locks, caches, logging) and the shipped in-memory implementations |
+| `kbus-infrastructure` | Adapters | Ports (transactions, stores, locks, caches, logging) and the shipped in-memory implementations |
 | `kbus-core` | The composition root only | The bus, bounded contexts, middleware, unit of work, routing |
 
 A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath.

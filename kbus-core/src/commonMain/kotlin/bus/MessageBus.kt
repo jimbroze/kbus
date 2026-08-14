@@ -7,7 +7,6 @@ import com.jimbroze.kbus.api.messages.command.Command
 import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.result.KBusResult
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
@@ -32,9 +31,10 @@ import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationCont
 import com.jimbroze.kbus.core.registry.HandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
-import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
+import com.jimbroze.kbus.infrastructure.transaction.adapters.EmptyTransactionManager
 import kotlin.reflect.KClass
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds

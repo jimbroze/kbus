@@ -13,7 +13,7 @@ import com.jimbroze.kbus.core.boundedcontext.ContextBuilder
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
-import com.jimbroze.kbus.core.uow.EmptyTransactionManager
+import com.jimbroze.kbus.infrastructure.transaction.adapters.EmptyTransactionManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

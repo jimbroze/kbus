@@ -4,7 +4,6 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxTuning
 import com.jimbroze.kbus.core.bus.BaseMessageBus
 import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
@@ -26,6 +25,7 @@ import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.CodeGenerators
 import com.jimbroze.kbus.generation.processors.KbusProcessor
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 
 private const val GENERATION_ROOT_PACKAGE_PATH = "com.jimbroze.kbus.generated"
 

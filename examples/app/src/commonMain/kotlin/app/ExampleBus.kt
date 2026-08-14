@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.example.app
 
-import com.jimbroze.kbus.api.uow.TransactionManager
 import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
 import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
 import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
@@ -18,6 +17,7 @@ import com.jimbroze.kbus.generated.generatedAutoPublishRegistrations
 import com.jimbroze.kbus.generated.loaded
 import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
 import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 

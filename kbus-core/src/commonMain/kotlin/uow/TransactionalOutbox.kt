@@ -16,8 +16,8 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Opt-in configuration for the transactional outbox. A peer of
- * [TransactionManager][com.jimbroze.kbus.api.uow.TransactionManager] on the bus constructor, not
- * middleware.
+ * [TransactionManager][com.jimbroze.kbus.infrastructure.transaction.TransactionManager] on the bus
+ * constructor, not middleware.
  *
  * [maxConcurrentDeliveries] trades ordering for throughput: see
  * [EnvelopeRelay][com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay]. Set it to 1 to
