@@ -145,6 +145,22 @@ class KbusProcessor(
         return invalidLoadSymbols
     }
 
+    /**
+     * A module generating a bus from nothing is a wiring mistake, not a valid build: the module
+     * exists to compose handlers, and finding none means the processor never saw them. Nothing else
+     * about it is an error, so without this it produces no code and says nothing.
+     */
+    private fun reportEmptyBusModule() {
+        if (isSubModule) return
+
+        logger.warn(
+            "kbus generated nothing for this module: it declares no @LoadMessageHandler of its " +
+                "own and found no dependency index. Check that kbus.indexPackage matches the " +
+                "package the handler modules write their indexes into, and that " +
+                "kbus.modulesToIndex names them."
+        )
+    }
+
     private fun processEventMappers(resolver: Resolver): List<KSAnnotated> {
         val mappersToLoad =
             resolver.getSymbolsWithAnnotation(LoadEventMapper::class.qualifiedName.toString())
@@ -158,7 +174,10 @@ class KbusProcessor(
     }
 
     override fun finish() {
-        if (dependencies.isEmpty()) return
+        if (dependencies.isEmpty()) {
+            reportEmptyBusModule()
+            return
+        }
         if (!reportContextIdentityCollisions(dependencies.handlers, logger)) return
 
         val sourceFiles = dependencies.sourceFiles.toList()

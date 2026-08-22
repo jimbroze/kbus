@@ -225,6 +225,22 @@ class ProcessorCompilationTest {
         )
     }
 
+    @Test
+    fun `warns when a bus module reads no index and declares no handler`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                class PlaceOrder
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        assertContains(result.messages, "kbus generated nothing for this module")
+        assertContains(result.messages, "kbus.modulesToIndex")
+    }
+
     private fun compile(
         @Language("kotlin") source: String,
         boundedContextIdentity: String? = null,
