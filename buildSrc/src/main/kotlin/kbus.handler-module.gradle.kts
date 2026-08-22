@@ -12,15 +12,7 @@ interface BoundedContextExtension {
 
 val boundedContext = extensions.create<BoundedContextExtension>("boundedContext")
 
-dependencies { add("kspCommonMainMetadata", project(":kbus-generation")) }
-
-kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
-    if (name.startsWith("compile")) {
-        dependsOn("kspCommonMainKotlinMetadata")
-    }
-}
+generateKbusCodeFromCommonMetadata()
 
 // An index class name and package are derived from the submodule name, which therefore has to be
 // unique across the build.

@@ -1,7 +1,6 @@
-plugins {
-    id("kbus.multiplatform")
-    id("com.google.devtools.ksp")
-}
+plugins { id("kbus.bus-module") }
+
+generatedBus { indexPackage = "com.jimbroze.kbus.generation.fixtures.indexes" }
 
 kotlin {
     sourceSets {
@@ -20,18 +19,6 @@ kotlin {
         }
     }
 }
-
-dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
-
-kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
-    if (name.startsWith("compile")) {
-        dependsOn("kspCommonMainKotlinMetadata")
-    }
-}
-
-ksp { arg("kbus.indexPackage", "com.jimbroze.kbus.generation.fixtures.indexes") }
 
 // Exclude Knit-generated samples from ktfmt and detekt — Knit owns these files and knitCheck
 // verifies them
