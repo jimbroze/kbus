@@ -3,6 +3,10 @@ rootProject.name = "kbus"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
+    // The plugin this build publishes also wires this build's own generation, so the examples are
+    // its integration test: a regression in it breaks them.
+    includeBuild("gradle-plugin")
+
     repositories {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
         google()
@@ -19,13 +23,15 @@ dependencyResolutionManagement {
     }
 }
 
-include("kotlin-library")
-
 include("testDoubles")
 
-include("kbus-contracts")
+include("kbus-api")
 
 include("kbus-domain")
+
+include("kbus-application")
+
+include("kbus-infrastructure")
 
 include("kbus-core")
 
@@ -34,6 +40,8 @@ include("kbus-generation")
 include("kbus-generation-fixtures")
 
 include("kbus-generation-fixtures-sub")
+
+include("examples:adapters")
 
 include("examples:app")
 

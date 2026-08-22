@@ -12,10 +12,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 @OptIn(ExperimentalCoroutinesApi::class)
 class GeneratedAutoPublishRegistrationsTest {
     @Test
-    fun `registers for auto-publish only the events that opted in`() {
-        // TestShipmentIntegration (direct AutoPublishesFrom) and TestShipmentAnalytics (indirect,
-        // via a generic intermediate interface) both opt in; TestShipmentAudit has no
-        // AutoPublishesFrom companion, so it contributes no registration.
+    fun `registers for auto-publish only the mappers that opted in`() {
+        // TestShipmentIntegrationMapper implements IntegrationEventMapper directly and
+        // TestShipmentAnalyticsMapper via a generic intermediate interface; TestShipmentAudit has
+        // no annotated mapper, so it contributes no registration.
         val registrationsForShipmentEvent =
             generatedAutoPublishRegistrations.count { it.eventClass == TestShipmentEvent::class }
 
@@ -23,7 +23,7 @@ class GeneratedAutoPublishRegistrationsTest {
     }
 
     @Test
-    fun `registers for auto-publish the events a submodule opted in`() {
+    fun `registers for auto-publish the mappers a submodule opted in`() {
         val eventClasses = generatedAutoPublishRegistrations.map { it.eventClass }
 
         assertTrue(eventClasses.contains(ArrivalRecorded::class))

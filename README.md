@@ -17,15 +17,40 @@ handler resolution (zero reflection).
 
 ## Installation
 
-Add the dependencies to your `build.gradle.kts`:
+KBUS is published as five artifacts, split by audience. Depend on the smallest one that covers what a module does:
+
+| Artifact | Depend on it from | Holds |
+|---|---|---|
+| `kbus-api` | Any module that writes handlers | Messages, handlers, results, annotations |
+| `kbus-domain` | A context's domain model | Entities, aggregate roots, value objects, domain events |
+| `kbus-application` | A context's application layer | What a handler is given: handler dependencies, integration event mappers |
+| `kbus-infrastructure` | Adapters | Ports (transactions, stores, locks, caches, logging) and the shipped in-memory implementations |
+| `kbus-core` | The composition root only | The bus, bounded contexts, middleware, unit of work, routing |
+
+A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath. The
+reciprocal holds too: an adapter implementing a port needs `kbus-infrastructure` and nothing else, so a port it
+reaches for is either there or in the wrong artifact.
 
 ```groovy
+// A module that writes handlers
+dependencies {
+    implementation("com.jimbroze:kbus-api:<version>")
+    implementation("com.jimbroze:kbus-domain:<version>")
+    implementation("com.jimbroze:kbus-application:<version>")
+
+    // For code generation, apply the `com.jimbroze.kbus.context` Gradle plugin — it adds the
+    // processor itself. See "KSP Code Generation".
+}
+
+// A module that implements ports
+dependencies {
+    implementation("com.jimbroze:kbus-infrastructure:<version>")
+}
+
+// The module that wires the bus together
 dependencies {
     implementation("com.jimbroze:kbus-core:<version>")
-
-    // For KSP code generation (optional)
-    implementation("com.jimbroze:kbus-annotations:<version>")
-    ksp("com.jimbroze:kbus-generation:<version>")
+    implementation("com.jimbroze:kbus-infrastructure:<version>")
 }
 ```
 
@@ -34,14 +59,14 @@ dependencies {
 ### Define Messages and Handlers
 
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.GenericFailure
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.FailureReason
+import com.jimbroze.kbus.api.result.GenericFailure
+import com.jimbroze.kbus.api.result.MessageFailure
 -->
 
 ```kotlin
@@ -79,7 +104,7 @@ class GetUserHandler :
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
@@ -250,8 +275,8 @@ before a single one has started.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
 -->
 
 ```kotlin
@@ -301,10 +326,10 @@ it is given belongs to the invocation that reached it, so it is the one carrying
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.RegisterUser
 import com.jimbroze.kbus.example.fixtures.UserRegistered
 -->
@@ -328,17 +353,22 @@ class RegisterUserHandler(private val integrationEventPublisher: IntegrationEven
 #### Auto-Publishing Integration Events from Domain Events
 
 The `AutoPublishIntegrationEvents` middleware publishes integration events automatically whenever a registered domain
-event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or by
-implementing `AutoPublishesFrom` on the integration event's companion object to declare the domain event it is derived
-from. A domain event may be registered multiple times to publish several integration events.
+event is dispatched — no explicit `publish` call needed. Register mappings with `autoPublish`, either as a lambda or as
+an object implementing `IntegrationEventMapper`. A domain event may be registered multiple times to publish several
+integration events.
+
+A mapper names both a domain event and an integration event, so it belongs to the producing context's application
+layer — the only layer that may see its own domain model and its published contracts at once. Keeping it out of the
+integration event itself is what lets the contract be depended on by consumers without dragging the producer's domain
+along with it.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.middleware.middleware.autoPublish
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.autoPublish
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.domain.event.DomainEvent
 -->
@@ -346,10 +376,10 @@ import com.jimbroze.kbus.domain.event.DomainEvent
 ```kotlin
 class OrderPlaced(val orderId: String) : DomainEvent()
 
-class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OrderPlaced> {
-        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
-    }
+class OrderPlacedIntegration(val orderId: String) : IntegrationEvent()
+
+object OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
 }
 
 class OrderPlacedAnalytics(val orderId: String) : IntegrationEvent()
@@ -358,7 +388,7 @@ val busWithAutoPublish = MessageBus(
     handlerLocator = PersistingHandlerLocator(),
     middlewares = listOf(
         AutoPublishIntegrationEvents(
-            autoPublish(OrderPlacedIntegration),
+            autoPublish(OrderPlacedMapper),
             autoPublish<OrderPlaced> { OrderPlacedAnalytics(it.orderId) },
         ),
     ),
@@ -367,9 +397,9 @@ val busWithAutoPublish = MessageBus(
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-integration-events-03.kt).
 
-Registering every mapping by hand doesn't scale in a generated bus. Annotate the integration event with `@LoadEvent`
-and code generation collects every `AutoPublishesFrom` companion it finds into a generated
-`generatedAutoPublishRegistrations` list — see [Auto-Publish Registrations](#auto-publish-registrations) below.
+Registering every mapping by hand doesn't scale in a generated bus. Annotate the mapper with `@LoadEventMapper` and
+code generation collects it into a generated `generatedAutoPublishRegistrations` list — see
+[Auto-Publish Registrations](#auto-publish-registrations) below.
 
 ## Result Types
 
@@ -377,8 +407,8 @@ All commands and queries return `BusResult<TValue, TMessageFailure>`:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.MyCommand
 import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
 -->
@@ -400,8 +430,8 @@ Create results with companion functions:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
 -->
 
@@ -417,7 +447,7 @@ each message declares its own failure type, so passing one straight through does
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.result.GenericFailure
+import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
 import com.jimbroze.kbus.example.fixtures.MyCommand
 import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
@@ -458,11 +488,11 @@ event dispatch, which is its own entry point and always runs the full chain.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import kotlin.time.TimeSource
 -->
 
@@ -497,7 +527,7 @@ Pass middleware when creating the bus:
 import com.jimbroze.kbus.core.bus.MessageBus
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
-import com.jimbroze.kbus.core.middleware.middleware.LoggingMiddleware
+import com.jimbroze.kbus.core.middleware.LoggingMiddleware
 import com.jimbroze.kbus.example.fixtures.DebugLevel
 import com.jimbroze.kbus.example.fixtures.InfoLevel
 import com.jimbroze.kbus.example.fixtures.ErrorLevel
@@ -521,8 +551,8 @@ val bus = MessageBus(
 
 - **`LoggingMiddleware`** — Logs message dispatch, completion, and errors at configurable log levels
 - **`LockingMiddleware`** — Prevents concurrent message handling with a configurable timeout
-- **`AutoPublishIntegrationEvents`** — Publishes the integration event mapped from a registered domain event via
-  `AutoPublishesFrom`
+- **`AutoPublishIntegrationEvents`** — Publishes the integration event an `IntegrationEventMapper` maps a registered
+  domain event to
 
 ## Unit of Work
 
@@ -561,9 +591,9 @@ Command handlers execute within a transaction by default. No additional configur
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.TransferFunds
 -->
 
@@ -579,39 +609,11 @@ class TransferFundsHandler : CommandHandler<TransferFunds, BusResult<Unit, Messa
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-02.kt).
 
-You can provide a `TransactionManager` override to individual command handlers via `TransactionConfig`:
-
-<!--- CLEAR -->
-<!--- INCLUDE
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.TransactionConfig
-import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.example.fixtures.TransferFunds
--->
-
-```kotlin
-class TransferFundsHandler(
-    transactionManager: TransactionManager
-) : CommandHandler<TransferFunds, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? =
-        TransactionConfig(transactionManagerOverride = transactionManager)
-
-    override suspend fun handle(message: TransferFunds): BusResult<Unit, MessageFailure> {
-        // This runs inside a transaction with a custom TransactionManager
-        return BusResult.success(Unit)
-    }
-}
-```
-
-> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-unit-of-work-03.kt).
-
-To opt out of transaction execution, set `executeInTransaction` to `null`:
+To opt out of transaction execution, set `executeInTransaction` to `false`:
 
 ```kotlin
 class MyCommandHandler : CommandHandler<MyCommand, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: MyCommand): BusResult<Unit, MessageFailure> {
         // This runs without a transaction
@@ -647,9 +649,9 @@ Only commands the same bounded context owns are reachable this way — anything 
 Crossing a context boundary means going through the bus, which opens its own Unit of Work and therefore commits
 independently. Which side of that line a command falls on is not a setting; it is which path you called.
 
-Because a nested handler cannot open a transaction of its own, one that declares `executeInTransaction` the outer
-transaction cannot satisfy — a transaction where none is running, or a different `transactionManagerOverride` from the
-running one — throws `NestedTransactionMismatchException` rather than silently running outside what it asked for.
+Because a nested handler cannot open a transaction of its own, one that declares `executeInTransaction` inside an
+outer command that opened none throws `NestedTransactionMismatchException` rather than silently running outside what
+it asked for.
 
 Queries have no nested equivalent: a query has no Unit of Work, so there is nothing to share. Use the bus.
 
@@ -859,7 +861,7 @@ Opt in by passing an `OutboxConfig`:
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
+import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
@@ -930,7 +932,7 @@ that context's own inbox acknowledgement semantics.
 
 A few edge cases worth knowing:
 
-- Commands with `executeInTransaction = null` still route their events through the outbox, just without the atomicity of
+- Commands with `executeInTransaction = false` still route their events through the outbox, just without the atomicity of
   the save being part of a real transaction.
 - A detached (`FireAndForget`, post-commit) domain event handler that calls `publish()` itself still publishes through
   the outbox, via its already-flushed path (saved immediately, no atomicity with the original command) — it does not
@@ -950,12 +952,12 @@ durable store. A failing context now only retries itself.
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.infrastructure.inbox.InMemoryInboxStore
-import com.jimbroze.kbus.core.module.BoundedContext
-import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.inbox.BoundedContextInbox
-import com.jimbroze.kbus.core.module.inbox.InboxAckPolicy
+import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
+import com.jimbroze.kbus.infrastructure.inbox.adapters.InMemoryInboxStore
+import com.jimbroze.kbus.core.boundedcontext.BoundedContext
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
+import com.jimbroze.kbus.core.boundedcontext.inbox.BoundedContextInbox
+import com.jimbroze.kbus.core.boundedcontext.inbox.InboxAckPolicy
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.uow.OutboxConfig
@@ -1075,23 +1077,33 @@ adding no annotations or coupling to anything outside your message handlers (whi
 
 ### Setup
 
-```groovy
+The Gradle plugin owns the KSP wiring. A module that composes a bus applies `com.jimbroze.kbus.bus`:
+
+```kotlin
 plugins {
     kotlin("multiplatform")
     alias(libs.plugins.devtools.ksp)
+    id("com.jimbroze.kbus.bus") version "<version>"
 }
+
+kbus { indexPackage = "com.example.myApp.indexes" }
 
 dependencies {
-    implementation("com.jimbroze:kbus-core:<version>")
-    implementation("com.jimbroze:kbus-annotations:<version>")
-    add("kspCommonMainMetadata", "com.jimbroze:kbus-generation:<version>")
-}
-
-// Include generated sources
-kotlin.sourceSets.commonMain {
-    kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
+    implementation("com.jimbroze:kbus-api:<version>")
+    implementation("com.jimbroze:kbus-application:<version>")
 }
 ```
+
+`indexPackage` is the package every module of the build writes its dependency index into; it is the one property every
+kbus module sets. The processor is added at the plugin's own version, overridable with a
+`kbus.generationVersion` Gradle property.
+
+Both the Kotlin Multiplatform and KSP plugins stay the consumer's to apply, so their versions are the consumer's to
+pick. Applying a kbus plugin without either fails at configuration time saying which is missing. A JVM-only build is
+not supported: generation runs over common metadata so that what it writes is common code every target compiles.
+
+The raw KSP arguments the plugin passes are documented under [Build arguments](#build-arguments) — they are what
+appears in a processor error message, and what a build not using the plugin has to set by hand.
 
 ### Annotate Handlers
 
@@ -1099,10 +1111,10 @@ Mark handler classes with `@LoadMessageHandler`. Constructor parameters become a
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.example.fixtures.OrderRepository
 import com.jimbroze.kbus.example.fixtures.PaymentService
 import com.jimbroze.kbus.example.fixtures.PlaceOrder
@@ -1143,8 +1155,8 @@ The KSP processor generates:
 - **`CompileTimeLoadedMessageBus`** — A type-safe bus with strongly-typed `execute`, `fetch`, and `observe` methods for
   each message type. It takes the same optional `appScope`, `outbox` and `inbox` arguments as `MessageBus`
 - **`AutoLoader`** — Auto-loading support for runtime handler registration
-- **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every `@LoadEvent`
-  integration event whose companion implements `AutoPublishesFrom` (only generated when at least one exists)
+- **`generatedAutoPublishRegistrations`** — `List<AutoPublishRegistration<*>>` collected from every
+  `@LoadEventMapper` mapper (only generated when at least one exists)
 
 ### Using the Generated Bus
 
@@ -1170,20 +1182,16 @@ val result = bus.execute(PlaceOrder(items))
 
 ### Auto-Publish Registrations
 
-`@LoadEvent` makes an event known to code generation. On its own it generates nothing — but if the annotated integration
-event's companion implements `AutoPublishesFrom` (see
-[Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)), the processor also
-collects it into the generated `generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered by
-hand:
+`@LoadEventMapper` collects an `IntegrationEventMapper` (see
+[Auto-Publishing Integration Events](#auto-publishing-integration-events-from-domain-events)) into the generated
+`generatedAutoPublishRegistrations` list, so the mapping doesn't need to be registered by hand:
 
 <!--- CLEAR -->
 
 ```kotlin
-@LoadEvent
-class OrderPlacedIntegration(val orderId: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OrderPlaced> {
-        override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
-    }
+@LoadEventMapper
+object OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+    override fun fromDomainEvent(event: OrderPlaced) = OrderPlacedIntegration(event.orderId)
 }
 
 val bus = CompileTimeLoadedMessageBus(
@@ -1193,31 +1201,45 @@ val bus = CompileTimeLoadedMessageBus(
 )
 ```
 
-An event annotated with `@LoadEvent` whose companion does not implement `AutoPublishesFrom` (or that has no companion)
-is still known to the processor — it just contributes no registration; this is not an error, and leaves room for other
-`@LoadEvent`-driven code generation in future.
+The annotated declaration must be an `object` implementing `IntegrationEventMapper`: the generated list is a top-level
+value with nothing to resolve a mapper from, so it has to be referenceable by name alone. Anything else is reported
+against the declaration.
 
 ### Submodules
 
-For multi-module projects, submodules can export their handler metadata for the main module to consume. You must provide
-a package name for the indexes. This prevents trying to load indexes from a dependent library that uses Kbus.
+For multi-module projects, submodules export their handler metadata for the module composing the bus to consume. A
+submodule applies `com.jimbroze.kbus.context` instead:
 
-```groovy
-// In the submodule's build.gradle.kts
-ksp {
-    arg("kbus.subModuleName", project.name)
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
+```kotlin
+plugins {
+    kotlin("multiplatform")
+    alias(libs.plugins.devtools.ksp)
+    id("com.jimbroze.kbus.context") version "<version>"
 }
 
-// In the top-level module's build.gradle.kts
-ksp {
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
+kbus {
+    indexPackage = "com.example.myApp.indexes"
+    boundedContext = "billing"
 }
 ```
 
-Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
-these indexes automatically, including any `@LoadEvent`/`AutoPublishesFrom` opt-ins, which are folded into the main
-module's `generatedAutoPublishRegistrations`.
+Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code, including any
+`@LoadEventMapper` opt-ins, which are folded into the consuming module's `generatedAutoPublishRegistrations`.
+
+An index is located by name, built from the submodule's Gradle module name — never by scanning the package they
+share, which holds only what the module itself declares. The bus module derives the list of modules to look in from
+what its common metadata compilation resolves, so nothing has to be written out: naming a module that generated no
+index costs nothing, since it is skipped.
+
+Derivation only reaches a module whose index is named after its Gradle module. A submodule that names itself something
+else is named alongside:
+
+```kotlin
+kbus {
+    indexPackage = "com.example.myApp.indexes"
+    additionalModulesToIndex.add("legacy-billing")
+}
+```
 
 An index also names the typed command interfaces its module generated, against the bounded context each covers. That
 is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from
@@ -1231,20 +1253,17 @@ one you want:
 import com.jimbroze.kbus.generated.billingDomain.OrdersCommands
 ```
 
-Index classes are the exception: they all share `kbus.indexPackage` and so carry the module in their name.
+Index classes are the exception: they all share `indexPackage` and so carry the module in their name.
 
 ### Bounded Context identity
 
 A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,
 `billing-infrastructure` are three submodules but one context). `kbus.boundedContextIdentity` names the context, and is
-orthogonal to `kbus.subModuleName`:
+orthogonal to the submodule name. The `com.jimbroze.kbus.context` plugin's `boundedContext` property names it, and
+several modules give the same answer:
 
-```groovy
-ksp {
-    arg("kbus.subModuleName", project.name)
-    arg("kbus.boundedContextIdentity", "billing")
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
-}
+```kotlin
+kbus { boundedContext = "billing" }
 ```
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
@@ -1297,7 +1316,7 @@ val billingSubscriptions: List<IntegrationEventSubscription<*>> =
     listOf(integrationSubscription(InvoiceIssued::class, SyncLedgerHandler::class.loaded))
 ```
 
-There is deliberately no bus-wide `integrationEventMapper` or `domainEventMapper`: with several contexts, "which
+There is deliberately no bus-wide `integrationEventRegistrar` or `domainEventRegistrar`: with several contexts, "which
 context?" has no answer for either. A command's domain events dispatch only to its owning context's domain
 handlers — a domain handler registered on `billing` never fires for a command owned by another context.
 
@@ -1334,6 +1353,43 @@ generation.
 property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
 factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it
 whenever you are using code generation. The bare-class form takes no generation dependency, for hand-written wiring.
+
+### Build arguments
+
+The plugins set these KSP arguments; a build wiring generation by hand sets them itself. They are also what a
+processor error message names.
+
+| Argument | Set by | Meaning |
+|---|---|---|
+| `kbus.indexPackage` | both plugins, from `indexPackage` | The package every module writes its dependency index into |
+| `kbus.subModuleName` | `com.jimbroze.kbus.context`, from the Gradle module name | Names this module's index and its generated package; setting it is what makes a module a submodule |
+| `kbus.boundedContextIdentity` | `com.jimbroze.kbus.context`, from `boundedContext` | The bounded context this module's handlers belong to |
+| `kbus.modulesToIndex` | `com.jimbroze.kbus.bus`, derived from the metadata classpath plus `additionalModulesToIndex` | Which modules to look for an index in |
+
+Wiring it by hand means adding the processor to `kspCommonMainMetadata`, registering the generated directory as a
+`commonMain` source dir, and ordering every `compile*` and every other `ksp*` task behind `kspCommonMainKotlinMetadata`:
+
+```kotlin
+dependencies { add("kspCommonMainMetadata", "com.jimbroze:kbus-generation:<version>") }
+
+kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
+
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    if (name.startsWith("compile")) {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }
+    .configureEach { dependsOn("kspCommonMainKotlinMetadata") }
+
+ksp {
+    arg("kbus.indexPackage", "com.example.myApp.indexes")
+    arg("kbus.modulesToIndex", "billing-domain,billing-application")
+}
+```
+
+A bus module that reads no index and declares no handler of its own generates nothing, and says so as a build warning:
+that combination is a wiring mistake rather than a valid build.
 
 ## Domain Modeling
 

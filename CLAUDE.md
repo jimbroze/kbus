@@ -39,11 +39,11 @@ phases:
    the indexes it can see, so what a module *learned* is tracked apart from what it *declares* — its own index
    carries only its own declarations
 2. **Handler phase** — Scans `@LoadMessageHandler` to extract handler definitions and dependencies
-3. **Event phase** — Scans `@LoadEvent` to make events known to the processor; if the event's companion implements
-   `AutoPublishesFrom`, records an auto-publish definition (integration event ← domain event)
+3. **Event phase** — Scans `@LoadEventMapper` to record an auto-publish definition (integration event ← domain event),
+   reading the domain event it maps from off the mapper's supertype
 
 Generates: `ContainerInterface`, `AutoLoader`, a typed `Bus` class, a handlers interface, handler factory and typed
-nested command executor **per bounded context**, and (only when at least one `@LoadEvent`/`AutoPublishesFrom` opt-in
+nested command executor **per bounded context**, and (only when at least one `@LoadEventMapper` opt-in
 exists) `generatedAutoPublishRegistrations` — a
 `List<AutoPublishRegistration<*>>` for `AutoPublishIntegrationEvents`. Submodules (`isSubModule=true`) generate only a
 `DependencyIndex` with `@KbusIndex` metadata (including any auto-publish opt-ins) instead of full code.
@@ -70,7 +70,8 @@ transaction) → post-commit work (integration events).
 ### Event Routing
 
 Integration events go through three stages — publish → route → dispatch — mirrored by three sub-packages under
-`kbus-core`'s `messages.event`: `publish`, `routing`, `dispatch`. `EventRouter` is the seam: publishers hand
+`kbus-core`'s `messages.event`: `publish`, `routing`, `dispatch`. A fourth, `relay`, holds the one delivery loop every
+store-backed pump shares. `EventRouter` is the seam: publishers hand
 `EventEnvelope`s to it, and it fans them out to `EventDestination`s (local context dispatch today; external transports
 later). Delivery is at-least-once — a destination that throws is not acknowledged, so the entry is retried.
 

@@ -1,21 +1,19 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.common.AmbiguousHandlerException
-import com.jimbroze.kbus.contracts.common.MissingHandlerException
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.outbox.OutboxStore
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.module.BoundedContext
-import com.jimbroze.kbus.core.module.BoundedContextId
+import com.jimbroze.kbus.api.common.AmbiguousHandlerException
+import com.jimbroze.kbus.api.common.MissingHandlerException
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.ErrorStrategy
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.core.boundedcontext.BoundedContext
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -25,6 +23,8 @@ import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -157,7 +157,7 @@ class MessageBusMultiContextTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             AlphaEvent::class,
             listOf(RecordingAlphaHandler::class),
         )
@@ -200,7 +200,7 @@ class MessageBusMultiContextTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             DeltaDomainEvent::class,
             listOf(RecordingDeltaHandler::class),
         )
@@ -217,7 +217,7 @@ class MessageBusMultiContextTest {
                 EventHandlerFactory(RecordingBetaHandler::class) { RecordingBetaHandler(received) }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             BetaEvent::class,
             listOf(RecordingBetaHandler::class),
         )
@@ -494,7 +494,7 @@ class MessageBusMultiContextTest {
         val alphaLocator = PersistingHandlerLocator(eventStores)
         val betaLocator = PersistingHandlerLocator(eventStores)
         registerAlphaHandlerIn(eventStores, alphaLocator, received, "alpha")
-        betaLocator.integrationEventMapper.addEventHandlers(
+        betaLocator.integrationEventRegistrar.addEventHandlers(
             AlphaEvent::class,
             listOf(RecordingAlphaHandler::class),
         )
@@ -588,7 +588,7 @@ class MessageBusMultiContextTest {
                     }
                 ),
             )
-            failingLocator.integrationEventMapper.addEventHandlers(
+            failingLocator.integrationEventRegistrar.addEventHandlers(
                 AlphaEvent::class,
                 listOf(ThrowingAlphaHandler::class),
             )

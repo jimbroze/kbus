@@ -1,22 +1,22 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.CapturingLifecycleMiddleware
 import com.jimbroze.kbus.core.fixtures.RecordingOutboxStore
 import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
-import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
-import com.jimbroze.kbus.core.middleware.MiddlewareContext
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
+import com.jimbroze.kbus.core.middleware.infrastructure.LifecycleAwareMiddleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -299,7 +299,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(DelayingAfterTransactionHandler::class),
         )
@@ -341,7 +341,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(RepublishingAfterTransactionHandler::class),
         )
@@ -354,7 +354,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             LifecycleIntegrationEvent::class,
             listOf(DelayingLifecycleIntegrationHandler::class),
         )
@@ -389,7 +389,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(RepublishingAfterTransactionHandler::class),
         )
@@ -401,7 +401,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             LifecycleIntegrationEvent::class,
             listOf(SelfRepublishingIntegrationHandler::class),
         )
@@ -483,7 +483,7 @@ class MessageBusLifecycleTest {
                 }
             ),
         )
-        locator.domainEventMapper.addDomainHandlers(
+        locator.domainEventRegistrar.addDomainHandlers(
             LifecycleDomainEvent::class,
             listOf(NeverCompletingAfterTransactionHandler::class),
         )

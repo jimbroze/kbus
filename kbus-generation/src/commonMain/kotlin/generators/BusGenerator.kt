@@ -4,15 +4,15 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
-import com.jimbroze.kbus.core.module.BoundedContext
-import com.jimbroze.kbus.core.module.BoundedContextConfig
-import com.jimbroze.kbus.core.module.BoundedContextId
-import com.jimbroze.kbus.core.module.CommandOwningContext
-import com.jimbroze.kbus.core.module.ContextBuilder
-import com.jimbroze.kbus.core.module.OwningContext
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.core.boundedcontext.BoundedContext
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextId
+import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
+import com.jimbroze.kbus.core.boundedcontext.ContextBuilder
+import com.jimbroze.kbus.core.boundedcontext.OwningContext
 import com.jimbroze.kbus.core.registry.generation.GenerationHandlerLocator
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.EventHandlerDefinition
@@ -330,10 +330,7 @@ class BusGenerator(
 
     private fun buildDeprecatedExecute(): FunSpec {
         val tResult =
-            TypeVariableName(
-                "TResult",
-                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
-            )
+            TypeVariableName("TResult", ClassName("com.jimbroze.kbus.api.result", "KBusResult"))
         val tCommand =
             TypeVariableName("TCommand", Command::class.asClassName().parameterizedBy(tResult))
 
@@ -362,10 +359,7 @@ class BusGenerator(
 
     private fun buildDeprecatedFetch(): FunSpec {
         val tResult =
-            TypeVariableName(
-                "TResult",
-                ClassName("com.jimbroze.kbus.contracts.result", "KBusResult"),
-            )
+            TypeVariableName("TResult", ClassName("com.jimbroze.kbus.api.result", "KBusResult"))
         val tQuery = TypeVariableName("TQuery", Query::class.asClassName().parameterizedBy(tResult))
 
         return FunSpec.builder("fetch")

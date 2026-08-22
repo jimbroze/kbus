@@ -3,7 +3,7 @@ plugins { id("kbus.multiplatform") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusContracts)
+            implementation(projects.kbusApi)
             implementation(projects.kbusCore)
             implementation(projects.kbusDomain)
 
@@ -24,6 +24,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(projects.examples.adapters)
             implementation(projects.examples.appContract)
         }
     }

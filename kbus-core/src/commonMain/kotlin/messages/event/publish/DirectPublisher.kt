@@ -1,10 +1,10 @@
 package com.jimbroze.kbus.core.messages.event.publish
 
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.event.ErrorStrategy
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 

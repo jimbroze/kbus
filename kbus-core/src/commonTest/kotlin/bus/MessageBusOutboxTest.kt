@@ -1,25 +1,21 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.outbox.OutboxStore
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.core.infrastructure.outbox.InMemoryOutboxStore
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.middleware.middleware.autoPublish
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.ErrorStrategy
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
+import com.jimbroze.kbus.core.middleware.autoPublish
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
@@ -27,6 +23,10 @@ import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreColle
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
+import com.jimbroze.kbus.infrastructure.outbox.adapters.InMemoryOutboxStore
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -74,7 +74,7 @@ class MessageBusOutboxTest {
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
         registerDomainCommand(stores, locator, received)
-        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEvent))
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEventMapper))
 
         val bus =
             MessageBus(
@@ -103,7 +103,7 @@ class MessageBusOutboxTest {
         val received = mutableListOf<String>()
         val locator = PersistingHandlerLocator(stores)
         registerFailingDomainCommand(stores, locator, received)
-        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEvent))
+        val middleware = AutoPublishIntegrationEvents(autoPublish(OutboxAutoPublishedEventMapper))
 
         val bus =
             MessageBus(
@@ -174,7 +174,7 @@ class MessageBusOutboxTest {
                     }
                 ),
             )
-            locator.integrationEventMapper.addEventHandlers(
+            locator.integrationEventRegistrar.addEventHandlers(
                 OutboxImperativeEvent::class,
                 listOf(GatedOutboxEventHandler::class),
             )
@@ -227,7 +227,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxImperativeEvent::class,
             listOf(GatedOutboxEventHandler::class),
         )
@@ -463,7 +463,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxImperativeEvent::class,
             listOf(RecordingOutboxEventHandler::class),
         )
@@ -506,7 +506,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxAutoPublishedEvent::class,
             listOf(RecordingOutboxAutoPublishedEventHandler::class),
         )
@@ -533,7 +533,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxAutoPublishedEvent::class,
             listOf(RecordingOutboxAutoPublishedEventHandler::class),
         )
@@ -560,7 +560,7 @@ class MessageBusOutboxTest {
                 }
             ),
         )
-        locator.integrationEventMapper.addEventHandlers(
+        locator.integrationEventRegistrar.addEventHandlers(
             OutboxFlakyEvent::class,
             listOf(AlwaysThrowingOutboxEventHandler::class),
         )
@@ -649,11 +649,10 @@ private class GatedOutboxEventHandler(
 
 private class OutboxDomainEvent(val message: String) : DomainEvent()
 
-private class OutboxAutoPublishedEvent(val name: String) : IntegrationEvent() {
-    companion object : AutoPublishesFrom<OutboxDomainEvent> {
-        override fun fromDomainEvent(event: OutboxDomainEvent) =
-            OutboxAutoPublishedEvent(event.message)
-    }
+private class OutboxAutoPublishedEvent(val name: String) : IntegrationEvent()
+
+private object OutboxAutoPublishedEventMapper : IntegrationEventMapper<OutboxDomainEvent> {
+    override fun fromDomainEvent(event: OutboxDomainEvent) = OutboxAutoPublishedEvent(event.message)
 }
 
 private class OutboxDomainCommand(val message: String) : Command<BusResult<Unit, MessageFailure>>()

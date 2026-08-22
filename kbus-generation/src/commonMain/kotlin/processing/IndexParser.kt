@@ -2,13 +2,13 @@ package com.jimbroze.kbus.generation.processing
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSAnnotation
-import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
-import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
-import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
-import com.jimbroze.kbus.contracts.annotations.index.DependencyType
-import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
-import com.jimbroze.kbus.contracts.annotations.index.HandlerType
-import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
+import com.jimbroze.kbus.api.annotations.index.AutoPublishInfo
+import com.jimbroze.kbus.api.annotations.index.ContextCommandsInfo
+import com.jimbroze.kbus.api.annotations.index.DependencyInfo
+import com.jimbroze.kbus.api.annotations.index.DependencyType
+import com.jimbroze.kbus.api.annotations.index.HandlerInfo
+import com.jimbroze.kbus.api.annotations.index.HandlerType
+import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
@@ -121,13 +121,13 @@ class IndexParser(@Suppress("unused") private val logger: KSPLogger) {
         autoPublishInfoAnnotations: List<KSAnnotation>
     ): List<AutoPublishDefinition> {
         return autoPublishInfoAnnotations.map { autoPublishInfoAnnotation ->
-            val integrationEventClassSignature: String =
-                autoPublishInfoAnnotation.findArgument(AutoPublishInfo::integrationEventClass)
+            val mapperClassSignature: String =
+                autoPublishInfoAnnotation.findArgument(AutoPublishInfo::mapperClass)
             val domainEventClassSignature: String =
                 autoPublishInfoAnnotation.findArgument(AutoPublishInfo::domainEventClass)
 
             AutoPublishDefinition(
-                TypeResolver.resolveClassName(integrationEventClassSignature),
+                TypeResolver.resolveClassName(mapperClassSignature),
                 TypeResolver.resolveClassName(domainEventClassSignature),
             )
         }

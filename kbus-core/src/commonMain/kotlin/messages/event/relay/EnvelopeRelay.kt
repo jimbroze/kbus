@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.messages.event.relay
 
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.outbox.OutboxStore
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlinx.coroutines.async

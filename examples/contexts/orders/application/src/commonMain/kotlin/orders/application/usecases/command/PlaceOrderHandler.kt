@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.example.orders.application.usecases.command
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.example.orders.application.OrderRepository
 import com.jimbroze.kbus.example.orders.application.PaymentGateway

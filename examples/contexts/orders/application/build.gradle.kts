@@ -1,12 +1,19 @@
-plugins { id("kbus.handler-module") }
+plugins {
+    id("kbus.multiplatform")
+    id("com.google.devtools.ksp")
+    id("com.jimbroze.kbus.context")
+}
 
-boundedContext { identity = "orders" }
+kbus {
+    indexPackage = "com.jimbroze.kbus.example.indexes"
+    boundedContext = "orders"
+}
 
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.kbusContracts)
-            implementation(projects.kbusCore)
+            implementation(projects.kbusApi)
+            implementation(projects.kbusApplication)
             implementation(projects.kbusDomain)
             api(projects.examples.contexts.ordersContracts)
             api(projects.examples.contexts.ordersDomain)

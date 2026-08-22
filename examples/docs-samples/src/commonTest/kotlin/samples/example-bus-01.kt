@@ -2,7 +2,7 @@
 package com.jimbroze.kbus.example.samples.exampleBus01
 
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator

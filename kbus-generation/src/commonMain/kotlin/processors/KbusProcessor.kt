@@ -1,15 +1,15 @@
 package com.jimbroze.kbus.generation.processors
 
-import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
-import com.jimbroze.kbus.contracts.annotations.LoadEvent
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
+import com.jimbroze.kbus.api.annotations.LoadEventMapper
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.generators.AutoLoaderGenerator
 import com.jimbroze.kbus.generation.generators.AutoPublishRegistrationsGenerator
 import com.jimbroze.kbus.generation.generators.BusGenerator
@@ -27,7 +27,7 @@ import com.jimbroze.kbus.generation.processing.dependencies.CommandDependencyPro
 import com.jimbroze.kbus.generation.processing.handlers.HandlerFactory
 import com.jimbroze.kbus.generation.processors.context.ProcessingContext
 import com.jimbroze.kbus.generation.processors.visitors.DependencyIndexVisitor
-import com.jimbroze.kbus.generation.processors.visitors.LoadEventVisitor
+import com.jimbroze.kbus.generation.processors.visitors.LoadEventMapperVisitor
 import com.jimbroze.kbus.generation.processors.visitors.LoadVisitor
 import com.squareup.kotlinpoet.ClassName
 
@@ -53,7 +53,7 @@ class KbusProcessor(
     private val autoPublishFactory: AutoPublishFactory,
     private val generators: CodeGenerators,
     private val isSubModule: Boolean,
-    private val indexPackagePath: String,
+    private val candidateIndexClassNames: List<String>,
 ) : SymbolProcessor {
     private val dependencies = ProcessingContext()
     private var contextCommandInterfaces: Map<String, ClassName>? = null
@@ -69,7 +69,7 @@ class KbusProcessor(
             processMessages(resolver, CommandDependencyProperties.fromResolver(resolver))
         )
 
-        invalidSymbols.addAll(processEvents(resolver))
+        invalidSymbols.addAll(processEventMappers(resolver))
 
         return invalidSymbols
     }
@@ -102,14 +102,18 @@ class KbusProcessor(
             )
     }
 
-    @OptIn(KspExperimental::class)
+    /**
+     * A dependency's index is located by name, never by scanning the package they share: when the
+     * processor runs over common metadata, a package holds only what this module itself declares. A
+     * name that resolves to nothing is a dependency that declares no handlers.
+     */
     private fun processIndexes(resolver: Resolver): List<KSAnnotated> {
         val localIndexes =
             resolver.getSymbolsWithAnnotation(KbusIndex::class.qualifiedName.toString())
         val libraryIndexes =
-            resolver
-                .getDeclarationsFromPackage(indexPackagePath)
-                .filterIsInstance<KSClassDeclaration>()
+            candidateIndexClassNames
+                .asSequence()
+                .mapNotNull { resolver.getClassDeclarationByName(resolver.getKSNameFromString(it)) }
                 .filter { classDecl ->
                     classDecl.annotations.any {
                         it.shortName.asString() == KbusIndex::class.simpleName &&
@@ -141,20 +145,39 @@ class KbusProcessor(
         return invalidLoadSymbols
     }
 
-    private fun processEvents(resolver: Resolver): List<KSAnnotated> {
-        val eventsToLoad =
-            resolver.getSymbolsWithAnnotation(LoadEvent::class.qualifiedName.toString())
+    /**
+     * A module generating a bus from nothing is a wiring mistake, not a valid build: the module
+     * exists to compose handlers, and finding none means the processor never saw them. Nothing else
+     * about it is an error, so without this it produces no code and says nothing.
+     */
+    private fun reportEmptyBusModule() {
+        if (isSubModule) return
 
-        val (validEventSymbols, invalidEventSymbols) = eventsToLoad.partition { it.validate() }
-        validEventSymbols.forEach {
-            it.accept(LoadEventVisitor(autoPublishFactory, logger), dependencies)
+        logger.warn(
+            "kbus generated nothing for this module: it declares no @LoadMessageHandler of its " +
+                "own and found no dependency index. Check that kbus.indexPackage matches the " +
+                "package the handler modules write their indexes into, and that " +
+                "kbus.modulesToIndex names them."
+        )
+    }
+
+    private fun processEventMappers(resolver: Resolver): List<KSAnnotated> {
+        val mappersToLoad =
+            resolver.getSymbolsWithAnnotation(LoadEventMapper::class.qualifiedName.toString())
+
+        val (validMapperSymbols, invalidMapperSymbols) = mappersToLoad.partition { it.validate() }
+        validMapperSymbols.forEach {
+            it.accept(LoadEventMapperVisitor(autoPublishFactory, logger), dependencies)
         }
 
-        return invalidEventSymbols
+        return invalidMapperSymbols
     }
 
     override fun finish() {
-        if (dependencies.isEmpty()) return
+        if (dependencies.isEmpty()) {
+            reportEmptyBusModule()
+            return
+        }
         if (!reportContextIdentityCollisions(dependencies.handlers, logger)) return
 
         val sourceFiles = dependencies.sourceFiles.toList()

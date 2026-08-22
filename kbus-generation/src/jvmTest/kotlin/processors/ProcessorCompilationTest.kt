@@ -30,8 +30,8 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.event.EventHandler
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.event.EventHandler
                 import com.jimbroze.kbus.domain.event.DomainEvent
 
                 class OrderPlaced : DomainEvent()
@@ -55,8 +55,8 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
                 import com.jimbroze.kbus.domain.event.DomainEvent
                 import com.jimbroze.kbus.domain.event.DomainEventHandler
 
@@ -82,11 +82,11 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.command.Command
-                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-                import com.jimbroze.kbus.contracts.result.BusResult
-                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
 
                 class PlaceOrder : Command<BusResult<String, MessageFailure>>()
 
@@ -113,11 +113,11 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.command.Command
-                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-                import com.jimbroze.kbus.contracts.result.BusResult
-                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
                 import com.jimbroze.kbus.generated.DefaultCommands
 
                 class PlaceOrder : Command<BusResult<String, MessageFailure>>()
@@ -155,11 +155,11 @@ class ProcessorCompilationTest {
                 """
                 package com.example
 
-                import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-                import com.jimbroze.kbus.contracts.messages.command.Command
-                import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-                import com.jimbroze.kbus.contracts.result.BusResult
-                import com.jimbroze.kbus.contracts.result.MessageFailure
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
 
                 class PlaceOrder : Command<BusResult<String, MessageFailure>>()
 
@@ -174,6 +174,71 @@ class ProcessorCompilationTest {
 
         assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
         assertContains(result.messages, "names no bounded context")
+    }
+
+    @Test
+    fun `rejects an event mapper that is not an object`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.api.annotations.LoadEventMapper
+                import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+                import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
+                import com.jimbroze.kbus.domain.event.DomainEvent
+
+                class OrderPlaced(val orderId: String) : DomainEvent()
+
+                class OrderPlacedIntegration(val orderId: String) : IntegrationEvent()
+
+                @LoadEventMapper
+                class OrderPlacedMapper : IntegrationEventMapper<OrderPlaced> {
+                    override fun fromDomainEvent(event: OrderPlaced) =
+                        OrderPlacedIntegration(event.orderId)
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
+        assertContains(result.messages, "Only objects can be annotated with @LoadEventMapper")
+    }
+
+    @Test
+    fun `rejects an annotated mapper that maps no domain event`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.api.annotations.LoadEventMapper
+
+                @LoadEventMapper
+                object OrderPlacedMapper
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
+        assertContains(
+            result.messages,
+            "Only IntegrationEventMapper implementations can be annotated with @LoadEventMapper",
+        )
+    }
+
+    @Test
+    fun `warns when a bus module reads no index and declares no handler`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                class PlaceOrder
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        assertContains(result.messages, "kbus generated nothing for this module")
+        assertContains(result.messages, "kbus.modulesToIndex")
     }
 
     private fun compile(

@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.example.orders.application.usecases.command
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrder
 import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrderFailure
 import com.jimbroze.kbus.example.orders.contracts.CancelAndReplaceOrderResult

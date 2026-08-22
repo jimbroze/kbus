@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.example.orders.application.usecases.event.integration
 
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.example.inventory.contracts.StockReserved
 
 /**

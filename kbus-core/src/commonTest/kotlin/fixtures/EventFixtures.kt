@@ -1,17 +1,17 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.messages.event.EventDestination
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.core.messages.event.EventHandlerDependencies
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.application.messages.event.EventHandlerDependencies
 import com.jimbroze.kbus.domain.event.Concurrency
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.domain.event.DomainEventPublisher
 import com.jimbroze.kbus.domain.event.ErrorStrategy
+import com.jimbroze.kbus.infrastructure.event.EventDestination
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 

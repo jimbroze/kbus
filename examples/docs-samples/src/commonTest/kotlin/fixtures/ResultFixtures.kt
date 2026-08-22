@@ -1,12 +1,12 @@
 package com.jimbroze.kbus.example.fixtures
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.FailureReason
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
 import com.jimbroze.kbus.core.registry.persisting.PersistingHandlerLocator
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection

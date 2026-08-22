@@ -1,17 +1,19 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.contracts.uow.TransactionManager
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
-import com.jimbroze.kbus.core.middleware.createMiddlewareChain
-import com.jimbroze.kbus.core.module.CommandOwningContext
-import com.jimbroze.kbus.core.module.OwningContext
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.result.KBusResult
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.core.boundedcontext.CommandOwningContext
+import com.jimbroze.kbus.core.boundedcontext.OwningContext
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
+import com.jimbroze.kbus.core.middleware.infrastructure.createMiddlewareChain
 import com.jimbroze.kbus.core.uow.InvocationDomainEventPublisher
 import com.jimbroze.kbus.core.uow.UnitOfWork
+import com.jimbroze.kbus.infrastructure.transaction.TransactionManager
 
 class CommandExecutor(
     private val transactionManager: TransactionManager,
@@ -63,11 +65,8 @@ class CommandExecutor(
     ): TResult {
         unitOfWork.setReturningWork { handler.handle(message) }
 
-        val transactionConfig = handler.executeInTransaction
-        if (transactionConfig != null) {
-            unitOfWork.useTransaction(
-                transactionConfig.transactionManagerOverride ?: transactionManager
-            )
+        if (handler.executeInTransaction) {
+            unitOfWork.useTransaction(transactionManager)
         }
 
         return unitOfWork.execute()

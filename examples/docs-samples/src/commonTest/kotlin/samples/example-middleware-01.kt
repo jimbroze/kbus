@@ -1,11 +1,11 @@
 // This file was automatically generated from README.md by Knit tool. Do not edit.
 package com.jimbroze.kbus.example.samples.exampleMiddleware01
 
-import com.jimbroze.kbus.contracts.common.Message
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
+import com.jimbroze.kbus.api.common.Message
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import kotlin.time.TimeSource
 
 class TimingMiddleware : Middleware {

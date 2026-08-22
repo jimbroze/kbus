@@ -10,8 +10,10 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            api(projects.kbusContracts)
+            api(projects.kbusApi)
             api(projects.kbusDomain)
+            api(projects.kbusApplication)
+            api(projects.kbusInfrastructure)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             //            implementation(libs.kotlinx.atomicfu)

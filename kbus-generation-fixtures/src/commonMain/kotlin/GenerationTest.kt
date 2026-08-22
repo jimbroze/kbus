@@ -2,23 +2,23 @@
 
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.contracts.annotations.LoadEvent
-import com.jimbroze.kbus.contracts.annotations.LoadMessageHandler
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.ErrorStrategy
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.MessageFailure
+import com.jimbroze.kbus.api.annotations.LoadEventMapper
+import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.ErrorStrategy
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
+import com.jimbroze.kbus.application.messages.event.IntegrationEventMapper
 import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.core.bus.MessageBus
-import com.jimbroze.kbus.core.messages.command.NestedCommandExecutor
-import com.jimbroze.kbus.core.messages.event.publish.AutoPublishesFrom
-import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.core.middleware.LockingMiddleware
 import com.jimbroze.kbus.domain.event.DispatchTiming
 import com.jimbroze.kbus.domain.event.DomainEvent
 import com.jimbroze.kbus.domain.event.DomainEventHandler
@@ -268,33 +268,31 @@ class TestEventPublishingCommandHandler(
 
 class TestShipmentEvent(val shipmentId: String) : DomainEvent()
 
-@LoadEvent
 class TestShipmentIntegration(val shipmentId: String) : IntegrationEvent() {
     // FailFast dispatches handlers synchronously rather than fire-and-forget, so the e2e test can
     // assert on the handler's effect without a race against a background coroutine.
     override val errorStrategy = ErrorStrategy.FailFast
-
-    companion object : AutoPublishesFrom<TestShipmentEvent> {
-        override fun fromDomainEvent(event: TestShipmentEvent) =
-            TestShipmentIntegration(event.shipmentId)
-    }
 }
 
-// A companion implementing AutoPublishesFrom indirectly, via a generic intermediate interface,
-// to exercise type-parameter substitution during discovery.
-interface ShipmentMapper<TEvent : DomainEvent> : AutoPublishesFrom<TEvent>
-
-@LoadEvent
-class TestShipmentAnalytics(val shipmentId: String) : IntegrationEvent() {
-    companion object : ShipmentMapper<TestShipmentEvent> {
-        override fun fromDomainEvent(event: TestShipmentEvent) =
-            TestShipmentAnalytics(event.shipmentId)
-    }
+@LoadEventMapper
+object TestShipmentIntegrationMapper : IntegrationEventMapper<TestShipmentEvent> {
+    override fun fromDomainEvent(event: TestShipmentEvent) =
+        TestShipmentIntegration(event.shipmentId)
 }
 
-// Known to code generation, but has no AutoPublishesFrom companion, so no registration is
-// generated for it.
-@LoadEvent class TestShipmentAudit(val shipmentId: String) : IntegrationEvent()
+class TestShipmentAnalytics(val shipmentId: String) : IntegrationEvent()
+
+// Implements IntegrationEventMapper indirectly, via a generic intermediate interface, to exercise
+// type-parameter substitution during discovery.
+interface ShipmentMapper<TEvent : DomainEvent> : IntegrationEventMapper<TEvent>
+
+@LoadEventMapper
+object TestShipmentAnalyticsMapper : ShipmentMapper<TestShipmentEvent> {
+    override fun fromDomainEvent(event: TestShipmentEvent) = TestShipmentAnalytics(event.shipmentId)
+}
+
+// No mapper is annotated for it, so it contributes no auto-publish registration.
+class TestShipmentAudit(val shipmentId: String) : IntegrationEvent()
 
 @LoadMessageHandler
 @Suppress("unused")

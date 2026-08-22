@@ -13,9 +13,21 @@ plugins {
     alias(libs.plugins.kotlinx.knit)
 }
 
+val kbusVersion = System.getenv("VERSION_OVERRIDE") ?: libs.versions.kbus.get()
+
 allprojects {
+    // The kbus plugin adds the processor by the coordinates a user's build would resolve. Here
+    // that has to be the copy this build produces, or the examples would prove a published
+    // artifact correct rather than the source beside them.
+    configurations.configureEach {
+        resolutionStrategy.dependencySubstitution {
+            substitute(module("com.jimbroze:kbus-generation"))
+                .using(project(":kbus-generation"))
+        }
+    }
+
     group = "com.jimbroze"
-    version = System.getenv("VERSION_OVERRIDE") ?: "0.5.0"
+    version = kbusVersion
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }
@@ -48,7 +60,8 @@ allprojects {
     // 20+ minute CI hang on Node, which won't exit while a timer is pending (InboxCoordinatorTest,
     // 2026-07-26).
     // The invariant checked is *parentage*, not syntax: a scope whose job descends from
-    // `backgroundScope`'s dies with the test no matter what is launched into it, so a test needing a
+    // `backgroundScope`'s dies with the test no matter what is launched into it, so a test needing
+    // a
     // real dispatcher writes
     // `CoroutineScope(SupervisorJob(backgroundScope.coroutineContext[Job]) + Dispatchers.Default)`
     // and passes. That is a property this check can actually see, which is why there is no opt-out
@@ -60,8 +73,10 @@ allprojects {
         val testFiles =
             fileTree(projectDir) {
                 include("src/*Test*/**/*.kt")
-                // testDoubles is shared fixture code living in commonMain, not a *Test* source set —
-                // it is exactly the shared-helper blast radius this check exists for, so include it.
+                // testDoubles is shared fixture code living in commonMain, not a *Test* source set
+                // —
+                // it is exactly the shared-helper blast radius this check exists for, so include
+                // it.
                 if (project.name == "testDoubles") include("src/**/*.kt")
             }
         inputs.files(testFiles)

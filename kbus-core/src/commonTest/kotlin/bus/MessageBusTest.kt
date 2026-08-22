@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.contracts.result.FailureReason
+import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.core.fixtures.BrokenStateFailureCommandHandler
 import com.jimbroze.kbus.core.fixtures.FailureCommand
 import com.jimbroze.kbus.core.fixtures.FailureCommandFailure

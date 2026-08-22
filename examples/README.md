@@ -8,6 +8,7 @@ examples/
   contexts/
     orders/          contracts · domain · application · infrastructure · acl
     inventory/       contracts · domain · application · infrastructure
+  adapters/          shared infrastructure, written against the ports alone
   app/               the only module that knows a bus exists
   app-manual/        the same contexts, wired without code generation
   app-contract/      the requirements both wirings must meet
@@ -46,6 +47,20 @@ context at all.
 Both rules are load-bearing rather than stylistic: `contracts` depending on nothing is what stops a
 foreign domain model leaking through a transitive dependency.
 
+The same shape holds for the framework itself. A context takes `kbus-api` for its messages and
+handlers, `kbus-domain` for its model, and `kbus-application` for what a handler is given; an
+`infrastructure` module adds `kbus-infrastructure` for the ports it implements. None of them takes
+`kbus-core`, so a handler cannot reach the bus — the isolation is a classpath fact rather than a
+convention. `app` and `app-manual` are the only modules that depend on `kbus-core`, because
+assembling the bus is the one job that needs it.
+
+`adapters` holds the reciprocal of that. It implements `TransactionManager` over a fake database
+that stages writes until commit, and it depends on `kbus-infrastructure` and nothing else — which
+is exactly what a published adapter like a `kbus-postgres` would depend on. Because the ports it
+needs are the only kbus surface on its classpath, a port that drifts into `kbus-core` stops this
+module compiling and names the type it moved. It sits outside `contexts/` because a transaction
+manager spans the whole bus rather than belonging to any one context.
+
 ## Commands return the minimum
 
 A command returns an identifier and nothing else — `PlaceOrder` returns an `OrderId`. Read models
@@ -59,6 +74,11 @@ typed `CompileTimeLoadedMessageBus`, and turns on the framework's opt-in machine
 outbox, a per-context inbox for each context, auto-publishing of `OrderPlaced` as
 `OrderPlacedIntegration`, and each context's event subscriptions.
 
+The auto-publish mapping is the one piece `app` does not state: `OrderPlacedMapper` carries
+`@LoadEventMapper`, so the generator collects it and the wiring passes the generated list. The
+mapper still lives in the orders context, because only that context can decide which of its facts
+another context is entitled to see.
+
 An anti-corruption layer cannot simply take the bus: the concrete generated bus class is assembled
 downstream of every context, and naming its untyped `execute` is a compile error. So
 `InventoryStockReservations` takes a `CommandGateway<ReserveStock, ReserveStockResult>` — the one
@@ -69,8 +89,8 @@ exists only because something can handle `ReserveStock`.
 
 `app-manual` assembles the same contexts with no generated code: it binds the ports itself, fills a
 `PersistingHandlerLocator` with a factory per handler, and passes the contexts to `MessageBus`. The
-outbox, the per-context inboxes, the subscriptions and the auto-publish mapping are the same core
-APIs `app` uses.
+outbox, the per-context inboxes and the subscriptions are the same core APIs `app` uses, and the
+auto-publish mapping the generator collects for `app` is registered here by naming the mapper.
 
 Every context module is shared between the two, unchanged — the wiring is the only thing that
 differs, which is the point. Registering by hand costs a factory per handler and settles nothing at

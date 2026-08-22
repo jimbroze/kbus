@@ -1,8 +1,8 @@
 package com.jimbroze.kbus.core.messages.event.routing
 
-import com.jimbroze.kbus.contracts.messages.event.EventDestination
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
 import com.jimbroze.kbus.core.messages.event.dispatch.IntegrationEventObserverRegistry
+import com.jimbroze.kbus.infrastructure.event.EventDestination
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

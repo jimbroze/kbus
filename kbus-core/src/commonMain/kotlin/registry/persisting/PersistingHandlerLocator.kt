@@ -1,18 +1,18 @@
 package com.jimbroze.kbus.core.registry.persisting
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.result.KBusResult
-import com.jimbroze.kbus.core.messages.HandlerDependencies
-import com.jimbroze.kbus.core.messages.command.CommandDependencies
-import com.jimbroze.kbus.core.registry.DomainEventMapper
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.Event
+import com.jimbroze.kbus.api.messages.event.EventHandler
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.result.KBusResult
+import com.jimbroze.kbus.application.messages.HandlerDependencies
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.core.registry.DomainEventRegistrar
 import com.jimbroze.kbus.core.registry.HandlerLocator
-import com.jimbroze.kbus.core.registry.IntegrationEventMapper
+import com.jimbroze.kbus.core.registry.IntegrationEventRegistrar
 import com.jimbroze.kbus.core.registry.persisting.store.CommandHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.EventHandlerFactory
 import com.jimbroze.kbus.core.registry.persisting.store.HandlerFactoryStoreCollection
@@ -29,9 +29,9 @@ class PersistingHandlerLocator(
     private val commandStore: MessageHandlerFactoryStore<Command<*>> = stores.commandStore
     private val queryStore: MessageHandlerFactoryStore<Query<*>> = stores.queryStore
     private val eventStore: MessageHandlerFactoryStore<Event> = stores.eventStore
-    private val eventMapper = PersistingEventMapper()
-    override val domainEventMapper = eventMapper as DomainEventMapper
-    override val integrationEventMapper = eventMapper as IntegrationEventMapper
+    private val eventHandlerStore = PersistingEventHandlerStore()
+    override val domainEventRegistrar = eventHandlerStore as DomainEventRegistrar
+    override val integrationEventRegistrar = eventHandlerStore as IntegrationEventRegistrar
 
     override fun <TCommand : Command<TResult>, TResult : KBusResult> handlerFor(
         command: TCommand,
@@ -60,7 +60,8 @@ class PersistingHandlerLocator(
         return factory.create() as QueryHandler<TQuery, TResult>
     }
 
-    override fun subscribedEventTypes(): Set<KClass<out Event>> = eventMapper.subscribedEventTypes()
+    override fun subscribedEventTypes(): Set<KClass<out Event>> =
+        eventHandlerStore.subscribedEventTypes()
 
     override fun handledCommandTypes(): Set<KClass<out Command<*>>> = commandStore.registeredTypes()
 
@@ -70,14 +71,18 @@ class PersistingHandlerLocator(
         event: TEvent,
         handlerDependencies: HandlerDependencies,
     ): List<EventHandler<TEvent>> =
-        createHandlers(event, eventMapper.handlerClassesFor(event), handlerDependencies)
+        createHandlers(event, eventHandlerStore.handlerClassesFor(event), handlerDependencies)
 
     override fun <TEvent : DomainEvent> domainHandlersFor(
         event: TEvent,
         handlerDependencies: HandlerDependencies,
     ): List<DomainEventHandler<TEvent>> {
         val handlers =
-            createHandlers(event, eventMapper.domainHandlerClassesFor(event), handlerDependencies)
+            createHandlers(
+                event,
+                eventHandlerStore.domainHandlerClassesFor(event),
+                handlerDependencies,
+            )
         @Suppress("UNCHECKED_CAST")
         return handlers as List<DomainEventHandler<TEvent>>
     }

@@ -4,14 +4,14 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.contracts.annotations.index.AutoPublishInfo
-import com.jimbroze.kbus.contracts.annotations.index.ContextCommandsInfo
-import com.jimbroze.kbus.contracts.annotations.index.DependencyInfo
-import com.jimbroze.kbus.contracts.annotations.index.DependencyType
-import com.jimbroze.kbus.contracts.annotations.index.HandlerInfo
-import com.jimbroze.kbus.contracts.annotations.index.HandlerType
-import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
-import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
+import com.jimbroze.kbus.api.annotations.index.AutoPublishInfo
+import com.jimbroze.kbus.api.annotations.index.ContextCommandsInfo
+import com.jimbroze.kbus.api.annotations.index.DependencyInfo
+import com.jimbroze.kbus.api.annotations.index.DependencyType
+import com.jimbroze.kbus.api.annotations.index.HandlerInfo
+import com.jimbroze.kbus.api.annotations.index.HandlerType
+import com.jimbroze.kbus.api.annotations.index.KbusIndex
+import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.autopublish.AutoPublishDefinition
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
@@ -155,8 +155,8 @@ class DependencyIndexGenerator(
     private fun addAutoPublish(definition: AutoPublishDefinition): AnnotationSpec {
         return AnnotationSpec.builder(AutoPublishInfo::class)
             .addMember(
-                "${AutoPublishInfo::integrationEventClass.name} = %S",
-                definition.integrationEventClass.canonicalName,
+                "${AutoPublishInfo::mapperClass.name} = %S",
+                definition.mapperClass.canonicalName,
             )
             .addMember(
                 "${AutoPublishInfo::domainEventClass.name} = %S",

@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSFile
-import com.jimbroze.kbus.contracts.messages.command.CommandGateway
+import com.jimbroze.kbus.api.messages.command.CommandGateway
 import com.jimbroze.kbus.core.bus.IMessageBus
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition
 import com.jimbroze.kbus.generation.processing.handlers.HandlerDefinition

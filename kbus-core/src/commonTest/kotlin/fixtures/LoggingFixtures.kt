@@ -1,18 +1,17 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.messages.event.Event
-import com.jimbroze.kbus.contracts.messages.event.EventHandler
-import com.jimbroze.kbus.contracts.messages.query.Query
-import com.jimbroze.kbus.contracts.messages.query.QueryHandler
-import com.jimbroze.kbus.contracts.middleware.LoggingMessage
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.contracts.uow.TransactionConfig
-import com.jimbroze.kbus.core.infrastructure.logging.LogLevel
-import com.jimbroze.kbus.core.infrastructure.logging.Logger
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.messages.event.Event
+import com.jimbroze.kbus.api.messages.event.EventHandler
+import com.jimbroze.kbus.api.messages.query.Query
+import com.jimbroze.kbus.api.messages.query.QueryHandler
+import com.jimbroze.kbus.api.middleware.LoggingMessage
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.BusResult.Companion.success
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.infrastructure.logging.LogLevel
+import com.jimbroze.kbus.infrastructure.logging.Logger
 
 internal enum class LogLevels(override val level: String) : LogLevel {
     DEBUG("DEBUG"),
@@ -49,7 +48,7 @@ class LoggingLogCommand(val messageToLog: String, val logger: Logger) :
 
 class LoggingLogCommandHandler :
     CommandHandler<LoggingLogCommand, BusResult<Unit, MessageFailure>>() {
-    override val executeInTransaction: TransactionConfig? = null
+    override val executeInTransaction = false
 
     override suspend fun handle(message: LoggingLogCommand): BusResult<Unit, MessageFailure> {
         message.logger.log(LogLevels.INFO, message.messageToLog, null)

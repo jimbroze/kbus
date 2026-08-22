@@ -1,6 +1,8 @@
 package com.jimbroze.kbus.core.messages.command
 
-import com.jimbroze.kbus.contracts.result.BusResult
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.application.messages.command.CommandDependencies
+import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.fixtures.CapturingContextMiddleware
 import com.jimbroze.kbus.core.fixtures.DispatchingCommand
 import com.jimbroze.kbus.core.fixtures.DispatchingCommandHandler
@@ -20,10 +22,10 @@ import com.jimbroze.kbus.core.fixtures.noOutboxPublisherFactory
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator
 import com.jimbroze.kbus.core.uow.TransactionalOutbox
+import com.jimbroze.kbus.infrastructure.transaction.adapters.EmptyTransactionManager
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -234,55 +236,25 @@ class CommandExecutorTest {
     }
 
     @Test
-    fun `prefers the transaction manager the handler declares`() = runTest {
-        val defaultTransactionManager = TestTransactionManager()
-        val handlerTransactionManager = TestTransactionManager()
+    fun `runs the unit of work outside any transaction when the handler opts out`() = runTest {
+        val testTransactionManager = TestTransactionManager()
         val factories = TestPublisherFactories(backgroundScope)
         val executor =
             CommandExecutor(
-                defaultTransactionManager,
+                testTransactionManager,
                 emptyList(),
                 factories.contextFactory,
                 TestCommandDependenciesFactory(),
                 factories.invocationFactory,
             )
 
-        val command = TransactionCommand("HandlerTransaction")
+        val result =
+            executor.execute(TransactionCommand("NoTransaction"), TestOwningContext()) { _, _ ->
+                TransactionCommandHandler(executeInTransaction = false)
+            }
 
-        executor.execute(command, TestOwningContext()) { _, _ ->
-            TransactionCommandHandler(handlerTransactionManager)
-        }
-
-        assertEquals(0, defaultTransactionManager.executedWork.size)
-        assertContentEquals(
-            listOf(BusResult.success("HandlerTransaction")),
-            handlerTransactionManager.executedWork,
-        )
-    }
-
-    @Test
-    fun `uses the transaction manager the handler declares when it has no default`() = runTest {
-        val handlerTransactionManager = TestTransactionManager()
-        val factories = TestPublisherFactories(backgroundScope)
-        val executor =
-            CommandExecutor(
-                EmptyTransactionManager(),
-                emptyList(),
-                factories.contextFactory,
-                TestCommandDependenciesFactory(),
-                factories.invocationFactory,
-            )
-
-        val command = TransactionCommand("Transaction")
-
-        executor.execute(command, TestOwningContext()) { _, _ ->
-            TransactionCommandHandler(handlerTransactionManager)
-        }
-
-        assertContentEquals(
-            listOf(BusResult.success("Transaction")),
-            handlerTransactionManager.executedWork,
-        )
+        assertEquals(BusResult.success("NoTransaction"), result)
+        assertEquals(0, testTransactionManager.executedWork.size)
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.inbox.InboxStore
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.inbox.InboxStore
 
 /**
  * Mirrors [RecordingOutboxStore] but implements **real** id-dedupe (the union of pending and

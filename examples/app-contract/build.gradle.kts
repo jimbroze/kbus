@@ -16,7 +16,7 @@ kotlin {
             api(projects.examples.contexts.inventoryContracts)
             api(projects.examples.contexts.ordersApplication)
             api(projects.examples.contexts.inventoryApplication)
-            implementation(projects.kbusContracts)
+            implementation(projects.kbusApi)
             implementation(projects.testDoubles)
             implementation(libs.kotlinx.coroutines.core)
         }

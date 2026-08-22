@@ -1,11 +1,11 @@
 package com.jimbroze.kbus.core.uow
 
-import com.jimbroze.kbus.contracts.messages.event.EventEnvelope
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEvent
-import com.jimbroze.kbus.contracts.messages.event.IntegrationEventPublisher
-import com.jimbroze.kbus.contracts.outbox.OutboxStore
+import com.jimbroze.kbus.api.messages.event.IntegrationEvent
+import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.core.messages.event.relay.outboxRelay
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
+import com.jimbroze.kbus.infrastructure.event.EventEnvelope
+import com.jimbroze.kbus.infrastructure.outbox.OutboxStore
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -16,8 +16,8 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Opt-in configuration for the transactional outbox. A peer of
- * [TransactionManager][com.jimbroze.kbus.contracts.uow.TransactionManager] on the bus constructor,
- * not middleware.
+ * [TransactionManager][com.jimbroze.kbus.infrastructure.transaction.TransactionManager] on the bus
+ * constructor, not middleware.
  *
  * [maxConcurrentDeliveries] trades ordering for throughput: see
  * [EnvelopeRelay][com.jimbroze.kbus.core.messages.event.relay.EnvelopeRelay]. Set it to 1 to

@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.generators
 
-import com.jimbroze.kbus.contracts.annotations.index.RequiredDependencies
+import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.generation.processing.dependencies.CommandDependency
 import com.jimbroze.kbus.generation.processing.dependencies.ContextCommandsDependency
 import com.jimbroze.kbus.generation.processing.handlers.CommandHandlerDefinition

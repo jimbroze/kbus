@@ -7,7 +7,7 @@ plugins {
 
 kotlin {
     sourceSets {
-        commonMain.dependencies { implementation(projects.kbusContracts) }
+        commonMain.dependencies { api(projects.kbusApi) }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)

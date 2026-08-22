@@ -1,15 +1,15 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.messages.command.Command
-import com.jimbroze.kbus.contracts.messages.command.CommandHandler
-import com.jimbroze.kbus.contracts.middleware.BusLockedFailure
-import com.jimbroze.kbus.contracts.middleware.LockingCommand
-import com.jimbroze.kbus.contracts.result.BusResult
-import com.jimbroze.kbus.contracts.result.BusResult.Companion.failure
-import com.jimbroze.kbus.contracts.result.BusResult.Companion.success
-import com.jimbroze.kbus.contracts.result.FailureReason
-import com.jimbroze.kbus.contracts.result.MessageFailure
-import com.jimbroze.kbus.core.middleware.middleware.LockingMiddleware
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.messages.command.CommandHandler
+import com.jimbroze.kbus.api.middleware.BusLockedFailure
+import com.jimbroze.kbus.api.middleware.LockingCommand
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.BusResult.Companion.failure
+import com.jimbroze.kbus.api.result.BusResult.Companion.success
+import com.jimbroze.kbus.api.result.FailureReason
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.core.middleware.LockingMiddleware
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 import kotlin.time.TimeSource.Monotonic.ValueTimeMark

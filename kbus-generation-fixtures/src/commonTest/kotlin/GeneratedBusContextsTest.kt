@@ -2,15 +2,15 @@
 
 package com.jimbroze.kbus.generation.test
 
-import com.jimbroze.kbus.contracts.common.MissingHandlerException
-import com.jimbroze.kbus.core.middleware.middleware.AutoPublishIntegrationEvents
-import com.jimbroze.kbus.core.module.BoundedContextConfig
+import com.jimbroze.kbus.api.common.MissingHandlerException
+import com.jimbroze.kbus.core.boundedcontext.BoundedContextConfig
+import com.jimbroze.kbus.core.middleware.AutoPublishIntegrationEvents
 import com.jimbroze.kbus.core.registry.generation.domainSubscription
 import com.jimbroze.kbus.core.registry.generation.integrationSubscription
-import com.jimbroze.kbus.core.uow.EmptyTransactionManager
 import com.jimbroze.kbus.generated.CompileTimeLoadedMessageBus
 import com.jimbroze.kbus.generated.generatedAutoPublishRegistrations
 import com.jimbroze.kbus.generated.loaded
+import com.jimbroze.kbus.infrastructure.transaction.adapters.EmptyTransactionManager
 import com.jimbroze.kbus.testdoubles.advanceVirtualTime
 import kotlin.test.Test
 import kotlin.test.assertEquals

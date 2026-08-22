@@ -1,17 +1,17 @@
 package com.jimbroze.kbus.core.fixtures
 
-import com.jimbroze.kbus.contracts.common.Message
+import com.jimbroze.kbus.api.common.Message
 import com.jimbroze.kbus.core.messages.command.CommandInvocationFactory
 import com.jimbroze.kbus.core.messages.event.publish.DirectPublisher
 import com.jimbroze.kbus.core.messages.event.publish.IntegrationEventPublisherFactory
 import com.jimbroze.kbus.core.messages.event.routing.EventRouter
-import com.jimbroze.kbus.core.middleware.LifecycleAwareMiddleware
-import com.jimbroze.kbus.core.middleware.Middleware
-import com.jimbroze.kbus.core.middleware.MiddlewareContext
-import com.jimbroze.kbus.core.middleware.MiddlewareHandler
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContext
-import com.jimbroze.kbus.core.middleware.MiddlewareInvocationContextFactory
-import com.jimbroze.kbus.core.middleware.MiddlewareScope
+import com.jimbroze.kbus.core.middleware.infrastructure.LifecycleAwareMiddleware
+import com.jimbroze.kbus.core.middleware.infrastructure.Middleware
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareHandler
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContext
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareInvocationContextFactory
+import com.jimbroze.kbus.core.middleware.infrastructure.MiddlewareScope
 import com.jimbroze.kbus.core.uow.DefaultUnitOfWorkFactory
 import com.jimbroze.kbus.core.uow.OutboxConfig
 import com.jimbroze.kbus.core.uow.OutboxCoordinator

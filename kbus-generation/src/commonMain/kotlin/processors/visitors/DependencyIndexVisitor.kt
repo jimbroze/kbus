@@ -6,7 +6,7 @@ import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.visitor.KSDefaultVisitor
-import com.jimbroze.kbus.contracts.annotations.index.KbusIndex
+import com.jimbroze.kbus.api.annotations.index.KbusIndex
 import com.jimbroze.kbus.generation.processing.ConflictPolicy
 import com.jimbroze.kbus.generation.processing.IndexParser
 import com.jimbroze.kbus.generation.processors.context.ProcessingContext
