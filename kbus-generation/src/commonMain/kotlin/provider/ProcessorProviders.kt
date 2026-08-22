@@ -46,6 +46,7 @@ private const val COMMAND_GATEWAY_CLASS_SUFFIX = "Gateway"
 private const val MODULE_NAME_KEY = "kbus.subModuleName"
 private const val BOUNDED_CONTEXT_IDENTITY_KEY = "kbus.boundedContextIdentity"
 private const val INDEX_PACKAGE_KEY = "kbus.indexPackage"
+private const val MODULES_TO_INDEX_KEY = "kbus.modulesToIndex"
 
 class ContainerProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
@@ -60,7 +61,7 @@ class ContainerProcessorProvider : SymbolProcessorProvider {
             AutoPublishFactory(environment.logger),
             createGenerators(environment, config),
             config.isSubModule,
-            config.indexPackagePath,
+            config.candidateIndexClassNames,
         )
     }
 
@@ -191,6 +192,20 @@ private class KBusProcessorConfig(private val environment: SymbolProcessorEnviro
         }
 
     /**
+     * The index class each named module would have generated. A name is a candidate, not a promise:
+     * a module that declares no handlers generates no index, and naming it is how a consumer says
+     * "look here" without having to know which of its dependencies use kbus.
+     */
+    val candidateIndexClassNames: List<String>
+        get() =
+            environment.options[MODULES_TO_INDEX_KEY]
+                .orEmpty()
+                .split(',')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .map { "$indexPackagePath.$DEPENDENCIES_INDEX_NAME${pascalCased(it)}" }
+
+    /**
      * Where this module's generated code lives: a submodule gets a package of its own, so several
      * modules of one bounded context can each generate the same class names without colliding.
      */
@@ -200,28 +215,28 @@ private class KBusProcessorConfig(private val environment: SymbolProcessorEnviro
                 ?: GENERATION_ROOT_PACKAGE_PATH
 
     /**
-     * Index classes of every module share one package, which a consumer scans without recursing, so
-     * an index name — unlike the rest of a module's generated code — still carries the module.
+     * Index classes of every module share one package, and a consumer locates one from the module
+     * name alone — so an index name, unlike the rest of a module's generated code, has to carry the
+     * module it came from.
      */
-    fun moduleClassName(name: String): String {
-        val classNameSuffix =
-            subModuleNameSegments?.joinToString("") { segment ->
-                segment.replaceFirstChar { it.uppercase() }
-            }
+    fun moduleClassName(name: String): String =
+        subModuleName?.let { "$name${pascalCased(it)}" } ?: name
 
-        return classNameSuffix?.let { "$name$it" } ?: name
-    }
+    private fun pascalCased(moduleName: String): String =
+        nameSegments(moduleName).joinToString("") { segment ->
+            segment.replaceFirstChar { it.uppercase() }
+        }
 
-    private val subModuleNameSegments: List<String>?
-        get() =
-            environment.options[MODULE_NAME_KEY]
-                ?.split('-', '_')
-                ?.filter { it.isNotBlank() }
-                ?.takeIf { it.isNotEmpty() }
+    private fun nameSegments(moduleName: String): List<String> =
+        moduleName.split('-', '_').filter { it.isNotBlank() }
+
+    private val subModuleName: String?
+        get() = environment.options[MODULE_NAME_KEY]?.takeIf { nameSegments(it).isNotEmpty() }
 
     private val subModulePackageSegment: String?
         get() =
-            subModuleNameSegments
+            subModuleName
+                ?.let { nameSegments(it) }
                 ?.mapIndexed { index, segment ->
                     if (index == 0) segment.replaceFirstChar { it.lowercase() }
                     else segment.replaceFirstChar { it.uppercase() }

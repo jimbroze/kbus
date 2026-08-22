@@ -1,6 +1,6 @@
 package com.jimbroze.kbus.generation.processors
 
-import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
@@ -53,7 +53,7 @@ class KbusProcessor(
     private val autoPublishFactory: AutoPublishFactory,
     private val generators: CodeGenerators,
     private val isSubModule: Boolean,
-    private val indexPackagePath: String,
+    private val candidateIndexClassNames: List<String>,
 ) : SymbolProcessor {
     private val dependencies = ProcessingContext()
     private var contextCommandInterfaces: Map<String, ClassName>? = null
@@ -102,14 +102,18 @@ class KbusProcessor(
             )
     }
 
-    @OptIn(KspExperimental::class)
+    /**
+     * A dependency's index is located by name, never by scanning the package they share: when the
+     * processor runs over common metadata, a package holds only what this module itself declares. A
+     * name that resolves to nothing is a dependency that declares no handlers.
+     */
     private fun processIndexes(resolver: Resolver): List<KSAnnotated> {
         val localIndexes =
             resolver.getSymbolsWithAnnotation(KbusIndex::class.qualifiedName.toString())
         val libraryIndexes =
-            resolver
-                .getDeclarationsFromPackage(indexPackagePath)
-                .filterIsInstance<KSClassDeclaration>()
+            candidateIndexClassNames
+                .asSequence()
+                .mapNotNull { resolver.getClassDeclarationByName(resolver.getKSNameFromString(it)) }
                 .filter { classDecl ->
                     classDecl.annotations.any {
                         it.shortName.asString() == KbusIndex::class.simpleName &&

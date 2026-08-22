@@ -1093,6 +1093,15 @@ dependencies {
 kotlin.sourceSets.commonMain {
     kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
 }
+
+// Generation runs once over common metadata, so everything reading commonMain waits for it
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    if (name.startsWith("compile")) {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }
+    .configureEach { dependsOn("kspCommonMainKotlinMetadata") }
 ```
 
 ### Annotate Handlers
@@ -1210,12 +1219,42 @@ ksp {
 // In the top-level module's build.gradle.kts
 ksp {
     arg("kbus.indexPackage", "com.example.myApp.indexes")
+    arg("kbus.modulesToIndex", "billing-domain,billing-application")
 }
 ```
 
-Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code. The main module picks up
-these indexes automatically, including any `@LoadEventMapper` opt-ins, which are folded into the main module's
-`generatedAutoPublishRegistrations`.
+Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code, including any
+`@LoadEventMapper` opt-ins, which are folded into the consuming module's `generatedAutoPublishRegistrations`.
+
+An index is located by name, and its name is built from the submodule's `kbus.subModuleName`. `kbus.modulesToIndex`
+says which modules to look in. Naming one that generated no index costs nothing — it is skipped — so the list can be
+derived from the dependencies rather than written out:
+
+```kotlin
+val modulesOnTheClasspath =
+    provider { configurations.getByName("commonMainResolvableDependenciesMetadata") }
+        .flatMap { it.incoming.artifactView { isLenient = true }.artifacts.resolvedArtifacts }
+        .map { artifacts ->
+            artifacts
+                .mapNotNull {
+                    when (val component = it.id.componentIdentifier) {
+                        is ProjectComponentIdentifier -> component.projectName
+                        is ModuleComponentIdentifier -> component.module
+                        else -> null
+                    }
+                }
+                .distinct()
+                .joinToString(",")
+        }
+
+ksp {
+    arg("kbus.indexPackage", "com.example.myApp.indexes")
+    arg(CommandLineArgumentProvider { listOf("kbus.modulesToIndex=${modulesOnTheClasspath.get()}") })
+}
+```
+
+Deriving the list only reaches a module whose `kbus.subModuleName` is its Gradle module name. A submodule that names
+itself something else has to be named by hand.
 
 An index also names the typed command interfaces its module generated, against the bounded context each covers. That
 is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from
