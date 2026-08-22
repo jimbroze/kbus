@@ -1,6 +1,13 @@
-plugins { id("kbus.handler-module") }
+plugins {
+    id("kbus.multiplatform")
+    id("com.google.devtools.ksp")
+    id("com.jimbroze.kbus.context")
+}
 
-boundedContext { identity = "orders" }
+kbus {
+    indexPackage = "com.jimbroze.kbus.example.indexes"
+    boundedContext = "orders"
+}
 
 kotlin {
     sourceSets {

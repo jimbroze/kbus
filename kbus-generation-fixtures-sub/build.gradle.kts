@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+
 plugins {
     id("kbus.multiplatform")
     id("com.google.devtools.ksp")
@@ -14,7 +16,21 @@ kotlin {
     }
 }
 
-generateKbusCodeFromCommonMetadata()
+// Wired by hand rather than through the kbus Gradle plugin: this is the one module proving the raw
+// KSP arguments and task ordering still work without it.
+dependencies { add("kspCommonMainMetadata", projects.kbusGeneration) }
+
+kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
+
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    if (name.startsWith("compile")) {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+
+tasks
+    .matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }
+    .configureEach { dependsOn("kspCommonMainKotlinMetadata") }
 
 ksp {
     arg("kbus.subModuleName", project.name)

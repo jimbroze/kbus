@@ -38,8 +38,8 @@ dependencies {
     implementation("com.jimbroze:kbus-domain:<version>")
     implementation("com.jimbroze:kbus-application:<version>")
 
-    // For KSP code generation (optional)
-    ksp("com.jimbroze:kbus-generation:<version>")
+    // For code generation, apply the `com.jimbroze.kbus.context` Gradle plugin — it adds the
+    // processor itself. See "KSP Code Generation".
 }
 
 // A module that implements ports
@@ -1077,32 +1077,33 @@ adding no annotations or coupling to anything outside your message handlers (whi
 
 ### Setup
 
-```groovy
+The Gradle plugin owns the KSP wiring. A module that composes a bus applies `com.jimbroze.kbus.bus`:
+
+```kotlin
 plugins {
     kotlin("multiplatform")
     alias(libs.plugins.devtools.ksp)
+    id("com.jimbroze.kbus.bus") version "<version>"
 }
+
+kbus { indexPackage = "com.example.myApp.indexes" }
 
 dependencies {
     implementation("com.jimbroze:kbus-api:<version>")
     implementation("com.jimbroze:kbus-application:<version>")
-    add("kspCommonMainMetadata", "com.jimbroze:kbus-generation:<version>")
 }
-
-// Include generated sources
-kotlin.sourceSets.commonMain {
-    kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
-}
-
-// Generation runs once over common metadata, so everything reading commonMain waits for it
-tasks.withType<KotlinCompilationTask<*>>().configureEach {
-    if (name.startsWith("compile")) {
-        dependsOn("kspCommonMainKotlinMetadata")
-    }
-}
-tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }
-    .configureEach { dependsOn("kspCommonMainKotlinMetadata") }
 ```
+
+`indexPackage` is the package every module of the build writes its dependency index into; it is the one property every
+kbus module sets. The processor is added at the plugin's own version, overridable with a
+`kbus.generationVersion` Gradle property.
+
+Both the Kotlin Multiplatform and KSP plugins stay the consumer's to apply, so their versions are the consumer's to
+pick. Applying a kbus plugin without either fails at configuration time saying which is missing. A JVM-only build is
+not supported: generation runs over common metadata so that what it writes is common code every target compiles.
+
+The raw KSP arguments the plugin passes are documented under [Build arguments](#build-arguments) — they are what
+appears in a processor error message, and what a build not using the plugin has to set by hand.
 
 ### Annotate Handlers
 
@@ -1206,55 +1207,39 @@ against the declaration.
 
 ### Submodules
 
-For multi-module projects, submodules can export their handler metadata for the main module to consume. You must provide
-a package name for the indexes. This prevents trying to load indexes from a dependent library that uses Kbus.
+For multi-module projects, submodules export their handler metadata for the module composing the bus to consume. A
+submodule applies `com.jimbroze.kbus.context` instead:
 
-```groovy
-// In the submodule's build.gradle.kts
-ksp {
-    arg("kbus.subModuleName", project.name)
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
+```kotlin
+plugins {
+    kotlin("multiplatform")
+    alias(libs.plugins.devtools.ksp)
+    id("com.jimbroze.kbus.context") version "<version>"
 }
 
-// In the top-level module's build.gradle.kts
-ksp {
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
-    arg("kbus.modulesToIndex", "billing-domain,billing-application")
+kbus {
+    indexPackage = "com.example.myApp.indexes"
+    boundedContext = "billing"
 }
 ```
 
 Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of full bus code, including any
 `@LoadEventMapper` opt-ins, which are folded into the consuming module's `generatedAutoPublishRegistrations`.
 
-An index is located by name, and its name is built from the submodule's `kbus.subModuleName`. `kbus.modulesToIndex`
-says which modules to look in. Naming one that generated no index costs nothing — it is skipped — so the list can be
-derived from the dependencies rather than written out:
+An index is located by name, built from the submodule's Gradle module name — never by scanning the package they
+share, which holds only what the module itself declares. The bus module derives the list of modules to look in from
+what its common metadata compilation resolves, so nothing has to be written out: naming a module that generated no
+index costs nothing, since it is skipped.
+
+Derivation only reaches a module whose index is named after its Gradle module. A submodule that names itself something
+else is named alongside:
 
 ```kotlin
-val modulesOnTheClasspath =
-    provider { configurations.getByName("commonMainResolvableDependenciesMetadata") }
-        .flatMap { it.incoming.artifactView { isLenient = true }.artifacts.resolvedArtifacts }
-        .map { artifacts ->
-            artifacts
-                .mapNotNull {
-                    when (val component = it.id.componentIdentifier) {
-                        is ProjectComponentIdentifier -> component.projectName
-                        is ModuleComponentIdentifier -> component.module
-                        else -> null
-                    }
-                }
-                .distinct()
-                .joinToString(",")
-        }
-
-ksp {
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
-    arg(CommandLineArgumentProvider { listOf("kbus.modulesToIndex=${modulesOnTheClasspath.get()}") })
+kbus {
+    indexPackage = "com.example.myApp.indexes"
+    additionalModulesToIndex.add("legacy-billing")
 }
 ```
-
-Deriving the list only reaches a module whose `kbus.subModuleName` is its Gradle module name. A submodule that names
-itself something else has to be named by hand.
 
 An index also names the typed command interfaces its module generated, against the bounded context each covers. That
 is how a downstream module knows which interfaces its generated executor must satisfy — it reads the type from
@@ -1268,20 +1253,17 @@ one you want:
 import com.jimbroze.kbus.generated.billingDomain.OrdersCommands
 ```
 
-Index classes are the exception: they all share `kbus.indexPackage` and so carry the module in their name.
+Index classes are the exception: they all share `indexPackage` and so carry the module in their name.
 
 ### Bounded Context identity
 
 A bounded context usually spans several Gradle modules (`billing-domain`, `billing-application`,
 `billing-infrastructure` are three submodules but one context). `kbus.boundedContextIdentity` names the context, and is
-orthogonal to `kbus.subModuleName`:
+orthogonal to the submodule name. The `com.jimbroze.kbus.context` plugin's `boundedContext` property names it, and
+several modules give the same answer:
 
-```groovy
-ksp {
-    arg("kbus.subModuleName", project.name)
-    arg("kbus.boundedContextIdentity", "billing")
-    arg("kbus.indexPackage", "com.example.myApp.indexes")
-}
+```kotlin
+kbus { boundedContext = "billing" }
 ```
 
 Identity is stamped by the producing module's KSP run and recorded on each handler in its index — it is never inferred
@@ -1371,6 +1353,43 @@ generation.
 property. Only the token form is checked at compile time: `.loaded` exists only for handlers the processor generated a
 factory for, so a typo or a missing `@LoadMessageHandler` fails the build rather than the first dispatch. Prefer it
 whenever you are using code generation. The bare-class form takes no generation dependency, for hand-written wiring.
+
+### Build arguments
+
+The plugins set these KSP arguments; a build wiring generation by hand sets them itself. They are also what a
+processor error message names.
+
+| Argument | Set by | Meaning |
+|---|---|---|
+| `kbus.indexPackage` | both plugins, from `indexPackage` | The package every module writes its dependency index into |
+| `kbus.subModuleName` | `com.jimbroze.kbus.context`, from the Gradle module name | Names this module's index and its generated package; setting it is what makes a module a submodule |
+| `kbus.boundedContextIdentity` | `com.jimbroze.kbus.context`, from `boundedContext` | The bounded context this module's handlers belong to |
+| `kbus.modulesToIndex` | `com.jimbroze.kbus.bus`, derived from the metadata classpath plus `additionalModulesToIndex` | Which modules to look for an index in |
+
+Wiring it by hand means adding the processor to `kspCommonMainMetadata`, registering the generated directory as a
+`commonMain` source dir, and ordering every `compile*` and every other `ksp*` task behind `kspCommonMainKotlinMetadata`:
+
+```kotlin
+dependencies { add("kspCommonMainMetadata", "com.jimbroze:kbus-generation:<version>") }
+
+kotlin.sourceSets.commonMain { kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin") }
+
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    if (name.startsWith("compile")) {
+        dependsOn("kspCommonMainKotlinMetadata")
+    }
+}
+tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }
+    .configureEach { dependsOn("kspCommonMainKotlinMetadata") }
+
+ksp {
+    arg("kbus.indexPackage", "com.example.myApp.indexes")
+    arg("kbus.modulesToIndex", "billing-domain,billing-application")
+}
+```
+
+A bus module that reads no index and declares no handler of its own generates nothing, and says so as a build warning:
+that combination is a wiring mistake rather than a valid build.
 
 ## Domain Modeling
 

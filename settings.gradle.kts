@@ -3,6 +3,10 @@ rootProject.name = "kbus"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
+    // The plugin this build publishes also wires this build's own generation, so the examples are
+    // its integration test: a regression in it breaks them.
+    includeBuild("gradle-plugin")
+
     repositories {
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
         google()

@@ -1,6 +1,10 @@
-plugins { id("kbus.bus-module") }
+plugins {
+    id("kbus.multiplatform")
+    id("com.google.devtools.ksp")
+    id("com.jimbroze.kbus.bus")
+}
 
-generatedBus { indexPackage = "com.jimbroze.kbus.example.indexes" }
+kbus { indexPackage = "com.jimbroze.kbus.example.indexes" }
 
 kotlin {
     sourceSets {
