@@ -7,7 +7,7 @@ plugins {
 
 group = "com.jimbroze"
 
-version = System.getenv("VERSION_OVERRIDE") ?: "0.6.0"
+version = System.getenv("VERSION_OVERRIDE") ?: libs.versions.kbus.get()
 
 description = "Gradle plugin wiring kbus code generation into a Kotlin Multiplatform build"
 

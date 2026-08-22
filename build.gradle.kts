@@ -13,6 +13,8 @@ plugins {
     alias(libs.plugins.kotlinx.knit)
 }
 
+val kbusVersion = System.getenv("VERSION_OVERRIDE") ?: libs.versions.kbus.get()
+
 allprojects {
     // The kbus plugin adds the processor by the coordinates a user's build would resolve. Here
     // that has to be the copy this build produces, or the examples would prove a published
@@ -25,7 +27,7 @@ allprojects {
     }
 
     group = "com.jimbroze"
-    version = System.getenv("VERSION_OVERRIDE") ?: "0.6.0"
+    version = kbusVersion
 
     apply(plugin = "com.ncorti.ktfmt.gradle")
     ktfmt { kotlinLangStyle() }

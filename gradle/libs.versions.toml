@@ -1,4 +1,5 @@
 [versions]
+kbus = "0.6.0"
 detekt = "1.23.8"
 jdk-target = "17"
 #kotest = "6.0.7"
