@@ -18,6 +18,9 @@ kotlin {
     }
 }
 
+// The samples are compiled, not run: knitCheck is what verifies them.
+tasks.withType<AbstractTestTask>().configureEach { failOnNoDiscoveredTests = false }
+
 // Knit owns these files and knitCheck verifies them.
 tasks.withType<com.ncorti.ktfmt.gradle.tasks.KtfmtBaseTask>().configureEach {
     exclude("**/samples/**")

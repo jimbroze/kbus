@@ -19,8 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-include("kotlin-library")
-
 include("testDoubles")
 
 include("kbus-api")
