@@ -81,6 +81,10 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     needs: build-matrix
+    # Without `always()` a cancelled or failed matrix leaves this job `skipped`, which the branch
+    # ruleset counts as a satisfied required check. Run regardless and fail on anything but success.
+    if: always()
     steps:
-      - name: Report Success
-        run: echo "All matrix builds passed successfully"
+      - name: Report matrix result
+        run: |
+          [ "${{ needs.build-matrix.result }}" = "success" ] || exit 1
