@@ -9,24 +9,26 @@ class KbusBusPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val kbus = project.extensions.create<KbusBusExtension>("kbus")
 
-        val modulesToIndex =
-            project.metadataClasspathModuleNames().zip(kbus.additionalModulesToIndex) {
-                derivedFromClasspath,
-                namedByHand ->
-                (derivedFromClasspath + namedByHand).distinct()
-            }
-
-        val arguments =
-            modulesToIndex.map { modules ->
-                listOf(
-                    "kbus.indexPackage=" + project.requireSet(kbus.indexPackage, "indexPackage"),
-                    "kbus.modulesToIndex=" + modules.joinToString(","),
-                )
-            }
-
         project.afterEvaluate {
-            wireKbusGeneration(arguments)
-            requireSet(kbus.indexPackage, "indexPackage")
+            requireMultiplatformAndKsp()
+
+            val modulesToIndex =
+                metadataClasspathModuleNames().zip(kbus.additionalModulesToIndex) {
+                    derivedFromClasspath,
+                    namedByHand ->
+                    (derivedFromClasspath + namedByHand).distinct()
+                }
+
+            val indexPackage = requireSet(kbus.indexPackage, "indexPackage")
+
+            wireKbusGeneration(
+                modulesToIndex.map { modules ->
+                    listOf(
+                        "kbus.indexPackage=$indexPackage",
+                        "kbus.modulesToIndex=" + modules.joinToString(","),
+                    )
+                }
+            )
         }
     }
 }

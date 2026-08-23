@@ -1228,8 +1228,9 @@ Submodules generate a `DependencyIndex` with `@KbusIndex` metadata instead of fu
 
 An index is located by name, built from the submodule's Gradle module name — never by scanning the package they
 share, which holds only what the module itself declares. The bus module derives the list of modules to look in from
-what its common metadata compilation resolves, so nothing has to be written out: naming a module that generated no
-index costs nothing, since it is skipped.
+its common metadata dependency graph, so nothing has to be written out: naming a module that generated no
+index costs nothing, since it is skipped. The graph is read rather than the resolved artifacts, so the derivation
+needs no task to have run and both plugins work with the configuration cache enabled.
 
 Derivation only reaches a module whose index is named after its Gradle module. A submodule that names itself something
 else is named alongside:
@@ -1364,7 +1365,7 @@ processor error message names.
 | `kbus.indexPackage` | both plugins, from `indexPackage` | The package every module writes its dependency index into |
 | `kbus.subModuleName` | `com.jimbroze.kbus.context`, from the Gradle module name | Names this module's index and its generated package; setting it is what makes a module a submodule |
 | `kbus.boundedContextIdentity` | `com.jimbroze.kbus.context`, from `boundedContext` | The bounded context this module's handlers belong to |
-| `kbus.modulesToIndex` | `com.jimbroze.kbus.bus`, derived from the metadata classpath plus `additionalModulesToIndex` | Which modules to look for an index in |
+| `kbus.modulesToIndex` | `com.jimbroze.kbus.bus`, derived from the metadata dependency graph plus `additionalModulesToIndex` | Which modules to look for an index in |
 
 Wiring it by hand means adding the processor to `kspCommonMainMetadata`, registering the generated directory as a
 `commonMain` source dir, and ordering every `compile*` and every other `ksp*` task behind `kspCommonMainKotlinMetadata`:
