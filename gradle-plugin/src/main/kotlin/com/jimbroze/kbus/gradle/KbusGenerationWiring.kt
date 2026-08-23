@@ -5,6 +5,8 @@ import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedComponentResult
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.provider.Provider
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.the
@@ -28,8 +30,6 @@ private const val METADATA_CLASSPATH = "commonMainResolvableDependenciesMetadata
  * writes is common code every target compiles.
  */
 internal fun Project.wireKbusGeneration(arguments: Provider<List<String>>) {
-    requireMultiplatformAndKsp()
-
     dependencies.add(METADATA_KSP_CONFIGURATION, "$GENERATION_COORDINATES:$generationVersion")
 
     the<KotlinMultiplatformExtension>().sourceSets.named("commonMain").configure {
@@ -54,31 +54,43 @@ private val Project.generationVersion: String
     get() = providers.gradleProperty(GENERATION_VERSION_PROPERTY).getOrElse(KBUS_PLUGIN_VERSION)
 
 /**
- * Names every module the common metadata compilation resolves, so the processor can look up the
+ * Names every module in the common metadata dependency graph, so the processor can look up the
  * index each one would have generated. A module that generated none resolves to nothing, which is
  * how a dependency carrying no kbus handlers reads — the Kotlin stdlib included.
+ *
+ * The graph is read rather than the resolved artifacts because building an artifact runs a task,
+ * which the arguments cannot wait for: KSP reads them while the configuration cache is stored.
  */
 internal fun Project.metadataClasspathModuleNames(): Provider<List<String>> =
-    // The Kotlin plugin creates this configuration after the build script has been evaluated.
-    provider { configurations.getByName(METADATA_CLASSPATH) }
-        .flatMap { it.incoming.artifactView { isLenient = true }.artifacts.resolvedArtifacts }
-        .map { artifacts ->
-            artifacts
-                .mapNotNull { artifact ->
-                    when (val component = artifact.id.componentIdentifier) {
-                        is ProjectComponentIdentifier -> component.projectName
-                        is ModuleComponentIdentifier -> component.module
-                        else -> null
-                    }
-                }
-                .distinct()
+    configurations
+        .named(METADATA_CLASSPATH)
+        .flatMap { it.incoming.resolutionResult.rootComponent }
+        .map { root -> root.reachableComponentNames() }
+
+private fun ResolvedComponentResult.reachableComponentNames(): List<String> {
+    val names = mutableListOf<String>()
+    val visited = mutableSetOf<ResolvedComponentResult>()
+    val toVisit = ArrayDeque(listOf(this))
+    while (toVisit.isNotEmpty()) {
+        val component = toVisit.removeFirst()
+        if (!visited.add(component)) continue
+        when (val id = component.id) {
+            is ProjectComponentIdentifier -> names.add(id.projectName)
+            is ModuleComponentIdentifier -> names.add(id.module)
+            else -> Unit
         }
+        component.dependencies.filterIsInstance<ResolvedDependencyResult>().forEach {
+            toVisit.add(it.selected)
+        }
+    }
+    return names.distinct()
+}
 
 /**
  * The plugin configures a Kotlin Multiplatform build rather than deciding its shape, so both the
  * Kotlin and KSP plugins are the consumer's to apply and their versions the consumer's to pick.
  */
-private fun Project.requireMultiplatformAndKsp() {
+internal fun Project.requireMultiplatformAndKsp() {
     if (!plugins.hasPlugin(KOTLIN_MULTIPLATFORM_PLUGIN_ID)) {
         throw GradleException(
             "$path applies a kbus plugin without the Kotlin Multiplatform plugin. kbus generates " +

@@ -38,6 +38,14 @@ dependencies {
 
 tasks.pluginUnderTestMetadata { pluginClasspath.from(testPluginClasspath) }
 
+// The TestKit builds apply the same Kotlin and KSP versions this build resolves, so a test build
+// cannot drift from the versions the plugin is compiled against.
+tasks.test {
+    systemProperty("kbus.test.kotlinVersion", libs.versions.kotlin.get())
+    systemProperty("kbus.test.kspVersion", libs.versions.ksp.get())
+    systemProperty("kbus.test.kbusVersion", libs.versions.kbus.get())
+}
+
 gradlePlugin {
     website = "https://github.com/jimbroze/kbus"
     vcsUrl = "https://github.com/jimbroze/kbus"
