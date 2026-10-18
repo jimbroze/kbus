@@ -5,9 +5,7 @@ import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.middleware.BusLockedFailure
 import com.jimbroze.kbus.api.middleware.LockingCommand
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.BusResult.Companion.failure
 import com.jimbroze.kbus.api.result.BusResult.Companion.success
-import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.core.middleware.LockingMiddleware
 import kotlin.time.Duration
@@ -15,17 +13,23 @@ import kotlin.time.TimeSource
 import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 import kotlinx.coroutines.delay
 
-class TestFailure(override val reason: FailureReason) : MessageFailure
+sealed interface LockingCommandFailure : MessageFailure {
+    data class BusLocked(val cause: BusLockedFailure) : LockingCommandFailure
+}
 
 /** Returns the current time mark. Not lock-aware (no LockingCommand). */
 open class TimeReturnCommand : Command<BusResult<ValueTimeMark, MessageFailure>>()
 
-/** Lock-aware variant of [TimeReturnCommand]; returns a [TestFailure] when the bus is locked. */
+/**
+ * Lock-aware variant of [TimeReturnCommand]; returns [LockingCommandFailure.BusLocked] when the bus
+ * is locked.
+ */
 class LockAwareTimeReturnCommand(override val lockChannelKey: String? = null) :
     TimeReturnCommand(), LockingCommand<BusResult<ValueTimeMark, MessageFailure>> {
     override fun busLockedFailure(
         failure: BusLockedFailure
-    ): BusResult<ValueTimeMark, MessageFailure> = failure(TestFailure(failure))
+    ): BusResult<ValueTimeMark, MessageFailure> =
+        BusResult.failure(LockingCommandFailure.BusLocked(failure))
 }
 
 class TimeReturnCommandHandler :
@@ -44,7 +48,7 @@ class NestingLockCommand(
     override val lockChannelKey: String? = null,
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
-        failure(TestFailure(failure))
+        BusResult.failure(LockingCommandFailure.BusLocked(failure))
 }
 
 class NestingLockCommandHandler(private val locker: LockingMiddleware) :
@@ -75,7 +79,7 @@ class LockingSleepCommand(
     override val lockChannelKey: String? = null,
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
-        failure(TestFailure(failure))
+        BusResult.failure(LockingCommandFailure.BusLocked(failure))
 }
 
 class LockingSleepCommandHandler :
@@ -107,7 +111,7 @@ class ConfigurableLockingCommand(
     override val lockChannelKey: String? = null,
 ) : Command<BusResult<Any, MessageFailure>>(), LockingCommand<BusResult<Any, MessageFailure>> {
     override fun busLockedFailure(failure: BusLockedFailure): BusResult<Any, MessageFailure> =
-        failure(TestFailure(failure))
+        BusResult.failure(LockingCommandFailure.BusLocked(failure))
 }
 
 class ConfigurableLockingCommandHandler :

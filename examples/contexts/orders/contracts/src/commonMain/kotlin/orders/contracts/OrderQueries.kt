@@ -2,8 +2,6 @@ package com.jimbroze.kbus.example.orders.contracts
 
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.FailureReason
-import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
 
 data class OrderSummary(
@@ -13,9 +11,7 @@ data class OrderSummary(
     val status: String,
 )
 
-class OrderNotFound(val orderId: String) : MessageFailure {
-    override val reason: FailureReason = GenericFailure("Order not found: $orderId")
-}
+data class OrderNotFound(val orderId: String) : MessageFailure
 
 typealias GetOrderByIdResult = BusResult<OrderSummary, OrderNotFound>
 

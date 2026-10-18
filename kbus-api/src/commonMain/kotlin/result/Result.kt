@@ -14,7 +14,7 @@ sealed class BusResult<out TValue : Any?, out TMessageFailure : MessageFailure> 
     internal data class Failure<out TMessageFailure : MessageFailure>(
         internal val messageFailure: TMessageFailure
     ) : BusResult<Nothing, TMessageFailure>() {
-        override fun toString(): String = "Failure: ${messageFailure.reason.message}"
+        override fun toString(): String = "Failure($messageFailure)"
     }
 
     val isSuccess: Boolean
@@ -62,22 +62,7 @@ sealed class BusResult<out TValue : Any?, out TMessageFailure : MessageFailure> 
     }
 }
 
-interface FailureReason {
-    val message: String
-}
-
-class MultipleFailureReasons(
-    val reasons: List<FailureReason>,
-    override val message: String = "There were multiple failures: ${reasons.joinToString(", ")}",
-) : FailureReason {
-    override fun toString(): String = message
-}
-
-class GenericFailure(override val message: String) : FailureReason
-
-interface MessageFailure {
-    val reason: FailureReason
-}
+interface MessageFailure
 
 interface ResultReturningMessageHandler<
     TMessage : ResultReturningMessage<TResult>,

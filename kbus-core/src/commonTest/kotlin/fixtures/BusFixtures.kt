@@ -8,17 +8,12 @@ import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.api.result.MessageFailure
 
 open class FailureCommand : Command<BusResult<String, FailureCommandFailure>>()
 
-class BrokenStateFailureReason(override val message: String) : FailureReason
-
 sealed interface FailureCommandFailure : MessageFailure {
-    class BrokenStateFailure(message: String) : FailureCommandFailure {
-        override val reason = BrokenStateFailureReason(message)
-    }
+    data class BrokenStateFailure(val message: String) : FailureCommandFailure
 }
 
 class BrokenStateFailureCommandHandler :

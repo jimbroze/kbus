@@ -8,9 +8,11 @@ import kotlin.test.assertTrue
 
 class BusResultTest {
 
-    private class TestFailureReason(override val message: String) : FailureReason
+    private sealed interface OrderFailure : MessageFailure {
+        data class OutOfStock(val productId: String) : OrderFailure
 
-    private class TestMessageFailure(override val reason: FailureReason) : MessageFailure
+        data class PaymentDeclined(val customerId: String) : OrderFailure
+    }
 
     @Test
     fun `reports success when it holds a value`() {
@@ -49,28 +51,28 @@ class BusResultTest {
 
     @Test
     fun `reports failure when it holds a failure`() {
-        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
+        val result = BusResult.failure(OrderFailure.OutOfStock("widget"))
 
         assertTrue(result.isFailure)
     }
 
     @Test
     fun `does not report success when it holds a failure`() {
-        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
+        val result = BusResult.failure(OrderFailure.OutOfStock("widget"))
 
         assertFalse(result.isSuccess)
     }
 
     @Test
     fun `exposes no value when it holds a failure`() {
-        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
+        val result = BusResult.failure(OrderFailure.OutOfStock("widget"))
 
         assertNull(result.getOrNull())
     }
 
     @Test
     fun `exposes the failure it holds`() {
-        val failure = TestMessageFailure(TestFailureReason("error"))
+        val failure = OrderFailure.OutOfStock("widget")
         val result = BusResult.failure(failure)
 
         assertEquals(failure, result.failureOrNull())
@@ -84,11 +86,10 @@ class BusResultTest {
     }
 
     @Test
-    fun `renders the failure message in its string form`() {
-        val result =
-            BusResult.failure(TestMessageFailure(TestFailureReason("something went wrong")))
+    fun `renders the failure it holds in its string form`() {
+        val result = BusResult.failure(OrderFailure.OutOfStock("widget"))
 
-        assertEquals("Failure: something went wrong", result.toString())
+        assertEquals("Failure(OutOfStock(productId=widget))", result.toString())
     }
 
     @Test
@@ -100,7 +101,7 @@ class BusResultTest {
 
     @Test
     fun `leaves the failure untouched when mapping the success of a failure`() {
-        val failure = TestMessageFailure(TestFailureReason("error"))
+        val failure = OrderFailure.OutOfStock("widget")
         val result = BusResult.failure(failure).mapSuccess { "mapped" }
 
         assertEquals(failure, result.failureOrNull())
@@ -108,9 +109,8 @@ class BusResultTest {
 
     @Test
     fun `applies the transform to the failure when mapping a failure`() {
-        val mapped = TestMessageFailure(TestFailureReason("mapped"))
-        val result =
-            BusResult.failure(TestMessageFailure(TestFailureReason("error"))).mapFailure { mapped }
+        val mapped = OrderFailure.PaymentDeclined("customer-1")
+        val result = BusResult.failure(OrderFailure.OutOfStock("widget")).mapFailure { mapped }
 
         assertEquals(mapped, result.failureOrNull())
     }
@@ -118,7 +118,7 @@ class BusResultTest {
     @Test
     fun `leaves the value untouched when mapping the failure of a success`() {
         val result =
-            BusResult.success("value").mapFailure { TestMessageFailure(TestFailureReason("other")) }
+            BusResult.success("value").mapFailure { OrderFailure.PaymentDeclined("customer-1") }
 
         assertEquals("value", result.getOrNull())
     }
@@ -132,11 +132,11 @@ class BusResultTest {
 
     @Test
     fun `collapses a failure through the failure branch`() {
-        val result = BusResult.failure(TestMessageFailure(TestFailureReason("error")))
+        val result = BusResult.failure(OrderFailure.OutOfStock("widget"))
 
         assertEquals(
-            "failed error",
-            result.collapse({ "value $it" }, { "failed ${it.reason.message}" }),
+            "failed widget",
+            result.collapse({ "value $it" }, { "failed ${it.productId}" }),
         )
     }
 }

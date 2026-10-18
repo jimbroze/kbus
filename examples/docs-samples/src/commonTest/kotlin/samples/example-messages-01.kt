@@ -6,8 +6,6 @@ import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.FailureReason
-import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
 
 // A command that returns a String result

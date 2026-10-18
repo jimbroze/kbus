@@ -1,15 +1,20 @@
 // This file was automatically generated from README.md by Knit tool. Do not edit.
 package com.jimbroze.kbus.example.samples.exampleResults03
 
-import com.jimbroze.kbus.api.result.GenericFailure
-import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
-import com.jimbroze.kbus.example.fixtures.MyCommand
-import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.middleware.BusLockedFailure
+import com.jimbroze.kbus.api.middleware.LockingCommand
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 
-suspend fun main() {
-    val result = bus.execute(MyCommand())
+sealed interface ImportPricesFailure : MessageFailure {
+    data class BusLocked(val cause: BusLockedFailure) : ImportPricesFailure
+}
 
-    println(result.mapSuccess { it.length }.getOrNull())
-    println(result.mapFailure { GenericMessageFailure(GenericFailure("could not do the thing")) })
-    println(result.collapse({ "Value: $it" }, { "Error: ${it.reason.message}" }))
+class ImportPrices :
+    Command<BusResult<Unit, ImportPricesFailure>>(),
+    LockingCommand<BusResult<Unit, ImportPricesFailure>> {
+
+    override fun busLockedFailure(failure: BusLockedFailure): BusResult<Unit, ImportPricesFailure> =
+        BusResult.failure(ImportPricesFailure.BusLocked(failure))
 }

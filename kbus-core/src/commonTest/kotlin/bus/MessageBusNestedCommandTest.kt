@@ -9,8 +9,6 @@ import com.jimbroze.kbus.api.messages.event.IntegrationEvent
 import com.jimbroze.kbus.api.messages.event.IntegrationEventHandler
 import com.jimbroze.kbus.api.messages.event.IntegrationEventPublisher
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.FailureReason
-import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.application.messages.command.NestedCommandExecutor
 import com.jimbroze.kbus.core.boundedcontext.BoundedContext
@@ -37,7 +35,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
-private data class NestedFailure(override val reason: FailureReason) : MessageFailure
+private data class InnerDeclined(val innerCommandName: String) : MessageFailure
 
 private class InnerCommand(val name: String, val fail: Boolean = false) :
     Command<BusResult<String, MessageFailure>>()
@@ -66,7 +64,7 @@ private class FailingInnerCommand : Command<BusResult<String, MessageFailure>>()
 private class FailingInnerCommandHandler :
     CommandHandler<FailingInnerCommand, BusResult<String, MessageFailure>>() {
     override suspend fun handle(message: FailingInnerCommand): BusResult<String, MessageFailure> =
-        BusResult.failure(NestedFailure(GenericFailure("inner declined")))
+        BusResult.failure(InnerDeclined("failing inner"))
 }
 
 private class OuterCommand(val name: String, val innerFails: Boolean = false) :
@@ -425,7 +423,7 @@ class MessageBusNestedCommandTest {
 
         val result = bus.execute(FailureRelayingOuterCommand())
 
-        assertEquals("inner declined", result.failureOrNull()?.reason?.message)
+        assertEquals(InnerDeclined("failing inner"), result.failureOrNull())
         assertContentEquals(listOf("outer-continued"), recorder)
     }
 
