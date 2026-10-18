@@ -57,8 +57,8 @@ sealed class BusResult<out TValue : Any?, out TMessageFailure : MessageFailure> 
         fun <TValue : Any?> success(value: TValue): BusResult<TValue, Nothing> = Success(value)
 
         fun <TMessageFailure : MessageFailure> failure(
-            failureReason: TMessageFailure
-        ): BusResult<Nothing, TMessageFailure> = Failure(failureReason)
+            messageFailure: TMessageFailure
+        ): BusResult<Nothing, TMessageFailure> = Failure(messageFailure)
     }
 }
 
