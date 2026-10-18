@@ -19,5 +19,5 @@ class CancelAndReplaceOrderHandler(private val ordersCommands: OrdersCommands) :
     override suspend fun handle(message: CancelAndReplaceOrder): CancelAndReplaceOrderResult =
         ordersCommands
             .placeOrder(PlaceOrder(message.customerId, message.lines, "stored-card"))
-            .mapFailure { CancelAndReplaceOrderFailure(it.reason) }
+            .mapFailure { CancelAndReplaceOrderFailure.ReplacementNotPlaced(cause = it) }
 }

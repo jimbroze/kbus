@@ -1,13 +1,13 @@
 package com.jimbroze.kbus.core.middleware
 
 import com.jimbroze.kbus.api.middleware.BusLockedException
-import com.jimbroze.kbus.api.middleware.BusLockedFailure
 import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.MessageFailure
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommand
 import com.jimbroze.kbus.core.fixtures.ConfigurableLockingCommandHandler
 import com.jimbroze.kbus.core.fixtures.EmptyMiddlewareInvocationContext
 import com.jimbroze.kbus.core.fixtures.LockAwareTimeReturnCommand
+import com.jimbroze.kbus.core.fixtures.LockingCommandFailure
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommand
 import com.jimbroze.kbus.core.fixtures.LockingSleepCommandHandler
 import com.jimbroze.kbus.core.fixtures.NestingLockCommand
@@ -16,7 +16,6 @@ import com.jimbroze.kbus.core.fixtures.ReturnCommand
 import com.jimbroze.kbus.core.fixtures.ReturnCommandHandler
 import com.jimbroze.kbus.core.fixtures.SleepCommand
 import com.jimbroze.kbus.core.fixtures.SleepCommandHandler
-import com.jimbroze.kbus.core.fixtures.TestFailure
 import com.jimbroze.kbus.core.fixtures.TimeReturnCommand
 import com.jimbroze.kbus.core.middleware.infrastructure.BusMiddlewareContext
 import com.jimbroze.kbus.infrastructure.lock.SignallingLock
@@ -61,15 +60,14 @@ abstract class SignallingLockContract {
 
             val resultMap = assertIs<Map<String, Any?>>(result.getOrNull())
 
-            val nestFailure =
-                assertIs<TestFailure>(
+            val nestedBusLocked =
+                assertIs<LockingCommandFailure.BusLocked>(
                     assertIs<BusResult<*, MessageFailure>>(resultMap["nest"]).failureOrNull()
                 )
 
-            assertIs<BusLockedFailure>(nestFailure.reason)
             assertEquals(
                 "Cannot handle message as message bus is locked by the same coroutine",
-                nestFailure.reason.message,
+                nestedBusLocked.cause.message,
             )
 
             val preNest = assertIs<ValueTimeMark>(resultMap["pre-nest"])
@@ -335,9 +333,8 @@ abstract class SignallingLockContract {
         val result2 = job2.await()
         job1.await()
 
-        val failure = assertIs<TestFailure>(result2.failureOrNull())
-        val reason = assertIs<BusLockedFailure>(failure.reason)
-        assertEquals("Timed out waiting for message bus to unlock", reason.message)
+        val busLocked = assertIs<LockingCommandFailure.BusLocked>(result2.failureOrNull())
+        assertEquals("Timed out waiting for message bus to unlock", busLocked.cause.message)
     }
 
     @Test
@@ -371,8 +368,7 @@ abstract class SignallingLockContract {
         val result2 = job2.await()
         job1.await()
 
-        val failure = assertIs<TestFailure>(result2.failureOrNull())
-        assertIs<BusLockedFailure>(failure.reason)
+        assertIs<LockingCommandFailure.BusLocked>(result2.failureOrNull())
     }
 
     @Test
@@ -570,15 +566,14 @@ abstract class SignallingLockContract {
 
         val resultMap = assertIs<Map<String, Any?>>(result.getOrNull())
 
-        val nestFailure =
-            assertIs<TestFailure>(
+        val nestedBusLocked =
+            assertIs<LockingCommandFailure.BusLocked>(
                 assertIs<BusResult<*, MessageFailure>>(resultMap["nest"]).failureOrNull()
             )
 
-        assertIs<BusLockedFailure>(nestFailure.reason)
         assertEquals(
             "Cannot handle message as message bus is locked by the same coroutine",
-            nestFailure.reason.message,
+            nestedBusLocked.cause.message,
         )
     }
 
@@ -727,8 +722,8 @@ abstract class SignallingLockContract {
 
         assertEquals(3000L, timeJob1Finished)
 
-        assertIs<BusLockedFailure>(assertIs<TestFailure>(result2.failureOrNull()).reason)
-        assertIs<BusLockedFailure>(assertIs<TestFailure>(result3.failureOrNull()).reason)
+        assertIs<LockingCommandFailure.BusLocked>(result2.failureOrNull())
+        assertIs<LockingCommandFailure.BusLocked>(result3.failureOrNull())
     }
 
     @Test
@@ -1063,8 +1058,7 @@ abstract class SignallingLockContract {
         val result2 = job2.await()
         val timeJob1Finished = job1.await()
 
-        val failure = assertIs<TestFailure>(result2.failureOrNull())
-        assertIs<BusLockedFailure>(failure.reason)
+        assertIs<LockingCommandFailure.BusLocked>(result2.failureOrNull())
         assertEquals(5000L, timeJob1Finished)
     }
 
@@ -1100,8 +1094,7 @@ abstract class SignallingLockContract {
         val result2 = job2.await()
         val timeJob1Finished = job1.await()
 
-        val failure = assertIs<TestFailure>(result2.failureOrNull())
-        assertIs<BusLockedFailure>(failure.reason)
+        assertIs<LockingCommandFailure.BusLocked>(result2.failureOrNull())
         assertEquals(4000L, timeJob1Finished)
     }
 }

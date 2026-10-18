@@ -2,8 +2,8 @@ package com.jimbroze.kbus.api.middleware
 
 import com.jimbroze.kbus.api.common.Message
 import com.jimbroze.kbus.api.common.ResultReturningMessage
-import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.api.result.KBusResult
+import com.jimbroze.kbus.api.result.MessageFailure
 import kotlin.time.Duration
 
 interface LockAwareMessage : Message {
@@ -28,6 +28,6 @@ interface LockingCommand<TResult : KBusResult> : ResultReturningLockAwareMessage
         get() = true
 }
 
-class BusLockedFailure(override val message: String) : FailureReason
+data class BusLockedFailure(val message: String) : MessageFailure
 
 class BusLockedException(override val message: String) : Exception(message)

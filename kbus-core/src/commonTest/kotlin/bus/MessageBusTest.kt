@@ -1,6 +1,5 @@
 package com.jimbroze.kbus.core.bus
 
-import com.jimbroze.kbus.api.result.FailureReason
 import com.jimbroze.kbus.core.fixtures.BrokenStateFailureCommandHandler
 import com.jimbroze.kbus.core.fixtures.FailureCommand
 import com.jimbroze.kbus.core.fixtures.FailureCommandFailure
@@ -19,8 +18,6 @@ import com.jimbroze.kbus.core.registry.persisting.store.QueryHandlerFactory
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -74,11 +71,10 @@ class MessageBusTest {
 
         val result = bus.execute(FailureCommand())
 
-        assertTrue(result.isFailure)
-        val failure = result.failureOrNull()
-        assertIs<FailureCommandFailure>(failure)
-        assertEquals("Illegal state in command handling", failure.reason.message)
-        assertEquals("Failure: Illegal state in command handling", result.toString())
+        assertEquals(
+            FailureCommandFailure.BrokenStateFailure("Illegal state in command handling"),
+            result.failureOrNull(),
+        )
     }
 
     @Test
@@ -110,10 +106,9 @@ class MessageBusTest {
 
         val result = bus.fetch(FailureQuery())
 
-        assertTrue(result.isFailure)
-        val failure = result.failureOrNull()
-        assertNotNull(failure)
-        assertIs<FailureReason>(failure.reason)
-        assertEquals("The query failed", failure.reason.message)
+        assertEquals(
+            FailureCommandFailure.BrokenStateFailure("The query failed"),
+            result.failureOrNull(),
+        )
     }
 }

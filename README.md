@@ -64,8 +64,6 @@ import com.jimbroze.kbus.api.messages.command.CommandHandler
 import com.jimbroze.kbus.api.messages.query.Query
 import com.jimbroze.kbus.api.messages.query.QueryHandler
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.FailureReason
-import com.jimbroze.kbus.api.result.GenericFailure
 import com.jimbroze.kbus.api.result.MessageFailure
 -->
 
@@ -403,67 +401,127 @@ code generation collects it into a generated `generatedAutoPublishRegistrations`
 
 ## Result Types
 
-All commands and queries return `BusResult<TValue, TMessageFailure>`:
+All commands and queries return `BusResult<TValue, TMessageFailure>`: either a success holding a `TValue`, or a
+failure holding one of the message's own failure cases.
+
+### Failures
+
+A message declares what can go wrong as a sealed interface of `MessageFailure` cases. The case *is* the reason: it
+carries the data a caller needs to react, not a message to display. Here, cancelling a subscription can fail because
+the subscription doesn't exist or is already cancelled:
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.api.result.BusResult
 import com.jimbroze.kbus.api.result.MessageFailure
-import com.jimbroze.kbus.example.fixtures.MyCommand
+-->
+
+```kotlin
+sealed interface CancelSubscriptionFailure : MessageFailure {
+    data class NotFound(val subscriptionId: String) : CancelSubscriptionFailure
+    data class AlreadyCancelled(val subscriptionId: String) : CancelSubscriptionFailure
+}
+```
+
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-01.kt).
+
+A caller handles each case with a `when`, and the compiler checks that none is missed:
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.example.fixtures.CancelSubscription
+import com.jimbroze.kbus.example.fixtures.CancelSubscriptionFailure
 import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
 -->
 
 ```kotlin
 suspend fun main() {
-    val result: BusResult<String, MessageFailure> = bus.execute(MyCommand())
+    val result = bus.execute(CancelSubscription("sub-42"))
 
-    when {
-        result.isSuccess -> println("Value: ${result.getOrNull()}")
-        result.isFailure -> println("Error: ${result.failureOrNull()?.reason?.message}")
+    when (val failure = result.failureOrNull()) {
+        null -> println("Value: ${result.getOrNull()}")
+        is CancelSubscriptionFailure.NotFound -> println("No subscription ${failure.subscriptionId}")
+        is CancelSubscriptionFailure.AlreadyCancelled -> println("Already cancelled")
     }
 }
 ```
 
-> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-01.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-02.kt).
+
+Some failures come from elsewhere: from the framework, or shared by several use cases. A use case wraps such a failure
+in a case of its own, in a field named `cause`. The framework's `BusLockedFailure` is one. When the bus is locked
+(see `LockingMiddleware` under [Built-in Middleware](#built-in-middleware)), it calls the command's
+`busLockedFailure(...)` with a `BusLockedFailure`, and the command returns its own case holding it. Below,
+`ImportPricesFailure` names `BusLockedFailure`, but the framework never knows `ImportPricesFailure` exists:
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.api.messages.command.Command
+import com.jimbroze.kbus.api.middleware.BusLockedFailure
+import com.jimbroze.kbus.api.middleware.LockingCommand
+import com.jimbroze.kbus.api.result.BusResult
+import com.jimbroze.kbus.api.result.MessageFailure
+-->
+
+```kotlin
+sealed interface ImportPricesFailure : MessageFailure {
+    data class BusLocked(val cause: BusLockedFailure) : ImportPricesFailure
+}
+
+class ImportPrices :
+    Command<BusResult<Unit, ImportPricesFailure>>(),
+    LockingCommand<BusResult<Unit, ImportPricesFailure>> {
+
+    override fun busLockedFailure(failure: BusLockedFailure): BusResult<Unit, ImportPricesFailure> =
+        BusResult.failure(ImportPricesFailure.BusLocked(failure))
+}
+```
+
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-03.kt).
+
+### Creating and Transforming Results
 
 Create results with companion functions:
 
 <!--- CLEAR -->
 <!--- INCLUDE
 import com.jimbroze.kbus.api.result.BusResult
-import com.jimbroze.kbus.api.result.GenericFailure
-import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
+import com.jimbroze.kbus.example.fixtures.CancelSubscriptionFailure
 -->
 
 ```kotlin
-val success = BusResult.success("value")
-val failure = BusResult.failure(GenericMessageFailure(GenericFailure("Something went wrong")))
+val success = BusResult.success("Cancelled sub-42")
+val failure = BusResult.failure(CancelSubscriptionFailure.NotFound("sub-42"))
 ```
 
-> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-02.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-04.kt).
 
-Transform a result without unpacking it. `mapFailure` is what a handler forwarding another message's result needs:
-each message declares its own failure type, so passing one straight through does not type-check.
+Change a result without unpacking it. `mapSuccess` changes the value of a success. `mapFailure` changes the failure,
+which you need when a handler returns another message's result: its failure belongs to the other message, so the
+handler wraps it in a case of its own. `collapse` turns either outcome into one value.
 
 <!--- CLEAR -->
 <!--- INCLUDE
-import com.jimbroze.kbus.api.result.GenericFailure
-import com.jimbroze.kbus.example.fixtures.GenericMessageFailure
-import com.jimbroze.kbus.example.fixtures.MyCommand
+import com.jimbroze.kbus.api.result.MessageFailure
+import com.jimbroze.kbus.example.fixtures.CancelSubscription
+import com.jimbroze.kbus.example.fixtures.CancelSubscriptionFailure
 import com.jimbroze.kbus.example.fixtures.resultExampleBus as bus
 -->
 
 ```kotlin
+sealed interface ChangePlanFailure : MessageFailure {
+    data class CancellationFailed(val cause: CancelSubscriptionFailure) : ChangePlanFailure
+}
+
 suspend fun main() {
-    val result = bus.execute(MyCommand())
+    val result = bus.execute(CancelSubscription("sub-42"))
 
     println(result.mapSuccess { it.length }.getOrNull())
-    println(result.mapFailure { GenericMessageFailure(GenericFailure("could not do the thing")) })
-    println(result.collapse({ "Value: $it" }, { "Error: ${it.reason.message}" }))
+    println(result.mapFailure { ChangePlanFailure.CancellationFailed(cause = it) })
+    println(result.collapse({ "Value: $it" }, { "Error: $it" }))
 }
 ```
 
-> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-03.kt).
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-results-05.kt).
 
 ## Middleware
 
