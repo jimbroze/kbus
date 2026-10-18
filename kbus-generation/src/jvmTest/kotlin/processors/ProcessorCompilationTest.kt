@@ -149,6 +149,163 @@ class ProcessorCompilationTest {
     }
 
     @Test
+    fun `wires a command handler that extends CommandHandler through a class of its own`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.KBusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
+
+                abstract class AuditedCommandHandler<TResult : KBusResult, TAuditLog, TCommand : Command<TResult>>(
+                    protected val auditLog: TAuditLog,
+                ) : CommandHandler<TCommand, TResult>()
+
+                class PlaceOrder : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class PlaceOrderHandler :
+                    AuditedCommandHandler<BusResult<String, MessageFailure>, MutableList<String>, PlaceOrder>(
+                        mutableListOf()
+                    ) {
+                    override suspend fun handle(message: PlaceOrder) = BusResult.success("ok")
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        assertContains(
+            generatedSource(result, "CompileTimeLoadedMessageBus.kt"),
+            "public suspend fun execute(command: PlaceOrder): BusResult<String, MessageFailure>",
+        )
+    }
+
+    @Test
+    fun `wires a command handler that extends CommandHandler through several classes of its own`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.KBusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
+
+                abstract class AuditedCommandHandler<TResult : KBusResult, TAuditLog, TCommand : Command<TResult>>(
+                    protected val auditLog: TAuditLog,
+                ) : CommandHandler<TCommand, TResult>()
+
+                abstract class OrderCommandHandler<TCommand : Command<TResult>, TResult : KBusResult> :
+                    AuditedCommandHandler<TResult, MutableList<String>, TCommand>(mutableListOf())
+
+                class PlaceOrder : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class PlaceOrderHandler :
+                    OrderCommandHandler<PlaceOrder, BusResult<String, MessageFailure>>() {
+                    override suspend fun handle(message: PlaceOrder) = BusResult.success("ok")
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        assertContains(
+            generatedSource(result, "CompileTimeLoadedMessageBus.kt"),
+            "public suspend fun execute(command: PlaceOrder): BusResult<String, MessageFailure>",
+        )
+    }
+
+    @Test
+    fun `wires a query handler that extends QueryHandler through a class of its own`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.query.Query
+                import com.jimbroze.kbus.api.messages.query.QueryHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.KBusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
+
+                abstract class CachedQueryHandler<TCacheKey, TResult : KBusResult, TQuery : Query<TResult>>(
+                    protected val cache: MutableMap<TCacheKey, TResult>,
+                ) : QueryHandler<TQuery, TResult>()
+
+                class FindOrder(val orderId: String) : Query<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class FindOrderHandler :
+                    CachedQueryHandler<String, BusResult<String, MessageFailure>, FindOrder>(
+                        mutableMapOf()
+                    ) {
+                    override suspend fun handle(message: FindOrder) =
+                        cache.getOrPut(message.orderId) { BusResult.success("ok") }
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        assertContains(
+            generatedSource(result, "CompileTimeLoadedMessageBus.kt"),
+            "public suspend fun fetch(query: FindOrder): BusResult<String, MessageFailure>",
+        )
+    }
+
+    @Test
+    fun `lists an indirectly extending command handler among its module's typed commands`() {
+        val result =
+            compile(
+                """
+                package com.example
+
+                import com.jimbroze.kbus.api.annotations.LoadMessageHandler
+                import com.jimbroze.kbus.api.messages.command.Command
+                import com.jimbroze.kbus.api.messages.command.CommandHandler
+                import com.jimbroze.kbus.api.result.BusResult
+                import com.jimbroze.kbus.api.result.KBusResult
+                import com.jimbroze.kbus.api.result.MessageFailure
+                import com.jimbroze.kbus.generated.DefaultCommands
+
+                abstract class AuditedCommandHandler<TResult : KBusResult, TAuditLog, TCommand : Command<TResult>>(
+                    protected val auditLog: TAuditLog,
+                ) : CommandHandler<TCommand, TResult>()
+
+                class PlaceOrder : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class PlaceOrderHandler :
+                    AuditedCommandHandler<BusResult<String, MessageFailure>, MutableList<String>, PlaceOrder>(
+                        mutableListOf()
+                    ) {
+                    override suspend fun handle(message: PlaceOrder) = BusResult.success("ok")
+                }
+
+                class ReorderLastOrder : Command<BusResult<String, MessageFailure>>()
+
+                @LoadMessageHandler
+                class ReorderLastOrderHandler(private val commands: DefaultCommands) :
+                    CommandHandler<ReorderLastOrder, BusResult<String, MessageFailure>>() {
+                    override suspend fun handle(
+                        message: ReorderLastOrder
+                    ): BusResult<String, MessageFailure> = commands.placeOrder(PlaceOrder())
+                }
+                """
+            )
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+    }
+
+    @Test
     fun `rejects a bounded context identity that is only whitespace`() {
         val result =
             compile(
@@ -239,6 +396,14 @@ class ProcessorCompilationTest {
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
         assertContains(result.messages, "kbus generated nothing for this module")
         assertContains(result.messages, "kbus.modulesToIndex")
+    }
+
+    private fun generatedSource(result: JvmCompilationResult, fileName: String): String {
+        val generatedFiles = result.sourcesGeneratedBySymbolProcessor.toList()
+        return generatedFiles.singleOrNull { it.name == fileName }?.readText()
+            ?: error(
+                "No generated file named $fileName. Generated: ${generatedFiles.map { it.name }}"
+            )
     }
 
     private fun compile(
