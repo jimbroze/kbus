@@ -25,6 +25,8 @@ dependencyResolutionManagement {
 
 include("testDoubles")
 
+include("kbus-validation")
+
 include("kbus-api")
 
 include("kbus-domain")

@@ -12,6 +12,7 @@ kotlin {
             implementation(projects.kbusApi)
             implementation(projects.kbusCore)
             implementation(projects.kbusDomain)
+            implementation(projects.kbusValidation)
             implementation(libs.kotlinx.coroutines.core)
         }
 

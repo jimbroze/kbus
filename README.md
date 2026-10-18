@@ -17,7 +17,7 @@ handler resolution (zero reflection).
 
 ## Installation
 
-KBUS is published as five artifacts, split by audience. Depend on the smallest one that covers what a module does:
+KBUS is published as six artifacts, split by audience. Depend on the smallest one that covers what a module does:
 
 | Artifact | Depend on it from | Holds |
 |---|---|---|
@@ -25,6 +25,7 @@ KBUS is published as five artifacts, split by audience. Depend on the smallest o
 | `kbus-domain` | A context's domain model | Entities, aggregate roots, value objects, domain events |
 | `kbus-application` | A context's application layer | What a handler is given: handler dependencies, integration event mappers |
 | `kbus-infrastructure` | Adapters | Ports (transactions, stores, locks, caches, logging) and the shipped in-memory implementations |
+| `kbus-validation` | Any module that declares or checks validation rules | Validation rules and results; depends on nothing |
 | `kbus-core` | The composition root only | The bus, bounded contexts, middleware, unit of work, routing |
 
 A module where handlers are written cannot reach the bus, because `kbus-core` is not on its classpath. The
@@ -1489,6 +1490,53 @@ class ShoppingCart(override val id: CartId) : AggregateRoot<ShoppingCart>()
 ```
 
 > You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-domain-modeling-01.kt).
+
+## Validation Rules
+
+`kbus-validation` depends on nothing, so the module that declares your error types can use it too. A
+`ValidationRule` checks one value and names the error it `failsWith`. `validationResultFor` checks a value against a
+list of rules and collects the error of every rule that fails, not just the first:
+
+<!--- CLEAR -->
+<!--- INCLUDE
+import com.jimbroze.kbus.validation.CustomRule
+import com.jimbroze.kbus.validation.MinLength
+import com.jimbroze.kbus.validation.NotBlank
+import com.jimbroze.kbus.validation.ValidationRule
+import com.jimbroze.kbus.validation.validationResultFor
+-->
+
+```kotlin
+sealed interface CustomerIdError {
+    data object Blank : CustomerIdError
+    data class TooShort(val minLength: Int) : CustomerIdError
+    data object NotUppercase : CustomerIdError
+    data object ContainsSpace : CustomerIdError
+}
+
+// A reusable rule of your own works like the built-in ones
+class Uppercase<out E>(override val failsWith: E) : ValidationRule<String, E> {
+    override fun isSatisfiedBy(value: String) = value == value.uppercase()
+}
+
+val customerIdRules = listOf(
+    NotBlank(failsWith = CustomerIdError.Blank),
+    MinLength(3, failsWith = CustomerIdError::TooShort), // the error is built from the rule's value
+    Uppercase(failsWith = CustomerIdError.NotUppercase),
+    CustomRule(description = "has no spaces", failsWith = CustomerIdError.ContainsSpace) { id: String ->
+        ' ' !in id
+    },
+)
+
+// Invalid, with errors [Blank, TooShort(minLength = 3)]
+val result = validationResultFor("", customerIdRules)
+```
+
+> You can get the full code [here](examples/docs-samples/src/commonTest/kotlin/samples/example-validation-rules-01.kt).
+
+Built in: `NotBlank`, `MinLength`/`MaxLength`, `Matches` (the pattern must match the whole value), and
+`AtLeast`/`AtMost`/`GreaterThan`/`LessThan` for any `Comparable`. A rule with a value takes `failsWith` either as an
+error or as a function of that value.
 
 ## Supported Platforms
 
