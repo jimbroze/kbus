@@ -3,7 +3,6 @@ package com.jimbroze.kbus.generation.processing.handlers
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSTypeArgument
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.jimbroze.kbus.api.annotations.index.RequiredDependencies
 import com.jimbroze.kbus.api.messages.command.CommandHandler
@@ -15,9 +14,12 @@ import com.jimbroze.kbus.domain.event.DomainEventHandler
 import com.jimbroze.kbus.generation.processing.dependencies.Dependency
 import com.jimbroze.kbus.generation.processing.dependencies.DependencyFactory
 import com.jimbroze.kbus.generation.utility.extendsType
+import com.jimbroze.kbus.generation.utility.typeArgumentsSuppliedTo
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.ParameterizedTypeName
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.UNIT
 import com.squareup.kotlinpoet.ksp.toClassName
-import com.squareup.kotlinpoet.ksp.toTypeName
 
 class HandlerFactory(
     private val logger: KSPLogger,
@@ -28,34 +30,33 @@ class HandlerFactory(
      */
     private val boundedContextIdentity: String = "",
 ) {
-    // TODO make more polymorphic. Find name of type args?
     fun createHandler(
         handlerClass: KSClassDeclaration,
         constructorDependencies: List<Dependency>,
     ): HandlerDefinition? {
-        val handlerBaseClassReference = findBaseClass(handlerClass) ?: return null
-        val handlerBaseClass = handlerBaseClassReference.resolve().declaration as KSClassDeclaration
-        val baseClassTypeArgs: List<KSTypeArgument> =
-            handlerBaseClassReference.element!!.typeArguments
-
-        return if (isEventHandler(handlerBaseClass)) {
-            createEventHandlerDefinition(handlerClass, baseClassTypeArgs, constructorDependencies)
-        } else {
-            createCommandOrQueryHandlerDefinition(
-                handlerClass,
-                handlerBaseClass,
-                handlerBaseClassReference,
-                baseClassTypeArgs,
-                constructorDependencies,
-            )
+        val commandHandlerTypes = handlerClass.typeArgumentsSuppliedTo(COMMAND_HANDLER)
+        val queryHandlerTypes = handlerClass.typeArgumentsSuppliedTo(QUERY_HANDLER)
+        return when {
+            commandHandlerTypes != null ->
+                CommandHandlerDefinition(
+                    handlerData(handlerClass, commandHandlerTypes, constructorDependencies)
+                )
+            queryHandlerTypes != null ->
+                QueryHandlerDefinition.create(
+                    handlerData(handlerClass, queryHandlerTypes, constructorDependencies),
+                    logger,
+                    handlerClass,
+                )
+            else -> createEventHandlerDefinition(handlerClass, constructorDependencies)
         }
     }
 
     private fun createEventHandlerDefinition(
         handlerClass: KSClassDeclaration,
-        baseClassTypeArgs: List<KSTypeArgument>,
         constructorDependencies: List<Dependency>,
     ): EventHandlerDefinition? {
+        val baseClassTypeArgs =
+            findEventHandlerBaseClass(handlerClass)?.element?.typeArguments ?: return null
         val messageClass =
             baseClassTypeArgs[0].type?.resolve()?.declaration as? KSClassDeclaration
                 ?: error("Event type argument missing or invalid")
@@ -128,88 +129,47 @@ class HandlerFactory(
         }
     }
 
-    private fun createCommandOrQueryHandlerDefinition(
-        handlerClass: KSClassDeclaration,
-        handlerBaseClass: KSClassDeclaration,
-        handlerBaseClassReference: KSTypeReference,
-        baseClassTypeArgs: List<KSTypeArgument>,
-        constructorDependencies: List<Dependency>,
-    ): HandlerDefinition? {
-        if (baseClassTypeArgs.size < 2) {
-            val baseClassName =
-                handlerBaseClassReference.resolve().declaration.qualifiedName?.asString()
-                    ?: handlerBaseClassReference.toString()
-            error(
-                "Handler base class must have at least two type arguments (message and return type) " +
-                    "handler: ${handlerClass.qualifiedName?.asString() ?: handlerClass.simpleName.asString()}; " +
-                    "found ${baseClassTypeArgs.size} on base $baseClassName"
-            )
+    /**
+     * A command handler's message and return types, taken from the [CommandHandler] it extends.
+     * Nothing here reads the handler's constructor, so this answers for a handler whose
+     * dependencies cannot yet be resolved.
+     */
+    fun createCommandHandlerSignature(handlerClass: KSClassDeclaration): CommandHandlerDefinition? =
+        handlerClass.typeArgumentsSuppliedTo(COMMAND_HANDLER)?.let {
+            CommandHandlerDefinition(handlerData(handlerClass, it, emptyList()))
         }
 
+    private fun handlerData(
+        handlerClass: KSClassDeclaration,
+        messageAndReturnTypes: List<TypeName>,
+        constructorDependencies: List<Dependency>,
+    ): HandlerData {
+        val (messageType, returnType) = messageAndReturnTypes
         val messageClass =
-            baseClassTypeArgs[0].type?.resolve()?.declaration as? KSClassDeclaration
-                ?: error("Message type argument is missing or invalid")
-
-        val returnType =
-            baseClassTypeArgs[1].type ?: error("Return type argument is missing or invalid")
-
-        return createHandler(
-            handlerBaseClass,
-            HandlerData(
-                handlerClass.toClassName(),
-                messageClass.toClassName(),
-                returnType.toTypeName(),
-                constructorDependencies,
-                boundedContextIdentity,
-            ),
-            logger,
+            (messageType as? ParameterizedTypeName)?.rawType
+                ?: messageType as? ClassName
+                ?: error(
+                    "Handler ${handlerClass.qualifiedName?.asString()} handles $messageType, " +
+                        "which is not a class"
+                )
+        return HandlerData(
+            handlerClass.toClassName(),
+            messageClass,
+            returnType,
+            constructorDependencies,
+            boundedContextIdentity,
         )
     }
 
-    /**
-     * A command handler's message and return types, taken from the base class it extends. Nothing
-     * here reads the handler's constructor, so this answers for a handler whose dependencies cannot
-     * yet be resolved.
-     */
-    fun createCommandHandlerSignature(handlerClass: KSClassDeclaration): CommandHandlerDefinition? {
-        val handlerBaseClassReference = findBaseClass(handlerClass)
-        val isCommandHandler =
-            handlerBaseClassReference?.resolve()?.declaration?.qualifiedName?.asString() ==
-                CommandHandler::class.qualifiedName
-
-        val baseClassTypeArgs =
-            handlerBaseClassReference?.element?.typeArguments?.takeIf {
-                isCommandHandler && it.size >= 2
+    private fun findEventHandlerBaseClass(handlerClass: KSClassDeclaration): KSTypeReference? {
+        val eventHandlerSuperTypes =
+            handlerClass.superTypes.filter { superType ->
+                val superClass = superType.resolve().declaration as? KSClassDeclaration
+                superClass != null && isEventHandler(superClass)
             }
-        val messageClass =
-            baseClassTypeArgs?.first()?.type?.resolve()?.declaration as? KSClassDeclaration
-        val returnType = baseClassTypeArgs?.get(1)?.type
-
-        return if (messageClass == null || returnType == null) null
-        else
-            CommandHandlerDefinition(
-                HandlerData(
-                    handlerClass.toClassName(),
-                    messageClass.toClassName(),
-                    returnType.toTypeName(),
-                    emptyList(),
-                    boundedContextIdentity,
-                )
-            )
-    }
-
-    private fun findBaseClass(classDeclaration: KSClassDeclaration): KSTypeReference? {
-        val classSuperType =
-            classDeclaration.superTypes.firstOrNull {
-                (it.resolve().declaration as? KSClassDeclaration)?.classKind == ClassKind.CLASS
-            }
-        if (classSuperType != null) return classSuperType
-
-        return classDeclaration.superTypes.firstOrNull { superType ->
-            val decl =
-                superType.resolve().declaration as? KSClassDeclaration ?: return@firstOrNull false
-            decl.classKind == ClassKind.INTERFACE && isEventHandler(decl)
-        }
+        return eventHandlerSuperTypes.firstOrNull {
+            (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS
+        } ?: eventHandlerSuperTypes.firstOrNull()
     }
 
     private fun isEventHandler(decl: KSClassDeclaration): Boolean {
@@ -220,17 +180,5 @@ class HandlerFactory(
     }
 }
 
-fun createHandler(
-    handlerBaseClass: KSClassDeclaration,
-    handlerData: HandlerData,
-    logger: KSPLogger,
-): HandlerDefinition? {
-    return when (handlerBaseClass.qualifiedName!!.asString()) {
-        CommandHandler::class.qualifiedName -> CommandHandlerDefinition(handlerData)
-        QueryHandler::class.qualifiedName ->
-            QueryHandlerDefinition.create(handlerData, logger, handlerBaseClass)
-        EventHandler::class.qualifiedName ->
-            EventHandlerDefinition(handlerData, EventHandlerKind.DOMAIN)
-        else -> null
-    }
-}
+private val COMMAND_HANDLER = CommandHandler::class.qualifiedName!!
+private val QUERY_HANDLER = QueryHandler::class.qualifiedName!!
